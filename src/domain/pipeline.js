@@ -17,7 +17,7 @@ import { DEFAULT_LANGUAGE } from './language.js'
 import { recentInputsFor, transitionInput } from './inputs.js'
 import { autoPublishProposal } from './proposals.js'
 import { recipientsOf } from './inputs.js'
-import { keepPersonLevelFromAgents } from './level-routing.js'
+import { ensurePersonWhenTouched } from './assessment.js'
 import { getAutoPublish, getFraming, getProject } from './settings.js'
 import { isStep, keyOf, phraseOf, step } from './progress-phrases.js'
 import { blobPath } from './storage.js'
@@ -49,6 +49,9 @@ const normalizeProgress = (a, b) => {
   if (a === null || typeof a !== 'object') return [a, b]
   return [a.percent, typeof a.code === 'string' && isStep({ code: a.code }) ? step(a.code, a.vars ?? {}) : a.phrase]
 }
+
+/** The Guards of an area as the analyzer reads them: id and text, and `person` when the Guard is about a person; the mechanism that holds it is the system's, not the model's. */
+const guardsList = (text) => { try { return JSON.parse(text ?? '[]').map((g) => ({ id: g.id, text: g.text, ...(g.person ? { person: true } : {}) })) } catch { return [] } }
 
 export function createPipeline ({ db, config, queue, events, modules, now = Date.now }) {
   const attachmentForExtractor = (a) => ({
@@ -177,7 +180,9 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // Without an active area that has an active template the analysis can never place a message: fail before spending the
         // extraction (a video takes minutes), with a code of its own instead of the analyzer's generic `input`.
         // Only areas that have a template to place a message in: an area without one offered to the model could be chosen, and its group could not be published.
-        const areas = all(db, 'SELECT a.id, a.title, a.description, a.position FROM areas a WHERE a.deleted_at IS NULL AND EXISTS (SELECT 1 FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) ORDER BY a.position, a.id')
+        // UD-292: each area carries its Guards (the walls the analyzer cites by id), next to the description that describes its space.
+        const areas = all(db, 'SELECT a.id, a.title, a.description, a.position, a.guards_json FROM areas a WHERE a.deleted_at IS NULL AND EXISTS (SELECT 1 FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) ORDER BY a.position, a.id')
+          .map(({ guards_json: guards, ...a }) => ({ ...a, guards: guardsList(guards) }))
         const templates = all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id')
         if (areas.length === 0 || templates.length === 0) {
           throw permanent('No hay áreas con plantilla activa: crea un área con su plantilla y vuelve a procesar el envío.', 'no_areas')
@@ -253,8 +258,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // UD-291: the recipients the sender chose are the assignees of every message; the routing keeps choosing area and template, not people.
         const recipients = recipientsOf(input)
         if (recipients.length > 0) for (const m of proposalObj.messages) m.assignee_ids = [...recipients]
-        // UD-292: with no recipients chosen, the routing is automatic, and a message whose level is a decision only a person takes never goes to an agent from it.
-        else for (const m of proposalObj.messages) keepPersonLevelFromAgents(db, m, input.author_id)
+        // UD-292: with no recipients chosen, the routing is automatic, and a Guard about a person that the message touches puts a person among the assignees, next to Claude.
+        else for (const m of proposalObj.messages) ensurePersonWhenTouched(db, m, input.author_id)
 
         return () => {
           // Inside the transaction that closes the job. Each message carries its area and template.

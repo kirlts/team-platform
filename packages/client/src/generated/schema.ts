@@ -376,11 +376,14 @@ export interface paths {
                                         unit_ids?: string[];
                                         /** @enum {string} */
                                         source?: "frame";
-                                        /**
-                                         * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                                         * @enum {null|string}
-                                         */
-                                        bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
+                                        expectation?: string;
+                                        guards_touched?: number[];
+                                        understand_vs_create?: number;
+                                        irreversibility?: number;
+                                        /** @enum {string} */
+                                        value_holder?: "person" | "model";
+                                        certainty?: number;
+                                        estimate_reason?: string;
                                         observed?: string[];
                                     } & {
                                         [key: string]: unknown;
@@ -586,11 +589,14 @@ export interface paths {
                                     unit_ids?: string[];
                                     /** @enum {string} */
                                     source?: "frame";
-                                    /**
-                                     * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                                     * @enum {null|string}
-                                     */
-                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
+                                    expectation?: string;
+                                    guards_touched?: number[];
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    estimate_reason?: string;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -771,11 +777,14 @@ export interface paths {
                                     unit_ids?: string[];
                                     /** @enum {string} */
                                     source?: "frame";
-                                    /**
-                                     * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                                     * @enum {null|string}
-                                     */
-                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
+                                    expectation?: string;
+                                    guards_touched?: number[];
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    estimate_reason?: string;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -857,8 +866,14 @@ export interface paths {
                             unit_ids?: number[];
                             /** @enum {string} */
                             source?: "frame";
-                            /** @enum {string|null} */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
+                            expectation?: string;
+                            guards_touched?: number[];
+                            understand_vs_create?: number;
+                            irreversibility?: number;
+                            /** @enum {string} */
+                            value_holder?: "person" | "model";
+                            certainty?: number;
+                            estimate_reason?: string;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -889,11 +904,14 @@ export interface paths {
                                 unit_ids?: string[];
                                 /** @enum {string} */
                                 source?: "frame";
-                                /**
-                                 * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                                 * @enum {null|string}
-                                 */
-                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
+                                expectation?: string;
+                                guards_touched?: number[];
+                                understand_vs_create?: number;
+                                irreversibility?: number;
+                                /** @enum {string} */
+                                value_holder?: "person" | "model";
+                                certainty?: number;
+                                estimate_reason?: string;
                                 observed?: string[];
                             } & {
                                 [key: string]: unknown;
@@ -961,8 +979,14 @@ export interface paths {
                             unit_ids?: number[];
                             /** @enum {string} */
                             source?: "frame";
-                            /** @enum {string|null} */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
+                            expectation?: string;
+                            guards_touched?: number[];
+                            understand_vs_create?: number;
+                            irreversibility?: number;
+                            /** @enum {string} */
+                            value_holder?: "person" | "model";
+                            certainty?: number;
+                            estimate_reason?: string;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -996,13 +1020,23 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status?: "open" | "answered" | "closed";
-                                /**
-                                 * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                                 * @enum {null|string}
-                                 */
-                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                                /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                                bloom_by?: string | null;
+                                /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                                assessment?: {
+                                    expectation?: string;
+                                    guards?: number[];
+                                    estimates?: null | ({
+                                        understand_vs_create?: number;
+                                        irreversibility?: number;
+                                        /** @enum {string} */
+                                        value_holder?: "person" | "model";
+                                        certainty?: number;
+                                        reason?: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    });
+                                    /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                    by?: string | null;
+                                };
                                 assignee_ids?: string[];
                                 attachments?: {
                                     id?: string;
@@ -1362,13 +1396,23 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status?: "open" | "answered" | "closed";
-                                /**
-                                 * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                                 * @enum {null|string}
-                                 */
-                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                                /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                                bloom_by?: string | null;
+                                /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                                assessment?: {
+                                    expectation?: string;
+                                    guards?: number[];
+                                    estimates?: null | ({
+                                        understand_vs_create?: number;
+                                        irreversibility?: number;
+                                        /** @enum {string} */
+                                        value_holder?: "person" | "model";
+                                        certainty?: number;
+                                        reason?: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    });
+                                    /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                    by?: string | null;
+                                };
                                 assignee_ids?: string[];
                                 attachments?: {
                                     id?: string;
@@ -1567,13 +1611,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -1793,13 +1847,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2073,13 +2137,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2383,13 +2457,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2562,13 +2646,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2741,13 +2835,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2923,13 +3027,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3105,13 +3219,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3306,13 +3430,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3495,13 +3629,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3632,7 +3776,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/messages/{id}/level": {
+    "/api/messages/{id}/assessment": {
         parameters: {
             query?: never;
             header?: never;
@@ -3641,8 +3785,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * Fijar a mano el nivel de un mensaje (UD-292)
-         * @description Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.
+         * Cambiar a mano la evaluación de un mensaje (UD-292)
+         * @description Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.
          */
         put: {
             parameters: {
@@ -3656,8 +3800,10 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        expectation?: string;
+                        guards?: number[];
                         /** @enum {string} */
-                        bloom_level: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide";
+                        value_holder?: "person" | "model";
                     };
                 };
             };
@@ -3683,13 +3829,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3863,13 +4019,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -4042,13 +4208,23 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /**
-                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
-                             * @enum {null|string}
-                             */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
-                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
-                            bloom_by?: string | null;
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            assessment?: {
+                                expectation?: string;
+                                guards?: number[];
+                                estimates?: null | ({
+                                    understand_vs_create?: number;
+                                    irreversibility?: number;
+                                    /** @enum {string} */
+                                    value_holder?: "person" | "model";
+                                    certainty?: number;
+                                    reason?: string;
+                                } & {
+                                    [key: string]: unknown;
+                                });
+                                /** @description The person who changed it by hand; null while it is the analyzer's. */
+                                by?: string | null;
+                            };
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -4217,10 +4393,17 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
                             execute_model?: null | string;
-                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
-                            execute_model_direct?: null | string;
+                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            execute_model_light?: null | string;
+                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            guards?: {
+                                id?: number;
+                                text?: string;
+                                mechanism?: string;
+                                person?: boolean;
+                            }[];
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;
@@ -4292,10 +4475,17 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
                             execute_model?: null | string;
-                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
-                            execute_model_direct?: null | string;
+                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            execute_model_light?: null | string;
+                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            guards?: {
+                                id?: number;
+                                text?: string;
+                                mechanism?: string;
+                                person?: boolean;
+                            }[];
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;
@@ -4403,15 +4593,22 @@ export interface paths {
                         /** @description Who decides in the area (UD-269); null goes back to the first active Editor. */
                         escalation_member_id?: number | null;
                         /**
-                         * @description The Claude model the area's unattended sessions run with (UD-292); null goes back to the installation's default.
+                         * @description The larger model of the area (UD-292): where the light model's work escalates and the one of a message with no estimates; null goes back to the installation's default.
                          * @enum {string|null}
                          */
                         execute_model?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
                         /**
-                         * @description The model for the messages whose level is a direct fix (UD-292); null runs them with the area's model.
+                         * @description The light model of the area (UD-292): it takes the messages whose estimates stay within the limits; null goes back to the installation's light model.
                          * @enum {string|null}
                          */
-                        execute_model_direct?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
+                        execute_model_light?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
+                        /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                        guards?: {
+                            id?: number;
+                            text: string;
+                            mechanism?: string;
+                            person?: boolean;
+                        }[];
                     };
                 };
             };
@@ -4435,10 +4632,17 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
                             execute_model?: null | string;
-                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
-                            execute_model_direct?: null | string;
+                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            execute_model_light?: null | string;
+                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            guards?: {
+                                id?: number;
+                                text?: string;
+                                mechanism?: string;
+                                person?: boolean;
+                            }[];
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;
@@ -4513,10 +4717,17 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
                             execute_model?: null | string;
-                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
-                            execute_model_direct?: null | string;
+                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            execute_model_light?: null | string;
+                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            guards?: {
+                                id?: number;
+                                text?: string;
+                                mechanism?: string;
+                                person?: boolean;
+                            }[];
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;

@@ -30,7 +30,7 @@ export function readTemplate (row) {
  * The schema the session must satisfy: the template's declared output (A4) plus a required `summary`, the closing reply
  * to the sender. Without a declared output, only `summary`.
  */
-export function finalSchema (declared, { validation = false, autoClose = true, forwarded = false, reviewing = false } = {}) {
+export function finalSchema (declared, { validation = false, autoClose = true, forwarded = false, reviewing = false, light = false } = {}) {
   const description = 'Closing reply to the sender, as to a project manager: two short paragraphs, what happened, what changes for those who use the product and the decision left to them, if any. No paths, file names, commands, component names or jargon.'
   // The grammar of --json-schema keeps A4's plain string; the check after the run also rejects an empty one.
   const summary = { type: 'string', ...(validation ? { minLength: 1 } : {}), description }
@@ -52,6 +52,10 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
         close: { type: 'boolean', description: 'true only when the three conditions of «Closing the message» hold; false when in doubt.' },
         close_reason: { type: 'string', description: 'One line in the reply language: why nothing is left for the sender. Required with close true.' }
       }
+    : {}
+  // UD-292: a session on the light model says, as a parameter, that it cannot close the work: the system reads the field and relaunches the work on the escalation model.
+  const escalation = light || validation
+    ? { cannot_close: { type: 'boolean', description: 'true when you could not finish the work with what you have: the checks stay red after your own attempts, the change turned out bigger than the message says, or you are guessing. The system then continues on a stronger model, on the same branch. false or omitted when you finished.' } }
     : {}
   // UD-272: a message forwarded to the agent. `mode` is what the model understood from the reason (the system reads the field, never the text): `investigate` means
   // no change, no delivery, no close. `attachments` are the documents the reason asked for. Only the grammar of a forwarded job offers them; the validation always accepts them.
@@ -78,13 +82,13 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
       }
     : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing, ...forwarding, ...review } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing, ...forwarding, ...review, ...escalation } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, ...forwarding, ...review, decision_check: decisionCheckSchema({ validation }) }
+    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, ...forwarding, ...review, ...escalation, decision_check: decisionCheckSchema({ validation }) }
   }
 }
 
@@ -112,7 +116,7 @@ function compactStable ({ agent, project, deliver, autoClose, template, hostInst
     '- Before you finish, the checks of the repository for the files you changed must pass; a hook of this session blocks the end until they do. Write the missing test first.',
     '- First look, changing nothing. Not yours (see `your_profile`): end `not_mine`, no reply. Otherwise one `team reply` in two or three plain sentences for someone who is not technical (what you saw, where you start), after that look.',
     '- Final output: `summary` is two short paragraphs for the sender, in the reply language: what happened, what changes for those who use the product, the decision left to them. Plain words only. The worker posts it. Example: «Listo, Ana: el botón de la ficha ahora dice Aceptar. Lo verás apenas se publique. Revisé que el resto de la pantalla quedó igual.»',
-    '- Not a direct fix (several modules, a decision, a guessed cause): stop, end `needs_decision` with what you found, a recommendation and the alternatives discarded; it requires `decision_check`.',
+    '- If you cannot finish it (the checks stay red after your own attempts, it is bigger than the message says, you are guessing): end with `cannot_close` true and what you did in `summary`; a stronger model continues on the same branch. A decision that is a person\'s: `needs_decision`, with `decision_check`.',
     autoClose ? '- `close` true only when it is done and checked, your reply leaves the sender nothing to do and `outcome` is `done` or `investigated`; otherwise false, with `close_reason` when true.' : '- Do not close the message.',
     ...(forwardedOrMentioned ? ['- A `forwarded` or `mentioned` block is part of the request. `mode` `investigate` changes no code and delivers nothing; `resolve` carries the work out.'] : []),
     '## `team` (in your PATH, already authenticated)',
@@ -135,7 +139,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   const stable = compact ? compactStable({ agent, project, deliver, autoClose, template, hostInstructions, forwardedOrMentioned: forward !== null || mention !== null }) : [
@@ -149,7 +153,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
       ? '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`. When the work and the checks are done, push the branch: the system delivers it to production after you finish.'
       : '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`: leave the branch; a person delivers it.',
     '- Run the checks the repository asks for the parts you touched before you finish.',
-    '- Direct fixes (UD-292). When the `job` block says `level: direct fix`, you may be a lighter model than the one that takes a complex problem, and the checks are the whole safeguard: before you push, run the tests that cover every file you changed and the ones the repository calls critical (its CLAUDE.md and rules say which). Do not end with `outcome` `done` while one of them fails or none covers the change: write the missing test first. A change that draws a screen carries its walkthrough video and screenshots, and `summary` says what to look at. If the fix turns out not to be direct (it touches several modules, needs a decision, or you are guessing the cause), stop and end with `needs_decision` and what you found: a person then decides whether a stronger model takes it.',
+    '- Checks (UD-292). You may be the light model: the checks are the whole safeguard. Before you push, run the tests that cover every file you changed and the ones the repository calls critical (its CLAUDE.md and rules say which). Do not end with `outcome` `done` while one of them fails or none covers the change: write the missing test first. A change that draws a screen carries its walkthrough video and screenshots, and `summary` says what to look at. If you cannot finish it with what you have (the checks stay red after your own attempts, the change is bigger than the message says, or you are guessing), end with `cannot_close` true and say what you did in `summary`: the system continues on a stronger model, on the same branch.',
     '## Replies to the sender (at least two)',
     '1. Examine the situation first, changing nothing: read the message and, when it points at something on a screen, look at that place the way the rules of the host say, before you read any code. If the request is not yours (`your_profile` and the template say who takes it), end at once with `outcome` `not_mine` and the reason in one line as `summary`, and send no reply. Otherwise send the first reply after that look, not before: what you saw, what you understood and where you start, in two or three short plain sentences for someone who is not technical, with no file paths, component names or jargon. A screenshot you took goes in this same reply with `--captures` (the «before»); if none of them is accepted the command posts nothing and exits non-zero, so fix the captures and call it again. Example: `team reply <message id> --body "Veo … Empiezo por …" --captures <json|file>`, with the id of the `message` block. If the `job` block says this is a second pass after a failed delivery, the sender already got your first reply: do not send another one.',
     '2. When you finish, your final structured output carries `summary`: two short paragraphs addressed directly to the sender (the `sender` block), in the reply language of the `job` block, written the way you would brief a project manager and for their profile: what happened, what changes for the people who use the product and the decision that is left to them, if any. No file paths, file names, commands, component names or jargon, and a figure only when it matters to them. The reply carries nothing else of your output: the technical fields are kept apart for whoever wants them. The worker posts it as your closing reply; do not post it yourself. If the first reply carried a screenshot, take the same place again once the change is done and list it in `captures` (the «after»). The rest of the output follows the template\'s output format.',
@@ -174,9 +178,11 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     // -- What changes with the message --
     block('sender', `${author.name}\n\n${author.profile ?? ''}`),
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
+    // UD-292: what the analyzer says is expected of this session, in its own words, and the walls of the area this message touches (the mechanism that holds each is the system's).
+    ...(assessment ? [block('expectation', assessment)] : []),
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     ...(mention ? [block('mentioned', mention)] : []), // UD-278: who called the agent and the whole thread (src/execute/mention-context.js)
-    block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(message.tier === 'direct' ? ['level: direct fix'] : message.tier === 'complex' ? ['level: complex'] : []), ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
+    block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(escalation ? [`pass: continues the work of ${escalation.from}, a lighter model that could not close it. Its work is on the branch: fetch it, read \`git log\` and the diff, and continue from there, do not start over. Its note: ${escalation.note || '(none)'}. Your first reply was already sent: send no other one.`] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
     // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the guards that have a mechanism, one line each, repeated in the last line of the prompt of a light model.
     ...(compact ? [block('limits', 'Push only the branch of the `job` block. Finish when the checks of the files you changed pass: a hook of this session checks it.')] : []),
     ...(deliverFailure ? [block('delivery_failure', [

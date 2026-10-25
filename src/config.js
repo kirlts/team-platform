@@ -41,11 +41,22 @@ function textValue (env, nameValue, fallback = '') {
  * EXECUTE_OTEL_ENV (UD-262): KEY=VALUE pairs separated by whitespace, split at the first `=`. A key must be an
  * environment variable name and may not start with TEAM_ (those carry the agent secret). Values cannot hold spaces.
  */
-// UD-292: limits of a direct fix on a light model, derived from the measurement of its start-up (the file named in `directSessionEnv`).
-// Derivation (docs/investigaciones/mediciones/2026-10-25-arranque-del-arreglo-directo.md): Haiku 5.5 charges 5 times more input from a prompt of 100,000 tokens up
-// (platform.claude.com/docs/en/about-claude/pricing, 2026-10-25), so the session compacts at that size; a session starts at 29,302 tokens (measured), which leaves
-// 70,698 of room, and a single output may take at most a tenth of the 100,000 step: 10,000 tokens for a file read and 20,000 characters (about 6,700 tokens) for a Bash output.
-export const DIRECT_SESSION_ENV = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=10000 BASH_MAX_OUTPUT_LENGTH=20000'
+// UD-292: the limits of the light model, in the dimensions the analyzer estimates, derived from the measurement of what it can and cannot close
+// (docs/camino-a-produccion/mediciones/2026-10-25-los-limites-de-haiku.md): above `create` or `irreversibility`, or below `certainty`, the area's larger model takes the message.
+export const LIGHT_LIMITS = 'create=1 irreversibility=1 certainty=0'
+
+/** `create=0.6 irreversibility=0.5 certainty=0.4` as numbers; a pair that is not a number in 0..1 is a configuration error. */
+export function limitPairs (raw, name = 'EXECUTE_LIGHT_LIMITS') {
+  const out = {}
+  for (const pair of String(raw ?? '').split(/\s+/).filter(Boolean)) {
+    const [key, value] = pair.split('=')
+    const n = Number(value)
+    if (!['create', 'irreversibility', 'certainty'].includes(key) || !Number.isFinite(n) || n < 0 || n > 1) throw new Error(`${name}: «${pair.slice(0, 40)}» no es create, irreversibility o certainty con un número de 0 a 1.`)
+    out[key] = n
+  }
+  for (const key of ['create', 'irreversibility', 'certainty']) if (out[key] === undefined) throw new Error(`${name}: falta ${key}.`)
+  return out
+}
 
 export function otelPairs (raw, name = 'EXECUTE_OTEL_ENV') {
   const out = {}
@@ -342,7 +353,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       repoDir: textValue(env, 'EXECUTE_REPO_DIR', ''), // the host repository; the session works on a worktree of it, branch tp/<message_id>
       workRoot: textValue(env, 'EXECUTE_WORK_ROOT', ''), // where each job's directory is created; empty = $DATA_DIR/tmp
       teamUrl: textValue(env, 'EXECUTE_TEAM_URL', ''), // the API address the session calls with `team`; empty = http://127.0.0.1:$PORT
-      model: textValue(env, 'EXECUTE_MODEL', 'claude-sonnet-5-5'), // UD-255: Sonnet 5.5
+      model: textValue(env, 'EXECUTE_MODEL', 'claude-sonnet-5-5'), // UD-255: Sonnet 5.5; with UD-292 the model a session escalates to and the one of a message with no level
+      lightModel: textValue(env, 'EXECUTE_LIGHT_MODEL', 'claude-haiku-5-5'), // UD-292: the model of levels 1 and 2 until an area names another; the prompt, tools and hooks of a light session apply to it
       effort: choiceVar(env, 'EXECUTE_EFFORT', ['low', 'medium', 'high', 'xhigh', 'max'], 'medium'), // UD-255: medium reasoning; `claude --help` 2.1.284 lists these levels for --effort
       maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start
       // UD-256: 10 USD per day in total across `execute` jobs; the day is the server's local day (TZ, UTC when unset).
@@ -391,7 +403,9 @@ export function loadConfig (env = process.env, overrides = {}) {
       // session as KEY=VALUE pairs (defaults from the measurement docs/investigaciones/mediciones/2026-10-25-arranque-del-arreglo-directo.md) and the command
       // of its Stop hook (the checks that must pass before it finishes; see `sessionSettings`).
       directHostInstructions: textValue(env, 'EXECUTE_DIRECT_HOST_INSTRUCTIONS', ''),
-      directSessionEnv: otelPairs(env.EXECUTE_DIRECT_SESSION_ENV ?? DIRECT_SESSION_ENV, 'EXECUTE_DIRECT_SESSION_ENV'),
+      directSessionEnv: otelPairs(env.EXECUTE_DIRECT_SESSION_ENV, 'EXECUTE_DIRECT_SESSION_ENV'), // what a light session needs set in its environment; no default: the economy of the context is what loads at the start, not a limit that cuts the session
+      lightLimits: limitPairs(env.EXECUTE_LIGHT_LIMITS ?? LIGHT_LIMITS),
+      judgeModel: textValue(env, 'EXECUTE_JUDGE_MODEL', 'claude-haiku-5-5'), // UD-292: the cheap model that judges each finished job with the IMK
       directStopCommand: textValue(env, 'EXECUTE_DIRECT_STOP_COMMAND', ''),
       // The tools a direct fix on a light model gets (`claude --tools`): the definitions of the others weigh 24,600 tokens in every request (measured 2026-10-25: 53,938 against 29,302
       // with these seven). Empty = all of Claude Code's tools.

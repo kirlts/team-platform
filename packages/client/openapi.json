@@ -833,22 +833,33 @@
                                         "frame"
                                       ]
                                     },
-                                    "bloom_level": {
-                                      "type": [
-                                        "null",
-                                        "string"
-                                      ],
+                                    "expectation": {
+                                      "type": "string"
+                                    },
+                                    "guards_touched": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "understand_vs_create": {
+                                      "type": "number"
+                                    },
+                                    "irreversibility": {
+                                      "type": "number"
+                                    },
+                                    "value_holder": {
+                                      "type": "string",
                                       "enum": [
-                                        "remember",
-                                        "understand",
-                                        "apply",
-                                        "analyze",
-                                        "evaluate",
-                                        "create",
-                                        "decide",
-                                        null
-                                      ],
-                                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                                        "person",
+                                        "model"
+                                      ]
+                                    },
+                                    "certainty": {
+                                      "type": "number"
+                                    },
+                                    "estimate_reason": {
+                                      "type": "string"
                                     },
                                     "observed": {
                                       "type": "array",
@@ -1219,22 +1230,33 @@
                                   "frame"
                                 ]
                               },
-                              "bloom_level": {
-                                "type": [
-                                  "null",
-                                  "string"
-                                ],
+                              "expectation": {
+                                "type": "string"
+                              },
+                              "guards_touched": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                }
+                              },
+                              "understand_vs_create": {
+                                "type": "number"
+                              },
+                              "irreversibility": {
+                                "type": "number"
+                              },
+                              "value_holder": {
+                                "type": "string",
                                 "enum": [
-                                  "remember",
-                                  "understand",
-                                  "apply",
-                                  "analyze",
-                                  "evaluate",
-                                  "create",
-                                  "decide",
-                                  null
-                                ],
-                                "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                                  "person",
+                                  "model"
+                                ]
+                              },
+                              "certainty": {
+                                "type": "number"
+                              },
+                              "estimate_reason": {
+                                "type": "string"
                               },
                               "observed": {
                                 "type": "array",
@@ -1605,22 +1627,33 @@
                                   "frame"
                                 ]
                               },
-                              "bloom_level": {
-                                "type": [
-                                  "null",
-                                  "string"
-                                ],
+                              "expectation": {
+                                "type": "string"
+                              },
+                              "guards_touched": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                }
+                              },
+                              "understand_vs_create": {
+                                "type": "number"
+                              },
+                              "irreversibility": {
+                                "type": "number"
+                              },
+                              "value_holder": {
+                                "type": "string",
                                 "enum": [
-                                  "remember",
-                                  "understand",
-                                  "apply",
-                                  "analyze",
-                                  "evaluate",
-                                  "create",
-                                  "decide",
-                                  null
-                                ],
-                                "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                                  "person",
+                                  "model"
+                                ]
+                              },
+                              "certainty": {
+                                "type": "number"
+                              },
+                              "estimate_reason": {
+                                "type": "string"
                               },
                               "observed": {
                                 "type": "array",
@@ -1894,21 +1927,39 @@
                             "frame"
                           ]
                         },
-                        "bloom_level": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards_touched": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "understand_vs_create": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "irreversibility": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "value_holder": {
+                          "type": "string",
                           "enum": [
-                            "remember",
-                            "understand",
-                            "apply",
-                            "analyze",
-                            "evaluate",
-                            "create",
-                            "decide",
-                            null
+                            "person",
+                            "model"
                           ]
+                        },
+                        "certainty": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "estimate_reason": {
+                          "type": "string"
                         },
                         "observed": {
                           "type": "array",
@@ -2014,22 +2065,33 @@
                               "frame"
                             ]
                           },
-                          "bloom_level": {
-                            "type": [
-                              "null",
-                              "string"
-                            ],
+                          "expectation": {
+                            "type": "string"
+                          },
+                          "guards_touched": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            }
+                          },
+                          "understand_vs_create": {
+                            "type": "number"
+                          },
+                          "irreversibility": {
+                            "type": "number"
+                          },
+                          "value_holder": {
+                            "type": "string",
                             "enum": [
-                              "remember",
-                              "understand",
-                              "apply",
-                              "analyze",
-                              "evaluate",
-                              "create",
-                              "decide",
-                              null
-                            ],
-                            "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                              "person",
+                              "model"
+                            ]
+                          },
+                          "certainty": {
+                            "type": "number"
+                          },
+                          "estimate_reason": {
+                            "type": "string"
                           },
                           "observed": {
                             "type": "array",
@@ -2169,21 +2231,39 @@
                             "frame"
                           ]
                         },
-                        "bloom_level": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards_touched": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "understand_vs_create": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "irreversibility": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "value_holder": {
+                          "type": "string",
                           "enum": [
-                            "remember",
-                            "understand",
-                            "apply",
-                            "analyze",
-                            "evaluate",
-                            "create",
-                            "decide",
-                            null
+                            "person",
+                            "model"
                           ]
+                        },
+                        "certainty": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "estimate_reason": {
+                          "type": "string"
                         },
                         "observed": {
                           "type": "array",
@@ -2294,29 +2374,55 @@
                               "closed"
                             ]
                           },
-                          "bloom_level": {
-                            "type": [
-                              "null",
-                              "string"
-                            ],
-                            "enum": [
-                              "remember",
-                              "understand",
-                              "apply",
-                              "analyze",
-                              "evaluate",
-                              "create",
-                              "decide",
-                              null
-                            ],
-                            "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                          },
-                          "bloom_by": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                          "assessment": {
+                            "type": "object",
+                            "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                            "properties": {
+                              "expectation": {
+                                "type": "string"
+                              },
+                              "guards": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                }
+                              },
+                              "estimates": {
+                                "type": [
+                                  "null",
+                                  "object"
+                                ],
+                                "additionalProperties": true,
+                                "properties": {
+                                  "understand_vs_create": {
+                                    "type": "number"
+                                  },
+                                  "irreversibility": {
+                                    "type": "number"
+                                  },
+                                  "value_holder": {
+                                    "type": "string",
+                                    "enum": [
+                                      "person",
+                                      "model"
+                                    ]
+                                  },
+                                  "certainty": {
+                                    "type": "number"
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The person who changed it by hand; null while it is the analyzer's."
+                              }
+                            }
                           },
                           "assignee_ids": {
                             "type": "array",
@@ -3086,29 +3192,55 @@
                               "closed"
                             ]
                           },
-                          "bloom_level": {
-                            "type": [
-                              "null",
-                              "string"
-                            ],
-                            "enum": [
-                              "remember",
-                              "understand",
-                              "apply",
-                              "analyze",
-                              "evaluate",
-                              "create",
-                              "decide",
-                              null
-                            ],
-                            "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                          },
-                          "bloom_by": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                          "assessment": {
+                            "type": "object",
+                            "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                            "properties": {
+                              "expectation": {
+                                "type": "string"
+                              },
+                              "guards": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                }
+                              },
+                              "estimates": {
+                                "type": [
+                                  "null",
+                                  "object"
+                                ],
+                                "additionalProperties": true,
+                                "properties": {
+                                  "understand_vs_create": {
+                                    "type": "number"
+                                  },
+                                  "irreversibility": {
+                                    "type": "number"
+                                  },
+                                  "value_holder": {
+                                    "type": "string",
+                                    "enum": [
+                                      "person",
+                                      "model"
+                                    ]
+                                  },
+                                  "certainty": {
+                                    "type": "number"
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The person who changed it by hand; null while it is the analyzer's."
+                              }
+                            }
                           },
                           "assignee_ids": {
                             "type": "array",
@@ -3518,29 +3650,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -4121,29 +4279,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -4856,29 +5040,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -5531,29 +5741,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -6067,29 +6303,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -6568,29 +6830,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -7060,29 +7348,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -7552,29 +7866,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -8113,29 +8453,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -8630,29 +8996,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -9050,34 +9442,36 @@
         }
       }
     },
-    "/api/messages/{id}/level": {
+    "/api/messages/{id}/assessment": {
       "put": {
-        "summary": "Fijar a mano el nivel de un mensaje (UD-292)",
+        "summary": "Cambiar a mano la evaluación de un mensaje (UD-292)",
         "tags": [
           "Messages"
         ],
-        "description": "Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.",
+        "description": "Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "bloom_level"
-                ],
+                "minProperties": 1,
                 "additionalProperties": false,
                 "properties": {
-                  "bloom_level": {
+                  "expectation": {
+                    "type": "string"
+                  },
+                  "guards": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "value_holder": {
                     "type": "string",
                     "enum": [
-                      "remember",
-                      "understand",
-                      "apply",
-                      "analyze",
-                      "evaluate",
-                      "create",
-                      "decide"
+                      "person",
+                      "model"
                     ]
                   }
                 }
@@ -9150,29 +9544,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -9641,29 +10061,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -10132,29 +10578,55 @@
                         "closed"
                       ]
                     },
-                    "bloom_level": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "enum": [
-                        "remember",
-                        "understand",
-                        "apply",
-                        "analyze",
-                        "evaluate",
-                        "create",
-                        "decide",
-                        null
-                      ],
-                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
-                    },
-                    "bloom_by": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    "assessment": {
+                      "type": "object",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "properties": {
+                        "expectation": {
+                          "type": "string"
+                        },
+                        "guards": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "estimates": {
+                          "type": [
+                            "null",
+                            "object"
+                          ],
+                          "additionalProperties": true,
+                          "properties": {
+                            "understand_vs_create": {
+                              "type": "number"
+                            },
+                            "irreversibility": {
+                              "type": "number"
+                            },
+                            "value_holder": {
+                              "type": "string",
+                              "enum": [
+                                "person",
+                                "model"
+                              ]
+                            },
+                            "certainty": {
+                              "type": "number"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The person who changed it by hand; null while it is the analyzer's."
+                        }
+                      }
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -10621,14 +11093,35 @@
                           "null",
                           "string"
                         ],
-                        "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                        "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
                       },
-                      "execute_model_direct": {
+                      "execute_model_light": {
                         "type": [
                           "null",
                           "string"
                         ],
-                        "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
+                        "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                      },
+                      "guards": {
+                        "type": "array",
+                        "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer"
+                            },
+                            "text": {
+                              "type": "string"
+                            },
+                            "mechanism": {
+                              "type": "string"
+                            },
+                            "person": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
                       },
                       "handoffs": {
                         "type": "array",
@@ -10795,14 +11288,35 @@
                         "null",
                         "string"
                       ],
-                      "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
                     },
-                    "execute_model_direct": {
+                    "execute_model_light": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
+                      "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                    },
+                    "guards": {
+                      "type": "array",
+                      "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "mechanism": {
+                            "type": "string"
+                          },
+                          "person": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
                     },
                     "handoffs": {
                       "type": "array",
@@ -10930,9 +11444,9 @@
                       "claude-fable-5-1",
                       null
                     ],
-                    "description": "The Claude model the area's unattended sessions run with (UD-292); null goes back to the installation's default."
+                    "description": "The larger model of the area (UD-292): where the light model's work escalates and the one of a message with no estimates; null goes back to the installation's default."
                   },
-                  "execute_model_direct": {
+                  "execute_model_light": {
                     "type": [
                       "string",
                       "null"
@@ -10944,7 +11458,32 @@
                       "claude-fable-5-1",
                       null
                     ],
-                    "description": "The model for the messages whose level is a direct fix (UD-292); null runs them with the area's model."
+                    "description": "The light model of the area (UD-292): it takes the messages whose estimates stay within the limits; null goes back to the installation's light model."
+                  },
+                  "guards": {
+                    "type": "array",
+                    "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "text"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "mechanism": {
+                          "type": "string"
+                        },
+                        "person": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -11013,14 +11552,35 @@
                         "null",
                         "string"
                       ],
-                      "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
                     },
-                    "execute_model_direct": {
+                    "execute_model_light": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
+                      "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                    },
+                    "guards": {
+                      "type": "array",
+                      "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "mechanism": {
+                            "type": "string"
+                          },
+                          "person": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
                     },
                     "handoffs": {
                       "type": "array",
@@ -11220,14 +11780,35 @@
                         "null",
                         "string"
                       ],
-                      "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
                     },
-                    "execute_model_direct": {
+                    "execute_model_light": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
+                      "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                    },
+                    "guards": {
+                      "type": "array",
+                      "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "mechanism": {
+                            "type": "string"
+                          },
+                          "person": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
                     },
                     "handoffs": {
                       "type": "array",

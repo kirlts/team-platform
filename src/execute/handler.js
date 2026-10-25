@@ -25,8 +25,9 @@ import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/
 import { audit } from '../domain/audit.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
-import { resolveExecuteModel } from '../domain/execute-models.js'
-import { tierOf } from '../domain/bloom.js'
+import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
+import { guardsOf } from '../domain/assessment.js'
+import { buildJudgePrompt, runJudge, saveJudgment } from './judge.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
@@ -39,7 +40,7 @@ import { discardDelivery, pendingDelivery } from '../domain/delivery-review.js'
 import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from './mention-context.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
-import { enqueueDeliver } from './enqueue.js'
+import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
@@ -81,6 +82,20 @@ export function stderrTail (text, chars = STDERR_TAIL_CHARS) {
   return kept.reverse().join('\n')
 }
 
+/**
+ * What the analyzer expects of this session and which walls of the area the message touches (UD-292), as the text of the `expectation` block. The mechanism that holds each Guard is
+ * named so the session knows where the wall is; it is not asked to remember it. Empty when the analyzer said nothing.
+ */
+export function assessmentText (message, db) {
+  const lines = []
+  if (message.expectation) lines.push(message.expectation)
+  let touched = []
+  try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
+  const guards = guardsOf(db, message.area_id).filter((g) => touched.includes(g.id))
+  if (guards.length) lines.push('', 'Guards of the area that this message touches:', ...guards.map((g) => `- G${g.id}: ${g.text}${g.mechanism ? ` (held by: ${g.mechanism})` : ''}${g.person ? ' (about a person: the system puts a person on this message and you do not close it)' : ''}`))
+  return lines.join('\n')
+}
+
 export { dailyBudget, localDay }
 
 /** Where a machine finds the stable part of the prompt: run.sh replaces this marker with its own job directory. */
@@ -100,11 +115,12 @@ export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type
  * the host declares it (EXECUTE_DIRECT_STOP_COMMAND), its check at the end: the command gets the event as JSON on stdin, exit 2 with the reason on stderr sends the
  * session back to work, and it must exit 0 when `stop_hook_active` is true so a session is held once, not forever.
  */
-export function sessionSettings ({ light = false, tier = null, stopCommand = '' } = {}) {
+export function sessionSettings ({ light = false, assessed = false, stopCommand = '' } = {}) {
   const hooks = { ...LIVE_MENTION_SETTINGS.hooks }
   // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
+  // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the light model gets only the paths it will probably touch; a larger model, when the analyzer assessed the message, the short map of the repository.
   if (light) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook --brief' }] }]
-  else if (tier === 'complex') hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook' }] }]
+  else if (assessed) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook' }] }]
   if (light) {
     hooks.PreToolUse = [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'team guard' }] }]
     if (stopCommand) hooks.Stop = [{ hooks: [{ type: 'command', command: stopCommand }] }]
@@ -113,7 +129,7 @@ export function sessionSettings ({ light = false, tier = null, stopCommand = '' 
 }
 
 /** The arguments of `claude -p` (UD-255). `light`: a direct fix on the area's own direct model (UD-292). */
-export function claudeArgs (x, schema, { light = false, tier = null } = {}) {
+export function claudeArgs (x, schema, { light = false, assessed = false } = {}) {
   return [
     '-p',
     '--model', x.model,
@@ -122,13 +138,13 @@ export function claudeArgs (x, schema, { light = false, tier = null } = {}) {
     ...(x.maxTurns > 0 ? ['--max-turns', String(x.maxTurns)] : []), // 0: no cap on turns, `--max-budget-usd` governs (UD-283)
     ...(light && x.directTools ? ['--tools', x.directTools] : []),
     '--permission-mode', 'bypassPermissions',
-    '--settings', JSON.stringify(sessionSettings({ light, tier, stopCommand: x.directStopCommand })),
+    '--settings', JSON.stringify(sessionSettings({ light, assessed, stopCommand: x.directStopCommand })),
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(schema)
   ]
 }
 
-const SYSTEM_READ_FIELDS = ['approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
+const SYSTEM_READ_FIELDS = ['cannot_close', 'approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
 
 /**
  * What the sender reads of the structured output (UD-276): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
@@ -359,9 +375,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
     // UD-292: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
-    const { model, source } = resolveExecuteModel(db, { messageId, fallback: x.model, escalated: payload.escalated === true })
-    const light = source === 'direct' // the area names a model of its own for direct fixes and this message is one: the minimal prompt, the map and the checks apply
+    const { model, estimates } = resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: payload.escalated === true })
+    const light = model === x.lightModel // the light model (Haiku 5.5): the minimal prompt, the narrow tools, the map and the hooks of UD-292 apply
     rec.model = model
+    rec.light = light
     const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
     let declared
@@ -384,12 +401,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const review = reviewState
       ? { branch: reviewState.branch, reason: reviewState.held_reason, byPerson }
       : null
-    const tier = tierOf(message.bloom_level)
-    const canClose = x.autoClose && tier !== 'complex' && tier !== 'person' // UD-292, the same rule as closeReason: a person validates what the larger model did
-    const schema = finalSchema(declared.grammar, { autoClose: canClose, forwarded: forward !== null || mention !== null, reviewing: review !== null })
-    const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: canClose }))
+    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null, reviewing: review !== null, light })
+    const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
     let hostInstructions = ''
-    const hostFile = light && x.directHostInstructions ? x.directHostInstructions : x.hostInstructions // UD-292: the host's minimal version for a direct fix, when it declares one
+    // UD-292: the host's minimal version of its rules for a light session, when it declares one.
+    const hostFile = light && x.directHostInstructions ? x.directHostInstructions : x.hostInstructions
     if (hostFile) {
       try { hostInstructions = await readFile(hostFile, 'utf8') } catch (error) {
         throw permanent(`No se pudo leer ${hostFile === x.hostInstructions ? 'EXECUTE_HOST_INSTRUCTIONS' : 'EXECUTE_DIRECT_HOST_INSTRUCTIONS'} (${hostFile}): ${error.code ?? error.message}`, 'host_instructions_missing')
@@ -399,9 +415,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
     const promptInput = {
-      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status, tier },
+      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      compact: light, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: canClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
+      compact: light, assessment: assessmentText(message, db), escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -429,7 +445,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait')) // what is left is held by sessions that run now: it may come back when they end
     const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
     reserved.set(job.id, budgetUsd)
-    const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, tier })
+    const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, assessed: estimates !== null })
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
     rec.began = true
@@ -478,7 +494,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
       outcome = await withSpan('execute', {
         'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
-        'team.runner': x.runner, 'team.model': model, 'team.level': message.bloom_level ?? '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
+        'team.runner': x.runner, 'team.model': model, 'team.estimates': estimates ? JSON.stringify(estimates) : '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
         await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
@@ -577,7 +593,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
     const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-278): the people in the thread decide
     // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
-    const { captures: _declared, close: _close, close_reason: _closeReason, mode, approved, approved_reply: approvedReply, attachments: _attachments, review: asked, review_reason: askedReason, ...output } = result.structured_output
+    const { captures: _declared, close: _close, close_reason: _closeReason, cannot_close: cannotClose, mode, approved, approved_reply: approvedReply, attachments: _attachments, review: asked, review_reason: askedReason, ...output } = result.structured_output
     // UD-280: what the person asked about the change under review. The system reads the field, never the words; without a review pending the field means nothing.
     const reviewAction = review ? asked ?? 'none' : null
     const untouched = reviewAction === 'approve' || reviewAction === 'discard' || reviewAction === 'none' // the review is answered or left as it is: no change, no delivery, no close
@@ -586,6 +602,23 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
+    // UD-292: the IMK judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Not when the work goes on in a stronger model:
+    // the judge reads the end of the work. A judge that cannot run leaves the job unjudged; the job does not depend on it.
+    const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked')
+    let judgment = null
+    if (!goesOn) {
+      let touched = []
+      try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
+      judgment = await runJudge({
+        config,
+        signal: ctx.signal,
+        prompt: buildJudgePrompt({
+          message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,
+          captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: result.total_cost_usd ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
+        })
+      })
+      if (judgment?.cost) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', judgment.cost, job.id) // it counts in the day's cap with the job
+    }
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
     // UD-286: the person already asked, in their own words, to implement and publish. The model says it in `approved`; the system reads the field, never the words, and the delivery goes out without a second review.
     const preApprovedBy = approved === true && !investigate && mentionAuthor && byPerson ? mentionAuthor.id : null
@@ -601,6 +634,24 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return
       }
       const edited = fingerprint(now_) !== startedWith
+      if (judgment) saveJudgment(db, { jobId: job.id, messageId, judgment, workedWith: model, now })
+      // UD-292: the session of the light model says, as a parameter, that it could not close, or ends `blocked`: the work is relaunched once on the area's escalation model,
+      // on the same branch, and the thread says so. What the system reads is the field and the outcome, never the words; never the other way round and never twice.
+      const stronger = light && payload.escalated !== true ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: true }).model : null
+      if (stronger && stronger !== model && (cannotClose === true || output.outcome === 'blocked') && !edited) {
+        const origin = Object.fromEntries(Object.entries(payload).filter(([k]) => !['message_id', 'member_id', 'requested_by', 'budget_notice', 'retry_after_reply_id', 'escalated', 'escalated_from', 'escalated_from_model', 'escalated_note', 'no_stable_system'].includes(k)))
+        const next = enqueueExecute(db, {
+          messageId, memberId, requestedBy: payload.requested_by ?? null, now, exceptJobId: job.id,
+          extra: { ...origin, escalated: true, escalated_from: job.id, escalated_from_model: model, escalated_note: String(output.summary ?? '').slice(0, 1500) }
+        })
+        if (next !== null) {
+          const lang = author?.language
+          addReply({ db, events, now }, { messageId, authorId: agent.id, kind: 'answer', body: (lang === 'en' ? `${labelOfModel(model)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(model)} no cerró: siguió ${labelOfModel(stronger)}.`) })
+          audit(db, { memberId: agent.id, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: job.id, job_id: next, from: model, to: stronger, why: cannotClose === true ? 'cannot_close' : 'blocked' }, now })
+          events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, escalated_job_id: String(next), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null } })
+          return
+        }
+      }
       // UD-280: the person asked, in their own words, to deliver or to drop the change under review. The system carries it out for any active person (UD-284).
       let discarded = false
       if (reviewAction === 'approve' || reviewAction === 'discard') {

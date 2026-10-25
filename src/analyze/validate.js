@@ -6,7 +6,7 @@
 // The system validates shape and sets: that the area exists, that each member and each attachment exist, that each
 // unit is in a message or in `discarded`. It never interprets the text a person wrote (§4.2).
 import Ajv from 'ajv';
-import { isBloomLevel } from '../domain/bloom.js';
+import { readEstimates, readExpectation } from '../domain/assessment.js';
 import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema, buildSplitSchema } from './schema.js';
 import { compileFieldsSchema, compileOutputSchema } from './templates.js';
 import { timeRange } from './units.js';
@@ -654,7 +654,9 @@ export function normalizeDecomposition(output) {
     fields: Object.fromEntries(Object.entries(m.fields).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v.trim()])),
     assignee_ids: sortedUnique(m.assignee_ids),
     attachment_ids: sortedUnique(m.attachment_ids),
-    ...(isBloomLevel(m.bloom_level) ? { bloom_level: m.bloom_level } : {}),
+    ...(readExpectation(m) ? { expectation: readExpectation(m) } : {}),
+    ...(Array.isArray(m.guards_touched) && m.guards_touched.length ? { guards_touched: sortedUnique(m.guards_touched) } : {}),
+    ...(readEstimates(m) ? { understand_vs_create: m.understand_vs_create, irreversibility: m.irreversibility, value_holder: m.value_holder, certainty: m.certainty, estimate_reason: readEstimates(m).reason } : {}),
     ...(m.source === 'frame' ? { source: 'frame' } : {}),
     ...(observedOf(m).length > 0 ? { observed: observedOf(m) } : {}),
   }));

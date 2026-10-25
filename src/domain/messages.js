@@ -23,7 +23,7 @@ import { SPOKEN_KINDS, enqueueReplyExtract } from './reply-extract.js'
 import { retryableIds, retryingIds } from '../execute/retry.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 import { isActivePerson } from './members.js'
-import { isBloomLevel } from './bloom.js'
+import { assessmentOf, guardsOf } from './assessment.js'
 import { isInputParty } from './inputs.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
@@ -119,8 +119,7 @@ function hydrate (db, rows) {
     body: f.body,
     fields: parseJson(f.fields_json, {}),
     status: f.status,
-    bloom_level: f.bloom_level ?? null, // UD-292
-    bloom_by: f.bloom_by ?? null,
+    assessment: assessmentOf(f), // UD-292
     assignee_ids: assigned.get(f.id) ?? [],
     attachments: atts.get(f.id) ?? [],
     attachment_kinds: [...new Set((atts.get(f.id) ?? []).map((a) => a.kind))], // distinct, in attachment order (UD-016)
@@ -451,18 +450,30 @@ export function closeMessage ({ db, events, now = Date.now }, messageId, actorId
 }
 
 /**
- * A person sets the level of a message by hand (UD-292). The level is data the analyzer chose with a model; whoever reads the message may
- * disagree, and the change is theirs: `bloom_by` keeps who. It decides the model of the next session of the message (the area's «Arreglo directo»
- * or its model), never an assignment: a session already queued or running is not touched. Any active person; the message does not change version.
+ * A person changes the assessment of a message by hand (UD-292): what is expected of Claude, the Guards it touches, who has the missing value. They are what the analyzer said
+ * with a model; whoever reads the message may disagree, and `assessed_by` keeps who. The change decides the model and the opening of the NEXT session, never an assignment: a session
+ * already queued or running is not touched. Any active person; the message does not change version.
  */
-export function setMessageLevel ({ db, events, now = Date.now }, { messageId, actor, level }) {
+export function setMessageAssessment ({ db, events, now = Date.now }, { messageId, actor, patch }) {
   events.transaction(() => {
-    const row = get(db, 'SELECT bloom_level FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
+    const row = get(db, 'SELECT area_id, expectation, guards_json, estimates_json FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!row) throw notFound('El mensaje no existe.')
-    if (!isBloomLevel(level)) throw badRequest('El nivel no es uno de los seis de Bloom.', 'level_invalid')
-    if (row.bloom_level === level) return
-    run(db, 'UPDATE messages SET bloom_level = ?, bloom_by = ? WHERE id = ?', level, actor.id, messageId)
-    audit(db, { memberId: actor.id, action: 'message.level.update', entity: 'message', entityId: messageId, detail: { from: row.bloom_level, to: level }, now })
+    const next = {}
+    if (patch.expectation !== undefined) next.expectation = patch.expectation.trim()
+    if (patch.guards !== undefined) {
+      const known = new Set(guardsOf(db, row.area_id).map((g) => g.id))
+      if (patch.guards.some((id) => !known.has(id))) throw badRequest('Una Guardia no existe en el área del mensaje.', 'guard_invalid')
+      next.guards_json = JSON.stringify([...new Set(patch.guards)].sort((a, b) => a - b))
+    }
+    if (patch.value_holder !== undefined) {
+      const estimates = parseJson(row.estimates_json, null)
+      if (!estimates) throw badRequest('El mensaje no trae estimaciones que cambiar.', 'assessment_invalid')
+      next.estimates_json = JSON.stringify({ ...estimates, value_holder: patch.value_holder })
+    }
+    const changed = Object.keys(next).filter((k) => row[k] !== next[k])
+    if (changed.length === 0) return
+    run(db, `UPDATE messages SET ${changed.map((k) => `${k} = ?`).join(', ')}, assessed_by = ? WHERE id = ?`, ...changed.map((k) => next[k]), actor.id, messageId)
+    audit(db, { memberId: actor.id, action: 'message.assessment.update', entity: 'message', entityId: messageId, detail: { fields: changed }, now })
   })
   return getMessage(db, messageId)
 }

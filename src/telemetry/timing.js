@@ -1,6 +1,7 @@
 // Where the time of a message went (UD-262): reads the trace of its latest `execute` job and returns the figures the
 // panel and `team timing` show. Times are milliseconds; `null` means the span or event does not exist (yet).
 import { get } from '../db/index.js'
+import { judgmentOfMessage } from '../execute/judge.js'
 import { traceOfJob } from './trace.js'
 
 const flatten = (nodes) => nodes.flatMap((n) => [n, ...flatten(n.children)])
@@ -31,6 +32,12 @@ function detailOfRun(db, jobId) {
   return entries.length || deliveryRef ? { entries, delivery_ref: deliveryRef } : null;
 }
 
+/** What the `execute` jobs of a message have cost, in USD, or null when none reported a cost. */
+function costOfMessage(db, messageId) {
+  const row = get(db, "SELECT SUM(cost_usd) AS usd FROM jobs WHERE kind = 'execute' AND message_id = ? AND cost_usd IS NOT NULL", messageId);
+  return typeof row?.usd === 'number' ? row.usd : null;
+}
+
 /**
  * @returns {null | object} `null` if the message has no `execute` job. With a job that left no spans (still running),
  * the figures come back `null` and `running` carries the phase.
@@ -42,7 +49,10 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
     message_id: String(messageId), job_id: String(job.id), job_status: job.status, trace_id: job.trace_id ?? null,
     phase: job.phase ?? null, attempts: job.attempts,
     // UD-292: the model the session of the job ran with and what it has cost so far (the day's meter reads the same column).
-    model: job.model ?? null, cost_usd: typeof job.cost_usd === 'number' ? job.cost_usd : null,
+    // The cost is the whole of the message's execute jobs: when the light model did not close, its job and the larger model's both count.
+    model: job.model ?? null, cost_usd: costOfMessage(db, messageId) ?? (typeof job.cost_usd === 'number' ? job.cost_usd : null),
+    // UD-292: the IMK judgement of the job, or null while there is none.
+    judgment: judgmentOfMessage(db, messageId),
     elapsed_ms: job.status === 'running' ? Math.max(0, now() - job.run_at) : null,
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,
     total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null,

@@ -80,9 +80,23 @@ export function splitUser({ units, language }) {
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------
 
-export function decomposeSystem(template, project, language, framing) {
+/**
+ * UD-292: the area the group belongs to, as the space where the work happens: what it describes (its description), and its Guards, the walls, each with an id the model cites in
+ * `guards_touched`. The mechanism that holds a Guard is the system's and does not travel. Nothing here enumerates levels or kinds of work: the space is described, the model places the request in it.
+ */
+export function areaBlock(area, language) {
+  if (!area || (!String(area.description ?? '').trim() && !(area.guards ?? []).length)) return '';
+  const es = resolveLanguage(language) !== 'en';
+  return [
+    es ? `Área de este grupo: ${area.title}` : `Area of this group: ${area.title}`,
+    String(area.description ?? '').trim(),
+    ...((area.guards ?? []).length ? ['', es ? 'Guardias del área (límites que no se cruzan; cita por id en guards_touched las que el pedido toca):' : 'Guards of the area (limits that are not crossed; cite by id in guards_touched the ones the request touches):', ...area.guards.map((g) => `- G${g.id}${g.person ? (es ? ' (de una persona)' : ' (about a person)') : ''}: ${g.text}`)] : []),
+  ].join('\n');
+}
+
+export function decomposeSystem(template, project, language, framing, area = null) {
   const set = promptSet(language);
-  return [set.decomposeInstructions(framing), set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
+  return [set.decomposeInstructions(framing), set.templateBlock(template), areaBlock(area, language), set.projectBlock(project)].filter(Boolean);
 }
 
 export function decomposeUser({ members, attachments, units, scopeNote, language, recent, request }) {

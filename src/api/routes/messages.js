@@ -2,7 +2,7 @@
 
 import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
 import { get } from '../../db/index.js'
-import { addMessageAttachments, addReply, addReplyAttachments, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, setMessageLevel, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
+import { addMessageAttachments, addReply, addReplyAttachments, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, setMessageAssessment, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
 import { forbidden, notFound } from '../../domain/errors.js'
 import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -335,17 +335,17 @@ export function registerMessageRoutes (app, ctx) {
     return message
   }))
 
-  app.put('/messages/:id/level', {
+  app.put('/messages/:id/assessment', {
     onRequest: [requireRole('person')],
     schema: {
-      summary: 'Fijar a mano el nivel de un mensaje (UD-292)',
-      description: 'Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.',
+      summary: 'Cambiar a mano la evaluación de un mensaje (UD-292)',
+      description: 'Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.',
       params: idParams(),
-      body: { type: 'object', required: ['bloom_level'], additionalProperties: false, properties: { bloom_level: { type: 'string', enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide'] } } },
+      body: { type: 'object', minProperties: 1, additionalProperties: false, properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, value_holder: { type: 'string', enum: ['person', 'model'] } } },
       response: { 200: messageDetail }
     }
-  }, async (request) => withSpan('message.level', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
-    () => setMessageLevel({ db, events }, { messageId: request.params.id, actor: request.member, level: request.body.bloom_level })))
+  }, async (request) => withSpan('message.assessment', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
+    () => setMessageAssessment({ db, events }, { messageId: request.params.id, actor: request.member, patch: request.body })))
 
   for (const [verb, handlerFn, summaryText] of [['close', closeMessage, 'Close a message'], ['reopen', reopenMessage, 'Reopen a closed message']]) {
     app.post(`/messages/:id/${verb}`, {

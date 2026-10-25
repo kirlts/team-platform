@@ -51,10 +51,12 @@ export interface Area {
   template_count?: number
   /** The person who decides in the area and receives what a session hands over (UD-269): the one set, or the first active Editor. */
   escalation_member_id?: string | null
-  /** The Claude model the area's unattended sessions run with now: its own or the installation's default (UD-292). */
+  /** The larger model of the area: where the light model's work escalates, and the one of a message with no estimates (UD-292). */
   execute_model?: string | null
-  /** The model for the messages whose level is a direct fix; null while they run with the area's model (UD-292). */
-  execute_model_direct?: string | null
+  /** The light model of the area: the one of a message whose estimates stay within the limits (UD-292). */
+  execute_model_light?: string | null
+  /** The Guards of the area (UD-292). */
+  guards?: Guard[]
   /** Handoffs to a person in the last 7 days, by person (UD-269). */
   handoffs?: { member_id: string; count: number }[]
   deleted_at?: string | null
@@ -183,13 +185,6 @@ export interface Reply {
   edited_at?: string | null
 }
 
-/** The six levels of the revised Bloom taxonomy (UD-292): the analyzer returns one per message, and a person can change it. */
-export const BLOOM_LEVELS = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide'] as const
-export type BloomLevel = (typeof BLOOM_LEVELS)[number]
-/** Who may work a level (UD-292): `direct` a direct fix, `complex` a diagnosis or a judgement, `person` a decision only a person takes. */
-export type BloomTier = 'direct' | 'complex' | 'person'
-export const BLOOM_TIER: Record<BloomLevel, BloomTier> = { remember: 'direct', understand: 'direct', apply: 'direct', analyze: 'complex', evaluate: 'complex', create: 'complex', decide: 'person' }
-
 /** The Claude models an area can run its unattended session with (UD-292): the same closed list as the server's, ids as the models overview gives them. */
 export const EXECUTE_MODELS = [
   { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
@@ -198,12 +193,41 @@ export const EXECUTE_MODELS = [
   { id: 'claude-fable-5-1', label: 'Fable 5.1' },
 ] as const
 
+/** A wall of an area (UD-292, a Kairós Guard): the only boolean thing, with the mechanism that holds it; `person` marks one that is about a person. */
+export interface Guard {
+  id?: number
+  text: string
+  mechanism?: string
+  person?: boolean
+}
+
+/** What the analyzer says about a message beyond its text, or a person changed (UD-292). The estimates are continuous, from 0 to 1, with their reason. */
+export interface Assessment {
+  /** What is expected of Claude, in natural words. */
+  expectation: string
+  /** Ids of the Guards of the area that the message touches. */
+  guards: number[]
+  estimates: { understand_vs_create: number; irreversibility: number; value_holder: 'person' | 'model'; certainty: number; reason: string } | null
+  /** The person who changed it by hand; null while it is the analyzer's. */
+  by: string | null
+}
+
+/** The IMK judgement of a finished job (UD-292): four axes against the target of the task's quadrant, twelve KPI from -2 to +2 with quote and reasoning. */
+export interface Judgment {
+  job_id: string
+  judge_model: string
+  worked_with: string | null
+  quadrant: string
+  axes: { axis: number; name: string; score: number | null; target: number; meets: boolean | null; kpis: number }[]
+  kpis: { id: string; applies: boolean; score: number; quote: string; claim: string; reasoning: string }[]
+  summary: string
+  cost_usd: number | null
+}
+
 export interface Message {
   id: string
-  /** Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed. */
-  bloom_level?: BloomLevel | null
-  /** The person who set the level by hand (UD-292); null while it is the analyzer's. */
-  bloom_by?: string | null
+  /** What the analyzer says about the message beyond its text (UD-292). */
+  assessment?: Assessment
   input_id?: string
   area_id: string
   author_id: string
@@ -448,6 +472,8 @@ export interface MessageTiming {
   /** The model the session ran with and what it has cost so far, in USD (UD-292). */
   model?: string | null
   cost_usd?: number | null
+  /** The IMK judgement of the latest finished job (UD-292), or null. */
+  judgment?: Judgment | null
   elapsed_ms: number | null
   first_reply_ms: number | null
   final_reply_ms: number | null

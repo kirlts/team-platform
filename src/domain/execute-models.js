@@ -2,9 +2,9 @@
 //
 // The list is closed: the current generation of the Claude API, with the ids exactly as the models overview gives them
 // (platform.claude.com/docs/en/about-claude/models/overview, read 2026-10-25). Mythos 5.1 is left out (limited availability) and so are the
-// legacy models. A host that sets EXECUTE_MODEL to another id keeps it as the default of every area; the selector only offers these four.
+// legacy models. A host that sets EXECUTE_MODEL to another id keeps it as the escalation model of every area; the selector only offers these four.
 import { get } from '../db/index.js'
-import { tierOf } from './bloom.js'
+import { modelFor } from './assessment.js'
 
 export const EXECUTE_MODELS = Object.freeze([
   { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
@@ -17,18 +17,23 @@ export const EXECUTE_MODEL_IDS = Object.freeze(EXECUTE_MODELS.map((m) => m.id))
 
 export const isExecuteModel = (id) => EXECUTE_MODEL_IDS.includes(id)
 
+export const labelOfModel = (id) => EXECUTE_MODELS.find((m) => m.id === id)?.label ?? id
+
 /**
- * The model that runs `messageId`'s session and why: `{ model, tier, source }`.
- *   `direct` tier     the area's «Arreglo directo» model when it has one, else the area's model.
- *   `complex` tier    the area's model. A message with no level (published before UD-292) too.
- *   `escalated`       a retry of a session that ran on the direct model and failed (UD-292): the area's model, never the lighter one again.
- * The area's model defaults to `fallback` (EXECUTE_MODEL), which is what every area ran with before.
+ * The model that runs `messageId`'s session and why: `{ model, source, estimates }`.
+ *   estimates present   the area's light model while the analyzer's estimates stay within `limits` (see `modelFor`), else the area's larger one.
+ *   no estimates        the larger one (what every message ran with before UD-292).
+ *   `escalated`         the session of the light model did not close (measured, see the handler): the larger one, never the light one again.
+ * `source` says which applied: `light`, `major`, `escalated` or `legacy`. The area's larger model defaults to `fallback` (EXECUTE_MODEL), its light one to `light` (EXECUTE_LIGHT_MODEL).
  */
-export function resolveExecuteModel (db, { messageId, fallback, escalated = false }) {
-  const row = get(db, `SELECT m.bloom_level AS level, a.execute_model AS model, a.execute_model_direct AS direct
+export function resolveExecuteModel (db, { messageId, fallback, light, limits, escalated = false }) {
+  const row = get(db, `SELECT m.estimates_json AS estimates, a.execute_model AS major, a.execute_model_light AS lightModel
                          FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ?`, messageId)
-  const areaModel = row?.model && isExecuteModel(row.model) ? row.model : fallback
-  const tier = tierOf(row?.level)
-  if (tier === 'direct' && !escalated && row?.direct && isExecuteModel(row.direct)) return { model: row.direct, tier, source: 'direct' }
-  return { model: areaModel, tier, source: row?.model && isExecuteModel(row.model) ? 'area' : 'default' }
+  const pick = (id, base) => (id && isExecuteModel(id) ? id : base)
+  const major = pick(row?.major, fallback)
+  let estimates = null
+  try { estimates = row?.estimates ? JSON.parse(row.estimates) : null } catch { /* a damaged cell reads as no estimates */ }
+  if (escalated) return { model: major, source: 'escalated', estimates }
+  if (!estimates) return { model: major, source: 'legacy', estimates }
+  return modelFor(estimates, limits) === 'light' ? { model: pick(row?.lightModel, light), source: 'light', estimates } : { model: major, source: 'major', estimates }
 }

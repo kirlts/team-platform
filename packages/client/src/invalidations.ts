@@ -23,8 +23,8 @@ export const INVALIDATE = {
   /** After an edit of a reply; the detail is written with the answer. */
   editReply: ['messages'],
   setClosed: ['message', 'messages', 'areas'],
-  /** The level of a message set by hand (UD-292) changes its card and the model of its next session. */
-  setLevel: ['message', 'messages'],
+  /** The assessment of a message changed by hand (UD-292) changes its card and the model of its next session. */
+  setAssessment: ['message', 'messages'],
   /** A forward adds an assignee and a notice to the thread of the message, and with an agent a job that the lists of executions show. */
   /** Delivering or discarding a held review changes the thread, the view of the message and the lists of jobs. */
   deliverReview: ['message', 'messages', 'areas', 'jobs'],

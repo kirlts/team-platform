@@ -623,7 +623,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       throw new AnalyzeInputError(`La plantilla ${templateId} no trae «body_markdown»`, { calls: ctx.calls });
     }
     const template = parseTemplate(row.body_markdown, { source: `template ${templateId}` });
-    const system = decomposeSystem(template, project, language, bundle.framing);
+    const system = decomposeSystem(template, project, language, bundle.framing, areas.find((a) => a.id === row.area_id));
     const entry = {
       template,
       system,

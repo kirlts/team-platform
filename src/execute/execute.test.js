@@ -21,6 +21,7 @@ import { createExecuteHandler, dailyBudget, localDay, otelSessionEnv, stderrTail
 import { phraseForTool } from './stream.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
+process.env.FAKE_JUDGE = 'off' // these measure the cost of the session itself; the judge has its own test (judge.test.js)
 const PORT = 8641 // the range given to this work (8640 to 8649)
 
 describe('execute job', () => {

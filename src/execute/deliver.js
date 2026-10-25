@@ -40,6 +40,7 @@ import { updateExecuteRun } from '../telemetry/execute-runs.js'
 import { closeLine, closeReason, firstReplyAnchor } from './auto-close.js'
 import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, storeCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
+import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
 import { replyBody } from './handler.js'
 import { readTemplate } from './prompt.js'
 import { fillCommand, spawnStreaming } from './runners.js'
@@ -368,7 +369,18 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       let again = null
       if (error?.code === 'deliver_failed' && !payload.requested_by && round < x.deliverRetries) {
         try {
-          again = events.transaction(() => enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '' }, deliver_round: round + 1, close_since: payload.close_since ?? null } }))
+          again = events.transaction(() => {
+            // UD-292: the checks stayed red after the light model's own attempt (the verification of the delivery is the measurement): the second pass runs on the area's escalation model.
+            const ranWith = get(db, 'SELECT model FROM jobs WHERE id = ?', payload.execute_job_id)?.model ?? null
+            const stronger = ranWith && ranWith === x.lightModel ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, escalated: true }).model : null
+            const escalate = stronger !== null && stronger !== ranWith
+            const id = enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '' }, deliver_round: round + 1, close_since: payload.close_since ?? null, ...(escalate ? { escalated: true, escalated_from: payload.execute_job_id, escalated_from_model: ranWith, escalated_note: '' } : {}) } })
+            if (id !== null && escalate) {
+              const lang = get(db, 'SELECT m.language FROM messages x JOIN members m ON m.id = x.author_id WHERE x.id = ?', messageId)?.language
+              addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: lang === 'en' ? `${labelOfModel(ranWith)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(ranWith)} no cerró: siguió ${labelOfModel(stronger)}.` })
+            }
+            return id
+          })
         } catch (e) {
           logger?.warn({ err: e }, 'could not enqueue the second pass after a failed delivery')
         }

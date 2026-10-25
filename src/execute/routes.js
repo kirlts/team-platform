@@ -68,7 +68,7 @@ export function registerExecuteRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Encolar la entrega a producción de un mensaje (cualquier persona activa, UD-286)',
-      description: 'Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama. UD-306: también publica el trabajo «Lista para ver»; sólo una persona (409 `not_a_person`).',
+      description: 'Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama. UD-307: también publica el trabajo «Lista para ver»; sólo una persona (409 `not_a_person`).',
       params: idParams(),
       response: { 202: { type: 'object', properties: { job_id: { type: 'string' } } } }
     }

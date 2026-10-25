@@ -418,7 +418,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
-    // UD-306: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
+    // UD-307: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
@@ -638,7 +638,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       if (judgment?.cost) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', judgment.cost, job.id) // it counts in the day's cap with the job
     }
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
-    // UD-306: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that
+    // UD-307: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that
     // a person already approved (in advance, or the pass that fixes its failure) is not held again.
     const showOnly = estimates?.idea_guard === true && deliverFailure === null
     // UD-286: the person already asked, in their own words, to implement and publish. The model says it in `approved`; the system reads the field, never the words, and the delivery goes out without a second review.
@@ -690,7 +690,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         }
       }
       if (hands && !edited && showOnly && preApprovedBy === null) {
-        // UD-306: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the reply
+        // UD-307: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the reply
         // carries what «Publicar» needs, so a person's approval runs the normal delivery (UD-298) with the summary of this session.
         const t = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         const seen = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language, label: 'proposal' })
@@ -867,7 +867,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       return () => {
         finalize()
         try {
-          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1 }) // UD-306: shown, not delivered: the review of UD-275 waits for a person
+          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1 }) // UD-307: shown, not delivered: the review of UD-275 waits for a person
           if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs })
           else if (rec.deliverJobId) updateExecuteRun(db, job.id, job.attempts, { deliver_job_id: rec.deliverJobId }) // the delivery fills the rest when it ends
         } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }

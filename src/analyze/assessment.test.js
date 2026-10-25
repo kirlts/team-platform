@@ -51,7 +51,7 @@ describe('assessment of a message', () => {
     assert.equal(readEstimates({ ...good, value_holder: 'x' }), null)
   })
 
-  it('UD-306: the Guard of the idea is a boolean the model returns with its reason; the number is context, and an old message reads as no idea', () => {
+  it('UD-307: the Guard of the idea is a boolean the model returns with its reason; the number is context, and an old message reads as no idea', () => {
     assert.equal(grammar.properties.idea_guard.type, 'boolean')
     assert.equal(grammar.properties.idea.enum, undefined)
     const base = { unit_ids: [1], title: 't', body: 'b', fields: {}, assignee_ids: [], attachment_ids: [], understand_vs_create: 0.8, irreversibility: 0.1, value_holder: 'person', certainty: 0.8, estimate_reason: 'r' }

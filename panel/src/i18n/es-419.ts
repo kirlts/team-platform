@@ -311,7 +311,6 @@ export const es419 = {
   'replies.title': 'Respuestas',
   'replies.none': 'Sin respuestas',
   'replies.retry': 'Reintentar',
-  'replies.publish': 'Publicar',
   'replies.more': { one: '{n} respuesta más', other: '{n} respuestas más' },
   'reply.tools': 'Editar respuesta',
   'reply.missingMention': 'Falta mencionar a alguien',

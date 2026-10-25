@@ -311,7 +311,6 @@ export const en: Record<MessageKey, Message> = {
   'replies.title': 'Replies',
   'replies.none': 'No replies',
   'replies.retry': 'Retry',
-  'replies.publish': 'Publish',
   'replies.more': { one: '{n} more reply', other: '{n} more replies' },
   'reply.tools': 'Edit reply',
   'reply.missingMention': 'Mention someone to send',

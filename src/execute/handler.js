@@ -177,7 +177,7 @@ const ACK_TEXTS = {
 // What the people read when a job fails. Plain words, never the internal code; `config` carries the reason of a refusal to start (it is already a plain sentence).
 const FAILURE_TEXTS = {
   'es-419': {
-    ready: 'Lista para ver. No está en producción: queda esperando el visto de una persona del mensaje, que la publica con «Publicar».',
+    ready: 'Lista para ver. No está en producción: respóndeme en este hilo qué quieres que haga con esto.',
     saved: 'Todavía no está en producción. Lo que alcancé a hacer queda guardado en la rama del mensaje.',
     again: 'Quien reciba este mensaje puede volver a lanzarlo desde la ficha.',
     editor: 'Cualquier persona del equipo puede volver a lanzarlo desde la ficha del mensaje.',
@@ -198,7 +198,7 @@ const FAILURE_TEXTS = {
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
-    ready: 'Ready to see. It is not in production: it waits for the approval of a person on the message, who publishes it with «Publish».',
+    ready: 'Ready to see. It is not in production: answer me in this thread with what you want me to do with it.',
     saved: 'It is not in production yet. What I got done is saved on the branch of the message.',
     again: 'Whoever receives this message can launch it again from its page.',
     editor: 'Anyone on the team can launch it again from the page of the message.',
@@ -694,12 +694,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         }
       }
       if (hands && !edited && showOnly && preApprovedBy === null) {
-        // UD-307: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the reply
-        // carries what «Publicar» needs, so a person's approval runs the normal delivery (UD-298) with the summary of this session.
+        // UD-307: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the next reply
+        // of a person in the thread calls this agent again (see `addReply`): the model reads what the person wrote and decides, with `review`, to go on, change or deliver.
         const t = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         const seen = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language, label: 'proposal' })
         const { replyId } = handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, source: 'execute', body: [t.ready, body, ...seen.lines, ...documentLines].join('\n\n'), files: [...seen.files, ...documentFiles(documents.stored)] })
-        runSql(db, 'UPDATE replies SET publish_json = ? WHERE id = ?', JSON.stringify({ job_id: job.id, attempt: job.attempts, output }), replyId)
         rec.deliveryHeld = true
         audit(db, { memberId: agent.id, action: 'message.idea_shown', entity: 'message', entityId: messageId, detail: { job_id: job.id, reply_id: replyId, reason: String(idea.idea_reason ?? '').slice(0, 300) || null }, now })
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })

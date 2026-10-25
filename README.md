@@ -45,6 +45,7 @@ npm run test:bench                   # el banco con proveedores falsos
 cd panel && npm ci && npm test       # panel: vitest, catálogos y guardia de lenguaje
 npm run test:fit && npm run test:flows   # panel en navegador sin ventana; BROWSER=firefox para Firefox
 npm run contraste && npm run ui-detectors  # contraste de cada par de texto y detectores de interfaz
+npm run e2e:contrato                 # contrato de punta a punta (e2e/contrato): servidor real, panel compilado y Chromium sin ventana en un proceso, filas E2, M, V y A
 node bench/run.mjs --fake perfect    # reporte del banco sin red
 node bench/run.mjs --repeat 3        # siete casos con el proveedor real, tres repeticiones
 ```

@@ -2,7 +2,7 @@
 // in English (RULES 1); the replies the session writes go in the language of the person who sent the message.
 
 import { compileOutputSchema, parseTemplate } from '../analyze/templates.js'
-import { HELP as TEAM_HELP } from '../../scripts/team.mjs'
+import { helpText } from '../../scripts/team.mjs'
 import { decisionCheckSchema } from './decision-check.js'
 
 /** What a forwarded job may do (UD-272): carry the work out, or investigate and recommend without changing anything. */
@@ -144,7 +144,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null, exploration = null }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null, exploration = null, capturesUnmasked = false }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   const stable = compact ? compactStable({ agent, project, deliver, autoClose, template, hostInstructions, forwardedOrMentioned: forward !== null || mention !== null }) : [
@@ -173,7 +173,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     '- When the reason asks for a PDF, write the file inside `$TEAM_ATTACHMENTS_DIR` and list it in `attachments` of your final output (`path` inside that directory, `name` as the sender will read it). The reply carries the file; one that is not a PDF, is too large or is outside the directory is left out and the reply says so.',
     '## The `team` command (in your PATH, already authenticated as you)',
     '```',
-    TEAM_HELP,
+    helpText({ unmasked: capturesUnmasked }),
     '```',
     ...(String(hostInstructions).trim() ? ['## Rules of the host (they take precedence over the defaults above)', block('host_instructions', hostInstructions)] : []),
     ...(deliver ? ['## Delivery (takes precedence over any delivery step in the rules above)', 'The delivery is not yours. After you finish, the system runs the host\'s delivery command on the branch of the `job` block. Finish when the branch is pushed with every check the rules above ask for before a delivery (the judge\'s mark, if they name it). Do not deploy, do not wait for a deploy, and do not run the delivery steps of the rules above. Your final structured output is still required. When the change touches an interface, record its walkthrough with `team walkthrough` (numbered steps, one screenshot per step and a short video, desktop and/or phone as the change requires) and put the list it prints in `captures`: if the delivery is held for review, a person reviews from those «Propuesta» files and from your `summary`, which then has to let a project manager decide on its own (what changes for who uses the product, the risks, what to look at; no file paths or file names). A change that touches a screen (`touches_screen` true) never ends without at least one screenshot or the video: if you could not record, say why in `no_capture_reason`, and the system writes it in the closing reply (a label or a text of a screen also counts: take the place once). If the browser or the view is not available, say so in one line in `summary` and keep the screenshots.'] : []),

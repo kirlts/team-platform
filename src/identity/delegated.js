@@ -197,6 +197,9 @@ function ssoMode ({ db, config, sessions, now }) {
   const spec = cookieSpec(config)
   const nonceCookieName = spec.name.startsWith('__Host-') ? '__Host-sso' : 'sso-nonce'
   const lifetimeMs = d.nonceMinutes * 60 * 1000
+  const nextCookieName = spec.name.startsWith('__Host-') ? '__Host-sso-next' : 'sso-next'
+  // `next` is only a path of this same site: anything that could leave it (another host, `//`, `\\`) is dropped.
+  const safeNext = (value) => (typeof value === 'string' && /^\/(?![/\\])[^\r\n]*$/.test(value) && !value.startsWith(`${config.apiPrefix}/`) ? value : null)
 
   return {
     // No header of its own: after the return the identity is the session of our own, read by the shared lookup.
@@ -212,6 +215,8 @@ function ssoMode ({ db, config, sessions, now }) {
         target.searchParams.set('sso', sso)
         target.searchParams.set('sig', signHex(d.secret, sso))
         reply.setCookie(nonceCookieName, nonce, { ...spec.options, maxAge: Math.floor(lifetimeMs / 1000), sameSite: 'lax' })
+        const wanted = safeNext(request.query?.next)
+        if (wanted) reply.setCookie(nextCookieName, encodeURIComponent(wanted), { ...spec.options, maxAge: Math.floor(lifetimeMs / 1000), sameSite: 'lax' })
         return reply.redirect(target.toString(), 302)
       })
 
@@ -259,7 +264,16 @@ function ssoMode ({ db, config, sessions, now }) {
         const previous = readSessionCookie(request, config)
         if (previous) sessions.destroy(previous)
         setSessionCookie(reply, config, sessions.create(memberRow.id).token)
-        return reply.redirect(config.ssoReturnPath, 302) // SSO_RETURN_PATH: the panel may live under a path (H-3721)
+        let back = config.ssoReturnPath
+        const rawNext = request.cookies?.[nextCookieName]
+        if (rawNext) {
+          let decoded = null
+          try { decoded = decodeURIComponent(rawNext) } catch { /* a garbled cookie is ignored */ }
+          const wanted = safeNext(decoded)
+          if (wanted) back = wanted
+          reply.clearCookie(nextCookieName, { path: '/', httpOnly: true, secure: spec.options.secure, sameSite: 'lax' })
+        }
+        return reply.redirect(back, 302) // SSO_RETURN_PATH: the panel may live under a path (H-3721)
       })
     }
   }

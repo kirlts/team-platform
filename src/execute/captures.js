@@ -130,14 +130,63 @@ const NO_CAPTURE = {
   'es-419': { reason: (r) => `No incluye captura ni video: ${r}.`, none: 'la sesión no dejó ninguna' },
   en: { reason: (r) => `It carries no screenshot or video: ${r}.`, none: 'the session left none' }
 }
+
+// The reasons `checkCaptures` gives for leaving a capture out, in plain words for the person who reads the reply.
+const REJECTED = {
+  'es-419': {
+    invalid: 'le faltaba un dato de la captura (ruta, descripción, lugar, rol o si oculta datos)',
+    unmasked_sensitive: 'muestra datos de personas sin ocultarlos y esta instancia no permite adjuntarlas',
+    missing: 'el archivo no existe',
+    outside: 'el archivo está fuera de la carpeta de capturas',
+    not_image: 'el archivo no es una imagen ni un video que se pueda adjuntar',
+    too_many: 'superó el máximo de capturas de una respuesta',
+    too_large: 'el archivo supera el tamaño máximo',
+    not_stored: 'no se pudo guardar el archivo',
+    other: 'no se pudo adjuntar',
+    which: (n) => `la captura ${n}`,
+    sentence: (count, list) => `la sesión tomó ${count === 1 ? 'una captura y el sistema no la adjuntó' : `${count} capturas y el sistema no las adjuntó`}: ${list}`,
+    extra: (count, list) => `${count === 1 ? 'El sistema no adjuntó una captura' : `El sistema no adjuntó ${count} capturas`}: ${list}.`
+  },
+  en: {
+    invalid: 'a piece of data of the capture was missing (path, description, place, role or whether it hides data)',
+    unmasked_sensitive: 'it shows data of people without hiding it and this instance does not allow attaching those',
+    missing: 'the file does not exist',
+    outside: 'the file is outside the captures folder',
+    not_image: 'the file is not an image or a video that can be attached',
+    too_many: 'it went over the maximum of captures of a reply',
+    too_large: 'the file is over the maximum size',
+    not_stored: 'the file could not be saved',
+    other: 'it could not be attached',
+    which: (n) => `capture ${n}`,
+    sentence: (count, list) => `the session took ${count === 1 ? 'one capture and the system did not attach it' : `${count} captures and the system did not attach them`}: ${list}`,
+    extra: (count, list) => `${count === 1 ? 'The system did not attach one capture' : `The system did not attach ${count} captures`}: ${list}.`
+  }
+}
+
+/**
+ * The captures the system left out, with what a person needs to tell which one and why: `[{ index, reason, alt, path }]`. `rejected` is what `storeCaptures`
+ * returns and `output.captures` the list the session declared (the index points into it). The panel reads alt and reason, never the index.
+ */
+export function describeRejected (output, rejected) {
+  const list = Array.isArray(output?.captures) ? output.captures : []
+  return (rejected ?? []).map((r) => ({ index: r.index, reason: r.reason, alt: typeof list[r.index]?.alt === 'string' ? list[r.index].alt.replace(/\s+/g, ' ').trim().slice(0, 120) : '', path: typeof list[r.index]?.path === 'string' ? list[r.index].path : '' }))
+}
+
 /**
  * UD-298: a job that changes what a person sees on a screen (`touches_screen`, a field of the session's output the system reads as a boolean) does not close
  * with a final reply that looks complete and shows nothing. When no capture or video is stored the reply says so, with the reason the session gave
  * (`no_capture_reason`) or, without one, that it left none. Empty when the job does not touch a screen or the reply carries at least one.
+ * `rejected` (from `describeRejected`): the captures the session did take and the system left out. Then the reason is the true one, which and why, and never «the session left none»;
+ * with some stored or no screen touched the same facts go in one line of their own.
  */
-export function noCaptureLine (output, storedCount, language) {
-  if (output?.touches_screen !== true || storedCount > 0) return ''
+export function noCaptureLine (output, storedCount, language, rejected = []) {
   const t = NO_CAPTURE[language] ?? NO_CAPTURE['es-419']
+  if (rejected.length > 0) {
+    const r = REJECTED[language] ?? REJECTED['es-419']
+    const list = rejected.map((x) => `«${x.alt || x.path || r.which(x.index + 1)}» (${r[x.reason] ?? r.other})`).join('; ')
+    return output?.touches_screen === true && storedCount === 0 ? t.reason(r.sentence(rejected.length, list)) : r.extra(rejected.length, list)
+  }
+  if (output?.touches_screen !== true || storedCount > 0) return ''
   const given = typeof output.no_capture_reason === 'string' ? output.no_capture_reason.replace(/\s+/g, ' ').trim().replace(/[.\s]+$/, '').slice(0, 300) : ''
   return t.reason(given || t.none)
 }

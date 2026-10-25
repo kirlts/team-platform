@@ -34,9 +34,9 @@ describe('Timing of a message (UD-262)', () => {
     const { done_id: doneId } = await panel.control.execution()
     const { page, context } = await session(`/messages/${doneId}`)
     try {
-      const block = page.locator('[data-timing]')
-      await block.waitFor()
-      const toggle = block.getByRole('button', { name: 'Tiempos' })
+      const block = page // «Detalles» is the one fold that holds the times (UD-309)
+      const toggle = block.getByRole('button', { name: 'Detalles' })
+      await toggle.waitFor()
       assert.equal(await toggle.getAttribute('aria-expanded'), 'false')
       assert.equal(await block.locator('[data-timing-figure]').count(), 0, 'nothing is asked or drawn while it is folded')
       await toggle.click()

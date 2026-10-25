@@ -16,6 +16,7 @@
 // panel/src/lib/types.ts; this server meets them.
 
 import { createHash, randomUUID } from 'node:crypto'
+import { deflateSync } from 'node:zlib'
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
@@ -196,6 +197,36 @@ function svgCapture(title, hue) {
   )
 }
 
+/** A real PNG (what a pasted capture is in production: `image.png`), with a gradient so every size is different and none is a flat color. */
+function pngCapture(width, height, hue) {
+  const crc = (buf) => {
+    let c = ~0
+    for (const b of buf) {
+      c ^= b
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1))
+    }
+    return ~c >>> 0
+  }
+  const chunk = (type, data) => {
+    const body = Buffer.concat([Buffer.from(type), data])
+    const out = Buffer.alloc(12 + data.length)
+    out.writeUInt32BE(data.length, 0)
+    body.copy(out, 4)
+    out.writeUInt32BE(crc(body), 8 + data.length)
+    return out
+  }
+  const head = Buffer.alloc(13)
+  head.writeUInt32BE(width, 0)
+  head.writeUInt32BE(height, 4)
+  head.set([8, 2, 0, 0, 0], 8)
+  const rows = Buffer.alloc((width * 3 + 1) * height)
+  for (let y = 0; y < height; y++) {
+    const at = y * (width * 3 + 1)
+    for (let x = 0; x < width; x++) rows.set([(hue + x) % 256, (hue * 2 + y) % 256, ((x + y) >> 1) % 256], at + 1 + x * 3)
+  }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', head), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))])
+}
+
 function silentWav(seconds) {
   const rate = 8000
   const samples = rate * seconds
@@ -317,6 +348,15 @@ if (process.env.PANEL_DEV_MEDIA === '1') {
   seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Manual en PDF en la respuesta final', body: 'Cómo subir fotos clínicas desde el teléfono.', created_at: ago(7), assignee_ids: ['u-ana'], attachment_ids: [manual] }, [
     { author_id: 'u-ana', kind: 'answer', body: 'Dejo el manual en PDF y la pantalla.', created_at: ago(1), attachment_ids: [manual, photos[0]] },
   ])
+  // As in production (messages 117 and 123): real PNGs named `image.png`, and the microphone recording, an `audio/webm` that has no duration in its header.
+  const pasted = [0, 1, 2, 3, 4, 5].map((i) => seedAttachment('image', 'image/png', 'image.png', pngCapture(320 + i * 40, 200 + i * 20, 20 + i * 40)))
+  const recording = seedAttachment('audio', 'audio/webm', 'grabacion-1332.webm', readFileSync(new URL('./dev-fixtures/sample-voice.webm', import.meta.url)))
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Tres capturas pegadas', body: 'Tres capturas en PNG, como las pega una persona.', created_at: ago(8), assignee_ids: ['u-ana'], attachment_ids: pasted.slice(0, 3) })
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Cinco capturas y una grabación de voz', body: 'Cinco capturas y la grabación del micrófono.', created_at: ago(9), assignee_ids: ['u-ana'], attachment_ids: [...pasted.slice(0, 5), recording] })
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Seis capturas pegadas', body: 'Seis capturas en PNG, como las pega una persona.', created_at: ago(10), assignee_ids: ['u-ana'], attachment_ids: pasted })
+  // A long thread whose last reply carries a pasted capture (message 117 in production): at phone width that picture is far below the first screen.
+  const filler = Array.from({ length: 12 }, (_, i) => ({ author_id: i % 2 ? 'u-ana' : 'u-diego', kind: 'answer', body: `Respuesta ${i + 1}. ${'Texto de relleno para alargar el hilo y que lo último quede lejos de la primera pantalla. '.repeat(3)}`, created_at: ago(40 - i), attachment_ids: [] }))
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Hilo largo con una captura al final', body: 'Muchas respuestas y una captura pegada en la última.', created_at: ago(41), assignee_ids: ['u-ana'], attachment_ids: [], }, [...filler, { author_id: 'u-ana', kind: 'answer', body: 'La captura de lo que se ve.', created_at: ago(1), attachment_ids: [pasted[2]] }])
   seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Una sola foto', body: 'Un solo medio no lleva carrusel.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [photos[3]] })
 }
 

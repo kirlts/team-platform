@@ -116,7 +116,7 @@ describe('assessment of a message (UD-295)', () => {
 
         const message = (await api(page, '/messages?q=contraste')).items[0]
         await page.goto(`${origin}/messages/${message.id}`)
-        await page.getByRole('button', { name: 'Evaluación' }).click()
+        await page.getByRole('button', { name: 'Detalles' }).click()
         const box = page.getByTestId('assessment')
         await box.waitFor()
         assert.match(await box.innerText(), /Cambiar el color del botón y mostrar el antes y el después\./)
@@ -137,11 +137,10 @@ describe('assessment of a message (UD-295)', () => {
     try {
       const { done_id: doneId } = await panel.control.execution()
       await page.goto(`${origin}/messages/${doneId}`)
-      await page.getByRole('button', { name: 'Tiempos' }).click()
+      await page.getByRole('button', { name: 'Detalles' }).click()
       await page.locator('[data-timing-figure="Modelo"]').waitFor()
       assert.equal((await page.locator('[data-timing-figure="Modelo"]').innerText()).trim(), 'Haiku 5.5')
       assert.match(await page.locator('[data-timing-figure="Costo"]').innerText(), /US\$ 0\.31/)
-      await page.getByRole('button', { name: 'Adecuación' }).click()
       const judgment = page.getByTestId('judgment')
       await judgment.waitFor()
       const axes = judgment.getByTestId('judgment-axis')

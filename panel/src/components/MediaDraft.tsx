@@ -1,5 +1,5 @@
 import { Camera, Link2, Mic, Paperclip, Square, X } from '@/components/icons'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { mmss } from '@/lib/format'
 import { kindFromMime } from '@team-platform/client'
 import type { MediaDraft, MediaProblem } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
+import { canRecord, startRecording, type Recording } from '@/lib/recorder'
 import { Thumb } from './Thumb'
 
 /** A web address that wraps after its separators, so a long one breaks between path segments and not in the middle of a word (J3-B-20). */
@@ -127,26 +128,40 @@ export function LinkRow({ draft }: { draft: MediaDraft }) {
     draft.setLinkOpen(false)
     setValue('')
   }
+  // A div and not a form: this row sits inside the form of a reply or of an edit, and a nested form submits the outer one (the page reloads and loses text and files).
+  const submit = () => {
+    if (!value.trim()) return close()
+    if (draft.addLink(value)) close()
+  }
   return (
-    <form
-      className="border-t border-line px-2 py-1.5"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (!value.trim()) return close()
-        if (draft.addLink(value)) close()
-      }}
-    >
+    <div className="border-t border-line px-2 py-1.5">
       <div className="flex items-center gap-2">
         <label htmlFor="compose-link" className="shrink-0 text-xs font-semibold text-muted">
           {t('media.link')}
         </label>
-        <Input id="compose-link" autoFocus type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
+        <Input
+          id="compose-link"
+          autoFocus
+          type="url"
+          inputMode="url"
+          placeholder="https://"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') close()
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              submit()
+            }
+          }}
+          className="h-8 flex-1"
+        />
         {/* The one control with the weight of an action in the row: the field has its own border only when it has the focus (J3-B-19). */}
-        <Button type="submit" variant="primary" className="h-8">
+        <Button type="button" variant="primary" className="h-8" onClick={submit}>
           {t('media.add')}
         </Button>
       </div>
-    </form>
+    </div>
   )
 }
 
@@ -204,5 +219,52 @@ export function RecordingStatus({ seconds }: { seconds: number }) {
       <span className="h-2.5 w-2.5 rounded-full bg-danger" aria-hidden />
       <span className="tabular-nums">{mmss(seconds)}</span>
     </div>
+  )
+}
+
+/**
+ * «Grabar audio» for a message or a reply that already exists (UD-071, UD-279): records with the microphone and hands the file over when it stops, so it joins
+ * as any other attachment. While it records, the button says «Detener grabación» and the timer is beside it.
+ */
+export function RecordAudioButton({ onRecorded, disabled, onProblem }: { onRecorded: (file: File) => void; disabled?: boolean; onProblem?: (problem: MediaProblem) => void }) {
+  const t = useT()
+  const recorder = useRef<Recording | null>(null)
+  const [seconds, setSeconds] = useState<number | null>(null)
+  useEffect(() => {
+    if (seconds === null) return
+    const tick = setInterval(() => setSeconds((s) => (s === null ? s : s + 1)), 1000)
+    return () => clearInterval(tick)
+  }, [seconds === null])
+  useEffect(() => () => recorder.current?.cancel(), [])
+  const toggle = async () => {
+    if (recorder.current) {
+      const rec = recorder.current
+      recorder.current = null
+      setSeconds(null)
+      try {
+        onRecorded(await rec.stop())
+      } catch {
+        onProblem?.('record')
+      }
+      return
+    }
+    try {
+      recorder.current = await startRecording()
+      setSeconds(0)
+    } catch {
+      onProblem?.('microphone')
+    }
+  }
+  const recording = seconds !== null
+  const available = canRecord()
+  const label = recording ? t('media.stopRecording') : t('media.record')
+  return (
+    <>
+      {recording && <RecordingStatus seconds={seconds} />}
+      <Button type="button" variant="ghost" size="sm" aria-label={label} title={available ? label : t('media.needsHttps')} disabled={disabled || !available} onClick={() => void toggle()} className={cn('px-3', recording && 'text-danger')}>
+        {recording ? <Square size={14} fill="currentColor" aria-hidden /> : <Mic size={16} aria-hidden />}
+        <span>{label}</span>
+      </Button>
+    </>
   )
 }

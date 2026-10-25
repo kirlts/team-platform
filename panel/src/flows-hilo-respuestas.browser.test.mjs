@@ -107,13 +107,9 @@ describe('the thread of replies', () => {
         const imgs = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] img')
         assert.equal(await imgs.count(), 2)
         const [a, b, card] = await Promise.all([imgs.nth(0).boundingBox(), imgs.nth(1).boundingBox(), imgs.nth(0).locator('xpath=ancestor::article').boundingBox()])
-        if (viewport.width > 800) {
-          assert.ok(Math.abs(a.y - b.y) < 2 && b.x > a.x + a.width - 1, 'side by side')
-          assert.ok(a.width >= card.width * 0.4, `each is ${a.width} px of ${card.width}`)
-        } else {
-          assert.ok(b.y > a.y + a.height - 1, 'one under the other')
-          assert.ok(a.width >= card.width * 0.8, `each is ${a.width} px of ${card.width}`)
-        }
+        // UD-309: the thread is the narrow column (at most 28 rem) at every width, so the two images always go one under the other.
+        assert.ok(b.y > a.y + a.height - 1, 'one under the other')
+        assert.ok(a.width >= card.width * 0.8, `each is ${a.width} px of ${card.width}`)
         const text = await page.locator('section[aria-label="Respuestas"]').innerText()
         assert.ok(/ANTES/i.test(text) && /DESPUÉS/i.test(text), 'the short labels')
         assert.ok(!text.includes('.png'), 'no file name')

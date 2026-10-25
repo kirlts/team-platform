@@ -205,7 +205,9 @@ export function MediaGallery({
               data-index={i}
               className="flex w-full shrink-0 snap-center snap-always items-center justify-center"
             >
-              {Math.abs(i - current) <= 1 && <Slide item={it} active={i === current} zoomed={zoomed && i === current} onZoom={setZoomed} cap={MEDIA_MAX[variant]} />}
+              {/* An audio is drawn in every slide: its player costs a row and a request for its header, and a recording that is not next to the current one would
+                  otherwise have no element at all until it was reached. */}
+              {(Math.abs(i - current) <= 1 || it.kind === 'audio') && <Slide item={it} active={i === current} near={Math.abs(i - current) <= 1} zoomed={zoomed && i === current} onZoom={setZoomed} cap={MEDIA_MAX[variant]} />}
             </div>
           ))}
         </div>
@@ -221,7 +223,7 @@ export function MediaGallery({
         {/* One line always: the name is the part that gives way, with an ellipsis. It and the counter are announced when the medium changes. */}
         <p aria-live="polite" data-gallery-caption className="flex min-w-0 flex-1 items-baseline gap-1 whitespace-nowrap text-muted">
           <span className="shrink-0 font-semibold text-fg">{t(MEDIA_KEY[item.kind])}</span>
-          {item.name && item.kind !== 'link' && <span className="min-w-0 truncate" title={item.name}>{`· ${item.name}`}</span>}
+          {item.name && item.kind !== 'link' && <span className="min-w-0 truncate" title={item.name}>{`· ${item.name}`}</span>} {/* justified: the footer of the viewer is one line (V5) and the whole name is its title */}
           {item.size ? <span className="shrink-0">{`· ${format.fileSize(item.size)}`}</span> : null}
           {total > 1 && <span className="ml-1 shrink-0 font-semibold tabular-nums text-fg" data-gallery-count>{t('gallery.count', { n: current + 1, total })}</span>}
         </p>
@@ -244,7 +246,7 @@ export function MediaGallery({
                   aria-label={t('gallery.item', { n: i + 1, total, name: it.name ?? t(MEDIA_KEY[it.kind]) })}
                   onClick={() => select(i, { smooth: Math.abs(i - current) === 1 })}
                   // The selected one carries a thicker frame and a bar under it, so it does not depend on color alone.
-                  className={cn('relative block rounded-md p-0.5', on ? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'hover:bg-hover')}
+                  className={cn('relative block h-[52px] w-[52px] rounded-md p-0.5', on ? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'hover:bg-hover')}
                 >
                   <Thumb item={{ kind: it.kind, src: it.src, name: it.name, size: it.size }} px={48} />
                   {on && <span aria-hidden className="absolute inset-x-1.5 -bottom-1 h-[3px] rounded-full bg-accent" />}
@@ -274,7 +276,7 @@ export function AddTile({ onAdd, busy = false }: { onAdd: () => void; busy?: boo
       title={t('published.addFiles')}
       disabled={busy}
       onClick={onAdd}
-      className="hit flex h-full min-h-[3.25rem] w-[3.25rem] items-center justify-center rounded-md border border-dashed border-line-strong text-muted hover:bg-hover hover:text-accent disabled:opacity-50"
+      className="hit flex h-[52px] w-[52px] items-center justify-center rounded-md border border-dashed border-line-strong text-muted hover:bg-hover hover:text-accent disabled:opacity-50"
     >
       <Plus size={18} aria-hidden />
     </button>
@@ -302,7 +304,7 @@ function Arrow({ dir, disabled, onClick }: { dir: 1 | -1; disabled: boolean; onC
 }
 
 /** The content of one slide, by kind of medium. */
-function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; active: boolean; zoomed: boolean; onZoom: (z: boolean) => void; cap: string }) {
+function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem; active: boolean; near: boolean; zoomed: boolean; onZoom: (z: boolean) => void; cap: string }) {
   const t = useT()
   const name = item.name ?? t(MEDIA_KEY[item.kind])
   // A failed file is retried by drawing it again with a new key.
@@ -384,7 +386,8 @@ function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; activ
           key={attempt}
           src={item.src}
           alt={name}
-          loading="lazy"
+          // Only the current slide and its neighbors are drawn: a lazy image inside a horizontal scroller waits for the swipe to reveal it and stays at 0 px until then.
+          loading="eager"
           decoding="async"
           draggable={false}
           onLoad={() => {
@@ -432,9 +435,10 @@ function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; activ
   }
 
   if (item.kind === 'audio' && item.src) {
+    // The side margins clear the arrows (40 px at 8 px from the edge): over the player they intercept the touch on «Reproducir».
     return (
-      <div className="flex w-full min-w-0 flex-col gap-2 p-3">
-        <AudioPlayer key={attempt} src={item.src} name={name} onError={wait} onReady={() => setState('ready')} />
+      <div className="flex w-full min-w-0 flex-col gap-2 px-14 py-4">
+        <AudioPlayer key={attempt} src={item.src} name={name} preload={near ? 'metadata' : 'none'} onError={wait} onReady={() => setState('ready')} />
         {active && item.transcriptSrc && <Transcript src={item.transcriptSrc} />}
       </div>
     )
@@ -457,10 +461,12 @@ function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; activ
     )
   }
 
-  // Document: the browser cannot draw its first page here (a file is served with a policy that forbids embedding), so the viewer names it.
+  // Document: a PDF shows its first page in a frame (the server lets its own site frame it); any other document is named.
+  const isPdf = !!item.src && /\.pdf$/i.test(item.name ?? '')
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 px-4 py-3 text-center">
-      <FileText size={24} aria-hidden className="text-accent-deep" />
+      {isPdf && <iframe src={item.src} title={name} loading="eager" className={cn('w-full rounded-md border border-line bg-surface', 'h-[60dvh]')} />}
+      {!isPdf && <FileText size={24} aria-hidden className="text-accent-deep" />}
       <p className="text-sm font-semibold [overflow-wrap:anywhere]">{name}</p>
       {item.src && (
         <Button asChild size="sm">

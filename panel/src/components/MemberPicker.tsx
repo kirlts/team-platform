@@ -13,6 +13,7 @@ export function MemberPicker({
   hiddenCount = 0,
   label,
   shortLabel,
+  compact = false,
 }: {
   members: Member[]
   selected: string[]
@@ -21,6 +22,8 @@ export function MemberPicker({
   /** Accessible name and visible short word of the button, when it is not about recipients (the mention of a reply, UD-279). */
   label?: string
   shortLabel?: string
+  /** One row of 24 px: the button of the header of a message. */
+  compact?: boolean
 }) {
   const t = useT()
   const [search, setSearch] = useState('')
@@ -33,11 +36,11 @@ export function MemberPicker({
           type="button"
           aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
           title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
-          className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-3 text-sm font-semibold text-muted hover:bg-hover hover:text-accent pointer-coarse:min-h-11"
+          className={`hit inline-flex items-center justify-center gap-1 rounded-full font-semibold text-muted hover:bg-hover hover:text-accent ${compact ? 'min-h-6 px-1.5 text-xs' : 'min-h-8 px-3 text-sm pointer-coarse:min-h-11'}`}
         >
           {hiddenCount > 0 ? `+${hiddenCount}` : (
             <>
-              <Plus size={16} aria-hidden /> {shortLabel ?? t('recipients.addShort')}
+              <Plus size={compact ? 14 : 16} aria-hidden /> {shortLabel ?? t('recipients.addShort')}
             </>
           )}
         </button>

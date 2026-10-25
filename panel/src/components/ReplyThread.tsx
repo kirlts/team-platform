@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronDown, Trash2 } from '@/components/icons'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -116,12 +115,6 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
 
   return (
     <section aria-label={t('replies.title')} className="flex min-h-0 flex-1 flex-col gap-3 md:flex-initial">
-      <div className="flex items-center gap-2">
-        <h2>{t('replies.title')}</h2>
-        <Badge tone="neutral" className="tabular-nums">
-          {shown.length}
-        </Badge>
-      </div>
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>
       ) : (

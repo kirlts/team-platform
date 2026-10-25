@@ -1,7 +1,7 @@
 import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { SpanTree } from '@/components/TraceTree'
-import { EXECUTE_MODELS, TeamApiError } from '@team-platform/client'
+import { EXECUTE_MODELS, TeamApiError, type MessageTiming } from '@team-platform/client'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { useMessageTiming } from '@team-platform/client/react'
 
@@ -30,7 +30,15 @@ export function Timing({ messageId, assigneeIds }: { messageId: string; assignee
   )
 }
 
-function TimingBody({ messageId }: { messageId: string }) {
+const STATES = ['queued', 'running', 'done', 'failed']
+
+/** Whether the times of a message have anything to show: a figure, a run in progress, phases, slow steps or the tree. */
+export function hasTiming(d: MessageTiming | undefined): boolean {
+  if (!d) return false
+  return STATES.includes(d.job_status) || [d.first_reply_ms, d.final_reply_ms, d.total_ms, d.queue_wait_ms].some((v) => v !== null) || !!d.model || typeof d.cost_usd === 'number' || d.job_status === 'running' || d.phases.length > 0 || d.slowest.length > 0 || !!d.tree
+}
+
+export function TimingBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
@@ -40,18 +48,20 @@ function TimingBody({ messageId }: { messageId: string }) {
     return <p className={none ? 'text-sm text-muted' : 'break-words text-sm text-danger'}>{none ? t('timing.none') : errorText(timing.error)}</p>
   }
   const d = timing.data
-  const figures: [string, string][] = [
-    [t('timing.firstReply'), d.first_reply_ms === null ? '—' : seconds(d.first_reply_ms)],
-    [t('timing.finalReply'), d.final_reply_ms === null ? '—' : seconds(d.final_reply_ms)],
-    [t('timing.total'), d.total_ms === null ? '—' : seconds(d.total_ms)],
-    [t('timing.wait'), d.queue_wait_ms === null ? '—' : seconds(d.queue_wait_ms)],
+  // Only the figures that exist: a dash is a placeholder, and «Detalles» shows what has data.
+  const figures = ([
+    [t('timing.firstReply'), d.first_reply_ms === null ? null : seconds(d.first_reply_ms)],
+    [t('timing.finalReply'), d.final_reply_ms === null ? null : seconds(d.final_reply_ms)],
+    [t('timing.total'), d.total_ms === null ? null : seconds(d.total_ms)],
+    [t('timing.wait'), d.queue_wait_ms === null ? null : seconds(d.queue_wait_ms)],
     // UD-295: the model of the session and what it has cost.
-    [t('timing.model'), d.model ? (EXECUTE_MODELS.find((m) => m.id === d.model)?.label ?? d.model) : '—'],
-    [t('timing.cost'), typeof d.cost_usd === 'number' ? `US$ ${d.cost_usd.toFixed(2)}` : '—'],
-  ]
+    [t('timing.model'), d.model ? (EXECUTE_MODELS.find((m) => m.id === d.model)?.label ?? d.model) : null],
+    [t('timing.cost'), typeof d.cost_usd === 'number' ? `US$ ${d.cost_usd.toFixed(2)}` : null],
+    [t('timing.state'), STATES.includes(d.job_status) ? t(`timing.state.${d.job_status}` as MessageKey) : null],
+  ] as [string, string | null][]).filter((f): f is [string, string] => f[1] !== null)
   return (
     <div className="flex flex-col gap-3 text-sm">
-      <dl className="flex flex-wrap gap-x-5 gap-y-0.5">
+      {figures.length > 0 && <dl className="flex flex-wrap gap-x-5 gap-y-0.5">
         {figures.map(([label, value]) => (
           <div key={label} className="flex items-baseline gap-1.5">
             <dt className="text-muted">{label}</dt>
@@ -60,7 +70,7 @@ function TimingBody({ messageId }: { messageId: string }) {
             </dd>
           </div>
         ))}
-      </dl>
+      </dl>}
       {d.job_status === 'running' && (
         <p data-timing-running className="tabular-nums text-muted">
           {d.phase ? t(`timing.phase.${d.phase}` as MessageKey) : t('timing.running')}
@@ -93,7 +103,7 @@ function TimingBody({ messageId }: { messageId: string }) {
 }
 
 /** «Detalle técnico» (UD-276): what the agent returned besides its summary (result, zone, cause, verification, branch, files) and the reference of its delivery. The reply of the thread does not carry it. */
-function DetailBody({ messageId }: { messageId: string }) {
+export function DetailBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
@@ -118,7 +128,7 @@ function DetailBody({ messageId }: { messageId: string }) {
  * «Adecuación» (UD-295): the IMK judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
  * each with the quote that supports it. It answers how adequate what the model did was, which is what says whether the light model was enough.
  */
-function JudgmentBody({ messageId }: { messageId: string }) {
+export function JudgmentBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)

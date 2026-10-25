@@ -104,7 +104,7 @@ describe('deleting a reply (H-3701)', () => {
     try {
       await openFromList(page, 'Agregar exportación')
       const thread = page.locator('section[aria-label="Respuestas"]')
-      const count = thread.locator('h2 + span')
+      const count = page.getByTestId('reply-count').locator('span').last() // the counter sits next to the title (V4)
       assert.equal(await count.innerText(), '2')
       const diegoRow = thread.locator('article', { hasText: 'CSV alcanza.' })
       await diegoRow.waitFor()

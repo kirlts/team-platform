@@ -24,7 +24,7 @@ export function hasAssessment(message: MessageDetail, guards: Guard[], template?
   return !!a && (!!a.expectation || !!a.estimates || guards.length > 0 || retiredValues(message.fields, parseTemplateFields(template?.body_markdown ?? '')).length > 0)
 }
 
-export function Assessment({ message, template, bare = false }: { message: MessageDetail; template?: Template; /** Without its own fold: «Detalles» holds it (UD-308). */ bare?: boolean }) {
+export function Assessment({ message, template, bare = false }: { message: MessageDetail; template?: Template; /** Without its own fold: «Detalles» holds it (UD-309). */ bare?: boolean }) {
   const t = useT()
   const me = useMe().data
   const set = useSetAssessment()

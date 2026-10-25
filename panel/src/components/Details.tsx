@@ -8,7 +8,7 @@ import { DetailBody, JudgmentBody, TimingBody } from '@/components/Timing'
 import { useT } from '@/i18n'
 
 /**
- * «Detalles» of a message (UD-308): the one fold that holds what the analysis and the agent say about it (the observations of a video, the
+ * «Detalles» of a message (UD-309): the one fold that holds what the analysis and the agent say about it (the observations of a video, the
  * evaluation, the times, the technical detail and the adequacy of the work). Each part is drawn only when it has something to say; with none,
  * the fold is not drawn either. The parts are named inside, never folds of their own: one level is hidden, never two.
  */

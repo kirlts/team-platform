@@ -1,4 +1,4 @@
-// UD-308: the sheet of a message puts the actions and the reply count on the title row, drops the «IA» mark, holds the analysis in one «Detalles» fold,
+// UD-309: the sheet of a message puts the actions and the reply count on the title row, drops the «IA» mark, holds the analysis in one «Detalles» fold,
 // makes the thread the narrow column and uses the width of the window. Each test runs in a real browser against dev-server.mjs:
 // `PANEL_FLOWS_PORT=… node --test src/flows-vista-del-mensaje.browser.test.mjs`.
 import assert from 'node:assert'
@@ -42,7 +42,7 @@ async function open(viewport, scheme, path) {
 
 const box = async (locator) => (await locator.first().boundingBox()) ?? assert.fail('the element has no box')
 
-describe('the sheet of a message (UD-308)', () => {
+describe('the sheet of a message (UD-309)', () => {
   for (const [width, height] of [[1920, 1080], [1440, 900], [390, 844]]) {
     for (const scheme of ['light', 'dark']) {
       test(`${width}x${height}, ${scheme}: actions and count on the title row, no «IA», no folds apart`, async () => {

@@ -5,7 +5,7 @@ import { useT } from '@/i18n'
  * What a video frame shows and nobody says in voice or text (the analyzer's `observed`). It sits outside the body
  * of the message, folded by default, one observation per line; nothing is drawn when there is none.
  */
-export function Observed({ items, bare = false }: { items?: string[] | null; /** Only the list: «Detalles» holds it (UD-308). */ bare?: boolean }) {
+export function Observed({ items, bare = false }: { items?: string[] | null; /** Only the list: «Detalles» holds it (UD-309). */ bare?: boolean }) {
   const t = useT()
   if (!items?.length) return null
   if (bare)

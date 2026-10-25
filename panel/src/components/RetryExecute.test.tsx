@@ -120,12 +120,11 @@ describe('Reintentar answers at the click (UD-290)', () => {
     act(() => store.progress({ job_id: '7', percent: 40, phrase: 'Leyendo el hilo' }))
     expect((await screen.findByTestId('retrying-phrase')).textContent).toBe('Leyendo el hilo')
   })
-  it('a notice replaced by a retry that already ended is not drawn', async () => {
+  it('a notice replaced by a retry that already ended stays in the thread (UD-296)', async () => {
     const m = thread(false) as unknown as { replies: Array<Record<string, unknown>> }
     Object.assign(m.replies[0], { replaced_by_job_id: '7', retrying: false })
     render(<Mount><ReplyThread message={m as unknown as MessageDetail} /></Mount>)
-    await screen.findByLabelText('Respuestas')
-    expect(screen.queryByText(/no pudo responder/)).toBeNull()
+    await screen.findByText(/no pudo responder/)
     expect(screen.queryByTestId('retrying')).toBeNull()
   })
   it('when the server refuses, the notice comes back with the reason and the button', async () => {
@@ -138,5 +137,27 @@ describe('Reintentar answers at the click (UD-290)', () => {
     expect(screen.getByTestId('retry-execute')).toBeTruthy()
     expect(screen.queryByTestId('retrying')).toBeNull()
     refuse = false
+  })
+})
+
+describe('every reply of the thread is drawn, in order (UD-296, message 117)', () => {
+  // The exact sequence of message 117 in production: the last reply, a failure notice that a retry had replaced and that failed again without a notice of its own, was left out.
+  const kinds = ['forward', 'clarification', 'answer', 'clarification', 'answer', 'answer', 'answer', 'answer', 'clarification']
+  const bodies = ['Reenvío.', 'Aviso uno.', 'Respuesta dos.', 'Aclaración tres.', 'Respuesta cuatro.', 'Respuesta cinco.', 'Respuesta seis.', 'Respuesta siete.', 'El cambio no pasó la verificación y todavía no está en producción.']
+  const m117 = {
+    id: 'm1', area_id: 'a1', author_id: '2', title: 't', body: 'b', status: 'open', created_at: '2026-10-24T12:00:00Z', updated_at: '2026-10-24T12:00:00Z', assignee_ids: ['1'], attachments: [], reply_count: 9,
+    replies: kinds.map((kind, i) => ({
+      id: String(112 + i), message_id: 'm1', author_id: i % 2 === 0 ? '1' : '3', body: bodies[i], kind, created_at: `2026-10-25T0${i}:00:00Z`, retryable: false,
+      ...(i === 8 ? { failed_job_id: '160', replaced_by_job_id: '160', retrying: false } : { replaced_by_job_id: null, retrying: false }),
+      ...(kind === 'forward' ? { forwarded_to: '3' } : {}),
+    })),
+  } as unknown as MessageDetail
+  it('draws the nine replies, the count says nine and the last one is the notice that a retry had replaced', async () => {
+    render(<Mount><ReplyThread message={m117} /></Mount>)
+    expect(await screen.findByText(bodies[8]!)).toBeTruthy()
+    expect(screen.getByLabelText('Respuestas').querySelector('.tabular-nums')?.textContent).toBe('9')
+    fireEvent.click(screen.getByRole('button', { name: /más|ocultas|respuestas/i }))
+    const drawn = screen.getAllByRole('listitem').map((li) => bodies.findIndex((b) => li.textContent?.includes(b))).filter((i) => i >= 0)
+    expect(drawn).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
   })
 })

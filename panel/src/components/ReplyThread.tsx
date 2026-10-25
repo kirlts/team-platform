@@ -56,9 +56,10 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   /** The reply just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
   const [removed, setRemoved] = useState<{ reply: Reply; index: number; mark: number } | null>(null)
   const showRemoved = removed && removed.reply.message_id === message.id && undo.undoCount === removed.mark
-  const shown = useMemo(() => message.replies.filter((x) => !(x.replaced_by_job_id && !x.retrying)), [message.replies])
+  // Every reply of the thread is drawn, in order (UD-296): a notice that a retry replaced stays once that job ended, as a previous attempt does in a pipeline.
+  // Hiding it assumed the retry always left a notice of its own, and a delivery that failed the same way left none: the last reply of message 117 vanished.
+  const shown = message.replies
   const rows = useMemo<ReplyItem[]>(() => {
-    // A notice that a retry replaced is not drawn once that job ended: its answer, or a new notice with its reason, is in the thread (UD-290).
     const items: ReplyItem[] = shown.map((reply) => ({ kind: 'reply', reply }))
     if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', reply: removed.reply })
     // A progress notice goes after the last row that is older than it: replies keep their order and the notice lands between them (UD-293).

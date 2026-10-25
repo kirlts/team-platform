@@ -149,7 +149,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         <Avatar name={member.name} size={32} />
         <div className="min-w-0 flex-1">
           <div className="flex h-6 min-w-0 items-center gap-2">
-            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`${ONE_LINE} text-[15px] font-semibold leading-snug ${member.active ? '' : 'text-muted'}`} className="block min-w-0 shrink" />
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`${ONE_LINE} text-sm font-semibold leading-snug ${member.active ? '' : 'text-muted'}`} className="block min-w-0 shrink" />
             {member.role === 'editor' && (
               <Badge tone="accent" className="shrink-0" title={roleHint.editor}>
                 {roleLabel.editor}
@@ -161,7 +161,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           </div>
           {/* Each line has a fixed height: editing the name or the address in place does not move the row by a pixel. */}
           <div className="h-5">
-            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName={`${ONE_LINE} text-[13px] leading-snug text-muted`} className="block" />
+            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName={`${ONE_LINE} text-xs leading-snug text-muted`} className="block" />
           </div>
         </div>
       </div>
@@ -260,8 +260,8 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
             <div className="flex items-center gap-3">
               <Avatar name={member.name} size={36} />
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold leading-snug break-words">{member.name}</p>
-                <p className="text-[13px] leading-snug text-muted break-words">{member.email}</p>
+                <p className="text-sm font-semibold leading-snug break-words">{member.name}</p>
+                <p className="text-xs leading-snug text-muted break-words">{member.email}</p>
               </div>
             </div>
             <EditableText value={profile} label={t('team.profileOf', { name: member.name })} canEdit={canEditProfile} multiline prose placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} displayClassName="text-sm" />

@@ -85,16 +85,15 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   /**
-   * How many jobs of a kind may run at once, for the kinds that hold a lane. `deliver` is one: two deliveries to production at the same time collide
-   * («lo servido no es un antecesor de este árbol», three messages with the same fix, 2026-10-23). `execute` leaves two slots of the worker to the analysis:
-   * sessions last up to an hour and, with the eight slots taken, the analysis of every new input waited behind them.
+   * How many jobs of a kind may run at once, for the kinds that hold a lane. `deliver` is the only one: two deliveries to production at the same time collide
+   * («lo servido no es un antecesor de este árbol», three messages with the same fix, 2026-10-23). `execute` has no lane (UD-304): the sessions run on the
+   * machines of the host and the worker only waits for them, so what holds a new one is the spending of the day and the capacity the host reports (exit 75).
    */
   function lanes () {
     const x = config.execute
     if (!x) return {}
     return {
-      deliver: x.deliverConcurrency,
-      execute: x.concurrency > 0 ? x.concurrency : Math.max(1, w.concurrency - 2)
+      deliver: x.deliverConcurrency
     }
   }
 
@@ -107,7 +106,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
    * anybody's following one, and the ties of a turn keep the old order: priority, run_at, id. The attempt count of
    * the returned row is the attempt in progress.
    */
-  function claim (workerId, leaseMs = w.leaseMs, { running = null } = {}) {
+  function claim (workerId, leaseMs = w.leaseMs, { running = null, only = null } = {}) {
     const t = now()
     return tx(db, () => {
       // Recovering first keeps the claim a pure `queued` query (MS §7.3).
@@ -116,6 +115,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       const caps = lanes()
       const busy = Object.fromEntries(all(db, "SELECT kind, COUNT(*) AS n FROM jobs WHERE status = 'running' AND kind IN ('execute', 'deliver') GROUP BY kind").map((r) => [r.kind, r.n]))
       const full = Object.keys(caps).filter((kind) => (busy[kind] ?? 0) >= caps[kind])
+      // `only`: the kinds that may be claimed now (the worker has no free slot for the others, UD-304).
       const dbRow = get(db, `
         UPDATE jobs
            SET status = 'running', worker_id = ?, lease_until = ?, attempts = attempts + 1
@@ -125,10 +125,10 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
                               + (SELECT COUNT(*) FROM jobs r JOIN inputs ri ON ri.id = r.input_id
                                   WHERE r.status = 'running' AND ri.author_id = i.author_id) AS turn
                          FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id
-                        WHERE j.status = 'queued' AND j.run_at <= ?${full.length ? ` AND j.kind NOT IN (${full.map(() => '?').join(', ')})` : ''})
+                        WHERE j.status = 'queued' AND j.run_at <= ?${full.length ? ` AND j.kind NOT IN (${full.map(() => '?').join(', ')})` : ''}${only ? ` AND j.kind IN (${only.map(() => '?').join(', ')})` : ''})
                       ORDER BY turn, priority DESC, run_at, id
                       LIMIT 1)
-        RETURNING *`, workerId, t + leaseMs, t, ...full)
+        RETURNING *`, workerId, t + leaseMs, t, ...full, ...(only ?? []))
       return dbRow ?? null
     })
   }

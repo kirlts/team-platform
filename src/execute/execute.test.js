@@ -512,18 +512,17 @@ describe('execute job', () => {
       assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
     })
 
-    it('EXECUTE_MAX_MACHINES holds the second job until the first one frees its machine', async () => {
+    it('no count of machines holds the second job: both sessions run at once (UD-304)', async () => {
       process.env.FAKE_EXECUTE_REPLY = '0'
-      startWorker(machine({ maxMachines: 1, capacityWaitMs: 200, machineRun: `echo run {machine} >> ${log}; sleep 4; bash {workdir}/run.sh` }))
+      startWorker(machine({ machineRun: `echo run {machine} >> ${log}; sleep 2; bash {workdir}/run.sh` }))
       const first = await publishedMessage('Primer arreglo para la máquina.')
       const second = await publishedMessage('Segundo arreglo para la máquina.')
       const ids = [first, second].map((m) => env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ?").get(m).id)
       const done = await Promise.all(ids.map((i) => waitJob(i)))
       assert.deepEqual(done.map((j) => j.status), ['done', 'done'])
       const order = lines().filter((l) => /^(create \d+|destroy vm-\d+)$/.test(l)).map((l) => l.split(' ')[0])
-      assert.deepEqual(order, ['create', 'destroy', 'create', 'destroy'], 'one machine at a time')
-      const phrases = eventsOf(ids[1]).filter((e) => e.kind === 'progress').map((e) => e.phrase)
-      assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
+      assert.deepEqual(order.slice(0, 2), ['create', 'create'], 'the second machine is created while the first session still runs')
+      for (const id of ids) assert.ok(!eventsOf(id).some((e) => e.kind === 'progress' && e.phrase === 'En espera: máquina disponible'), 'neither waited')
     })
 
     it('a host that refuses with 75 and says its quota leaves the thread a row with the quota in words (UD-303)', async () => {

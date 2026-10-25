@@ -461,7 +461,6 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
 | `EXECUTE_DELIVER_COMMAND` | Opcional. Orden de shell que entrega la rama a producción después de `execute`, sin IA (ver «La entrega aparte») |
 | `EXECUTE_DELIVER_TIMEOUT_MS` | Plazo de esa orden (omisión 900000) |
-| `EXECUTE_CONCURRENCY` | Sesiones a la vez. 0 (omisión) es `QUEUE_CONCURRENCY` menos dos: el análisis de un envío nuevo siempre tiene dos lugares |
 | `EXECUTE_DELIVER_CONCURRENCY` | Entregas a producción a la vez (omisión 1): dos a la vez chocan sobre el mismo `main` |
 | `EXECUTE_INFRA_RETRY_WAIT_MS` | Espera antes del segundo intento de un trabajo que falló por infraestructura: máquina que no se crea, sesión que muere sin resultado, servicio del modelo con 429 o 5xx (omisión 30000). El segundo fallo pasa el mensaje a una persona |
 | `EXECUTE_DELIVER_CHECK_COMMAND` | Orden de shell que corre antes de la entrega, con `{message_id}`, `{job_id}` y `{branch}`; vacía por omisión. Código 0 = la rama ya está en producción (última línea de stdout: la referencia) y la orden de entrega no corre (UD-296). Cualquier otro código, el plazo (60 s) o un error: se entrega como siempre |
@@ -469,7 +468,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_DELIVER_MAX_ATTEMPTS` | Intentos del trabajo de entrega (omisión 2); el código 75 no gasta ninguno |
 | `INSTANCE_NAME` | Nombre de la instancia en cada fila del historial (omisión: el host de `PUBLIC_URL`, o `local`) |
 
-Capacidad de la máquina. Si `EXECUTE_MACHINE_CREATE` termina con código 75 (`EX_TEMPFAIL`), el anfitrión dice que ahora no hay capacidad (cuota de núcleos, ninguna máquina libre): el trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a intentar sin gastar su intento ni costo. `EXECUTE_MAX_MACHINES` fija cuántas máquinas vivas tiene a la vez este proceso (0 sin tope); con una cuota de 8 núcleos y máquinas de 4, el valor es 2. Cualquier otro código sigue siendo un fallo permanente.
+Capacidad de la máquina. Si `EXECUTE_MACHINE_CREATE` termina con código 75 (`EX_TEMPFAIL`), el anfitrión dice que ahora no hay capacidad (cuota de núcleos, ninguna máquina libre): el trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a intentar sin gastar su intento ni costo. No hay un número de máquinas ni de sesiones simultáneas (UD-304): el anfitrión crea otra máquina o dice 75, y sólo el presupuesto diario detiene un trabajo nuevo. Con 75 el anfitrión puede agregar a su error estándar la línea `##team quota machines=<N>` (las máquinas que su cuota admitió); el hilo la dice («la cuota de Google admite N máquinas»). Cuando un trabajo recibe 75, los siguientes de ese ciclo reciben la misma respuesta sin que el trabajador corra ningún guion, y una sesión que termina reabre la consulta. Cualquier otro código sigue siendo un fallo permanente.
 
 Con `local`, la máquina de Team Platform necesita `claude` instalado y autenticado. En la imagen de Docker eso es lo mismo que el analizador `harness` (sección «Analizador `harness` en el contenedor»).
 

@@ -552,7 +552,7 @@ claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <m�
 | `EXECUTE_EFFORT` | `medium` |
 | `EXECUTE_MAX_BUDGET_USD` | 10 |
 | `EXECUTE_DAILY_BUDGET_USD` | 10 |
-| `EXECUTE_MAX_MACHINES`, `EXECUTE_CAPACITY_WAIT_MS` | 0 (sin tope), 30000 | Máquinas vivas a la vez en este proceso y espera antes de buscar otra. Con `EXECUTE_MACHINE_CREATE` saliendo con 75 el trabajo espera sin gastar intento. 2026-10-22: una cuota de 8 núcleos hizo fallar 21 trabajos de 23 porque cada uno intentó su propia máquina |
+| `EXECUTE_CAPACITY_WAIT_MS` | 30000 | Espera antes de buscar otra máquina (UD-304: no hay tope de máquinas ni de sesiones simultáneas). Con `EXECUTE_MACHINE_CREATE` saliendo con 75 el trabajo espera sin gastar intento. 2026-10-22: una cuota de 8 núcleos hizo fallar 21 trabajos de 23 porque cada uno intentó su propia máquina |
 | `EXECUTE_MACHINE_COST_USD` | 0 |
 | `EXECUTE_MAX_TURNS` | 60 |
 | `EXECUTE_MAX_SUBAGENTS` | 3 |

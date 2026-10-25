@@ -1531,3 +1531,13 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Mover la reserva de gasto en esta decisión: es otro cambio, con su propia medición (la reserva de 10 USD es el valor por omisión de UD-255, no una medición, y los trabajos terminados costaron entre 0,48 y 1,87 USD).
 **Consecuencias:** `src/domain/progress-notes.js`, `src/domain/pipeline.js` (`Deferred` lleva `reason`), `src/worker.js`, `src/execute/handler.js`. Pruebas en `src/execute/progress-notices.test.js` (arranque, espera con N, cierre de la espera, motivo en el log, textos).
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-304] Ningún número elegido limita cuántas sesiones de Claude corren a la vez
+**Fecha:** 2026-10-25
+**Contexto:** Martín, 13:4x, al ver que dos de seis mensajes esperaban: «no entiendo por qué hay un tope de cuántos Claudes pueden correr si se supone que esto tiene un tope máximo de plata; no tiene sentido que limitemos cuántos Claudes desatendidos pueden haber». Medido en producción (`docs/investigaciones/mediciones/2026-10-25-por-que-esperan-los-trabajos.md`): `EXECUTE_MAX_MACHINES` 6 y `QUEUE_CONCURRENCY` 12 (de ahí 10 sesiones) no retenían nada; retenía el gasto reservado por las sesiones en curso. El 6 salía de la memoria del anfitrión por conexión remota (175 MB cada una) y el 2 anterior, de una cuota de núcleos que ya no gobierna con la máquina compartida.
+**Decisión:** (1) Se quitan `EXECUTE_MAX_MACHINES` y `EXECUTE_CONCURRENCY`, y un trabajo `execute` no ocupa un lugar de `QUEUE_CONCURRENCY` (la sesión corre en una máquina; el trabajador sólo la espera). (2) Lo único que detiene un trabajo nuevo es el presupuesto diario (`EXECUTE_DAILY_BUDGET_USD`, con la reserva de lo que los trabajos vivos pueden todavía gastar) y, como límite externo, la capacidad que el anfitrión declara con el código 75 al crear la máquina; el hilo la dice con las palabras de la cuota de Google cuando el anfitrión informa cuántas máquinas admitió. (3) Las entregas a producción conservan su carril de uno: es un orden (dos entregas chocan en el mismo `main`), no un tope de sesiones.
+**Alternativas descartadas:**
+- Subir el número (de 6 a otro): sigue siendo un número elegido, y la plata ya acota.
+- Contar las sesiones vivas con un guion por sesión: multiplica procesos en la máquina de producción (compuerta de UD-301).
+**Consecuencias:** `src/config.js`, `src/queue/index.js`, `src/worker.js`, `src/execute/handler.js`, `plataforma/docker-compose.yml` del anfitrión. Un trabajo `local` (sin máquinas) tampoco tiene tope: es para anfitriones chicos o pruebas. Pruebas en `src/queue/caza.test.js` y `src/execute/execute.test.js`.
+**Condiciones de reversión:** Las fija Martín.

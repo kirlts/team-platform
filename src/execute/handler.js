@@ -306,7 +306,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
   // What each session that runs now may still spend: `--max-budget-usd` of its invocation. The day's cost counts a job only when its result arrives, so
   // eight sessions that start together each saw the whole remainder and could spend eight times the day's cap (UD-256).
-  const liveMachines = new Set() // the jobs of this process that hold a machine; EXECUTE_MAX_MACHINES bounds it
   const reserved = new Map()
   const creationGate = createCreationGate({ waitMs: x.capacityWaitMs, now }) // UD-303: the creation of machines, one at a time, and no script while the host has just said no
 
@@ -431,13 +430,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // A previous attempt found that the binary does not know the flag of the system prompt: this one carries the whole prompt in the message (payload `no_stable_system`).
     const stable = x.stableAsSystem && payload.no_stable_system !== true
     const prompt = stable ? parts.variable : buildExecutePrompt(promptInput)
-    // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
-    // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
-    // The slot is taken in the same tick as the check: two jobs that start together cannot both pass it. `run` releases it on any exit.
-    if (x.runner === 'machine') {
-      if (x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'), { code: 'machines', limit: x.maxMachines, live: liveMachines.size })
-      liveMachines.add(job.id)
-    }
+    // No count of live machines bounds the jobs here (UD-304): the host creates another machine or, when its quota or its stock say no, exits 75 and the job waits.
     // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
     const budget = dailyBudget(db, x, now())
     if (budget.remaining <= 0) {
@@ -499,7 +492,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
     })
     let outcome
-    if (x.runner === 'machine') liveMachines.add(job.id)
     try {
       // After `dirs` exists: the file goes in the job directory (inside the `try`: a full disk here must still remove the directory).
       if (stable) {
@@ -511,7 +503,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         'team.runner': x.runner, 'team.model': model, 'team.estimates': estimates ? JSON.stringify(estimates) : '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
-        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
+        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
@@ -561,7 +553,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return { r, st, result, captured, documents }
       })
     } finally {
-      liveMachines.delete(job.id)
       await cleanup(dirs)
     }
     ctx.signal.throwIfAborted()
@@ -842,7 +833,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         rec.error = error
         throw error
       } finally {
-        liveMachines.delete(job.id)
         reserved.delete(job.id)
         creationGate.open() // a session ended: its capacity may be back, so the next job asks the host again (an event, not a clock)
         if (rec.began) saveRun(job, ctx, rec)

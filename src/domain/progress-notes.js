@@ -84,7 +84,6 @@ const EVENT_TEXTS = {
   'es-419': {
     started: (name) => `${name} empezó a trabajar`,
     ahead: (n, name) => (n === 0 ? 'En espera: este trabajo es el siguiente' : `En espera: ${plural(n, 'trabajo', 'trabajos')} de ${name} delante`),
-    machines: (r) => `Motivo: ${r.limit === 1 ? 'la máquina de trabajo está' : `las ${r.limit} máquinas de trabajo están`} en uso.`,
     budget_reserved: () => 'Motivo: las sesiones en curso tienen reservado el gasto que queda hoy.',
     capacity: (r) => (r.quota_machines > 0 ? `Motivo: la cuota de Google admite ${plural(r.quota_machines, 'máquina', 'máquinas')} y no queda espacio en ellas.` : 'Motivo: no hay una máquina de trabajo libre ahora.'),
     waited: (minutes) => `Estuvo en espera ${minutes} min`
@@ -92,7 +91,6 @@ const EVENT_TEXTS = {
   en: {
     started: (name) => `${name} started working`,
     ahead: (n, name) => (n === 0 ? 'Waiting: this job is next' : `Waiting: ${plural(n, 'job', 'jobs')} of ${name} ahead`),
-    machines: (r) => `Reason: ${r.limit === 1 ? 'the work machine is' : `all ${r.limit} work machines are`} in use.`,
     budget_reserved: () => 'Reason: the running sessions hold the spending left today.',
     capacity: (r) => (r.quota_machines > 0 ? `Reason: the Google quota admits ${plural(r.quota_machines, 'machine', 'machines')} and they have no room left.` : 'Reason: no work machine is free right now.'),
     waited: (minutes) => `Waited ${minutes} min`

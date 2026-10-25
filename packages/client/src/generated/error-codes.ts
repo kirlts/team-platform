@@ -59,7 +59,6 @@ export const REQUEST_ERROR_CODES = [
   'model_invalid',
   'no_agent_assignee',
   'no_pending_delivery',
-  'not_a_person',
   'not_an_agent',
   'not_cancelled',
   'not_closed',

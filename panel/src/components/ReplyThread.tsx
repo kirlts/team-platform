@@ -14,7 +14,6 @@ import { Markdown } from '@/lib/markdown'
 import { ReplyMedia } from './ReplyMedia'
 import { ReplyTools } from './ReplyTools'
 import { RetryExecute } from './RetryExecute'
-import { PublishIdea } from './PublishIdea'
 import { useLookups } from './lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { ReplyForm } from './ReplyForm'
@@ -225,10 +224,6 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                     </div>
                     {canEdit(r) && !r.body ? null /* a reply of only an audio or photo has no text to fill in (UD-279) */ : canEdit(r) ? (
                       <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks mentions={mentionNames(r)} />} />
-                    ) : r.publishable && message.status !== 'closed' ? (
-                      <PublishIdea messageId={message.id}>
-                        <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
-                      </PublishIdea>
                     ) : (r.retryable && message.status !== 'closed') || r.retrying ? (
                       <RetryExecute messageId={message.id} reply={r}>
                         <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />

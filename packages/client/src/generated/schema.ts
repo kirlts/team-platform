@@ -1083,8 +1083,6 @@ export interface paths {
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                     forwarded_to?: string | null;
-                                    /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                    publishable?: boolean;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1127,8 +1125,6 @@ export interface paths {
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                     forwarded_to?: string | null;
-                                    /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                    publishable?: boolean;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1478,8 +1474,6 @@ export interface paths {
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                     forwarded_to?: string | null;
-                                    /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                    publishable?: boolean;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1700,8 +1694,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1744,8 +1736,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1955,8 +1945,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1999,8 +1987,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2264,8 +2250,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2308,8 +2292,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2603,8 +2585,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2647,8 +2627,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2811,8 +2789,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2855,8 +2831,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3019,8 +2993,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3063,8 +3035,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3230,8 +3200,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3274,8 +3242,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3441,8 +3407,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3485,8 +3449,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3671,8 +3633,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3715,8 +3675,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3889,8 +3847,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3933,8 +3889,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4108,8 +4062,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4152,8 +4104,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4317,8 +4267,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4361,8 +4309,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4525,8 +4471,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4569,8 +4513,6 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
-                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
-                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;

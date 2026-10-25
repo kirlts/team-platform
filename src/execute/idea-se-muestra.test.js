@@ -1,5 +1,5 @@
 // UD-307: when the analyzer judges that the Guard of the idea applies («nothing changes permanently without the approval of a person when what is asked is to explore an idea»), the
-// session builds and shows, the thread gets «Lista para ver» with a «Publicar», and nothing goes to production until a person publishes. The system obeys the boolean: no threshold,
+// session builds and shows, the thread gets «Lista para ver», and nothing goes to production until a person answers in the thread and the model reads that they want it delivered. The system obeys the boolean: no threshold,
 // no knob, no reading of the words. A decided request is delivered as always.
 import assert from 'node:assert/strict'
 import { mkdirSync, rmSync } from 'node:fs'
@@ -68,6 +68,8 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     estimates = {}
+    delete process.env.FAKE_IDEA_GUARD
+    delete process.env.FAKE_EXECUTE_EXTRA
   })
   after(async () => { await worker?.stop(); await env.close() })
 
@@ -82,7 +84,7 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     assert.deepEqual([decided.idea, decided.idea_guard], [0.1, false])
   })
 
-  it('an idea: nothing is delivered, the thread says «Lista para ver» with «Publicar», and a person publishing runs the delivery', async () => {
+  it('an idea: nothing is delivered and the thread says «Lista para ver»; the reply of a person calls Claude with the thread and what Claude understands from it is done', async () => {
     estimates = { idea: 0.9, idea_guard: true, idea_reason: 'lo dijo como una posibilidad' }
     start()
     const id = await publish('una página de la clínica con la esfera de la IA de venta y videos')
@@ -90,17 +92,31 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: a delivery that was wrongly queued would start in less than this
     assert.equal(jobs(id, 'deliver').length, 0, 'no delivery to production')
     const shown = await thread(id)
-    const ready = shown.replies.filter((r) => r.publishable)
-    assert.equal(ready.length, 1)
-    assert.match(ready[0].body, /Lista para ver/)
+    assert.match(shown.replies.at(-1).body, /Lista para ver/)
     assert.equal(shown.pending_delivery.state, 'held')
-    assert.equal(get(env.db, 'SELECT delivery_held FROM execute_runs WHERE message_id = ?', id).delivery_held, 1)
-    const published = await env.app.inject({ method: 'POST', url: `/api/messages/${id}/deliver`, headers: panel(author) })
-    assert.equal(published.statusCode, 202, published.body)
+    assert.equal(shown.replies.some((r) => 'publishable' in r), false, 'no «Publicar» button: a person writes what they want')
+    // a person writes in the thread, with no mention picked: that reply calls the agent that showed the work
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ review: 'approve', summary: 'Entendido: lo publico.' })
+    const wrote = await env.app.inject({ method: 'POST', url: `/api/messages/${id}/replies`, headers: { ...panel(author), 'content-type': 'application/json' }, payload: { body: 'Se ve bien, adelante.' } })
+    assert.equal(wrote.statusCode, 201, wrote.body)
+    await settled(id, 'execute', 2)
     await settled(id, 'deliver', 1)
     assert.equal(get(env.db, "SELECT status FROM jobs WHERE kind = 'deliver' AND message_id = ?", id).status, 'done')
-    assert.ok((await thread(id)).replies.some((r) => /En producción desde/.test(r.body)), 'the closing reply of the normal delivery')
-    assert.equal((await thread(id)).replies.filter((r) => r.publishable).length, 0)
+    const mention = JSON.parse(get(env.db, "SELECT payload_json FROM jobs WHERE kind = 'execute' AND message_id = ? ORDER BY id DESC LIMIT 1", id).payload_json)
+    assert.ok(mention.mention, 'the second session runs as a mention, with the whole thread')
+  })
+
+  it('a reply that the model reads as «keep exploring» does not deliver', async () => {
+    estimates = { idea: 0.9, idea_guard: true, idea_reason: 'lo dijo como una posibilidad' }
+    start()
+    const id = await publish('otra página con la esfera de la IA y un video de presentación')
+    await settled(id, 'execute', 1)
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ review: 'none', summary: 'Sigo explorando.' })
+    const wrote = await env.app.inject({ method: 'POST', url: `/api/messages/${id}/replies`, headers: { ...panel(author), 'content-type': 'application/json' }, payload: { body: 'Agrega otra opción con fondo claro.' } })
+    assert.equal(wrote.statusCode, 201, wrote.body)
+    await settled(id, 'execute', 2)
+    await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: same as above
+    assert.equal(jobs(id, 'deliver').length, 0)
   })
 
   it('a decided request is delivered as always, with no «Publicar»', async () => {
@@ -110,7 +126,6 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await settled(id, 'execute', 1)
     await settled(id, 'deliver', 1)
     assert.equal(jobs(id, 'deliver').length, 1)
-    assert.equal((await thread(id)).replies.filter((r) => r.publishable).length, 0)
   })
 
   it('a message without the decision (from before it existed) is delivered as always', async () => {
@@ -119,6 +134,36 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await settled(id, 'execute', 1)
     await settled(id, 'deliver', 1)
     assert.equal(jobs(id, 'deliver').length, 1)
+  })
+
+  it('a message analyzed before the Guard existed is judged for it when its job starts, the judgement is saved, and only then is it decided', async () => {
+    process.env.FAKE_IDEA_GUARD = 'true'
+    start()
+    const id = await publish('una página de la clínica analizada antes de la Guardia, con videos')
+    assert.notEqual(typeof JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json).idea_guard, 'boolean', 'the old assessment was never judged')
+    await settled(id, 'execute', 1)
+    await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: a delivery wrongly queued would start in less than this
+    const stored = JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json)
+    assert.deepEqual([stored.idea_guard, stored.idea, stored.idea_reason, stored.certainty], [true, 0.9, 'razón del juicio tardío', 0.9], 'saved next to what was there')
+    assert.equal(jobs(id, 'deliver').length, 0, 'no delivery to production')
+    assert.equal((await thread(id)).pending_delivery.state, 'held')
+  })
+
+  it('an old message the judgement says is a decided request is delivered as always; a judgement that cannot be made is not skipped', async () => {
+    process.env.FAKE_IDEA_GUARD = 'false'
+    start()
+    const id = await publish('cambia el rótulo de la agenda analizado antes de la Guardia')
+    await settled(id, 'execute', 1)
+    await settled(id, 'deliver', 1)
+    assert.equal(JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json).idea_guard, false)
+    await worker.stop()
+    process.env.FAKE_IDEA_GUARD = 'off'
+    start()
+    const failing = await publish('otro pedido analizado antes de la Guardia y sin juicio posible')
+    await until(() => jobs(failing, 'execute').length > 0 && env.db.prepare("SELECT attempts FROM jobs WHERE kind = 'execute' AND message_id = ?").get(failing).attempts >= 1, { timeoutMs: 15000 })
+    await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: same as above
+    assert.equal(jobs(failing, 'deliver').length, 0, 'an idea is never delivered without the judgement')
+    assert.notEqual(typeof JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', failing).estimates_json).idea_guard, 'boolean')
   })
 
   it('the session receives the exploration as context only when the Guard applies, in the variable part of the prompt', () => {

@@ -25,7 +25,8 @@ const unit = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <
 export function readEstimates (m) {
   if (!unit(m?.understand_vs_create) || !unit(m?.irreversibility) || !unit(m?.certainty) || !VALUE_HOLDERS.includes(m?.value_holder)) return null
   // UD-307: `idea` is optional so that the estimates of a message from before it existed still read; without it the message is not an idea (null).
-  return { understand_vs_create: m.understand_vs_create, irreversibility: m.irreversibility, value_holder: m.value_holder, certainty: m.certainty, reason: typeof m.estimate_reason === 'string' ? m.estimate_reason.trim() : '', idea: unit(m.idea) ? m.idea : null, idea_guard: m.idea_guard === true, idea_reason: typeof m.idea_reason === 'string' ? m.idea_reason.trim() : '' }
+  return { understand_vs_create: m.understand_vs_create, irreversibility: m.irreversibility, value_holder: m.value_holder, certainty: m.certainty, reason: typeof m.estimate_reason === 'string' ? m.estimate_reason.trim() : '', idea: unit(m.idea) ? m.idea : null, idea_guard: typeof m.idea_guard === 'boolean' ? m.idea_guard : null, // null: never judged (the worker asks for it, UD-307)
+     idea_reason: typeof m.idea_reason === 'string' ? m.idea_reason.trim() : '' }
 }
 
 export const readExpectation = (m) => (typeof m?.expectation === 'string' ? m.expectation.trim() : '')

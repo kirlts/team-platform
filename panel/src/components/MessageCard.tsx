@@ -115,7 +115,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         </p>
       </div>
       {/* The state opens its line and not the column of actions: «Respondido» next to «Responder» read as one thing said twice (J4-A-home-02). */}
-      <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-nowrap items-center gap-x-3 text-xs text-muted">
+      <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-nowrap items-center gap-x-3 text-xs text-muted [&_.guard-mark]:py-0 [&_.guard-mark]:leading-4">
         <StateMark status={message.status} plain className="min-h-0 shrink-0 px-0" />
         {/* One line in every card (V9): on a phone a long area name ends in «…» before the row grows. */}
         {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="min-w-0 truncate" />} {/* justified: UD-241, one line per card */}

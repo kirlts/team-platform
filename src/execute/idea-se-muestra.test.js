@@ -68,6 +68,7 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     estimates = {}
+    delete process.env.FAKE_IDEA_GUARD
   })
   after(async () => { await worker?.stop(); await env.close() })
 
@@ -119,6 +120,36 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await settled(id, 'execute', 1)
     await settled(id, 'deliver', 1)
     assert.equal(jobs(id, 'deliver').length, 1)
+  })
+
+  it('a message analyzed before the Guard existed is judged for it when its job starts, the judgement is saved, and only then is it decided', async () => {
+    process.env.FAKE_IDEA_GUARD = 'true'
+    start()
+    const id = await publish('una página de la clínica analizada antes de la Guardia, con videos')
+    assert.notEqual(typeof JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json).idea_guard, 'boolean', 'the old assessment was never judged')
+    await settled(id, 'execute', 1)
+    await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: a delivery wrongly queued would start in less than this
+    const stored = JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json)
+    assert.deepEqual([stored.idea_guard, stored.idea, stored.idea_reason, stored.certainty], [true, 0.9, 'razón del juicio tardío', 0.9], 'saved next to what was there')
+    assert.equal(jobs(id, 'deliver').length, 0, 'no delivery to production')
+    assert.equal((await thread(id)).replies.filter((r) => r.publishable).length, 1)
+  })
+
+  it('an old message the judgement says is a decided request is delivered as always; a judgement that cannot be made is not skipped', async () => {
+    process.env.FAKE_IDEA_GUARD = 'false'
+    start()
+    const id = await publish('cambia el rótulo de la agenda analizado antes de la Guardia')
+    await settled(id, 'execute', 1)
+    await settled(id, 'deliver', 1)
+    assert.equal(JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json).idea_guard, false)
+    await worker.stop()
+    process.env.FAKE_IDEA_GUARD = 'off'
+    start()
+    const failing = await publish('otro pedido analizado antes de la Guardia y sin juicio posible')
+    await until(() => jobs(failing, 'execute').length > 0 && env.db.prepare("SELECT attempts FROM jobs WHERE kind = 'execute' AND message_id = ?").get(failing).attempts >= 1, { timeoutMs: 15000 })
+    await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: same as above
+    assert.equal(jobs(failing, 'deliver').length, 0, 'an idea is never delivered without the judgement')
+    assert.notEqual(typeof JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', failing).estimates_json).idea_guard, 'boolean')
   })
 
   it('the session receives the exploration as context only when the Guard applies, in the variable part of the prompt', () => {

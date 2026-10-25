@@ -28,6 +28,7 @@ import { getProject } from '../domain/settings.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
 import { guardsOf } from '../domain/assessment.js'
 import { buildJudgePrompt, runJudge, saveJudgment } from './judge.js'
+import { ensureIdeaGuard } from './idea-guard.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
@@ -378,6 +379,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const secret = readAgentSecret(db, vault, agent.id)
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
+    // UD-307: a message analyzed before the Guard of the idea existed gets that one judgement now, before anything is decided about it.
+    const guardCost = await ensureIdeaGuard({ db, config, signal: ctx.signal, messageId })
+    if (guardCost > 0) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', guardCost, job.id)
     // UD-295: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
     const { model, estimates } = resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: payload.escalated === true })
     const light = model === x.lightModel // the light model (Haiku 5.5): the minimal prompt, the narrow tools, the map and the hooks of UD-295 apply

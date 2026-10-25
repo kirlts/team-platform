@@ -34,6 +34,6 @@ export function resolveExecuteModel (db, { messageId, fallback, light, limits, e
   let estimates = null
   try { estimates = row?.estimates ? JSON.parse(row.estimates) : null } catch { /* a damaged cell reads as no estimates */ }
   if (escalated) return { model: major, source: 'escalated', estimates }
-  if (!estimates) return { model: major, source: 'legacy', estimates }
+  if (!estimates || typeof estimates.understand_vs_create !== 'number') return { model: major, source: 'legacy', estimates } // UD-307: a message judged later only for the Guard of the idea has no level estimates
   return modelFor(estimates, limits) === 'light' ? { model: pick(row?.lightModel, light), source: 'light', estimates } : { model: major, source: 'major', estimates }
 }

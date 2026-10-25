@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from '@/components/icons'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -15,6 +16,20 @@ import { SaveDot, type SaveTone } from './SaveDot'
 const LABEL_MAX = 120
 /** Most minutes between two progress notices the server accepts (src/domain/progress-notes.js, MAX_PROGRESS_INTERVAL_MIN). */
 const PROGRESS_MAX = 1440
+
+/**
+ * «Obligatorio» of a field or an output entry: the check box that sets it, with the word drawn as a badge, so the state reads at a
+ * glance down a column of rows (filled when the entry is required, outline when it is not). The label wraps both: the name is «Obligatorio».
+ */
+function RequiredToggle({ required, onChange }: { required: boolean; onChange: (on: boolean) => void }) {
+  const t = useT()
+  return (
+    <label className="flex shrink-0 cursor-pointer items-center gap-2">
+      <Checkbox checked={required} onCheckedChange={(on) => onChange(on === true)} />
+      <Badge tone={required ? 'accent' : 'outline'}>{t('templates.required')}</Badge>
+    </label>
+  )
+}
 
 /**
  * What a person edits of a template: its fields (label and whether it is required) and the instructions to the
@@ -81,10 +96,7 @@ export function TemplateContentEditor({
                 <div className="min-w-0 flex-1 basis-40">
                   <EditableText value={f.label} label={t('templates.fieldLabel')} validate={label} onSave={(v) => save({ fields: fields.map((x, j) => (j === i ? { ...x, label: v } : x)) })} displayClassName="font-medium" />
                 </div>
-                <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
-                  <Checkbox checked={f.required} onCheckedChange={(on) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: on === true } : x)) })} />
-                  {t('templates.required')}
-                </label>
+                <RequiredToggle required={f.required} onChange={(on) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: on } : x)) })} />
                 <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeField', { label: f.label })} title={t('templates.removeField', { label: f.label })} data-repeat-ok="per-field" onClick={() => void save({ fields: fields.filter((_, j) => j !== i) })}>
                   <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
                 </Button>
@@ -188,10 +200,7 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
                   ))}
                 </NativeSelect>
               </div>
-              <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
-                <Checkbox checked={f.required} onCheckedChange={(on) => set(i, { required: on === true })} />
-                {t('templates.required')}
-              </label>
+              <RequiredToggle required={f.required} onChange={(on) => set(i, { required: on })} />
               <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeOutput', { label: f.label })} title={t('templates.removeOutput', { label: f.label })} data-repeat-ok="per-field" onClick={() => void onChange(entries.filter((_, j) => j !== i))}>
                 <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
               </Button>
@@ -213,7 +222,7 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
  * Window of a template's content: the form above, over its own scrolling lane. Each change is saved as it is made (UD-017), so the
  * foot says where the saving stands with its dot and its word, and has the one button that leaves (J2-A-24).
  */
-export function TemplateContentDialog({ open, onOpenChange, title, onSave, ...editor }: { open: boolean; onOpenChange: (open: boolean) => void; title: string } & Parameters<typeof TemplateContentEditor>[0]) {
+export function TemplateContentDialog({ open, onOpenChange, title, onSave, lead, ...editor }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; /** Above the fields, in the same lane: what names the template (its name and full description, edited in place). */ lead?: ReactNode } & Parameters<typeof TemplateContentEditor>[0]) {
   const t = useT()
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   useEffect(() => {
@@ -225,7 +234,8 @@ export function TemplateContentDialog({ open, onOpenChange, title, onSave, ...ed
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={title} className="max-w-2xl">
         {/* The instructions can be as long as a method section: the window scrolls inside, a declared lane. */}
-        <div data-lane="template-content" className="scroll-thin min-h-0 overflow-y-auto p-5">
+        <div data-lane="template-content" className="scroll-thin flex min-h-0 flex-col gap-6 overflow-y-auto p-5">
+          {lead}
           <TemplateContentEditor
             {...editor}
             onSave={async (next) => {
@@ -343,10 +353,7 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
                 setFields((all) => all.map((x, j) => (j === i ? { ...x, label, name: fieldKey(label || t('templates.newField'), all.filter((_, k) => k !== i).map((y) => y.name)) } : x)))
               }}
             />
-            <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
-              <Checkbox checked={f.required} onCheckedChange={(on) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: on === true } : x)))} />
-              {t('templates.required')}
-            </label>
+            <RequiredToggle required={f.required} onChange={(on) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: on } : x)))} />
             <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeField', { label: f.label || t('templates.newField') })} data-repeat-ok="per-field" onClick={() => setFields((all) => all.filter((_, j) => j !== i))}>
               <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
             </Button>

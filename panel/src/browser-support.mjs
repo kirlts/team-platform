@@ -186,6 +186,15 @@ export function watchRequests(page, { quietMs = 500 } = {}) {
   }
 }
 
+/** Opens the window of a template from the view of an area (UD-297): the name of its row, the first one or the one called `name`. */
+export async function openTemplate(page, name) {
+  const open = name ? page.getByRole('button', { name: `Abrir ${name}`, exact: true }) : page.getByTestId('template-open').first()
+  await open.click()
+  const dialog = page.getByRole('dialog')
+  await dialog.waitFor()
+  return dialog
+}
+
 /** Opens the «Plantillas» section of the view of an area (UD-041); since UD-252 it is born open, and then nothing is clicked. */
 export async function openTemplates(page) {
   const fold = page.getByRole('button', { name: /^Plantillas/ })

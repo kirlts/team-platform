@@ -713,6 +713,8 @@ export const es419 = {
   'templates.output.outcome': 'Resultado',
   'templates.removeOutput': 'Quitar el campo de salida {label}',
   'templates.outputTypeOf': 'Tipo de {label}',
+  'templates.outputs': 'Salidas',
+  'templates.columnProgress': 'Avisos',
   'areas.deleteShort': 'Eliminar',
   'areas.columnArea': 'Área',
   'areas.columnOpen': 'Abiertos',

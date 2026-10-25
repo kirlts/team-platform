@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
+import { login, startPanel, settled, openTemplates, openTemplate } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -727,28 +727,23 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     }
   })
 
-  test('the template shows what it asks for and what it delivers, and its button names what it opens (J3-A-30, J3-A-31, J3-A-32)', async () => {
+  test('the template is a row with its name and its figures, and the window shows what it asks for and what it delivers (J3-A-30, J3-A-31, J3-A-32, UD-297)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
       await openTemplates(page)
-      const card = page.locator('section[aria-label="Plantillas"] article').first()
+      const card = page.locator('section[aria-label="Plantillas"] [data-template-row]').first()
       await card.waitFor()
-      for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await card.getByText(field, { exact: false }).first().waitFor()
-      // The instructions are in the window, not in a fold inside the fold of the section: one hidden level only.
-      assert.equal(await card.locator('summary').count(), 0, 'a fold inside the templates fold')
+      // The row has no description, no tags and no fold: the fields and the instructions are in the window, one hidden level only.
+      assert.equal(await card.locator('summary, li').count(), 0, 'a fold or tags inside the row')
       assert.equal(await card.getByText('Formato de salida').count(), 0, 'the instructions are not drawn in the row')
-      const open = card.getByRole('button', { name: 'Campos e instrucciones', exact: true })
-      await open.waitFor()
-      assert.doesNotMatch(await open.innerText(), /·/, 'without the ambiguous «· 1»')
-      // Deleting is a quiet button that says its name, away from the title.
+      // Deleting is a quiet button that says its name, at the right of the row.
       const del = card.getByRole('button', { name: /^Eliminar/ })
-      const title = card.getByRole('button', { name: /^Nombre:/ }).first()
+      const title = card.getByTestId('template-open')
       assert.equal((await del.innerText()).trim(), 'Eliminar', '«Eliminar» says its name: an icon alone is for closing, searching and going back')
-      assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, '«Eliminar» sits in the corner, away from the title')
-      // The column is no longer a lone small card: what it shows is the template, not a link.
-      const share = (await card.boundingBox()).height
-      assert.ok(share > 120, `the template card measures ${share} px`)
+      assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, '«Eliminar» sits at the right, away from the name')
+      const dialog = await openTemplate(page)
+      for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await dialog.getByText(field, { exact: false }).first().waitFor()
     } finally {
       await context.close()
     }
@@ -759,9 +754,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       await openTemplates(page)
-      await page.getByRole('button', { name: 'Campos e instrucciones', exact: true }).first().click()
-      const dialog = page.getByRole('dialog')
-      await dialog.waitFor()
+      const dialog = await openTemplate(page)
       await dialog.getByText('Sin cambios').waitFor()
       const x = 'M5 5l10 10'
       const paths = (loc) => loc.evaluateAll((els) => els.flatMap((el) => [...el.querySelectorAll('path')].map((p) => p.getAttribute('d'))))

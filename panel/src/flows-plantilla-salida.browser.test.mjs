@@ -1,10 +1,10 @@
 // H-3723, UD-254 (5): the output a template declares, in a real browser against dev-server.mjs serving panel/dist
-// (`npm run test:flows`). The row of a template shows «Salida» under «Campos»; the window «Campos e instrucciones» edits
+// (`npm run test:flows`). The row of a template counts its outputs; its window shows «Salida» under «Campos» and edits
 // it like the fields; the server refuses a frontmatter that does not compile with 422 and its reason, and the window says it.
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openTemplate, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -37,7 +37,7 @@ async function session(viewport = DESKTOP, colorScheme = 'light') {
   return { page, context }
 }
 
-const rowOf = (page) => page.locator('section[aria-label="Plantillas"] article').filter({ hasText: 'Reporte de error' }).first()
+const rowOf = (page) => page.locator('section[aria-label="Plantillas"] [data-template-row]').filter({ hasText: 'Reporte de error' }).first()
 
 async function shot(page, name) {
   if (!SHOTS) return
@@ -46,18 +46,21 @@ async function shot(page, name) {
 }
 
 describe('Template output', () => {
-  test('the template row shows «Salida» under «Campos» with the declared entries and the two fixed ones', async () => {
+  test('the row counts the outputs and the window shows «Salida» under «Campos» with the declared entries and the two fixed ones', async () => {
     for (const [viewport, colorScheme] of [[DESKTOP, 'light'], [DESKTOP, 'dark'], [PHONE, 'light'], [PHONE, 'dark']]) {
       const { page, context } = await session(viewport, colorScheme)
       try {
         const row = rowOf(page)
+        assert.equal((await row.locator('[data-figure="Salidas"] > span:last-child').textContent()).trim(), '2', 'two declared entries')
+        const dialog = await openTemplate(page, 'Reporte de error')
         // The 12 px label draws capitals with CSS: the text itself stays in normal case.
-        const terms = (await row.locator('dl dt').allTextContents()).map((x) => x.trim())
-        assert.deepEqual(terms.slice(0, 2), ['Campos', 'Salida'])
-        const entries = (await row.locator('[data-template-output] li').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim())
-        assert.deepEqual(entries, ['Causa Obligatorio', 'Rama', 'Resultado', 'Resumen'])
-        await row.locator('[data-template-output]').scrollIntoViewIfNeeded()
-        await shot(page, `salida-fila-${viewport.width}-${colorScheme}`)
+        const headings = (await dialog.locator('section h2').allTextContents()).map((x) => x.trim())
+        assert.deepEqual(headings.slice(0, 2), ['Campos', 'Salida'])
+        const output = dialog.locator('section[aria-label="Salida"]')
+        const labels = (await output.locator('li').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim())
+        assert.deepEqual(labels.map((x) => x.split(' ')[0]), ['Causa', 'Rama', 'Resultado', 'Resumen'])
+        assert.equal(await output.locator('[data-output-fixed]').count(), 2)
+        await shot(page, `salida-ventana-${viewport.width}-${colorScheme}`)
       } finally {
         await context.close()
       }
@@ -67,8 +70,7 @@ describe('Template output', () => {
   test('the window edits the output like the fields: adding an entry saves the file and the row shows it', async () => {
     const { page, context } = await session()
     try {
-      await rowOf(page).getByRole('button', { name: 'Campos e instrucciones' }).click()
-      const dialog = page.getByRole('dialog')
+      const dialog = await openTemplate(page, 'Reporte de error')
       const output = dialog.locator('section[aria-label="Salida"]')
       await output.waitFor()
       assert.equal(await output.locator('[data-output-fixed]').count(), 2)
@@ -83,7 +85,8 @@ describe('Template output', () => {
       assert.match(sent.at(-1).body_markdown, /name: dato_nuevo, label: "Dato nuevo", type: list/)
       await shot(page, 'salida-ventana-1440-light')
       await dialog.getByRole('button', { name: 'Listo' }).click()
-      await rowOf(page).locator('[data-template-output] li').filter({ hasText: 'Dato nuevo' }).waitFor()
+      await dialog.waitFor({ state: 'hidden' })
+      assert.equal((await rowOf(page).locator('[data-figure="Salidas"] > span:last-child').textContent()).trim(), '3', 'the row counts the new entry')
     } finally {
       await context.close()
     }
@@ -105,8 +108,7 @@ describe('Template output', () => {
       await page.route(/\/api\/areas\/a-error\/templates\/[^/]+$/, (route) => route.request().method() === 'PATCH'
         ? route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 'template_invalid', message: 'output[2].type debe ser uno de: text, list, number, boolean' }) })
         : route.continue())
-      await rowOf(page).getByRole('button', { name: 'Campos e instrucciones' }).click()
-      const dialog = page.getByRole('dialog')
+      const dialog = await openTemplate(page, 'Reporte de error')
       await dialog.locator('section[aria-label="Salida"]').getByRole('button', { name: 'Agregar salida', exact: true }).click()
       const alert = dialog.locator('[data-template-refused]')
       await alert.waitFor()

@@ -757,7 +757,7 @@ describe('templates as a form (J1-A-32)', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       await openTemplates(page)
-      await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
+      await page.getByTestId('template-open').first().click()
       const dialog = page.getByRole('dialog')
       await dialog.getByRole('heading', { name: 'Campos' }).waitFor()
       const text = await dialog.innerText()
@@ -782,7 +782,7 @@ describe('templates as a form (J1-A-32)', () => {
       await page.keyboard.type('Leer el texto y anotar lo observado.')
       await page.keyboard.press('Enter')
       await form.getByRole('button', { name: 'Crear' }).click()
-      await page.getByRole('button', { name: /^Nombre: Observación de prueba/ }).waitFor()
+      await page.getByRole('button', { name: 'Abrir Observación de prueba', exact: true }).waitFor()
       const created = await (await page.request.get(`${origin}/api/areas/a-error/templates`)).json()
       const file = (created.items ?? created).find((t) => t.name === 'Observación de prueba').body_markdown
       assert.match(file, /label: "Qué se observó", required: false/)

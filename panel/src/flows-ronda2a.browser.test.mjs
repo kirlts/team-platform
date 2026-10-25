@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
+import { login, startPanel, settled, openTemplates, openTemplate } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -363,8 +363,7 @@ describe('areas, templates and settings', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       await openTemplates(page)
-      await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
-      const dialog = page.getByRole('dialog')
+      const dialog = await openTemplate(page)
       assert.equal(await dialog.locator('input[type=checkbox]').count(), 0, 'native browser checkboxes remain')
       assert.equal(await dialog.getByText('Guardado').count(), 0, 'it says «Guardado» without having saved anything')
       await dialog.getByRole('checkbox', { name: 'Obligatorio' }).first().click()

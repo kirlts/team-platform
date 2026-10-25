@@ -713,6 +713,8 @@ export const en: Record<MessageKey, Message> = {
   'templates.output.outcome': 'Outcome',
   'templates.removeOutput': 'Remove the output field {label}',
   'templates.outputTypeOf': 'Type of {label}',
+  'templates.outputs': 'Outputs',
+  'templates.columnProgress': 'Notices',
   'areas.deleteShort': 'Delete',
   'areas.columnArea': 'Area',
   'areas.columnOpen': 'Open',

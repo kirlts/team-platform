@@ -1,7 +1,6 @@
-import { Plus, Trash2 } from '@/components/icons'
-import { useMemo, useRef, useState } from 'react'
+import { ChevronRight, Plus, Trash2 } from '@/components/icons'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { EditableText } from '@/components/EditableText'
-import { FitList } from '@/components/FitList'
 import { NewTemplateDialog, TemplateContentDialog } from '@/components/TemplateEditor'
 import { Fold } from '@/components/Fold'
 import { MoreMenu } from '@/components/MoreMenu'
@@ -23,7 +22,27 @@ export const descriptionRule = (t: ReturnType<typeof useT>) => (v: string) => (!
 /** A row of the templates list: a template, or the place where one was just deleted, with Deshacer in it (J2-A-23). */
 type TemplateItem = { kind: 'template'; template: Template } | { kind: 'removed'; template: Template } | { kind: 'deleted'; template: Template }
 
-/** The templates of one area, edited in place (UD-017). */
+/**
+ * The columns of the list, from 640 px: name, then three figures on the right (fields, outputs, progress notices) and the row's action.
+ * The header of labels and every row use the same ones, so each figure sits under its label and the name starts at the same x in every row.
+ */
+const GRID = 'sm:grid-cols-[minmax(10rem,1fr)_5rem_5rem_6rem_6rem]'
+
+/** Labels of the columns: 12 px capitals, 32 px tall. Hidden on a phone, where each figure carries its own word. */
+function TemplateColumns() {
+  const t = useT()
+  return (
+    <div aria-hidden data-testid="template-columns" className={`rotulo hidden min-h-8 items-center gap-x-3 border-b border-line pl-10 pr-4 sm:grid ${GRID}`}>
+      <span>{t('areas.fieldName')}</span>
+      <span className="pr-2 text-right">{t('templates.fields')}</span>
+      <span className="pr-2 text-right">{t('templates.outputs')}</span>
+      <span className="pr-2 text-right">{t('templates.columnProgress')}</span>
+      <span />
+    </div>
+  )
+}
+
+/** The templates of one area: every one is a row of the list, and each opens in a window (UD-017). */
 export function Templates({ area }: { area: Area }) {
   const t = useT()
   const undo = useUndo()
@@ -32,8 +51,6 @@ export function Templates({ area }: { area: Area }) {
   const del = useDeleteTemplate(area.id)
   const restore = useRestoreTemplate()
   const [creating, setCreating] = useState(false)
-  /** The template just created: the list pages to it, since in a small frame it lands on a later page. */
-  const [created, setCreated] = useState<string | undefined>()
   /** The template just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
   const [removed, setRemoved] = useState<{ template: Template; index: number; mark: number } | null>(null)
   // «Borradas» adds the deleted templates under the live ones, muted and with Restaurar (UD-250).
@@ -53,7 +70,6 @@ export function Templates({ area }: { area: Area }) {
   const notices = useNotices()
   const delMany = useDeleteTemplates(area.id)
   const restoreMany = useRestoreTemplates()
-  const page = useRef<readonly string[]>([])
   const liveIds = useMemo(() => new Set(live.map((x) => x.id)), [live])
   const marked = [...selection.marked].filter((id) => liveIds.has(id))
   const removeMarked = async () => {
@@ -98,23 +114,22 @@ export function Templates({ area }: { area: Area }) {
           )
         }
       >
-        <section aria-label={t('areas.templates')} className="flex h-[min(22rem,30dvh)] min-h-0 min-w-0 flex-col max-md:h-auto">
-          <FitList
-            bare
-            rows={rows}
-            rowKey={(x) => `${x.kind}-${x.template.id}`}
-            reveal={created}
-            renderRow={(x) => (x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />)}
-            onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('template-')).map((k) => k.slice(9)))}
-            header={marked.length > 0 ? <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} /> : undefined}
-            empty={templates.isPending || templates.isError ? <LoadState query={templates} /> : <EmptyState action={create}>{t('areas.noTemplates')}</EmptyState>}
-          />
+        {/* Every template is drawn: the list is not paged, so the count in the fold is the number of rows under it. */}
+        <section aria-label={t('areas.templates')} className="flex min-w-0 flex-col border-y border-line">
+          {marked.length > 0 && <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />}
+          {rows.length > 0 && <TemplateColumns />}
+          {rows.length === 0
+            ? templates.isPending || templates.isError
+              ? <LoadState query={templates} />
+              : <EmptyState action={create}>{t('areas.noTemplates')}</EmptyState>
+            : rows.map((x) => (
+                <Fragment key={`${x.kind}-${x.template.id}`}>
+                  {x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />}
+                </Fragment>
+              ))}
         </section>
       </Fold>
-      <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => {
-          const made = (await save.mutateAsync(v)) as Template | undefined
-          if (made?.id) setCreated(`template-${made.id}`)
-        }} />
+      <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => { await save.mutateAsync(v) }} />
     </>
   )
 }
@@ -145,28 +160,31 @@ function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => vo
   )
 }
 
-/** A tag of the fields a template asks for or delivers: information, so it is not a pill (a pill is what is touched). */
-function FieldTag({ label, required, fixed = false }: { label: string; required?: boolean; fixed?: boolean }) {
-  const t = useT()
+/** A figure of the row: the number on the right, aligned under its column. On a phone the columns are not drawn, so the figure carries its word. */
+function Figure({ word, children, quiet = false }: { word: string; children: ReactNode; quiet?: boolean }) {
   return (
-    <li className={`inline-flex min-h-6 items-center gap-1.5 rounded-md bg-hover px-2.5 text-xs ${fixed ? 'text-muted' : ''}`}>
-      {label}
-      {required && <span className="text-muted">{t('templates.required')}</span>}
-    </li>
+    <span data-figure={word} className={`flex min-w-0 flex-col items-start gap-0.5 text-sm tabular-nums sm:flex-row sm:items-baseline sm:justify-end sm:gap-1.5 sm:pr-2 ${quiet ? 'text-muted' : 'font-semibold'}`}>
+      <span className="text-xs font-normal text-muted sm:sr-only">{word}</span>
+      <span>{children}</span>
+    </span>
   )
 }
 
 /**
- * A template as the person will meet it: its name and description edited in place, and the fields it asks for and delivers. The window
- * with the fields and the instructions opens with «Campos e instrucciones»; deleting is a quiet button that names itself, and it is undone where it was.
+ * A template as a row of the list: its name, how many fields it asks for, how many outputs it declares and the minutes between progress notices.
+ * The name opens the window of the template, where its description, fields, outputs and instructions are read and edited; deleting is the
+ * quiet button at the right, and it is undone where it was. The description and the field tags are not in the row (the window shows them whole).
  */
 function TemplateRow({ template, areaId, selection, onRemove }: { template: Template; areaId: string; selection: Selection; onRemove: () => void }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveTemplate(areaId)
-  const [showContent, setShowContent] = useState(false)
+  const [open, setOpen] = useState(false)
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
   const output = useMemo(() => parseTemplateOutput(template.body_markdown), [template.body_markdown])
+  const interval = template.progress_interval_min ?? 0
+  const cut = template.name.lastIndexOf(' ') + 1
+  const [head, tail] = [template.name.slice(0, cut), template.name.slice(cut)]
 
   const change = <F extends 'name' | 'description' | 'body_markdown' | 'progress_interval_min'>(field: F, next: Template[F]) => {
     const prev = template[field]
@@ -174,60 +192,51 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   }
 
   return (
-    <article data-marked={selection.isMarked(template.id) || undefined} className="relative flex flex-col gap-3 border-b border-line py-4 pl-10 pr-5 last:border-b-0 data-[marked]:bg-selected">
+    <article data-marked={selection.isMarked(template.id) || undefined} data-template-row className={`relative grid min-h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-line py-2 pl-10 pr-4 last:border-b-0 data-[marked]:bg-selected ${GRID}`}>
       <RowCheck id={template.id} title={template.name} selection={selection} />
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-        <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
-          <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-semibold" />
-          <EditableText value={template.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm text-muted" />
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" data-repeat-ok="per-template" onClick={() => setShowContent(true)}>
-            {t('areas.content')}
-          </Button>
-          <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('areas.delete', { name: template.name })} title={t('areas.deleteShort')} data-repeat-ok="per-template" onClick={onRemove}>
-            <Trash2 size={16} aria-hidden /> {t('areas.deleteShort')}
-          </Button>
-        </div>
-      </div>
-      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2">
-        <dt className="rotulo">{t('templates.fields')}</dt>
-        <dd>
-          {fields.length === 0 ? (
-            <span className="text-sm text-muted">{t('templates.noFields')}</span>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {fields.map((f) => (
-                <FieldTag key={f.name} label={f.label} required={f.required} />
-              ))}
-            </ul>
-          )}
-        </dd>
-        <dt className="rotulo">{t('templates.output')}</dt>
-        <dd data-template-output>
-          {output === null ? (
-            <span className="text-sm text-muted">{t('templates.noOutput')}</span>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {output.map((f) => (
-                <FieldTag key={f.name} label={f.label} required={f.required} />
-              ))}
-              {(['outcome', 'summary'] as const).map((fixed) => (
-                <FieldTag key={fixed} label={t(`templates.output.${fixed}`)} fixed />
-              ))}
-            </ul>
-          )}
-        </dd>
-      </dl>
+      {/* The name opens the window; the chevron is glued to its last word, like the name of an area. */}
+      <button type="button" aria-label={t('areas.open', { title: template.name })} data-testid="template-open" data-repeat-ok="per-template" onClick={() => setOpen(true)} className="min-w-0 py-1 text-left text-sm font-semibold hover:text-accent-deep hover:underline max-sm:col-span-2">
+        {head}
+        <span className="whitespace-nowrap">
+          {tail}
+          <ChevronRight size={16} aria-hidden className="ml-1 inline-block shrink-0 align-[-0.2em] text-muted" />
+        </span>
+      </button>
+      <span className="grid grid-cols-3 gap-x-2 max-sm:min-w-0 sm:contents">
+        <Figure word={t('templates.fields')} quiet={fields.length === 0}>{fields.length}</Figure>
+        <Figure word={t('templates.outputs')} quiet={!output?.length}>{output?.length ?? 0}</Figure>
+        <Figure word={t('templates.columnProgress')} quiet={interval === 0}>
+          {interval === 0 ? t('templates.progressOff') : `${interval} ${t('templates.progressUnit')}`}
+        </Figure>
+      </span>
+      <Button size="sm" variant="ghost" className="max-sm:col-start-2 max-sm:row-start-2 justify-self-end text-muted hover:text-danger" aria-label={t('areas.delete', { name: template.name })} title={t('areas.deleteShort')} data-repeat-ok="per-template" onClick={onRemove}>
+        <Trash2 size={16} aria-hidden /> {t('areas.deleteShort')}
+      </Button>
       <TemplateContentDialog
-        open={showContent}
-        onOpenChange={setShowContent}
+        open={open}
+        onOpenChange={setOpen}
         title={template.name}
+        lead={
+          <dl className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <dt className="rotulo">{t('areas.fieldName')}</dt>
+              <dd>
+                <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-semibold" />
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="rotulo">{t('areas.fieldDescription')}</dt>
+              <dd>
+                <EditableText value={template.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm" />
+              </dd>
+            </div>
+          </dl>
+        }
         name={template.name}
         description={template.description}
         markdown={template.body_markdown}
         onSave={(next) => change('body_markdown', next)}
-        progressInterval={template.progress_interval_min ?? 0}
+        progressInterval={interval}
         onProgressInterval={(next) => change('progress_interval_min', next)}
       />
     </article>

@@ -2,6 +2,7 @@
 // Measured 2026-10-25: 12 of 12 replies of Claude carried no photo or video, and none said why.
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
+import { configDelTrabajador } from './anfitrion.mjs'
 import { iniciarCiclo, ORDEN } from './ciclo.mjs'
 
 const shot = (path, alt = 'La agenda del día con tres citas, «Agenda · 25 oct»') => ({ path, alt, masked: false, place: '/agenda', as: 'Clínica de prueba, recepción' })
@@ -19,8 +20,8 @@ describe('C9 captura o video en la respuesta final', () => {
     process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'done', ...extra })
     process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify(files)
     if (antes) { process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify(antes); process.env.FAKE_EXECUTE_START_ZONE = LUGAR.zone } else { delete process.env.FAKE_EXECUTE_START_CAPTURES; delete process.env.FAKE_EXECUTE_START_ZONE }
-    // The host of the instance lets screenshots show the data of people (UD-270): what Martín asked for (C17).
-    c.iniciar({ deliverCommand: entrega ? orden : '', captures: { max: 3, openZone: 'ninguna', unmasked: true } })
+    // The captures of the worker of the host, read from the file that declares it.
+    c.iniciar({ deliverCommand: entrega ? orden : '', ...configDelTrabajador(c.env.dir, ['captures']).execute })
     const id = await c.enviar(texto)
     await c.esperar(id)
     return { id, hilo: await c.hilo(id), final: await c.ultimaDeClaude(id) }
@@ -72,11 +73,25 @@ describe('C9 captura o video en la respuesta final', () => {
     assert.ok(!/No incluye captura/.test(final.body))
   })
 
-  it('una captura que la sesión sí tomó y el sistema rechazó no se cuenta como «la sesión no dejó ninguna»', async () => {
-    // The file is not an image: the session did take something and the system left it out, so the reason «none» would be false.
+  it('una captura que la sesión sí tomó y el sistema rechazó se dice con su motivo verdadero: cuál y por qué', async () => {
+    // The file is not an image: the session did take something and the system left it out, so «the session left none» would be false.
     const { final } = await trabajo({ extra: { touches_screen: true, captures: [shot('despues.png')] }, files: { 'despues.png': 'text' } })
     assert.equal(final.attachments.length, 0)
-    assert.ok(!/la sesión no dejó ninguna/.test(final.body), `la respuesta dice «${final.body.split('\n').at(-1)}» aunque la sesión dejó un archivo`)
+    assert.ok(!/la sesión no dejó ninguna/.test(final.body), final.body)
+    assert.match(final.body, /No incluye captura ni video: la sesión tomó una captura y el sistema no la adjuntó: «La agenda del día con tres citas, «Agenda · 25 oct»» \(el archivo no es una imagen ni un video que se pueda adjuntar\)\./)
+  })
+
+  it('una captura con datos de personas que la instancia no permite adjuntar dice que ese es el motivo', async () => {
+    await c.detener()
+    c.env.db.prepare("DELETE FROM jobs WHERE kind IN ('execute', 'deliver')").run()
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'done', touches_screen: true, captures: [shot('despues.png')] })
+    process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'despues.png': 'png' })
+    c.iniciar({ deliverCommand: ORDEN.pasa, captures: { max: 8, openZone: 'ninguna', unmasked: false } })
+    const id = await c.enviar('La ficha del paciente corta el nombre.')
+    await c.esperar(id)
+    const final = await c.ultimaDeClaude(id)
+    assert.equal(final.attachments.length, 0)
+    assert.match(final.body, /No incluye captura ni video: la sesión tomó una captura y el sistema no la adjuntó: «.*» \(muestra datos de personas sin ocultarlos y esta instancia no permite adjuntarlas\)\./)
   })
 
   it('la sesión recibe la regla: un cambio de pantalla no termina sin captura o video, y el esquema le pide declarar si toca pantalla', async () => {

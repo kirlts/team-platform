@@ -10,7 +10,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-export const HELP = `team: talks to the Team Platform API as the agent member of this session.
+// `{masked}` is the one line of the text that depends on the host: with screenshots that show people allowed (UD-270, TEAM_CAPTURES_UNMASKED) an unmasked capture needs no open zone.
+const HELP_TEMPLATE = `team: talks to the Team Platform API as the agent member of this session.
 
 Environment: TEAM_URL (API address, e.g. http://127.0.0.1:3000), TEAM_AGENT_EMAIL, TEAM_AGENT_SECRET.
 Optional: TEAM_API_PREFIX (default /api), TEAM_JOB_ID (default job of «team progress»).
@@ -20,7 +21,7 @@ Commands:
   team reply <message_id> --body <text> [--kind answer|fix|clarification] [--captures <json|file>] [--zone <zone>]
                                                   add a reply to the thread (kind default: answer). --captures attaches the «before»
                                                   screenshots: a list of { path (in $TEAM_CAPTURES_DIR), alt, masked, place, as };
-                                                  masked false needs --zone ninguna.
+                                                  {masked}
                                                   If none is accepted nothing is posted and the exit code is 1
   team progress [<job_id>] --percent <0-100> --phrase <text>
                                                   report what the session is doing; shown on the message card
@@ -42,6 +43,11 @@ Commands:
   team --help                                     this text
 
 Exit code 0 on success; 1 with the API's code and message on stderr otherwise.`
+
+/** The text of `team --help`. `unmasked`: the host lets screenshots show people (TEAM_CAPTURES_UNMASKED allowed), so `masked false` needs no open zone. */
+export const helpText = ({ unmasked = false } = {}) => HELP_TEMPLATE.replace('{masked}', unmasked ? 'masked false is accepted as it is.' : 'masked false needs --zone ninguna.')
+export const HELP = helpText()
+const unmaskedAllowed = (env) => ['allowed', '1'].includes(env?.TEAM_CAPTURES_UNMASKED)
 
 export function sign (secret, { ts, method, pathname, email }) {
   return createHmac('sha256', secret).update(`${ts}.${method}.${pathname}.${email}`).digest('hex')
@@ -206,7 +212,7 @@ export function refuseCommand (command) {
 export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   const { positional, options } = parseArgs(argv)
   const [command, ...rest] = positional
-  if (options.help || !command || command === 'help') return { code: command && command !== 'help' ? 1 : 0, out: HELP, err: '' }
+  if (options.help || !command || command === 'help') return { code: command && command !== 'help' ? 1 : 0, out: helpText({ unmasked: unmaskedAllowed(env) }), err: '' }
   if (command === 'map') {
     // UD-295: the short map of the repository the session starts in; `--hook` wraps it as the context of a SessionStart hook.
     try {
@@ -310,7 +316,7 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
       const percent = Number(options.percent)
       if (!Number.isFinite(percent) || typeof options.phrase !== 'string') throw new Error('team progress: --percent and --phrase are required.')
       r = await call('POST', `/jobs/${id(rest[0] ?? env.TEAM_JOB_ID, 'job_id')}/progress`, { percent, phrase: options.phrase })
-    } else return { code: 1, out: '', err: `team: unknown command «${command}».\n\n${HELP}` }
+    } else return { code: 1, out: '', err: `team: unknown command «${command}».\n\n${helpText({ unmasked: unmaskedAllowed(env) })}` }
   } catch (error) {
     return { code: 1, out: '', err: error.message }
   }

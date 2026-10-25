@@ -33,7 +33,7 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
-import { capturesDir, capturesEnv, closingCaptures, noCaptureLine, storeCaptures } from './captures.js'
+import { capturesDir, capturesEnv, closingCaptures, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
 import { approveDelivery } from './approve.js'
@@ -426,7 +426,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      compact: light, assessment: assessmentText(message, db), exploration: idea?.idea_guard === true ? { idea: idea.idea, reason: idea.idea_reason ?? '' } : null, escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
+      compact: light, assessment: assessmentText(message, db), exploration: idea?.idea_guard === true ? { idea: idea.idea, reason: idea.idea_reason ?? '' } : null, escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), capturesUnmasked: x.captures.unmasked, deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -621,6 +621,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const untouched = reviewAction === 'approve' || reviewAction === 'discard' || reviewAction === 'none' // the review is answered or left as it is: no change, no delivery, no close
     const investigate = mode === 'investigate' || untouched // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
     const documentLines = documentNotes(documents.rejected, author?.language)
+    const rejectedCaptures = describeRejected(result.structured_output, captured.rejected) // which captures the system left out and why: the reply says it, never «the session left none»
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
@@ -698,7 +699,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         // of a person in the thread calls this agent again (see `addReply`): the model reads what the person wrote and decides, with `review`, to go on, change or deliver.
         const t = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         const seen = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language, label: 'proposal' })
-        const { replyId } = handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, source: 'execute', body: [t.ready, body, ...seen.lines, ...documentLines].join('\n\n'), files: [...seen.files, ...documentFiles(documents.stored)] })
+        const { replyId } = handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, source: 'execute', body: [t.ready, body, ...seen.lines, ...(rejectedCaptures.length ? [noCaptureLine(output, seen.files.length, author?.language, rejectedCaptures)] : []), ...documentLines].join('\n\n'), files: [...seen.files, ...documentFiles(documents.stored)] })
         rec.deliveryHeld = true
         audit(db, { memberId: agent.id, action: 'message.idea_shown', entity: 'message', entityId: messageId, detail: { job_id: job.id, reply_id: replyId, reason: String(idea.idea_reason ?? '').slice(0, 300) || null }, now })
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
@@ -711,7 +712,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         const deliverJobId = enqueueDeliver(db, {
           messageId, now,
           payload: {
-            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, documents: { files: documentFiles(documents.stored), notes: documentLines }, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null, approved_by: preApprovedBy,
+            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, captures_rejected: rejectedCaptures, documents: { files: documentFiles(documents.stored), notes: documentLines }, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null, approved_by: preApprovedBy,
             close_request: request, close_since: closeSince(job, messageId, memberId, payload) // UD-271: the delivery closes the message when it ends in green
           }
         })
@@ -734,7 +735,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       // UD-271: an outcome that needs no change (`investigated`) with nothing left to the sender may close the message here; a change closes it in the delivery.
       const handOff = HANDOFF_OUTCOMES.includes(output.outcome) || edited
       const why = handOff || investigate ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload) })
-      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...(handOff || investigate ? [] : [noCaptureLine(output, captured.stored.length, author?.language)].filter(Boolean)), ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
+      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...(handOff || investigate ? [] : [noCaptureLine(output, captured.stored.length, author?.language, rejectedCaptures)].filter(Boolean)), ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
       const { replyId } = handOff
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)

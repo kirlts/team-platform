@@ -38,7 +38,7 @@ import { step } from '../domain/progress-phrases.js'
 import { endManualSpan, startManualSpan, withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
 import { closeLine, closeReason, firstReplyAnchor } from './auto-close.js'
-import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, noCaptureLine, storeCaptures } from './captures.js'
+import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
 import { dailyBudget } from './budget.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
@@ -213,7 +213,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
         for (const reason of after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
         if (alreadyThere) closing.lines.push(textsOf(author?.language).alreadyThere)
-        const missing = noCaptureLine(payload.output, closing.files.length > 0 ? 1 : 0, author?.language) // UD-298
+        const missing = noCaptureLine(payload.output, closing.files.length > 0 ? 1 : 0, author?.language, [...(payload.captures_rejected ?? []), ...(after?.rejected ?? [])]) // UD-298
         if (missing) closing.lines.push(missing)
         closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
         // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
@@ -300,7 +300,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
           if (reported.list.length) { try { stored = await storeCaptures({ config, output: { captures: reported.list, zone: payload.output?.zone ?? null }, workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the captures of the delivery') } }
           for (const c of stored.rejected) span.addEvent('captures.rejected', { 'team.capture_index': c.index, 'team.capture_reason': c.reason })
           if (stored.stored.length) span.setAttribute('team.captures', stored.stored.length)
-          r.after = { stored: stored.stored, failed: reported.failed, hadBefore: before.length > 0 }
+          r.after = { stored: stored.stored, failed: reported.failed, rejected: describeRejected({ captures: reported.list }, stored.rejected), hadBefore: before.length > 0 }
         }
         const ref = r.code === 0 ? referenceOf(r.stdout) : null
         if (ref) span.setAttribute('team.delivery_ref', ref)
@@ -333,7 +333,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language, label: 'proposal' }) // UD-275: what the branch looks like, for the person who reviews
         // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
         const { replyId } = handOffToPerson({ db, events, now }, {
-          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language, captures: closing.files.length > 0 }), ...closing.lines, ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
+          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language, captures: closing.files.length > 0 }), ...closing.lines, ...(payload.captures_rejected?.length ? [noCaptureLine(payload.output, closing.files.length, author?.language, payload.captures_rejected)] : []), ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null

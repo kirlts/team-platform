@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { run } from '../src/db/index.js'
 import { addMember, login, makeEnv } from '../src/testing/helpers.js'
-import { HELP, runTeam } from './team.mjs'
+import { HELP, helpText, runTeam } from './team.mjs'
 
 const TEAM = fileURLToPath(new URL('./team.mjs', import.meta.url))
 const PORT = 8642 // the range given to this work (8640 to 8649)
@@ -97,5 +97,16 @@ describe('team command', () => {
     assert.match(noBody.stderr, /--body is required/)
     const unknown = await team(['dance'])
     assert.equal(unknown.code, 1)
+  })
+})
+
+describe('the help depends on whether the host allows captures that show people', () => {
+  it('says unmasked captures need the open zone by default, and not when the host allows them', async () => {
+    assert.match(helpText(), /masked false needs --zone ninguna\./)
+    assert.doesNotMatch(helpText({ unmasked: true }), /needs --zone/)
+    assert.match(helpText({ unmasked: true }), /masked false is accepted as it is\./)
+    const allowed = await runTeam(['--help'], { TEAM_CAPTURES_UNMASKED: 'allowed' })
+    assert.doesNotMatch(allowed.out, /needs --zone/)
+    assert.match((await runTeam(['--help'], { TEAM_CAPTURES_UNMASKED: 'denied' })).out, /masked false needs --zone ninguna\./)
   })
 })

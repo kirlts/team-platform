@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { captureName, checkCaptures, runTeam } from '../../scripts/team.mjs'
+import { describeRejected, noCaptureLine } from './captures.js'
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('png-body')])
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('jpeg-body')])
@@ -129,5 +130,26 @@ describe('team reply with --captures', () => {
     assert.equal(r.posts.length, 1)
     assert.equal(r.posts[0].method, 'POST')
     assert.match(r.err, /capture 2 skipped \(missing\)/)
+  })
+})
+
+describe('the reply says which capture the system left out and why', () => {
+  const output = { touches_screen: true, captures: [{ path: 'a.png', alt: 'La agenda del día', masked: false, place: '/agenda', as: 'recepción' }] }
+  it('describes each rejected capture by what it shows, never by its index', () => {
+    assert.deepEqual(describeRejected(output, [{ index: 0, reason: 'not_image' }]), [{ index: 0, reason: 'not_image', alt: 'La agenda del día', path: 'a.png' }])
+  })
+  it('a rejected capture is not «the session left none», in both languages', () => {
+    const rejected = describeRejected(output, [{ index: 0, reason: 'unmasked_sensitive' }])
+    assert.equal(noCaptureLine(output, 0, 'es-419', rejected), 'No incluye captura ni video: la sesión tomó una captura y el sistema no la adjuntó: «La agenda del día» (muestra datos de personas sin ocultarlos y esta instancia no permite adjuntarlas).')
+    assert.equal(noCaptureLine(output, 0, 'en', rejected), 'It carries no screenshot or video: the session took one capture and the system did not attach it: «La agenda del día» (it shows data of people without hiding it and this instance does not allow attaching those).')
+  })
+  it('with other captures stored, or with no screen touched, the same facts go in a line of their own', () => {
+    const rejected = describeRejected(output, [{ index: 0, reason: 'too_large' }])
+    assert.equal(noCaptureLine(output, 2, 'es-419', rejected), 'El sistema no adjuntó una captura: «La agenda del día» (el archivo supera el tamaño máximo).')
+    assert.match(noCaptureLine({ ...output, touches_screen: false }, 0, 'es-419', rejected), /^El sistema no adjuntó una captura/)
+  })
+  it('without rejections it is what it was', () => {
+    assert.equal(noCaptureLine({ touches_screen: true }, 0, 'es-419'), 'No incluye captura ni video: la sesión no dejó ninguna.')
+    assert.equal(noCaptureLine({ touches_screen: true }, 1, 'es-419'), '')
   })
 })

@@ -21,7 +21,8 @@
     "test:image": "docker build -t team-platform:test . && TEAM_PLATFORM_IMAGE=team-platform:test node --test src/image.docker.test.js src/image-walkthrough.docker.test.js",
     "test:completa": "node --test \"src/**/*.test.js\" \"scripts/*.test.mjs\"",
     "test:panel": "cd panel && npx tsc --noEmit && npx vitest run",
-    "posttest:completa": "node scripts/test-quick.mjs --mark"
+    "posttest:completa": "node scripts/test-quick.mjs --mark",
+    "e2e:contrato": "node --test-reporter=spec e2e/contrato/run.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

@@ -12,7 +12,7 @@ const LATEST_RUN = `SELECT * FROM execute_runs x WHERE x.message_id = ? AND x.ou
                      ORDER BY x.started_at DESC, x.id DESC LIMIT 1`
 
 /**
- * `{ branch, held_reason, job_id, agent_id, delivering_job_id }` while a held delivery waits for a person, else null. `job_id` is the `execute`
+ * `{ branch, held_reason, job_id, agent_id, delivering_job_id, state }` while a held delivery waits for a person, else null. `job_id` is the `execute`
  * job that wrote the branch; `delivering_job_id` the `deliver` job that is queued or running after a person approved it (the review stays
  * visible while it runs, to show its progress, and disappears when the delivery succeeds).
  */
@@ -24,6 +24,8 @@ export function pendingDelivery (db, messageId, { exceptJobId = null } = {}) {
   // `exceptJobId`: the session that was called to answer the review is itself a running `execute` job, and it must still see what it was called about.
   if (get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'execute' AND status IN ('queued', 'running') AND id IS NOT ?", messageId, exceptJobId)) return null
   const delivering = get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'deliver' AND status IN ('queued', 'running') ORDER BY id DESC LIMIT 1", messageId)
+  // UD-287: what the header says comes from what happened to the branch: running, failed (the last delivery after the held run failed) or still waiting.
+  const failed = !delivering && get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'deliver' AND status = 'failed' AND id > ? ORDER BY id DESC LIMIT 1", messageId, latest.job_id)
   const executeJob = get(db, 'SELECT payload_json FROM jobs WHERE id = ?', latest.job_id)
   let agentId = null
   try { agentId = JSON.parse(executeJob?.payload_json ?? '{}').member_id ?? null } catch { /* the agent is a courtesy of the view */ }
@@ -32,7 +34,8 @@ export function pendingDelivery (db, messageId, { exceptJobId = null } = {}) {
     held_reason: latest.delivery_hold_reason ?? '',
     job_id: String(latest.job_id),
     agent_id: agentId === null ? null : String(agentId),
-    delivering_job_id: delivering ? String(delivering.id) : null
+    delivering_job_id: delivering ? String(delivering.id) : null,
+    state: delivering ? 'delivering' : failed ? 'failed' : 'held'
   }
 }
 

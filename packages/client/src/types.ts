@@ -214,6 +214,8 @@ export interface PendingDelivery {
   agent_id: string | null
   /** The `deliver` job queued or running after a person approved; its progress shows in the review. */
   delivering_job_id: string | null
+  /** UD-287: `held` waits for review, `delivering` runs, `failed` the last delivery did not reach production. */
+  state: 'held' | 'delivering' | 'failed'
 }
 
 export interface MessageDetail extends Message {

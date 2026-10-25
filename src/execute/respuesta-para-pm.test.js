@@ -31,7 +31,7 @@ describe('the reply is for a person, not for the log', () => {
   it('a held delivery: the summary and the reason, no field and no outcome', () => {
     const body = heldBody({ output: { ...output, outcome: 'done' }, template, reason: 'el cambio toca pagos.', language: 'es-419' })
     assert.doesNotMatch(body, TECHNICAL)
-    assert.equal(body, 'Hoy las fotos se suben solo desde el panel.\n\nSumar la subida desde la ficha es posible y queda a su decisión.\n\nCambio listo para revisar: el cambio toca pagos. Todavía no llega a producción. Cómo queda, en «Propuesta».')
+    assert.equal(body, 'Hoy las fotos se suben solo desde el panel.\n\nSumar la subida desde la ficha es posible y queda a su decisión.\n\nCambio listo para revisar: el cambio toca pagos. Todavía no llega a producción.')
   })
 
   it('a failure notice carries no «Resultado»', () => {

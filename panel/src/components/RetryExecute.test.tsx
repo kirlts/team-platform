@@ -72,3 +72,20 @@ describe('Reintentar under the notice of a failed session (UD-282)', () => {
     expect(screen.queryByTestId('retry-execute')).toBeNull()
   })
 })
+
+describe('a reply carries no label of its type (UD-287)', () => {
+  const asked = (kind: string) =>
+    ({
+      id: 'm1', area_id: 'a1', author_id: '2', title: 't', body: 'b', status: 'open', created_at: '2026-10-24T12:00:00Z', updated_at: '2026-10-24T12:00:00Z', assignee_ids: ['1'], attachments: [], reply_count: 1,
+      replies: [{ id: 'r9', message_id: 'm1', author_id: '3', body: 'Listo, ya está en producción.', kind, created_at: '2026-10-24T12:05:00Z' }],
+    }) as unknown as MessageDetail
+  it.each(['answer', 'fix', 'clarification'])('a reply of kind %s from an agent draws no badge', async (kind) => {
+    render(<Mount><ReplyThread message={asked(kind)} /></Mount>)
+    await screen.findByText('Listo, ya está en producción.')
+    for (const label of ['Pregunta', 'Question', 'Solución', 'Aclaración', 'Respuesta']) expect(screen.queryByText(label)).toBeNull()
+  })
+  it('the catalogue has no label of a reply type', async () => {
+    const { es419 } = await import('@/i18n/es-419')
+    expect(Object.keys(es419).filter((k) => /^replies\.(question|kind|type|fix|answer|clarification)/.test(k))).toEqual([])
+  })
+})

@@ -1050,6 +1050,11 @@ export interface paths {
                                     job_id?: string;
                                     agent_id?: string | null;
                                     delivering_job_id?: string | null;
+                                    /**
+                                     * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                     * @enum {string}
+                                     */
+                                    state?: "held" | "delivering" | "failed";
                                 } | null;
                                 edits?: {
                                     id?: string;
@@ -1590,6 +1595,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -1796,6 +1806,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -2052,6 +2067,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -2342,6 +2362,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -2501,6 +2526,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -2660,6 +2690,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -2822,6 +2857,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -2984,6 +3024,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -3165,6 +3210,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -3334,6 +3384,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -3493,6 +3548,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -3652,6 +3712,11 @@ export interface paths {
                                 job_id?: string;
                                 agent_id?: string | null;
                                 delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
                             } | null;
                             edits?: {
                                 id?: string;
@@ -6629,8 +6694,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reintentar el trabajo que falló (cualquier miembro)
-         * @description UD-282. La respuesta del aviso «<Agente> no pudo responder: …» lleva el trabajo `execute` que falló; este endpoint encola otro con el mismo origen: el mismo mensaje y agente y la misma `mention`, `forward` o entrega en la carga, así que la sesión lee otra vez el mismo hilo, los mismos adjuntos y las mismas notas de voz. Puede hacerlo quien puede mencionar al agente (un miembro). Auditada como `message.execute_retry`. Responde 202 con el trabajo. 404 si la respuesta no es de ese mensaje; 409 `not_a_failure` si no avisa de un trabajo fallido, `not_retryable` si la causa no se arregla con otro intento (formato de la salida, configuración del agente), `budget_spent` si el tope de gasto de hoy se agotó, `retry_stale` si ya hay otro trabajo del mensaje, `message_closed`, `not_an_agent` si el agente se desactivó, `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje.
+         * Reintentar el trabajo o la entrega que falló (cualquier miembro)
+         * @description UD-282. La respuesta del aviso «<Agente> no pudo responder: …» lleva el trabajo `execute` que falló; este endpoint encola otro con el mismo origen: el mismo mensaje y agente y la misma `mention`, `forward` o entrega en la carga, así que la sesión lee otra vez el mismo hilo, los mismos adjuntos y las mismas notas de voz. Si el aviso es de una entrega fallida (UD-287) vuelve a correr la orden de entrega sobre la rama, sin IA, con las mismas reglas que `POST /messages/:id/deliver`; auditada como `message.deliver_retry`. Puede hacerlo quien puede mencionar al agente (un miembro). Auditada como `message.execute_retry`. Responde 202 con el trabajo. 404 si la respuesta no es de ese mensaje; 409 `not_a_failure` si no avisa de un trabajo fallido, `not_retryable` si la causa no se arregla con otro intento (formato de la salida, configuración del agente), `budget_spent` si el tope de gasto de hoy se agotó, `retry_stale` si ya hay otro trabajo del mensaje, `message_closed`, `not_an_agent` si el agente se desactivó, `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje.
          */
         post: {
             parameters: {

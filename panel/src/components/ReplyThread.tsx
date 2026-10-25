@@ -153,14 +153,12 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                   </li>
                 )
               }
-              const handoffQuestion = r.kind === 'clarification' && members.some((m) => m.id === r.author_id && m.kind === 'agent')
               return (
                 <li key={key} className="relative flex gap-3" data-last={last || undefined}>
                   <Avatar name={memberName(r.author_id) || '?'} size={32} className="relative z-10 ring-4 ring-bg" />
                   <article className={cn('reply-card flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-3 py-2.5', last ? 'glass reply-card-last' : 'reply-card-quiet')}>
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
                       <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(r.author_id)}</span>
-                      {handoffQuestion && <Badge tone="neutral">{t('replies.question')}</Badge>}
                       <time dateTime={r.created_at} className="tabular-nums">
                         {format.stamp(r.created_at)}
                       </time>

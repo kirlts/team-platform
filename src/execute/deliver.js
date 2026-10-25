@@ -55,7 +55,7 @@ const TEXTS = {
   'es-419': {
     production: 'Ya está en producción.',
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
-    held: (reason) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción. Cómo queda, en «Propuesta».`,
+    held: (reason, captures) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción.${captures ? ' Cómo queda, en «Propuesta».' : ''}`,
     heldReason: 'el cambio necesita esa revisión',
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
@@ -66,7 +66,7 @@ const TEXTS = {
   en: {
     production: 'It is in production now.',
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
-    held: (reason) => `Change ready for review: ${reason}. It is not in production yet. How it looks, in «Proposal».`,
+    held: (reason, captures) => `Change ready for review: ${reason}. It is not in production yet.${captures ? ' How it looks, in «Proposal».' : ''}`,
     heldReason: 'the change needs that review',
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
@@ -113,11 +113,11 @@ export function referenceOf (stdout) {
 }
 
 /** The reply of a delivery held for review: the summary of the session and the reason in a plain paragraph. The hand-over carries `needs_decision` as a field (UD-269). */
-export function heldBody ({ output, reason, language }) {
+export function heldBody ({ output, reason, language, captures = false }) {
   const t = textsOf(language)
   const base = output ?? {}
   const why = String(reason ?? '').trim().replace(/[.\s]+$/, '') || t.heldReason
-  const summary = [String(base.summary ?? '').trim(), t.held(why)].filter(Boolean).join('\n\n')
+  const summary = [String(base.summary ?? '').trim(), t.held(why, captures)].filter(Boolean).join('\n\n')
   return replyBody({ summary })
 }
 
@@ -246,7 +246,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language, label: 'proposal' }) // UD-275: what the branch looks like, for the person who reviews
         // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
         const { replyId } = handOffToPerson({ db, events, now }, {
-          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines, ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
+          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language, captures: closing.files.length > 0 }), ...closing.lines, ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
@@ -307,17 +307,22 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     return error?.code === 'deliver_failed' ? t.verification(branch) : t.system(branch)
   }
 
+  /** UD-287: the notice of a failed delivery carries the `deliver` job that failed, so that «Reintentar» launches the delivery again (the same columns as UD-282). */
+  const markFailure = (replyId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = ?', job.id, error?.code ?? 'system', replyId)
+  const markLastReply = (messageId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = (SELECT MAX(id) FROM replies WHERE message_id = ? AND deleted_at IS NULL)', job.id, error?.code ?? 'system', messageId)
+
   /**
    * A delivery that ends without reaching production (the machine twice, the time limit, a lease that expired twice, a verification that failed again, anything
    * else) goes to the person who decides in the area (UD-269) with the reason in plain words, and nobody has to find it among the jobs: as «answered» and
    * assigned to the agent it reached nobody (2026-10-23, a `blocked` buried as answered). Returns false when there is nobody to hand it to or the message
    * is closed or gone.
    */
-  function handOff (messageId, memberId, branch, error) {
+  function handOff (job, messageId, memberId, branch, error) {
     try {
       const body = failureText(messageId, branch, error)
-      if (alreadyHandedOver(db, messageId, body)) return true // a delivery launched again that failed the same way
-      const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'deliver' })
+      if (alreadyHandedOver(db, messageId, body)) { markLastReply(messageId, job, error); return true } // a delivery launched again that failed the same way: the notice stays and now stands for this job
+      const { replyId, personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'deliver' })
+      markFailure(replyId, job, error)
       return personId !== null
     } catch (e) {
       logger?.warn({ err: e }, 'could not hand the failed delivery to a person')
@@ -326,12 +331,13 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
   }
 
   /** With nobody to hand the message to, the agent still says in plain words that the work is not in production; a closed or deleted message has nobody to tell. */
-  function tellTheAuthor (messageId, memberId, branch, error) {
+  function tellTheAuthor (job, messageId, memberId, branch, error) {
     try {
       const body = failureText(messageId, branch, error)
       // The same notice twice in a row (a retry that failed the same way) tells the author nothing new.
-      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return
-      addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
+      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) { markLastReply(messageId, job, error); return }
+      const { replyId } = addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
+      markFailure(replyId, job, error)
     } catch {
       // The reply is a courtesy: if the message is closed or gone the failure is already in the job and in its events.
     }
@@ -367,7 +373,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
           logger?.warn({ err: e }, 'could not enqueue the second pass after a failed delivery')
         }
       }
-      if (again === null && !handOff(messageId, memberId, branch, error)) tellTheAuthor(messageId, memberId, branch, error)
+      if (again === null && !handOff(job, messageId, memberId, branch, error)) tellTheAuthor(job, messageId, memberId, branch, error)
       events.publishForJob(job.id, {
         kind: 'done',
         data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null, ...(again !== null ? { execute_job_id: String(again) } : {}) }

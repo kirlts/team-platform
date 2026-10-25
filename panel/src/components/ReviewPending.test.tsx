@@ -24,7 +24,7 @@ const members = [
 const message = (pending: Partial<NonNullable<MessageDetail['pending_delivery']>> | null = {}): MessageDetail =>
   ({
     id: 'm1', area_id: 'a1', author_id: '2', title: 'Fotos', body: '', status: 'open', created_at: '2026-10-24T10:00:00Z', assignee_ids: ['1'], attachments: [], reply_count: 0, replies: [],
-    pending_delivery: pending === null ? null : { branch: 'tp/1', held_reason: 'Toca datos de personas', job_id: '9', agent_id: '3', delivering_job_id: null, ...pending },
+    pending_delivery: pending === null ? null : { branch: 'tp/1', held_reason: 'Toca datos de personas', job_id: '9', agent_id: '3', delivering_job_id: null, state: 'held', ...pending },
   }) as MessageDetail
 
 let role: 'editor' | 'member' = 'editor'
@@ -54,6 +54,15 @@ function Mount({ children }: { children: React.ReactNode }) {
 }
 
 describe('the line «Cambio listo para revisar» (UD-275, UD-280)', () => {
+  it('UD-287: the line comes from the real state of the delivery', () => {
+    role = 'editor'
+    render(<Mount><ReviewPending message={message({ state: 'failed' })} /></Mount>)
+    expect(screen.getByTestId('review-reason').textContent).toBe('La entrega falló')
+    expect(screen.queryByText('Cambio listo para revisar')).toBeNull()
+    cleanup()
+    render(<Mount><ReviewPending message={message({ state: 'held' })} /></Mount>)
+    expect(screen.getByTestId('review-reason').textContent).toBe('Cambio listo para revisar')
+  })
   it('shows nothing when the message has no held delivery', () => {
     role = 'editor'
     render(<Mount><ReviewPending message={message(null)} /></Mount>)

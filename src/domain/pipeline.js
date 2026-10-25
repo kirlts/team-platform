@@ -258,8 +258,14 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // UD-291: the recipients the sender chose are the assignees of every message; the routing keeps choosing area and template, not people.
         const recipients = recipientsOf(input)
         if (recipients.length > 0) for (const m of proposalObj.messages) m.assignee_ids = [...recipients]
+        // The automatic routing never assigns a message to whoever wrote it: the sender already answers for it as author.
         // UD-295: with no recipients chosen, the routing is automatic, and a Guard about a person that the message touches puts a person among the assignees, next to Claude.
-        else for (const m of proposalObj.messages) ensurePersonWhenTouched(db, m, input.author_id)
+        else {
+          for (const m of proposalObj.messages) {
+            m.assignee_ids = (m.assignee_ids ?? []).filter((id) => id !== input.author_id)
+            ensurePersonWhenTouched(db, m, input.author_id)
+          }
+        }
 
         return () => {
           // Inside the transaction that closes the job. Each message carries its area and template.

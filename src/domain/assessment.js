@@ -67,7 +67,7 @@ export function ensurePersonWhenTouched (db, message, authorId = null) {
   const people = ids.length === 0 ? [] : all(db, `SELECT id FROM members WHERE kind = 'person' AND active = 1 AND id IN (${ids.map(() => '?').join(',')})`, ...ids)
   if (people.length > 0) return false
   const decider = deciderOf(db, message.area_id, authorId)
-  if (decider === null || ids.includes(decider)) return false
+  if (decider === null || ids.includes(decider) || decider === authorId) return false
   message.assignee_ids = [...ids, decider]
   return true
 }

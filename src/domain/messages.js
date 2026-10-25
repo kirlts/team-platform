@@ -297,7 +297,7 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
     }
 
     const currentAssignees = all(db, 'SELECT member_id FROM message_assignees WHERE message_id = ? ORDER BY member_id', messageId).map((a) => a.member_id)
-    const assigneeIds = patch.assignee_ids === undefined ? null : checkAssignees(db, patch.assignee_ids, { fail, keep: new Set(currentAssignees) })
+    const assigneeIds = patch.assignee_ids === undefined ? null : checkAssignees(db, patch.assignee_ids, { fail, keep: new Set(currentAssignees), authorId: row.author_id })
     const sameAssignees = assigneeIds === null || (assigneeIds.length === currentAssignees.length && [...assigneeIds].sort((a, b) => a - b).every((id, i) => id === currentAssignees[i]))
 
     // Attachments: only those of the input the message came from, in the order given.

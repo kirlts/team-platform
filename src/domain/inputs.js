@@ -78,9 +78,10 @@ export function resolveSendAs (db, sessionMemberId, asMemberId) {
 /**
  * Recipients of a send (UD-291): the members it is addressed to, chosen by the sender. Any active member, an agent among them: an agent is
  * one recipient more, with no route of its own. Duplicates collapse; an id that is not a member or is deactivated is 400 `recipient_invalid`.
- * Without recipients the automatic routing assigns, as it always did.
+ * Without recipients the automatic routing assigns, as it always did. With `authorId`, the author is not a recipient: a message is not
+ * sent to whoever writes it (400 `recipient_self`), also when a session sends in the name of another member (the author is that member).
  */
-export function resolveRecipients (db, raw) {
+export function resolveRecipients (db, raw, { authorId = null } = {}) {
   if (raw === undefined || raw === null) return []
   if (!Array.isArray(raw)) throw badRequest('`recipient_ids` es una lista de ids de miembros.', 'recipient_invalid')
   const ids = []
@@ -90,6 +91,7 @@ export function resolveRecipients (db, raw) {
     if (!/^[1-9]\d*$/.test(text) || !Number.isSafeInteger(id)) throw badRequest(`«${text.slice(0, 40)}» no es un miembro.`, 'recipient_invalid')
     const row = get(db, 'SELECT active FROM members WHERE id = ?', id)
     if (!row || row.active === 0) throw badRequest(`El miembro ${id} no existe o está desactivado.`, 'recipient_invalid')
+    if (authorId !== null && id === Number(authorId)) throw badRequest('Un mensaje no se envía a quien lo escribe.', 'recipient_self')
     if (!ids.includes(id)) ids.push(id)
   }
   return ids.sort((a, b) => a - b)

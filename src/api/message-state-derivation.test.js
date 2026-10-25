@@ -46,7 +46,7 @@ test('UD-042 · the state of every message is derived from its replies and its c
   const idea = areas.find((a) => a.title === 'Idea')
   const question = areas.find((a) => a.title === 'Pregunta')
   const a = await publish(env, env.c.ana, 'uno', idea, [3])
-  const b = await publish(env, env.c.ana, 'dos', question, [3, 2])
+  const b = await publish(env, env.c.ana, 'dos', question, [3, 1])
   const c = await publish(env, env.c.beto, 'tres', question, [1])
   assert.deepEqual(stateContradictions(env.db), [], 'freshly published')
 

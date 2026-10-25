@@ -236,8 +236,8 @@ describe('replies with media', () => {
       await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'borrador.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }])
       await page.getByRole('button', { name: 'Responder', exact: true }).click()
       const row = page.getByRole('article').filter({ hasText: 'Adjunto el borrador' })
-      // The tile of the file is the reply's media: one row of attachments, with the kind drawn in it (J3-A-25).
-      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('button', { name: /borrador\.pdf/ }).waitFor()
+      // The tile of the file is the reply's media: one row of attachments, with the kind drawn in it (J3-A-25); a PDF is a link that opens in its own tab (0f7a4b7).
+      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('link', { name: 'Abrir borrador.pdf' }).waitFor()
     } finally {
       await context.close()
     }

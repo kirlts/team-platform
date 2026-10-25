@@ -147,8 +147,9 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       const own = await messageByTitle(page, 'Confirmar el formato')
       await page.goto(`${origin}/messages/${own.id}`)
       await page.locator('main h1').waitFor()
-      await page.getByText('Enviado por mí').waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Responder', exact: true }).count(), 0)
+      // UD-278: the sender writes in the thread only to call someone, so the detail offers the form (no «Responder» button) while the message is open.
+      await page.getByRole('textbox', { name: 'Respuesta' }).waitFor()
+      assert.equal(await page.getByRole('button', { name: 'Responder', exact: true }).isDisabled(), true, 'without a mention the sender has nothing to send')
     } finally {
       await context.close()
     }
@@ -618,7 +619,10 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       assert.equal(await h1.evaluate((el) => getComputedStyle(el).textWrap), 'balance', 'the title balances its lines')
       // The area is text with a caret, not a chrome tab that competes with Cerrar.
       const area = page.getByRole('button', { name: /^Área:/ })
-      assert.equal(await area.evaluate((el) => getComputedStyle(el).backgroundImage), 'none')
+      // UD-045: the area is the chip of its color, a flat fill (the same color twice in the gradient), not a tab with a gloss.
+      const fill = await area.evaluate((el) => getComputedStyle(el).backgroundImage)
+      const [flat] = fill.match(/^linear-gradient\((rgb\([^)]*\)), \1\)/) ?? []
+      assert.ok(flat, `the area is a flat chip: ${fill}`)
       // The state is the light and the word, no pill.
       assert.equal(await page.locator('main .led').first().evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)')
       // Deshacer appears once there is something to undo, with its name on a desktop.
@@ -816,7 +820,7 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
     }
   })
 
-  test('Desactivar is quiet, and a profile shows its first paragraph with the rest one click away (J3-A-41, J3-A-42, J3-A-43)', async () => {
+  test('Desactivar is quiet, and a profile opens whole in a window (UD-288, J3-A-41, J3-A-42, J3-A-43)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/team`)
@@ -830,15 +834,16 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
       await page.keyboard.press('Escape')
       const name = await page.getByRole('button', { name: /^Nombre:/ }).first().evaluate((el) => Number(getComputedStyle(el).fontWeight))
       assert.ok(weight < name, 'it weighs less than the name')
-      const more = page.getByRole('button', { name: 'Ver más' }).first()
-      await more.waitFor()
-      // Ana's own profile has two paragraphs; her row is found by her address, since the button changes its name when it opens.
+      // UD-288: the profile is one line in the row and opens whole in a window over the list; the row keeps its height.
       const row = page.locator('main div.border-b').filter({ hasText: 'ana@dev.invalid' }).first()
       const before = (await row.boundingBox()).height
-      assert.equal(await row.getByText('No toco la interfaz del panel').count(), 0, 'the second paragraph is folded')
-      await row.getByRole('button', { name: 'Ver más' }).click()
-      await row.getByText('No toco la interfaz del panel').waitFor()
-      assert.ok((await row.boundingBox()).height > before)
+      assert.equal(await page.getByRole('dialog').count(), 0, 'the profile is closed until it is opened')
+      await row.locator('[data-profile-extract]').click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByText('No toco la interfaz del panel').waitFor()
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'hidden' })
+      assert.equal(Math.round((await row.boundingBox()).height), Math.round(before), 'the row did not grow')
     } finally {
       await context.close()
     }

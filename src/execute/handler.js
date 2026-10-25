@@ -22,6 +22,7 @@ import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
 import { dailyBudget, localDay } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
+import { audit } from '../domain/audit.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
@@ -106,7 +107,7 @@ export function claudeArgs (x, schema) {
   ]
 }
 
-const SYSTEM_READ_FIELDS = ['summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
+const SYSTEM_READ_FIELDS = ['approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
 
 /**
  * What the sender reads of the structured output (UD-276): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
@@ -138,7 +139,7 @@ const FAILURE_TEXTS = {
   'es-419': {
     saved: 'Todavía no está en producción. Lo que alcancé a hacer queda guardado en la rama del mensaje.',
     again: 'Quien reciba este mensaje puede volver a lanzarlo desde la ficha.',
-    editor: 'Un Editor puede volver a lanzarlo desde la ficha del mensaje.',
+    editor: 'Cualquier persona del equipo puede volver a lanzarlo desde la ficha del mensaje.',
     interrupted: 'La sesión se interrumpió antes de terminar, dos veces seguidas (el servicio se reinició o se perdió la máquina de trabajo).',
     timeout: (minutes) => `No alcancé a terminar dentro del tiempo máximo (${minutes} min) y la sesión se cerró.`,
     budget: 'Se alcanzó el tope de gasto antes de terminar.',
@@ -158,7 +159,7 @@ const FAILURE_TEXTS = {
   en: {
     saved: 'It is not in production yet. What I got done is saved on the branch of the message.',
     again: 'Whoever receives this message can launch it again from its page.',
-    editor: 'An Editor can launch it again from the page of the message.',
+    editor: 'Anyone on the team can launch it again from the page of the message.',
     interrupted: 'The session was interrupted before it finished, twice in a row (the service restarted or the work machine was lost).',
     timeout: (minutes) => `I could not finish within the time limit (${minutes} min) and the session was closed.`,
     budget: 'The spending limit was reached before it finished.',
@@ -540,7 +541,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
     const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-278): the people in the thread decide
     // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
-    const { captures: _declared, close: _close, close_reason: _closeReason, mode, attachments: _attachments, review: asked, review_reason: askedReason, ...output } = result.structured_output
+    const { captures: _declared, close: _close, close_reason: _closeReason, mode, approved, approved_reply: approvedReply, attachments: _attachments, review: asked, review_reason: askedReason, ...output } = result.structured_output
     // UD-280: what the person asked about the change under review. The system reads the field, never the words; without a review pending the field means nothing.
     const reviewAction = review ? asked ?? 'none' : null
     const untouched = reviewAction === 'approve' || reviewAction === 'discard' || reviewAction === 'none' // the review is answered or left as it is: no change, no delivery, no close
@@ -550,6 +551,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
+    // UD-286: the person already asked, in their own words, to implement and publish. The model says it in `approved`; the system reads the field, never the words, and the delivery goes out without a second review.
+    const preApprovedBy = approved === true && !investigate && mentionAuthor && byPerson ? mentionAuthor.id : null
     rec.reviewAnswered = untouched // the run changed nothing: the review keeps pointing at the run that held the branch
 
     return () => {
@@ -584,12 +587,13 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         const deliverJobId = enqueueDeliver(db, {
           messageId, now,
           payload: {
-            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, documents: { files: documentFiles(documents.stored), notes: documentLines }, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null,
+            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, documents: { files: documentFiles(documents.stored), notes: documentLines }, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null, approved_by: preApprovedBy,
             close_request: request, close_since: closeSince(job, messageId, memberId, payload) // UD-271: the delivery closes the message when it ends in green
           }
         })
         if (deliverJobId !== null) {
           rec.deliverJobId = deliverJobId
+          if (preApprovedBy !== null) audit(db, { memberId: preApprovedBy, action: 'message.deliver_preapproved', entity: 'message', entityId: messageId, detail: { job_id: deliverJobId, reply: String(approvedReply ?? '').slice(0, 300) || null } })
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('done'), data: { message_id: messageId } })
           events.publishForJob(job.id, {
             kind: 'done',

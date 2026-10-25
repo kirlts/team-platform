@@ -102,6 +102,6 @@ describe('a forwarded message in the prompt and the schema (UD-272)', () => {
     const check = new Ajv({ strict: false }).compile(finalSchema(declared, { validation: true }))
     assert.equal(check({ outcome: 'done', summary: 'x', mode: 'investigate', attachments: [{ path: 'a.pdf', name: 'A' }] }), true)
     assert.equal(check({ outcome: 'done', summary: 'x', mode: 'decide' }), false)
-    assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['attachments', 'captures', 'close', 'close_reason', 'mode', 'summary'])
+    assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['approved', 'approved_reply', 'attachments', 'captures', 'close', 'close_reason', 'mode', 'summary'])
   })
 })

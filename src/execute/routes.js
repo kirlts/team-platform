@@ -65,9 +65,9 @@ export function registerExecuteRoutes (app, ctx) {
   })
 
   app.post('/messages/:id/deliver', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('member')],
     schema: {
-      summary: 'Encolar la entrega a producción de un mensaje (Editor)',
+      summary: 'Encolar la entrega a producción de un mensaje (cualquier persona activa, UD-286)',
       description: 'Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama.',
       params: idParams(),
       response: { 202: { type: 'object', properties: { job_id: { type: 'string' } } } }
@@ -79,9 +79,9 @@ export function registerExecuteRoutes (app, ctx) {
   })
 
   app.post('/messages/:id/discard-delivery', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('member')],
     schema: {
-      summary: 'Descartar la rama de una entrega retenida (Editor)',
+      summary: 'Descartar la rama de una entrega retenida (cualquier persona activa, UD-286)',
       description: 'UD-275. La rama que espera revisión no se entrega nunca: el mensaje deja de mostrar la revisión pendiente, queda abierto y el hilo gana «Descartado por <persona>: <motivo>». El motivo es obligatorio. Auditada como `message.delivery_discard`. 409 `no_pending_delivery` si no hay una entrega retenida, 409 `deliver_busy` si ya se está entregando.',
       params: idParams(),
       body: { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string', minLength: 1, maxLength: 1000 } } }, // declared courtesy: one plain reason in the thread

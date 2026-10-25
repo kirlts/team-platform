@@ -10,6 +10,7 @@ import { loadConfig } from '../../src/config.js'
 import { createPipeline } from '../../src/domain/pipeline.js'
 import { updateMember } from '../../src/domain/members.js'
 import { createVault, loadMasterKey } from '../../src/domain/vault.js'
+import { resumeInfraFailures } from '../../src/execute/resume.js'
 import { createDeliverHandler } from '../../src/execute/deliver.js'
 import { createExecuteHandler } from '../../src/execute/handler.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../../src/testing/helpers.js'
@@ -91,7 +92,7 @@ export async function iniciarCiclo ({ execute = {}, estimates = null, martinProf
         execute: createExecuteHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, vault, progressUnitMs: unitMs }),
         deliver: createDeliverHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events })
       }
-      worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config: lastConfig, handlers })
+      worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config: lastConfig, handlers, resume: (trigger) => resumeInfraFailures({ db: env.db, config: lastConfig, events: env.events }, { trigger }) })
       worker.start()
       return worker
     },

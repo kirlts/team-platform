@@ -18,6 +18,7 @@ import { contextFromTraceparent, currentTraceparent, linkTo } from './telemetry/
 import { unseenFailures } from './domain/escalation.js'
 import { attendPendingMentions } from './domain/mentions.js'
 import { createPipeline } from './domain/pipeline.js'
+import { resumeInfraFailures } from './execute/resume.js'
 import { createDeliverHandler } from './execute/deliver.js'
 import { createExecuteHandler } from './execute/handler.js'
 import { loadModules } from './domain/modules.js'
@@ -46,7 +47,7 @@ function untilSettledOrGivenUp (work, signal, graceMs) {
  * `pollDataVersionMs`: only for the separate process; wakes the claim when another connection commits a
  * write (the job enqueued by the API).
  */
-export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, logger = createLogger({ logLevel: 'silent' }), now = Date.now, pollDataVersionMs = null, onSweep = null }) {
+export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, logger = createLogger({ logLevel: 'silent' }), now = Date.now, pollDataVersionMs = null, onSweep = null, resume = null }) {
   const w = config.worker
   setLimiterLogger(logger) // the cap reductions of the provider limiters go to the worker's log (H-83)
   const runningJobs = new Map() // job.id → { controller, running, kind }
@@ -127,6 +128,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
           finalize?.()
           attendMentions(job) // UD-278: a mention that arrived while the agent worked this message is attended now
         })
+        if (job.kind === 'execute' || job.kind === 'deliver') resumeFailures('capacity')
         span.setAttribute('team.outcome', 'done')
         jobLog.info('job finished')
       } catch (error) {
@@ -213,6 +215,12 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if ((job.kind === 'execute' || job.kind === 'deliver' || job.kind === 'extract') && job.message_id) attendPendingMentions(db, { now, messageId: job.message_id })
   }
 
+  // The failures of the environment are launched again by event: the start of the worker and a session that ended well (capacity may be back).
+  function resumeFailures (trigger) {
+    if (!resume) return
+    try { if (resume(trigger).length > 0) kick() } catch (e) { logger.error({ err: e }, 'error while relaunching the failures of the environment') }
+  }
+
   function sweepLeases () {
     try {
       queue.recoverExpiredLeases({ spare: workerId, running: [...runningJobs.keys()] })
@@ -242,6 +250,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     queue.signals.on('leaseFailed', onLeaseFailed)
     queue.recoverExpiredLeases({ spare: workerId, running: [] }) // at startup (MS §7.3): this worker holds nothing yet
     sweepUnseen()
+    resumeFailures('start') // a deploy that brings the fix restarts the worker: what failed for the environment goes again, once
     sweepHandlers()
     timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence
     timers.push(setInterval(sweepRetentionJob, w.retentionSweepMs))
@@ -280,7 +289,8 @@ export async function buildWorker ({ db, config, events, queue = null, env = pro
   const handlers = { ...createPipeline({ db, config, queue: outbox, events, modules }), execute: createExecuteHandler({ db, config, queue: outbox, events, vault: modules.vault, logger }), deliver: createDeliverHandler({ db, config, queue: outbox, events, logger }) }
   const worker = createWorker({
     db, queue: outbox, events, config, handlers, logger, pollDataVersionMs,
-    onSweep: () => sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000)
+    onSweep: () => sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000),
+    resume: (trigger) => resumeInfraFailures({ db, config, events, logger }, { trigger })
   })
   return { worker, queue: outbox, modules }
 }

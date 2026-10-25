@@ -117,8 +117,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       {/* The state opens its line and not the column of actions: «Respondido» next to «Responder» read as one thing said twice (J4-A-home-02). */}
       <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-nowrap items-center gap-x-3 text-xs text-muted">
         <StateMark status={message.status} plain className="min-h-0 shrink-0 px-0" />
-        {/* One line in every card (V9): on a phone a long area name ends in «…» (its full name is the title) before the row grows. justified: UD-241 amends UD-016 for the rows of a list. */}
-        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="min-w-0 truncate" />}
+        {/* One line in every card (V9): on a phone a long area name ends in «…» before the row grows. */}
+        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="min-w-0 truncate" />} {/* justified: UD-241, one line per card */}
         {variant === 'message' && !gone && <AssessmentMarks message={message} />}
         {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}
         <span data-testid="card-number" className="ml-auto shrink-0 tabular-nums">#{message.id}</span>

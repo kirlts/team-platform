@@ -1576,10 +1576,10 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 
 ## [UD-308] Con un anfitrión que gobierna la identidad, la entrada es la del anfitrión
 **Fecha:** 2026-10-25
-**Contexto:** Martín, 2026-10-25 14:4x, volvió a team.devalis.cl y vio el formulario propio de correo y contraseña; al enviarlo, `POST /api/auth/login` respondió 404. Medido en producción: la tabla `credentials` está vacía y todos los miembros entran por el ingreso firmado de Devalis (`identity_links`, proveedor `host-role`). El borde manda a `/session/login` sólo cuando no hay cookie de sesión; con una cookie vencida o inválida la petición llegaba a Team Platform, que dibujaba un formulario sin salida para todos.
+**Contexto:** Martín, 2026-10-25 14:4x, volvió al panel del equipo y vio el formulario propio de correo y contraseña; al enviarlo, `POST /api/auth/login` respondió 404. Medido en producción: la tabla `credentials` está vacía y todos los miembros entran por el ingreso firmado del anfitrión (`identity_links`, proveedor `host-role`). El borde manda a `/session/login` sólo cuando no hay cookie de sesión; con una cookie vencida o inválida la petición llegaba a Team Platform, que dibujaba un formulario sin salida para todos.
 **Decisión:** Cuando el anfitrión gobierna la identidad (`jwt` con `JWT_JWKS_URL` o `JWT_SECRET`, `signed-header` o `trusted-header`), una sesión ausente, vencida o inválida lleva a `HOST_LOGIN_URL` (por omisión `/session/login`). El servidor responde las páginas del panel con un 302 a esa dirección y el destino original en `next`; el 401 de la API trae `login_url` con la misma dirección; el panel, al recibir ese `login_url`, redirige y no dibuja el formulario. El formulario propio sólo existe sin anfitrión. `sso-redirect` conserva su ruta de inicio.
 **Alternativas descartadas:**
-- Arreglar sólo el borde de Devalis para tratar la cookie vencida como ausente: deja el defecto en Team Platform para cualquier otro anfitrión.
+- Arreglar sólo el borde del anfitrión para tratar la cookie vencida como ausente: deja el defecto en Team Platform para cualquier otro anfitrión.
 - Quitar el formulario del panel: un despliegue sin anfitrión lo necesita.
 **Consecuencias:** `src/config.js` (`hostEntryUrl`, `HOST_LOGIN_URL`), `src/identity/index.js`, `src/api/index.js`, `panel/src/App.tsx`, `.env.example`. Pruebas: `src/api/host-entry.test.js` y `panel/src/host-entry.browser.test.mjs`.
 **Condiciones de reversión:** Las fija Martín.

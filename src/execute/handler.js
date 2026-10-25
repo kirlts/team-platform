@@ -20,7 +20,7 @@ import { AppError, infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
-import { dailyBudget, localDay } from './budget.js'
+import { admitSession, dailyBudget, localDay, sessionReserve } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { audit } from '../domain/audit.js'
 import { step } from '../domain/progress-phrases.js'
@@ -306,7 +306,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
   // What each session that runs now may still spend: `--max-budget-usd` of its invocation. The day's cost counts a job only when its result arrives, so
   // eight sessions that start together each saw the whole remainder and could spend eight times the day's cap (UD-256).
-  const liveMachines = new Set() // the jobs of this process that hold a machine; EXECUTE_MAX_MACHINES bounds it
   const reserved = new Map()
   const creationGate = createCreationGate({ waitMs: x.capacityWaitMs, now }) // UD-303: the creation of machines, one at a time, and no script while the host has just said no
 
@@ -431,23 +430,20 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // A previous attempt found that the binary does not know the flag of the system prompt: this one carries the whole prompt in the message (payload `no_stable_system`).
     const stable = x.stableAsSystem && payload.no_stable_system !== true
     const prompt = stable ? parts.variable : buildExecutePrompt(promptInput)
-    // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
-    // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
-    // The slot is taken in the same tick as the check: two jobs that start together cannot both pass it. `run` releases it on any exit.
-    if (x.runner === 'machine') {
-      if (x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'), { code: 'machines', limit: x.maxMachines, live: liveMachines.size })
-      liveMachines.add(job.id)
-    }
+    // No count of live machines bounds the jobs here (UD-304): the host creates another machine or, when its quota or its stock say no, exits 75 and the job waits.
     // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
     const budget = dailyBudget(db, x, now())
     if (budget.remaining <= 0) {
       noticeBudgetWait(job, messageId, now() + budget.nextDayMs)
       throw new Deferred(budget.nextDayMs, step('budgetWait'), { code: 'budget_day', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent })
     }
-    const available = budget.remaining - [...reserved.values()].reduce((a, b) => a + b, 0)
-    if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait'), { code: 'budget_reserved', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent, reserved_usd: [...reserved.values()].reduce((a, b) => a + b, 0), sessions: reserved.size }) // what is left is held by sessions that run now: it may come back when they end
-    const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
-    reserved.set(job.id, budgetUsd)
+    // UD-305: each session holds back what the sessions of its model cost (90th percentile), not a chosen 10 USD; its own cap stays `maxBudgetUsd`.
+    const reserve = sessionReserve(db, x, model, now())
+    const held = [...reserved.values()].reduce((a, b) => a + b, 0)
+    const admission = admitSession({ remaining: budget.remaining, held, sessions: reserved.size, reserveUsd: reserve.usd, maxBudgetUsd: x.maxBudgetUsd })
+    if (!admission.ok) throw new Deferred(x.capacityWaitMs, step('budgetWait'), { code: 'budget_reserved', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent, reserved_usd: held, sessions: reserved.size, reserve_usd: reserve.usd, reserve_basis: reserve.basis }) // what is left is held by sessions that run now: it may come back when they end
+    const budgetUsd = admission.budgetUsd
+    reserved.set(job.id, admission.holdUsd)
     const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, assessed: estimates !== null })
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
@@ -458,7 +454,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
       budgetUsd,
-      onEvent: (event) => session?.onEvent(event),
+      onEvent: (event) => {
+        session?.onEvent(event)
+        // UD-305: the reserve follows the real cost: a session that already spent more than it held holds what it spent (it is released when the job ends and counts as cost then).
+        const spent = reader.state().spentUsd
+        if (reserved.has(job.id) && spent > reserved.get(job.id)) reserved.set(job.id, spent)
+      },
       onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
     })
     queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
@@ -499,7 +500,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
     })
     let outcome
-    if (x.runner === 'machine') liveMachines.add(job.id)
     try {
       // After `dirs` exists: the file goes in the job directory (inside the `try`: a full disk here must still remove the directory).
       if (stable) {
@@ -511,7 +511,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         'team.runner': x.runner, 'team.model': model, 'team.estimates': estimates ? JSON.stringify(estimates) : '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
-        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
+        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
@@ -561,7 +561,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return { r, st, result, captured, documents }
       })
     } finally {
-      liveMachines.delete(job.id)
       await cleanup(dirs)
     }
     ctx.signal.throwIfAborted()
@@ -842,7 +841,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         rec.error = error
         throw error
       } finally {
-        liveMachines.delete(job.id)
         reserved.delete(job.id)
         creationGate.open() // a session ended: its capacity may be back, so the next job asks the host again (an event, not a clock)
         if (rec.began) saveRun(job, ctx, rec)

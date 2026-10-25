@@ -30,9 +30,8 @@ describe('queue under a burst', () => {
     run(env.db, "DELETE FROM jobs WHERE kind = 'extract'")
   })
 
-  it('two deliveries to production never run at the same time, and sessions never take the slots of the analysis', async () => {
+  it('two deliveries to production never run at the same time, and no number of sessions holds an execute job', async () => {
     env.config.execute.deliverConcurrency = 1
-    env.config.execute.concurrency = 0
     env.config.worker.concurrency = 8
     for (let i = 0; i < 3; i++) env.queue.enqueue('deliver', { message_id: null })
     const first = env.queue.claim('w')
@@ -45,9 +44,10 @@ describe('queue under a burst', () => {
     for (let i = 0; i < 8; i++) env.queue.enqueue('execute', { member_id: 0 })
     const taken = []
     for (let i = 0; i < 8; i++) { const j = env.queue.claim('w'); if (j) taken.push(j) }
-    assert.equal(taken.length, 6, 'execute holds at most the slots minus two')
+    assert.equal(taken.length, 8, 'no number of sessions holds an execute job (UD-304): the spending of the day does')
     const analysis = env.queue.enqueue('analyze', {})
-    assert.equal(env.queue.claim('w').id, analysis, 'the analysis of a new input still has a slot while six sessions work')
+    assert.equal(env.queue.claim('w').id, analysis, 'the analysis of a new input is claimed while the sessions work')
+    assert.equal(env.queue.claim('w', undefined, { only: ['execute'] }), null, 'with `only`, a job of another kind stays queued')
     run(env.db, "DELETE FROM jobs WHERE kind IN ('execute', 'analyze')")
   })
   it('a lease that looks expired because the clock jumped does not take a job away from the worker that still runs it', () => {

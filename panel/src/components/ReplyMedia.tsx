@@ -36,7 +36,8 @@ export function ReplyMedia({ items, tools }: { items: readonly Attachment[]; /**
                   <DownloadLink href={g.download} name={g.name} className="-my-1.5" />
                 </div>
                 <button type="button" aria-label={t('media.zoom', { name: named ? `${named.label}: ${alt}` : alt })} onClick={() => setOpen(index)} className="block cursor-zoom-in overflow-hidden rounded-md">
-                  <img src={g.src} alt={alt} loading="lazy" className="max-h-[60dvh] w-full rounded-md bg-raised object-contain object-top" />
+                  {/* Eager: in a long thread (message 117 has fourteen replies) a lazy picture below the first screen stays at 0 px until the thread is scrolled to it. */}
+                  <img src={g.src} alt={alt} loading="eager" decoding="async" className="max-h-[60dvh] w-full rounded-md bg-raised object-contain object-top" />
                 </button>
               </li>
             )

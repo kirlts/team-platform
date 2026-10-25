@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
 import { Atmosphere } from '@/components/Atmosphere'
 import { AlertTriangle, RotateCw } from '@/components/icons'
@@ -99,11 +99,27 @@ export function App() {
   )
 }
 
+/** Sends the browser to the host's entry with the page it was on as `next`; draws no form. */
+function GoToHost({ url }: { url: string }) {
+  const t = useT()
+  useEffect(() => {
+    const target = new URL(url, window.location.origin)
+    target.searchParams.set('next', window.location.pathname + window.location.search)
+    window.location.replace(target.toString())
+  }, [url])
+  return <div data-screen="host-login" className="flex min-h-dvh items-center justify-center text-sm text-muted">{t('common.loading')}</div>
+}
+
 function Routed({ me }: { me: ReturnType<typeof useMe> }) {
   const t = useT()
   if (me.isPending) return <div className="flex min-h-dvh items-center justify-center text-sm text-muted">{t('common.loading')}</div>
   if (me.isError) {
-    if (me.error instanceof TeamApiError && me.error.status === 401) return <Login />
+    if (me.error instanceof TeamApiError && me.error.status === 401) {
+      // UD-308: with a host governing identity the 401 names its entry; the form of our own is only for a deployment without host.
+      const hostLogin = me.error.details.login_url
+      if (typeof hostLogin === 'string' && hostLogin) return <GoToHost url={hostLogin} />
+      return <Login />
+    }
     return (
       <div role="alert" className="flex min-h-dvh flex-col items-center justify-center gap-3 px-4 text-center text-sm">
         <AlertTriangle size={22} aria-hidden className="text-danger" />

@@ -418,10 +418,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
+    // UD-301: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      compact: light, assessment: assessmentText(message, db), exploration: estimates?.idea_guard === true ? { idea: estimates.idea, reason: estimates.idea_reason ?? '' } : null, // UD-301 escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
+      compact: light, assessment: assessmentText(message, db), exploration: estimates?.idea_guard === true ? { idea: estimates.idea, reason: estimates.idea_reason ?? '' } : null, escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }

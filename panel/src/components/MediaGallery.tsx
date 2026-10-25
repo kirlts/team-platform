@@ -461,10 +461,12 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
     )
   }
 
-  // Document: the browser cannot draw its first page here (a file is served with a policy that forbids embedding), so the viewer names it.
+  // Document: a PDF shows its first page in a frame (the server lets its own site frame it); any other document is named.
+  const isPdf = !!item.src && /\.pdf$/i.test(item.name ?? '')
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 px-4 py-3 text-center">
-      <FileText size={24} aria-hidden className="text-accent-deep" />
+      {isPdf && <iframe src={item.src} title={name} loading="eager" className={cn('w-full rounded-md border border-line bg-surface', 'h-[60dvh]')} />}
+      {!isPdf && <FileText size={24} aria-hidden className="text-accent-deep" />}
       <p className="text-sm font-semibold [overflow-wrap:anywhere]">{name}</p>
       {item.src && (
         <Button asChild size="sm">

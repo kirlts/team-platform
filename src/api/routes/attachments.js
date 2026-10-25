@@ -47,7 +47,9 @@ export function registerAttachmentRoutes (app, ctx) {
     // The content is immutable: its name is its hash. Private: only those with a session see it.
     reply.header('cache-control', 'private, max-age=31536000, immutable')
     reply.header('etag', `"${att.sha256}"`)
-    reply.header('content-security-policy', "default-src 'none'; sandbox") // an attachment opened directly runs nothing
+    // An attachment opened directly runs nothing. A PDF is the exception in `sandbox`: the browser's viewer does not open inside one, and the view of a
+    // message shows its first page in a frame of the same site; it runs no script of ours (`script-src 'none'`) and nobody else may frame it.
+    reply.header('content-security-policy', isInline && att.mime === 'application/pdf' ? "script-src 'none'; frame-ancestors 'self'" : "default-src 'none'; sandbox")
 
     let rangeSpec
     try {

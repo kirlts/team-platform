@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# La regla única de «main»: sólo avanza a un commit que ya está en `desarrollo`, por avance rápido.
+# The single rule for `main`: it only moves to a commit that is already in `desarrollo`, by fast-forward.
 #
-#   main-solo-desde-desarrollo.sh <nuevo-main> <desarrollo> [<main-anterior>]
+#   this-script <nuevo-main> <desarrollo> [<main-anterior>]
 #
-# Sale 0 si <nuevo-main> es <desarrollo> o ancestro suyo y, con <main-anterior>, la avanza sin reescribirla.
-# Sale 1 si no, e imprime en la salida estándar el último commit de la historia de <nuevo-main> (primer padre)
-# que sí cumple: a donde hay que devolver `main`. Lo usan el flujo `main-solo-desde-desarrollo.yml`
-# (del lado del servidor) y la prueba `scripts/main-solo-desde-desarrollo.test.sh`. El gancho `.githooks/pre-push`
-# aplica la misma regla antes de empujar.
+# Exits 0 if <nuevo-main> is <desarrollo> or an ancestor of it and, with <main-anterior>, it moves forward without rewriting history.
+# Exits 1 otherwise, and prints on standard output the last commit of the history of <nuevo-main> (first parent)
+# that does meet the rule: where `main` must be sent back to. It is used by the `main-solo-desde-desarrollo.yml` workflow
+# (server side) and by the test `scripts/main-solo-desde-desarrollo.test.sh`. The `.githooks/pre-push` hook
+# applies the same rule before pushing.
 set -eu
-NUEVO="${1:?uso: main-solo-desde-desarrollo.sh <nuevo-main> <desarrollo> [<main-anterior>]}"
-DESARROLLO="${2:?falta <desarrollo>}"
+NUEVO="${1:?usage: main-solo-desde-desarrollo.sh <nuevo-main> <desarrollo> [<main-anterior>]}"
+DESARROLLO="${2:?missing <desarrollo>}"
 ANTERIOR="${3:-}"
 CERO=0000000000000000000000000000000000000000
 en_desarrollo() { git merge-base --is-ancestor "$1" "$DESARROLLO" 2>/dev/null; }
@@ -19,8 +19,8 @@ if en_desarrollo "$NUEVO"; then
     exit 0
   fi
 fi
-# El último válido: el más nuevo de la historia de primer padre de lo que quedó en main que está en desarrollo.
-# Si el nuevo main reescribió la historia, se parte de la anterior.
+# The last valid one: the newest commit in the first-parent history of what is left on main that is in desarrollo.
+# If the new main rewrote history, start from the previous one.
 for c in $(git rev-list --first-parent "$NUEVO"); do
   if en_desarrollo "$c" && { [ -z "$ANTERIOR" ] || [ "$ANTERIOR" = "$CERO" ] || git merge-base --is-ancestor "$c" "$ANTERIOR" 2>/dev/null || git merge-base --is-ancestor "$ANTERIOR" "$c" 2>/dev/null; }; then
     echo "$c"; exit 1

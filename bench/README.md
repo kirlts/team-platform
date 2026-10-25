@@ -30,6 +30,19 @@ Las unidades las numera `src/analyze/units.js` (`numberUnits`). `expected.json` 
 
 La referencia es una primera versión escrita a mano. Informe 02 §5.1: se audita contra las salidas de los modelos antes de tomarla como verdad. Una referencia manual omitió 227 intervalos en un estudio de 2026.
 
+## Banco de envíos (`bench/envios/`)
+
+Doce envíos sintéticos de uno, dos, tres y cinco pedidos: de áreas distintas y de la misma, con capturas que son de uno solo de los pedidos, un documento compartido, una nota de voz, una lista con viñetas y párrafos dictados sin puntuación. Mide mensajes obtenidos contra esperados, área, plantilla, campos requeridos, adjuntos y orden (`score.js`). La batería lo corre con el analizador falso (`envios.test.js`); con `TEAM_LIVE_ENVIOS=1` lo corre contra un modelo real por `claude -p`, sin llave de API (`claude-cli-provider.mjs`).
+
+```sh
+node bench/envios/run.mjs --model claude-haiku-5-5 --repeat 3
+node bench/envios/run.mjs --config '{"cutPass":false}'
+node bench/envios/cut-probe.mjs --model claude-sonnet-5-5
+node bench/run.mjs --cli claude-haiku-5-5
+```
+
+Un `expected.json` con `cuts` cita las unidades después del paso de corte (UD-293), numeradas de nuevo desde 1.
+
 ## Puntaje
 
 `score.js` recibe las unidades, `expected.json` y la propuesta. Definiciones del informe 02 §5.2:

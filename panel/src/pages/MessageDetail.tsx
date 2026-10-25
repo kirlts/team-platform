@@ -1,5 +1,5 @@
 import { ArrowLeft, MessageSquare, Trash2, X } from '@/components/icons'
-import { useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
+import { useRef, type ClipboardEvent, type DragEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AreaChip } from '@/components/AreaChip'
 import { AreaPicker } from '@/components/AreaPicker'
@@ -100,8 +100,6 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   // On a phone two chips fit before the rest fold behind «+N»: a name takes a whole row (J2-A-21).
   const desktop = useDesktop()
   const closed = m.status === 'closed'
-  // The title takes the whole row while it is edited; otherwise the reply counter sits right after its last word.
-  const [editingTitle, setEditingTitle] = useState(false)
   // Only the sender edits a published message, the Editor included (UD-071).
   const canEdit = !!me && me.id === m.author_id
   const canReply = canReplyTo(m, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
@@ -195,8 +193,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2">
           {/* The number of the message, as a tracker shows it next to the title (#115): the team refers to messages by it. */}
           <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted md:text-base">#{m.id}</span>
-          <h1 className={editingTitle ? 'min-w-0 flex-1' : 'min-w-0'}>
-            <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onEditingChange={setEditingTitle} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
+          {/* The title takes the whole row while its field is open (CSS, in the same frame: no jump); otherwise the reply counter sits right after its last word. */}
+          <h1 className="min-w-0 has-[textarea]:flex-1">
+            <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
           </h1>
           {/* The count of the thread, next to the title: the thread itself is the narrow column on the right. */}
           <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted">

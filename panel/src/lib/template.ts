@@ -179,3 +179,29 @@ export function missingRequired(fields: Record<string, string | null> | null | u
 }
 
 export type WithFields = Pick<ProposalMessage | Message, 'fields'>
+
+/**
+ * What the analyzer writes in a required field its input does not answer. The prompt hands it this exact text (src/analyze/prompts-es.js), so the
+ * panel compares it as a marker of the protocol, never as a reading of what a person wrote.
+ */
+export const NOT_STATED = 'No indicado'
+
+/** A field has something to read when it is not empty and not the marker of «the input did not say». */
+export function isStated(value: string | null | undefined): boolean {
+  const v = (value ?? '').trim()
+  return v !== '' && v.replace(/\.$/, '').toLowerCase() !== NOT_STATED.toLowerCase()
+}
+
+/**
+ * Names of the fields earlier templates asked for and today's no longer do (2026-10-25: the ones that stayed empty, repeated the text or asked the
+ * model something were retired). A message keeps what it already had under them; their labels are in the catalogues as `retired.<name>`.
+ */
+export const RETIRED_FIELDS: ReadonlySet<string> = new Set(["need", "request", "users", "acceptance", "later", "actual", "expected", "where", "seen_by", "question", "for_decision", "evidence", "what", "where_ops", "undoable", "limit_touched", "options", "recommendation", "if_wrong", "holder", "rule", "enforced_in", "decision_touched", "value_missing", "limits", "undo"])
+
+/** What a message stores under names its template no longer has, when there is something to read. */
+export function retiredValues(values: Record<string, string | null> | null | undefined, template: readonly TemplateField[]): { name: string; value: string }[] {
+  const known = new Set(template.map((f) => f.name))
+  return Object.entries(values ?? {})
+    .filter(([name, v]) => !known.has(name) && isStated(v))
+    .map(([name, v]) => ({ name, value: (v as string).trim() }))
+}

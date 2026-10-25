@@ -315,7 +315,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             />
           </div>
 
-          <Details message={m} />
+          <Details message={m} template={template} />
         </div>
 
         <ReplyThread message={m} focusForm={focusReply} />

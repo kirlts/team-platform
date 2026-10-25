@@ -1,6 +1,6 @@
-import type { MessageDetail } from '@team-platform/client'
+import type { MessageDetail, Template } from '@team-platform/client'
 import { useAreas, useMessageTiming } from '@team-platform/client/react'
-import { Assessment, Bare } from '@/components/Assessment'
+import { Assessment, Bare, hasAssessment } from '@/components/Assessment'
 import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { Observed } from '@/components/Observed'
@@ -12,26 +12,25 @@ import { useT } from '@/i18n'
  * evaluation, the times, the technical detail and the adequacy of the work). Each part is drawn only when it has something to say; with none,
  * the fold is not drawn either. The parts are named inside, never folds of their own: one level is hidden, never two.
  */
-export function Details({ message }: { message: MessageDetail }) {
+export function Details({ message, template }: { message: MessageDetail; template?: Template }) {
   const { members } = useLookups()
   const attended = message.assignee_ids.some((id) => members.find((m) => m.id === id)?.kind === 'agent')
-  return attended ? <WithTiming message={message} /> : <Shell message={message} timing={null} />
+  return attended ? <WithTiming message={message} template={template} /> : <Shell message={message} template={template} timing={null} />
 }
 
 /** An agent works the message: its figures are asked once, to know which parts have something to say. */
-function WithTiming({ message }: { message: MessageDetail }) {
+function WithTiming({ message, template }: { message: MessageDetail; template?: Template }) {
   const timing = useMessageTiming(message.id)
-  return <Shell message={message} timing={timing} />
+  return <Shell message={message} template={template} timing={timing} />
 }
 
 type TimingQuery = ReturnType<typeof useMessageTiming>
 
-function Shell({ message, timing }: { message: MessageDetail; timing: TimingQuery | null }) {
+function Shell({ message, template, timing }: { message: MessageDetail; template?: Template; timing: TimingQuery | null }) {
   const t = useT()
   const areas = useAreas().data ?? []
   const guards = areas.find((a) => a.id === message.area_id)?.guards ?? []
-  const a = message.assessment
-  const evaluation = !!a && (!!a.expectation || !!a.estimates || guards.length > 0)
+  const evaluation = hasAssessment(message, guards, template)
   const data = timing?.data
   const rows = (data?.detail?.entries?.length ?? 0) + (data?.detail?.delivery_ref ? 1 : 0)
   const parts = {
@@ -50,7 +49,7 @@ function Shell({ message, timing }: { message: MessageDetail; timing: TimingQuer
             <Observed items={message.observed} bare />
           </Bare>
         )}
-        {parts.evaluation && <Assessment message={message} bare />}
+        {parts.evaluation && <Assessment message={message} template={template} bare />}
         {parts.timing && (
           <div data-timing className="contents">
             <Bare title={t('timing.title')}>

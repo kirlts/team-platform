@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import type { Guard, MessageDetail } from '@team-platform/client'
+import type { Guard, MessageDetail, Template } from '@team-platform/client'
 import { useAreas, useMe, useSetAssessment } from '@team-platform/client/react'
 import { EditableText } from '@/components/EditableText'
 import { Fold } from '@/components/Fold'
 import { NativeSelect, ON_PAGE_FIELD } from '@/components/NativeSelect'
 import { useT, type MessageKey } from '@/i18n'
+import { parseTemplateFields, RETIRED_FIELDS, retiredValues } from '@/lib/template'
 
 const DIMENSIONS = [
   ['understand_vs_create', 'assessment.create'],
@@ -17,7 +18,13 @@ const DIMENSIONS = [
  * its estimates with their reason. The expectation, the Guards and the holder are edited in place by any person of the team; the estimates are the analyzer's reading and are shown, not
  * set. Folded: it is what the analysis says, not what the sender asked.
  */
-export function Assessment({ message, bare = false }: { message: MessageDetail; /** Without its own fold: «Detalles» holds it (UD-307). */ bare?: boolean }) {
+/** Whether the evaluation has something to say: the expectation, the estimates, the Guards of the area or a value the template no longer asks for. */
+export function hasAssessment(message: MessageDetail, guards: Guard[], template?: Template): boolean {
+  const a = message.assessment
+  return !!a && (!!a.expectation || !!a.estimates || guards.length > 0 || retiredValues(message.fields, parseTemplateFields(template?.body_markdown ?? '')).length > 0)
+}
+
+export function Assessment({ message, template, bare = false }: { message: MessageDetail; template?: Template; /** Without its own fold: «Detalles» holds it (UD-307). */ bare?: boolean }) {
   const t = useT()
   const me = useMe().data
   const set = useSetAssessment()
@@ -25,7 +32,9 @@ export function Assessment({ message, bare = false }: { message: MessageDetail; 
   const guards: Guard[] = areas.find((a) => a.id === message.area_id)?.guards ?? []
   const a = message.assessment
   const canEdit = !!me && me.kind !== 'agent' && me.active !== false
-  if (!a || (!a.expectation && !a.estimates && guards.length === 0)) return null
+  // What the message stored under fields its template no longer asks for stays here, read-only: it is not lost and it does not take the text's place.
+  const retired = retiredValues(message.fields, parseTemplateFields(template?.body_markdown ?? ''))
+  if (!a || (!a.expectation && !a.estimates && guards.length === 0 && retired.length === 0)) return null
   const touched = new Set(a.guards)
   const toggle = (id: number) => set.mutate({ id: message.id, guards: guards.map((g) => g.id as number).filter((g) => (g === id ? !touched.has(g) : touched.has(g))) })
   const Wrap = bare ? Bare : Fold
@@ -70,6 +79,17 @@ export function Assessment({ message, bare = false }: { message: MessageDetail; 
             </dl>
             {a.estimates.reason && <p className="m-0 break-words text-muted">{a.estimates.reason}</p>}
           </div>
+        )}
+        {retired.length > 0 && (
+          <dl data-testid="retired-fields" className="m-0 flex flex-col gap-2">
+            <dt className="rotulo">{t('assessment.previous')}</dt>
+            {retired.map((r) => (
+              <dd key={r.name} className="m-0 break-words">
+                <span className="text-muted">{RETIRED_FIELDS.has(r.name) ? t(`retired.${r.name}` as MessageKey) : r.name.replace(/_/g, ' ')}: </span>
+                {r.value}
+              </dd>
+            ))}
+          </dl>
         )}
       </div>
     </Wrap>

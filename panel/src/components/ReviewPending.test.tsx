@@ -54,7 +54,7 @@ function Mount({ children }: { children: React.ReactNode }) {
 }
 
 describe('the line «Cambio listo para revisar» (UD-275, UD-280)', () => {
-  it('UD-287: the line comes from the real state of the delivery', () => {
+  it('UD-289: the line comes from the real state of the delivery', () => {
     role = 'editor'
     render(<Mount><ReviewPending message={message({ state: 'failed' })} /></Mount>)
     expect(screen.getByTestId('review-reason').textContent).toBe('La entrega falló')

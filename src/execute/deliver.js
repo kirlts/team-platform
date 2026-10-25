@@ -307,7 +307,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     return error?.code === 'deliver_failed' ? t.verification(branch) : t.system(branch)
   }
 
-  /** UD-287: the notice of a failed delivery carries the `deliver` job that failed, so that «Reintentar» launches the delivery again (the same columns as UD-282). */
+  /** UD-289: the notice of a failed delivery carries the `deliver` job that failed, so that «Reintentar» launches the delivery again (the same columns as UD-282). */
   const markFailure = (replyId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = ?', job.id, error?.code ?? 'system', replyId)
   const markLastReply = (messageId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = (SELECT MAX(id) FROM replies WHERE message_id = ? AND deleted_at IS NULL)', job.id, error?.code ?? 'system', messageId)
 

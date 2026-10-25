@@ -36,7 +36,7 @@ export function retryBlock (db, reply) {
   if (!reply || reply.failed_job_id === null || reply.failed_job_id === undefined || reply.deleted_at !== null) return { code: 'not_a_failure', message: 'Esa respuesta no avisa de un trabajo fallido.' }
   const job = get(db, "SELECT id, kind, status, payload_json FROM jobs WHERE id = ? AND kind IN ('execute', 'deliver')", reply.failed_job_id)
   if (!job || job.status !== 'failed') return { code: 'not_a_failure', message: 'Ese trabajo no está fallido.' }
-  const deliver = job.kind === 'deliver' // UD-287: a failed delivery is retried by the same rule, with the delivery command and no model
+  const deliver = job.kind === 'deliver' // UD-289: a failed delivery is retried by the same rule, with the delivery command and no model
   const memberId = parseJson(job.payload_json, {}).member_id
   // The last `execute` job of the message (for a delivery, the last of either kind), whoever it was for, or one already queued or running, takes the place of this one.
   if (get(db, `SELECT id FROM jobs WHERE kind IN (${deliver ? "'execute', 'deliver'" : "'execute'"}) AND message_id = ? AND id > ?`, reply.message_id, job.id)) {
@@ -71,7 +71,7 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     const block = retryBlock(db, reply)
     if (block) throw conflict(block.message, block.code)
     const failed = get(db, 'SELECT kind, payload_json FROM jobs WHERE id = ?', reply.failed_job_id)
-    if (failed.kind === 'deliver') { // UD-287
+    if (failed.kind === 'deliver') { // UD-289
       const deliverJobId = approveDelivery({ db, config, events }, { messageId, requestedBy: actor.id })
       audit(db, { memberId: actor.id, action: 'message.deliver_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: deliverJobId }, now })
       return deliverJobId

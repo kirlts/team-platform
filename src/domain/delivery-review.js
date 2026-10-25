@@ -24,7 +24,7 @@ export function pendingDelivery (db, messageId, { exceptJobId = null } = {}) {
   // `exceptJobId`: the session that was called to answer the review is itself a running `execute` job, and it must still see what it was called about.
   if (get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'execute' AND status IN ('queued', 'running') AND id IS NOT ?", messageId, exceptJobId)) return null
   const delivering = get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'deliver' AND status IN ('queued', 'running') ORDER BY id DESC LIMIT 1", messageId)
-  // UD-287: what the header says comes from what happened to the branch: running, failed (the last delivery after the held run failed) or still waiting.
+  // UD-289: what the header says comes from what happened to the branch: running, failed (the last delivery after the held run failed) or still waiting.
   const failed = !delivering && get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'deliver' AND status = 'failed' AND id > ? ORDER BY id DESC LIMIT 1", messageId, latest.job_id)
   const executeJob = get(db, 'SELECT payload_json FROM jobs WHERE id = ?', latest.job_id)
   let agentId = null

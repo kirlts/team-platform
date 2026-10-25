@@ -244,7 +244,7 @@ describe('deliver job', () => {
     const mine = replies(messageId).slice(before)
     assert.equal(mine.length, 1, 'ONE reply for the held delivery')
     assert.equal(mine[0], 'Arreglé el cobro doble.\n\nYa se cobra una vez.\n\nCambio listo para revisar: el cambio toca pagos. Todavía no llega a producción.')
-    assert.doesNotMatch(mine[0], /Propuesta/, 'UD-287: without screenshots the reply does not point at them')
+    assert.doesNotMatch(mine[0], /Propuesta/, 'UD-289: without screenshots the reply does not point at them')
     assert.doesNotMatch(mine[0], /76|deliver|Ya está en producción/)
     const done = eventsOf(jobId).at(-1)
     assert.equal(done.kind, 'done')
@@ -296,7 +296,7 @@ describe('deliver job', () => {
       assert.match(readFileSync(log, 'utf8'), /reviewed=\n[\s\S]*reviewed=\d+\n$/, 'the first delivery was held; the approved one carried the reviewer')
     })
 
-    it('UD-287: the approved delivery fails, the header says so and the notice offers «Reintentar» that launches it again once', async () => {
+    it('UD-289: the approved delivery fails, the header says so and the notice offers «Reintentar» that launches it again once', async () => {
       const messageId = await held('Subir fotos a la ficha 3.', path('fail-log'))
       assert.equal((await pendingOf(messageId)).state, 'held')
       await worker.stop()

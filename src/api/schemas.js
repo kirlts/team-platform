@@ -114,7 +114,7 @@ export const messageDetail = {
     pending_delivery: {
       type: 'object', nullable: true,
       description: 'UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.',
-      properties: { branch: { type: 'string' }, held_reason: { type: 'string' }, job_id: { type: 'string' }, agent_id: { type: 'string', nullable: true }, delivering_job_id: { type: 'string', nullable: true }, state: { type: 'string', enum: ['held', 'delivering', 'failed'], description: 'UD-287: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.' } }
+      properties: { branch: { type: 'string' }, held_reason: { type: 'string' }, job_id: { type: 'string' }, agent_id: { type: 'string', nullable: true }, delivering_job_id: { type: 'string', nullable: true }, state: { type: 'string', enum: ['held', 'delivering', 'failed'], description: 'UD-289: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.' } }
     },
     edits: { type: 'array', items: { type: 'object', properties: { id, member_id: id, at: { type: 'string' }, version: intVar, fields: { type: 'array', items: { type: 'string' } } } } }
   }

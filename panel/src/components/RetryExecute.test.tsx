@@ -73,7 +73,7 @@ describe('Reintentar under the notice of a failed session (UD-282)', () => {
   })
 })
 
-describe('a reply carries no label of its type (UD-287)', () => {
+describe('a reply carries no label of its type (UD-289)', () => {
   const asked = (kind: string) =>
     ({
       id: 'm1', area_id: 'a1', author_id: '2', title: 't', body: 'b', status: 'open', created_at: '2026-10-24T12:00:00Z', updated_at: '2026-10-24T12:00:00Z', assignee_ids: ['1'], attachments: [], reply_count: 1,

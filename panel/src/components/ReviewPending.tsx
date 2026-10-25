@@ -27,7 +27,7 @@ export function ReviewPending({ message }: { message: MessageDetail }) {
   }, [done, seen, qc, message.id])
   if (!pending) return null
   const busy = Boolean(running) && !done
-  // UD-287: the line says what happened to the branch, not what it was when it was held.
+  // UD-289: the line says what happened to the branch, not what it was when it was held.
   const title = pending.state === 'failed' ? t('review.failed') : t('review.noReason')
   return (
     <section data-testid="review-pending" aria-label={title} className="glass leaf flex shrink-0 flex-col gap-2 p-3">

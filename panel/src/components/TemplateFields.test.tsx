@@ -104,9 +104,9 @@ describe('what the template no longer asks for', () => {
     expect(isStated('Nadie lo dijo')).toBe(true)
   })
 
-  it('a stored value under a retired name is found, with its label, only when it has content', () => {
+  it('a stored value under a retired name is found, only when it has content', () => {
     const found = retiredValues({ need: 'a', request: 'El modal debe permitir descargar.', value_missing: 'No indicado', limits: '' }, [{ name: 'need', label: 'Contexto', required: false }])
-    expect(found).toEqual([{ name: 'request', label: 'Pedido', value: 'El modal debe permitir descargar.' }])
+    expect(found).toEqual([{ name: 'request', value: 'El modal debe permitir descargar.' }])
   })
 
   it('goes to «Evaluación» as read-only rows, never among the fields of the text', () => {

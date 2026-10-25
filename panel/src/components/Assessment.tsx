@@ -4,7 +4,7 @@ import { EditableText } from '@/components/EditableText'
 import { Fold } from '@/components/Fold'
 import { NativeSelect, ON_PAGE_FIELD } from '@/components/NativeSelect'
 import { useT, type MessageKey } from '@/i18n'
-import { parseTemplateFields, retiredValues } from '@/lib/template'
+import { parseTemplateFields, RETIRED_FIELDS, retiredValues } from '@/lib/template'
 
 const DIMENSIONS = [
   ['understand_vs_create', 'assessment.create'],
@@ -77,7 +77,7 @@ export function Assessment({ message, template }: { message: MessageDetail; temp
             <dt className="rotulo">{t('assessment.previous')}</dt>
             {retired.map((r) => (
               <dd key={r.name} className="m-0 break-words">
-                <span className="text-muted">{r.label}: </span>
+                <span className="text-muted">{RETIRED_FIELDS.has(r.name) ? t(`retired.${r.name}` as MessageKey) : r.name.replace(/_/g, ' ')}: </span>
                 {r.value}
               </dd>
             ))}

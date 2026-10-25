@@ -53,11 +53,13 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   /** The reply just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
   const [removed, setRemoved] = useState<{ reply: Reply; index: number; mark: number } | null>(null)
   const showRemoved = removed && removed.reply.message_id === message.id && undo.undoCount === removed.mark
+  const shown = useMemo(() => message.replies.filter((x) => !(x.replaced_by_job_id && !x.retrying)), [message.replies])
   const rows = useMemo<ReplyItem[]>(() => {
-    const items: ReplyItem[] = message.replies.map((reply) => ({ kind: 'reply', reply }))
+    // A notice that a retry replaced is not drawn once that job ended: its answer, or a new notice with its reason, is in the thread (UD-290).
+    const items: ReplyItem[] = shown.map((reply) => ({ kind: 'reply', reply }))
     if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', reply: removed.reply })
     return items
-  }, [message.replies, removed, showRemoved])
+  }, [shown, removed, showRemoved])
   const [expanded, setExpanded] = useState(false)
   const folded = !expanded && rows.length > THREAD_LIMIT ? rows.length - 1 - THREAD_TAIL : 0
   const remove = (reply: Reply) => {
@@ -94,7 +96,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
       <div className="flex items-center gap-2">
         <h2>{t('replies.title')}</h2>
         <Badge tone="neutral" className="tabular-nums">
-          {message.replies.length}
+          {shown.length}
         </Badge>
       </div>
       {rows.length === 0 ? (
@@ -175,11 +177,14 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                     </div>
                     {canEdit(r) && !r.body ? null /* a reply of only an audio or photo has no text to fill in (UD-279) */ : canEdit(r) ? (
                       <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks mentions={mentionNames(r)} />} />
+                    ) : (r.retryable && message.status !== 'closed') || r.retrying ? (
+                      <RetryExecute messageId={message.id} reply={r}>
+                        <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
+                      </RetryExecute>
                     ) : (
                       r.body && <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
                     )}
                     <ReplyMedia items={r.attachments ?? []} tools={canEdit(r) && message.status !== 'closed' ? <ReplyTools message={message} reply={r} /> : undefined} />
-                    {r.retryable && message.status !== 'closed' && <RetryExecute messageId={message.id} replyId={r.id} />}
                   </article>
                 </li>
               )

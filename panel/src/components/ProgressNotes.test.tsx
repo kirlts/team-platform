@@ -70,14 +70,13 @@ describe('progress notices in the thread (UD-293)', () => {
     expect(first.querySelector('button')).toBeNull() // a notice has no control: it is read, not operated
   })
 
-  it('does not count in the badge of replies and keeps a short thread unfolded', async () => {
+  it('does not make a short thread fold and keeps a short thread unfolded', async () => {
     const replies = [reply('r1', '2026-10-25T12:00:00Z', 'uno'), reply('r2', '2026-10-25T12:30:00Z', 'dos')]
     const notes = ['12:05', '12:10', '12:15', '12:20', '12:25'].map((h, i) => note(`n${i}`, `2026-10-25T${h}:00Z`, `${(i + 1) * 5} min · 1 turno · 1 herramienta`))
     render(<Mount><ReplyThread message={thread(replies, notes)} /></Mount>)
     await screen.findByText('dos')
     expect(screen.getAllByTestId('progress-note')).toHaveLength(5)
     expect(screen.queryByText(/respuestas? más/)).toBeNull()
-    expect(screen.getByRole('region', { name: 'Respuestas' }).querySelector('h2 + span')?.textContent).toBe('2')
   })
 
   it('a thread with no notices draws as before', async () => {

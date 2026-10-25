@@ -26,7 +26,7 @@ describe('V1: the thread shows every reply, in order, and the counts agree', () 
       const thread = page.locator('section[aria-label="Respuestas"]')
       await thread.waitFor()
       await settled(page)
-      const headerCount = Number((await thread.locator('h2, h3, [role=heading]').first().locator('xpath=..').innerText()).match(/(\d+)/)?.[1])
+      const headerCount = Number((await page.getByTestId('reply-count').innerText()).match(/(\d+)/)?.[1]) // the counter sits next to the title (V4), not inside the thread
       assert.equal(headerCount, cardCount, 'the number of the view is the number of the card')
 
       // What is drawn plus what the control says is folded is every reply: nothing is lost without a count.

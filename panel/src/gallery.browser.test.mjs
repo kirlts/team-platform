@@ -340,3 +340,66 @@ describe('captures', () => {
     }
   })
 })
+
+describe('the viewer and its caption take only the room they need', () => {
+  for (const [label, viewport, mobile] of [['1440', { width: 1440, height: 900 }, false], ['390', { width: 390, height: 844 }, true]]) {
+    for (const scheme of ['light', 'dark']) {
+      test(`${label} ${scheme}: caption on one line with a long name, no «Abrir en otra pestaña», viewer without a fixed height`, async () => {
+        const { page, context } = await session('ana', viewport, { mobile, scheme })
+        try {
+          await openMessage(page, 'Galería de seis fotos')
+          await gallery(page).locator('[data-gallery-viewer] img').first().waitFor()
+          assert.equal(await page.getByText('Abrir en otra pestaña').count(), 0)
+          // A name that does not fit: the line stays one line and the counter stays visible.
+          await gallery(page).locator('[data-gallery-caption] span[title]').evaluate((el) => {
+            el.textContent = `· ${'nombre-muy-largo-'.repeat(12)}.png`
+          })
+          const caption = gallery(page).locator('[data-gallery-caption]')
+          const lines = await caption.evaluate((el) => {
+            const line = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height
+            const own = el.getBoundingClientRect()
+            const count = el.querySelector('[data-gallery-count]').getBoundingClientRect()
+            return { height: own.height, line, countInside: count.right <= own.right + 1 && count.left >= own.left }
+          })
+          assert.ok(lines.height <= lines.line * 1.5, `one line: ${lines.height} vs ${lines.line}`)
+          assert.equal(lines.countInside, true, 'the counter is inside the line')
+          // The viewer is not taller than its photo plus the frame.
+          const fit = await gallery(page).locator('[data-gallery-viewer]').evaluate((el) => {
+            const img = el.querySelector('img')
+            return { viewer: el.getBoundingClientRect().height, photo: img.getBoundingClientRect().height }
+          })
+          assert.ok(fit.viewer - fit.photo <= 16, `no black air: viewer ${fit.viewer}, photo ${fit.photo}`)
+          await shot(page, `adjuntos-${label}-${scheme}`)
+        } finally {
+          await context.close()
+        }
+      })
+    }
+  }
+})
+
+describe('the sender sees the «+» square at the end of the strip', () => {
+  for (const [label, viewport, mobile] of [['1440', { width: 1440, height: 900 }, false], ['390', { width: 390, height: 844 }, true]]) {
+    for (const scheme of ['light', 'dark']) {
+      test(`${label} ${scheme}: six photos, «+» as large as a thumbnail and no «Adjunto» button`, async () => {
+        const { page, context } = await session('carla', viewport, { mobile, scheme })
+        try {
+          await openMessage(page, 'Galería de seis fotos')
+          await gallery(page).locator('[data-gallery-viewer] img').first().waitFor()
+          const tile = gallery(page).locator('[data-gallery-add]')
+          assert.equal(await tile.count(), 1)
+          assert.equal(await page.getByRole('button', { name: 'Adjunto', exact: true }).count(), 0)
+          const [a, b] = [await tile.boundingBox(), await thumbs(page).first().boundingBox()]
+          assert.ok(Math.abs(a.width - b.width) <= 6 && Math.abs(a.height - b.height) <= 6, 'same size as a thumbnail')
+          await tile.scrollIntoViewIfNeeded()
+          const chooser = page.waitForEvent('filechooser')
+          await tile.click()
+          await chooser
+          await shot(page, `adjuntos-con-mas-${label}-${scheme}`)
+        } finally {
+          await context.close()
+        }
+      })
+    }
+  }
+})

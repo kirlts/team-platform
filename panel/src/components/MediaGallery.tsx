@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, FileText, Link2 } from '@/components/icons'
+import { ChevronLeft, ChevronRight, FileText, Link2, Plus } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useOptionalEventsStore } from '@team-platform/client/react'
@@ -16,10 +16,11 @@ import { Thumb } from './Thumb'
 /** Size of the viewer: `inline` shares the page with other things (UD-017), `compact` shares a window with the analysis, `dialog` has the window to itself. */
 type Variant = 'inline' | 'compact' | 'dialog'
 
-const VIEWER_HEIGHT: Record<Variant, string> = {
-  inline: 'h-[clamp(8rem,26dvh,15rem)]',
-  compact: 'h-[clamp(7rem,20dvh,12rem)]',
-  dialog: 'h-[min(58dvh,36rem)]',
+/** The viewer has no height of its own: it takes what the medium needs, and a photo is capped so it does not push the page. */
+const MEDIA_MAX: Record<Variant, string> = {
+  inline: 'max-h-[clamp(7rem,24dvh,13rem)]',
+  compact: 'max-h-[clamp(6rem,18dvh,10rem)]',
+  dialog: 'max-h-[min(58dvh,36rem)]',
 }
 
 /** Whether the person asked the system for less motion: a jump then happens at once. */
@@ -46,6 +47,8 @@ export function MediaGallery({
   onIndexChange,
   label,
   renderAction,
+  onAdd,
+  adding = false,
   className,
 }: {
   items: readonly GalleryItem[]
@@ -57,6 +60,9 @@ export function MediaGallery({
   label?: string
   /** An action over the current medium, drawn in the info row (the proposal's «Quitar»). */
   renderAction?: (item: GalleryItem, index: number) => ReactNode
+  /** Adds a square at the end of the strip, as large as the thumbnails, that asks for files (the message's «+»). */
+  onAdd?: () => void
+  adding?: boolean
   className?: string
 }) {
   const t = useT()
@@ -139,7 +145,11 @@ export function MediaGallery({
     const list = strip.current
     const thumb = list?.children[current] as HTMLElement | undefined
     if (!list || !thumb || typeof list.scrollTo !== 'function') return
-    list.scrollTo({ left: thumb.offsetLeft - (list.clientWidth - thumb.offsetWidth) / 2, behavior: calm() ? 'auto' : 'smooth' })
+    // Only when the thumbnail is not whole in view, and then to the middle: a strip that fits (or already shows it) stays where it is.
+    const box = list.getBoundingClientRect()
+    const at = thumb.getBoundingClientRect()
+    if (at.left >= box.left && at.right <= box.right) return
+    list.scrollTo({ left: list.scrollLeft + (at.left - box.left) - (box.width - at.width) / 2, behavior: calm() ? 'auto' : 'smooth' })
   }, [current])
 
   // Escape leaves the enlarged photo, wherever the focus is; the window that may hold the gallery has been told not to close for it.
@@ -182,7 +192,6 @@ export function MediaGallery({
           data-gallery-viewer
           className={cn(
             'frame scroll-thin flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden rounded-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-            VIEWER_HEIGHT[variant],
             zoomed && 'overflow-x-hidden',
           )}
         >
@@ -194,9 +203,9 @@ export function MediaGallery({
               aria-label={t('gallery.count', { n: i + 1, total })}
               aria-hidden={i === current ? undefined : true}
               data-index={i}
-              className="flex h-full w-full shrink-0 snap-center snap-always items-center justify-center"
+              className="flex w-full shrink-0 snap-center snap-always items-center justify-center"
             >
-              {Math.abs(i - current) <= 1 && <Slide item={it} active={i === current} zoomed={zoomed && i === current} onZoom={setZoomed} />}
+              {Math.abs(i - current) <= 1 && <Slide item={it} active={i === current} zoomed={zoomed && i === current} onZoom={setZoomed} cap={MEDIA_MAX[variant]} />}
             </div>
           ))}
         </div>
@@ -208,28 +217,23 @@ export function MediaGallery({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-        {/* The name and the counter are announced when the medium changes. */}
-        <p aria-live="polite" className="min-w-0 flex-1 text-muted [overflow-wrap:anywhere]">
-          <span className="font-semibold text-fg">{t(MEDIA_KEY[item.kind])}</span>
-          {item.name && item.kind !== 'link' ? ` · ${item.name}` : ''}
-          {item.size ? ` · ${format.fileSize(item.size)}` : ''}
-          {total > 1 && <span className="ml-2 font-semibold tabular-nums text-fg" data-gallery-count>{t('gallery.count', { n: current + 1, total })}</span>}
+      <div className="flex min-w-0 items-center justify-between gap-x-3 text-xs">
+        {/* One line always: the name is the part that gives way, with an ellipsis. It and the counter are announced when the medium changes. */}
+        <p aria-live="polite" data-gallery-caption className="flex min-w-0 flex-1 items-baseline gap-1 whitespace-nowrap text-muted">
+          <span className="shrink-0 font-semibold text-fg">{t(MEDIA_KEY[item.kind])}</span>
+          {item.name && item.kind !== 'link' && <span className="min-w-0 truncate" title={item.name}>{`· ${item.name}`}</span>}
+          {item.size ? <span className="shrink-0">{`· ${format.fileSize(item.size)}`}</span> : null}
+          {total > 1 && <span className="ml-1 shrink-0 font-semibold tabular-nums text-fg" data-gallery-count>{t('gallery.count', { n: current + 1, total })}</span>}
         </p>
-        <span className="flex shrink-0 items-center gap-2">
+        <span className="flex shrink-0 items-center gap-1">
           {renderAction?.(item, current)}
           <DownloadLink href={item.download} name={item.name} />
-          {item.src && (
-            <a href={item.src} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-accent hover:underline [@media(pointer:coarse)]:min-h-11">
-              {t('media.openNewTab')}
-            </a>
-          )}
         </span>
       </div>
 
-      {total > 1 && (
+      {(total > 1 || onAdd) && (
         <ul ref={strip} aria-label={t('gallery.thumbs')} data-gallery-strip className="scroll-thin flex gap-2 overflow-x-auto pb-1.5">
-          {items.map((it, i) => {
+          {total > 1 && items.map((it, i) => {
             const on = i === current
             return (
               <li key={it.id} className="shrink-0" data-gallery-thumb>
@@ -248,9 +252,32 @@ export function MediaGallery({
               </li>
             )
           })}
+          {onAdd && (
+            <li className="shrink-0">
+              <AddTile onAdd={onAdd} busy={adding} />
+            </li>
+          )}
         </ul>
       )}
     </section>
+  )
+}
+
+/** The «+» square: the size of a thumbnail button (its 48 px plus the padding; the strip stretches it to the thumbnails' height), with the name «Agregar adjuntos» for whoever cannot see it. */
+export function AddTile({ onAdd, busy = false }: { onAdd: () => void; busy?: boolean }) {
+  const t = useT()
+  return (
+    <button
+      type="button"
+      data-gallery-add
+      aria-label={t('published.addFiles')}
+      title={t('published.addFiles')}
+      disabled={busy}
+      onClick={onAdd}
+      className="hit flex h-full min-h-[3.25rem] w-[3.25rem] items-center justify-center rounded-md border border-dashed border-line-strong text-muted hover:bg-hover hover:text-accent disabled:opacity-50"
+    >
+      <Plus size={18} aria-hidden />
+    </button>
   )
 }
 
@@ -275,7 +302,7 @@ function Arrow({ dir, disabled, onClick }: { dir: 1 | -1; disabled: boolean; onC
 }
 
 /** The content of one slide, by kind of medium. */
-function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: boolean; zoomed: boolean; onZoom: (z: boolean) => void }) {
+function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; active: boolean; zoomed: boolean; onZoom: (z: boolean) => void; cap: string }) {
   const t = useT()
   const name = item.name ?? t(MEDIA_KEY[item.kind])
   // A failed file is retried by drawing it again with a new key.
@@ -351,7 +378,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
 
   if (item.kind === 'image' && item.src) {
     return (
-      <div className={cn('relative h-full w-full', zoomed ? 'overflow-auto' : 'flex items-center justify-center')} data-lane={zoomed ? 'photo' : undefined}>
+      <div className={cn('relative w-full', state !== 'ready' && 'min-h-24', cap, zoomed ? 'overflow-auto' : 'flex items-center justify-center')} data-lane={zoomed ? 'photo' : undefined}>
         {loading}
         <img
           key={attempt}
@@ -367,7 +394,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
           onError={wait}
           onClick={() => onZoom(!zoomed)}
           title={zoomed ? t('gallery.fit') : t('media.zoom', { name })}
-          className={cn(zoomed ? 'max-w-none cursor-zoom-out' : 'max-h-full max-w-full cursor-zoom-in object-contain')}
+          className={cn(zoomed ? 'max-w-none cursor-zoom-out' : cn('max-w-full cursor-zoom-in object-contain', cap))}
         />
         {state === 'ready' && active && (
           <button
@@ -386,7 +413,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
 
   if (item.kind === 'video' && item.src) {
     return (
-      <div className="relative flex h-full w-full items-center justify-center bg-black/80">
+      <div className="relative flex w-full items-center justify-center bg-black/80">
         {loading}
         {/* The first frame is the cover: the fragment asks for 0.1 s, so the browser draws it before any play. */}
         <video
@@ -398,7 +425,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
           aria-label={name}
           onLoadedData={() => setState('ready')}
           onError={wait}
-          className="max-h-full max-w-full"
+          className={cn('max-w-full', cap)}
         />
       </div>
     )
@@ -406,7 +433,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
 
   if (item.kind === 'audio' && item.src) {
     return (
-      <div className="flex h-full w-full min-w-0 flex-col gap-2 p-3">
+      <div className="flex w-full min-w-0 flex-col gap-2 p-3">
         <AudioPlayer key={attempt} src={item.src} name={name} onError={wait} onReady={() => setState('ready')} />
         {active && item.transcriptSrc && <Transcript src={item.transcriptSrc} />}
       </div>
@@ -415,7 +442,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
 
   if (item.kind === 'link') {
     return (
-      <div className="flex min-w-0 flex-col items-center gap-2 px-4 text-center">
+      <div className="flex min-w-0 flex-col items-center gap-2 px-4 py-3 text-center">
         <Link2 size={24} aria-hidden className="text-accent-deep" />
         <p className="text-sm font-semibold">{linkDomain(item.name)}</p>
         <p className="max-w-full text-xs text-muted [overflow-wrap:anywhere]">{item.name}</p>
@@ -432,7 +459,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
 
   // Document: the browser cannot draw its first page here (a file is served with a policy that forbids embedding), so the viewer names it.
   return (
-    <div className="flex min-w-0 flex-col items-center gap-2 px-4 text-center">
+    <div className="flex min-w-0 flex-col items-center gap-2 px-4 py-3 text-center">
       <FileText size={24} aria-hidden className="text-accent-deep" />
       <p className="text-sm font-semibold [overflow-wrap:anywhere]">{name}</p>
       {item.src && (

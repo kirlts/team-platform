@@ -48,5 +48,11 @@ if (files.some((f) => f.endsWith('.browser.test.mjs')) && !env.FIT_SIN_BUILD) {
   if (built.status !== 0) process.exit(built.status ?? 1)
   env.FIT_SIN_BUILD = '1'
 }
+// A selection with browser tests needs the browser of this Playwright version: it is asked once, before anything starts, and a machine
+// without it fails here in a second with the browser named (2026-10-25: the deploy server hung 20 minutes in the first browser test).
+if (files.some((f) => /\.browser\.test\.mjs$/.test(f))) {
+  const { assertBrowserInstalled } = await import(path.join(root, 'panel/src/browser-support.mjs'))
+  try { assertBrowserInstalled() } catch (error) { console.error(`browser tests are selected and ${error.message}`); process.exit(1) }
+}
 const r = spawnSync(process.execPath, ['--test', '--test-concurrency=3', ...files], { cwd: root, env, stdio: 'inherit' })
 process.exit(r.status ?? 1)

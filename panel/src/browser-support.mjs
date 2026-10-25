@@ -1,5 +1,6 @@
 // Shared by the browser tests (fits-one-screen, flows): starts the dev server on panel/dist and logs in.
 import { spawn, execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -39,9 +40,30 @@ function controlOf(origin) {
  * Ozone flag that lets it start without a display.
  */
 export const ENGINE = process.env.BROWSER ?? 'chromium'
-export function launchBrowser() {
+/**
+ * The browser of this Playwright version has to be on the disk, and a run that lacks it fails at once saying which one (2026-10-25: on the deploy
+ * server the image carried the browser of another Playwright version, `launch` failed after the example server was already running, the server
+ * kept the test process alive and the run hung 20 minutes with the machine idle).
+ */
+export function assertBrowserInstalled() {
   if (!playwright[ENGINE]?.launch) throw new Error(`BROWSER=${ENGINE} no es un motor de Playwright (chromium, firefox o webkit)`)
-  return playwright[ENGINE].launch({ headless: true, ...(ENGINE === 'chromium' ? { args: ['--ozone-platform=headless'] } : {}) })
+  const executable = playwright[ENGINE].executablePath()
+  if (!executable || !existsSync(executable)) {
+    throw new Error(`falta el navegador ${ENGINE} de Playwright ${playwrightVersion()}: no existe ${executable}. Se instala con «npx playwright install ${ENGINE}» (y sus dependencias del sistema con «npx playwright install-deps ${ENGINE}»)`)
+  }
+}
+function playwrightVersion() {
+  try { return execFileSync('node', ['-p', "require('playwright/package.json').version"], { cwd: ROOT, encoding: 'utf8' }).trim() } catch { return '(versión desconocida)' }
+}
+/** Playwright's own default limit for `launch` (30 s, its documentation). Measured 2026-10-25: 33-47 ms in 5 runs on the notebook, so a launch that takes this long is stuck. */
+export const LAUNCH_TIMEOUT_MS = 30_000
+/** Same budget as the launch, declared as a courtesy cut-off and not as a measurement: the server printed its line in 142-167 ms in 5 runs (2026-10-25). */
+export const SERVER_START_TIMEOUT_MS = 30_000
+/** Courtesy cut-off (not a measurement): `vite build` took 2.5-4 s in 3 runs with the machine at load 26 (2026-10-25). */
+export const BUILD_TIMEOUT_MS = 120_000
+export function launchBrowser() {
+  assertBrowserInstalled()
+  return playwright[ENGINE].launch({ headless: true, timeout: LAUNCH_TIMEOUT_MS, ...(ENGINE === 'chromium' ? { args: ['--ozone-platform=headless'] } : {}) })
 }
 
 /**
@@ -53,11 +75,13 @@ export function launchBrowser() {
  * `${origin}/api/…` and `page.goto(origin)` keep working; `host` is the bare origin.
  */
 export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/' } = {}) {
+  // Before the build and before any child process: a missing browser is known at once and nothing is left running.
+  assertBrowserInstalled()
   const dist = build ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
   const dropDist = () => dist && rmSync(dist, { recursive: true, force: true })
   if (dist) {
     try {
-      execFileSync('npx', ['vite', 'build', '--outDir', dist, '--emptyOutDir', '--logLevel', 'error'], { cwd: ROOT, stdio: 'ignore' })
+      execFileSync('npx', ['vite', 'build', '--outDir', dist, '--emptyOutDir', '--logLevel', 'error'], { cwd: ROOT, stdio: 'ignore', timeout: BUILD_TIMEOUT_MS })
     } catch (error) {
       dropDist()
       throw error
@@ -70,19 +94,27 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     stdio: ['pipe', 'pipe', 'inherit'],
   })
   // The server says when it listens; a port already taken makes it exit. Neither is guessed with a pause: a test never talks to a server that is not its own (H-900).
-  await new Promise((resolve, reject) => {
-    let said = ''
-    server.stdout.on('data', (chunk) => {
-      said += chunk
-      if (said.includes('[dev-server] DEVELOPMENT DOUBLE SERVER')) resolve()
+  // Whatever fails from here on takes the server down with it: the open handle of the child keeps this process alive, and a test runner whose
+  // `before` threw then waits for it for ever (the hang of 2026-10-25).
+  let browser
+  try {
+    await new Promise((resolve, reject) => {
+      let said = ''
+      const timer = setTimeout(() => reject(new Error(`el servidor de ejemplo no escuchó en el puerto ${port} en ${SERVER_START_TIMEOUT_MS} ms`)), SERVER_START_TIMEOUT_MS)
+      server.stdout.on('data', (chunk) => {
+        said += chunk
+        if (said.includes('[dev-server] DEVELOPMENT DOUBLE SERVER')) { clearTimeout(timer); resolve() }
+      })
+      server.once('exit', (code) => { clearTimeout(timer); reject(new Error(`el servidor de ejemplo salió con ${code} antes de escuchar en el puerto ${port}; ¿está ocupado?`)) })
+      server.once('error', (error) => { clearTimeout(timer); reject(error) })
     })
-    server.once('exit', (code) => reject(new Error(`el servidor de ejemplo salió con ${code} antes de escuchar en el puerto ${port}; ¿está ocupado?`)))
-    server.once('error', reject)
-  }).catch((error) => {
+    browser = await launchBrowser()
+  } catch (error) {
+    await browser?.close().catch(() => {})
+    server.kill()
     dropDist()
     throw error
-  })
-  const browser = await launchBrowser()
+  }
   const host = `http://127.0.0.1:${port}`
   const origin = `${host}${base.replace(/\/+$/, '')}`
   return {

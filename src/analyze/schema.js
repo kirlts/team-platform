@@ -134,6 +134,11 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       value_holder: { type: 'string', enum: [...VALUE_HOLDERS] },
       certainty: unitNumber,
       estimate_reason: { type: 'string' },
+      // UD-301: `idea_guard` is the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea»: the model judges whether it applies,
+      // reading the spirit of the message and who wrote it, and the system obeys the boolean. `idea` (0 to 1) is context for the session and for the IMK judgement; it decides nothing.
+      idea: unitNumber,
+      idea_guard: { type: 'boolean' },
+      idea_reason: { type: 'string' },
       // With a team, every message has an owner (H-86): the grammar of the model requires at least one id.
       assignee_ids: requireAssignee ? { ...ids, minItems: 1 } : ids,
       attachment_ids: ids,
@@ -144,7 +149,7 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       resumes_at: ids,
     },
     // The grammar requires `observed` so the model always considers it; the validation accepts an output without it (an empty list).
-    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['expectation', 'guards_touched', 'understand_vs_create', 'irreversibility', 'value_holder', 'certainty', 'estimate_reason', 'observed', 'resumes_at'])],
+    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['expectation', 'guards_touched', 'understand_vs_create', 'irreversibility', 'value_holder', 'certainty', 'estimate_reason', 'idea', 'idea_guard', 'idea_reason', 'observed', 'resumes_at'])],
     additionalProperties: false,
   };
 }
@@ -198,7 +203,7 @@ export function buildProposalSchema({ validation = false } = {}) {
   const { unit_ids, ...rest } = message.properties;
   // `source` is set by the system from the kind of the units (UD-021, H-3730), never by the model of the decomposition.
   message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest, source: { type: 'string', enum: ['frame'] } };
-  message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['expectation', 'guards_touched', 'understand_vs_create', 'irreversibility', 'value_holder', 'certainty', 'estimate_reason'])];
+  message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['expectation', 'guards_touched', 'understand_vs_create', 'irreversibility', 'value_holder', 'certainty', 'estimate_reason', 'idea', 'idea_guard', 'idea_reason'])];
   return {
     type: 'object',
     properties: {

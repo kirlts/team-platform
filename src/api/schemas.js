@@ -86,7 +86,7 @@ const replyAttachmentSummary = {
 
 export const reply = {
   type: 'object',
-  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification', 'forward'] }, forwarded_to: { ...nullableId, description: 'El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272).' }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, retryable: { type: 'boolean', description: 'La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282).' }, replaced_by_job_id: { ...nullableId, description: 'El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296).' }, retrying: { type: 'boolean', description: 'El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290).' }, mentions: { type: 'array', items: id, description: 'Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto.' }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
+  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification', 'forward'] }, forwarded_to: { ...nullableId, description: 'El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272).' }, publishable: { type: 'boolean', description: 'UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica.' }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, retryable: { type: 'boolean', description: 'La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282).' }, replaced_by_job_id: { ...nullableId, description: 'El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296).' }, retrying: { type: 'boolean', description: 'El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290).' }, mentions: { type: 'array', items: id, description: 'Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto.' }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
 }
 
 export const messageCard = {
@@ -97,7 +97,7 @@ export const messageCard = {
     title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
-    assessment: { type: 'object', description: 'What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.', properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, estimates: { type: ['object', 'null'], additionalProperties: true, properties: { understand_vs_create: { type: 'number' }, irreversibility: { type: 'number' }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number' }, reason: { type: 'string' } } }, by: { ...nullableId, description: 'The person who changed it by hand; null while it is the analyzer\'s.' } } },
+    assessment: { type: 'object', description: 'What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.', properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, estimates: { type: ['object', 'null'], additionalProperties: true, properties: { understand_vs_create: { type: 'number' }, irreversibility: { type: 'number' }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number' }, reason: { type: 'string' }, idea: { type: ['number', 'null'], description: 'UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed.' }, idea_guard: { type: 'boolean', description: 'UD-301: the Guard of the idea applies: nothing is published without the approval of a person.' }, idea_reason: { type: 'string' } } }, by: { ...nullableId, description: 'The person who changed it by hand; null while it is the analyzer\'s.' } } },
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
     attachment_kinds: { type: 'array', items: { type: 'string' } },
@@ -133,7 +133,7 @@ const proposalMessage = {
     fields: { type: 'object', additionalProperties: true },
     assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id },
     source: { type: 'string', enum: ['frame'] },
-    expectation: { type: 'string' }, guards_touched: { type: 'array', items: { type: 'integer' } }, understand_vs_create: { type: 'number' }, irreversibility: { type: 'number' }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number' }, estimate_reason: { type: 'string' },
+    expectation: { type: 'string' }, guards_touched: { type: 'array', items: { type: 'integer' } }, understand_vs_create: { type: 'number' }, irreversibility: { type: 'number' }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number' }, estimate_reason: { type: 'string' }, idea: { type: 'number' }, idea_guard: { type: 'boolean' }, idea_reason: { type: 'string' },
     observed: { type: 'array', items: { type: 'string', minLength: 1 } }
   }
 }
@@ -198,7 +198,7 @@ export const proposalBody = {
           attachment_ids: { type: 'array', items: idIn },
           unit_ids: { type: 'array', items: { type: 'integer' } },
           source: { type: 'string', enum: ['frame'] },
-          expectation: { type: 'string' }, guards_touched: { type: 'array', items: { type: 'integer' } }, understand_vs_create: { type: 'number', minimum: 0, maximum: 1 }, irreversibility: { type: 'number', minimum: 0, maximum: 1 }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number', minimum: 0, maximum: 1 }, estimate_reason: { type: 'string' },
+          expectation: { type: 'string' }, guards_touched: { type: 'array', items: { type: 'integer' } }, understand_vs_create: { type: 'number', minimum: 0, maximum: 1 }, irreversibility: { type: 'number', minimum: 0, maximum: 1 }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number', minimum: 0, maximum: 1 }, estimate_reason: { type: 'string' }, idea: { type: 'number', minimum: 0, maximum: 1 }, idea_guard: { type: 'boolean' }, idea_reason: { type: 'string' },
           observed: { type: 'array', items: { type: 'string', minLength: 1 } }
         }
       }

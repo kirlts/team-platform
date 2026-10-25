@@ -92,7 +92,7 @@ test('the removed email is retired: adding the member by hand takes it out of th
   await env.close()
 })
 
-// The host ingress: a removed identity does not renew itself with a valid token from the host (Devalis signs a token on every entry).
+// The host ingress: a removed identity does not renew itself with a valid token from the host (the host signs a token on every entry).
 const ISSUER = 'https://anfitrion.example'
 const AUDIENCE = 'team-platform'
 const JWKS_PORT = 8610

@@ -40,10 +40,10 @@ describe('cost of the analyzer calls in llm_calls', () => {
     await withSpan('analyze', { 'team.job_id': '9001' }, async () => {
       await client('claude-sonnet-5-5').complete({ system: ['s'], messages: [{ role: 'user', content: 'hola' }] });
       await client('claude-sonnet-5-5').describe({ images: [{ mediaType: 'image/png', data: 'AAAA' }], prompt: 'describe' });
-      await client('claude-opus-5-5').complete({ system: ['s'], messages: [{ role: 'user', content: 'hola' }] });
+      await client('claude-opus-4-8').complete({ system: ['s'], messages: [{ role: 'user', content: 'hola' }] });
     });
     const calls = await rows('9001');
-    assert.deepEqual(calls.map((c) => [c.model, c.modality]), [['claude-sonnet-5-5', 'text'], ['claude-sonnet-5-5', 'vision'], ['claude-opus-5-5', 'text']]);
+    assert.deepEqual(calls.map((c) => [c.model, c.modality]), [['claude-sonnet-5-5', 'text'], ['claude-sonnet-5-5', 'vision'], ['claude-opus-4-8', 'text']]);
     // Sonnet 5.5 (2 USD in, 10 out, 0.10 cache read, 2.50 cache write at 5 minutes, per million): pricing page read on 2026-10-24.
     const expected = (1000 * 2 + 5000 * 0.1 + 2000 * 2.5 + 200 * 10) / 1e6;
     assert.ok(Math.abs(calls[0].cost_usd - expected) < 1e-12, `${calls[0].cost_usd} ≠ ${expected}`);
@@ -63,7 +63,7 @@ describe('cost of the analyzer calls in llm_calls', () => {
     assert.ok(Math.abs(call.cost_usd - 0.04) < 1e-12);
 
     await withSpan('analyze', { 'team.job_id': '9003' }, async () => {
-      await client('claude-opus-5-5').complete({ system: ['s'], messages: [{ role: 'user', content: 'hola' }] });
+      await client('claude-opus-4-8').complete({ system: ['s'], messages: [{ role: 'user', content: 'hola' }] });
     });
     await env.telemetry.flush();
     const totals = traceOfJob(env.db, 9003).totals;

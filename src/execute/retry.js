@@ -6,6 +6,7 @@ import { get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { audit } from '../domain/audit.js'
 import { conflict, notFound } from '../domain/errors.js'
+import { resolveExecuteModel } from '../domain/execute-models.js'
 import { assertNotDiscarded } from '../domain/delivery-review.js'
 import { enqueueExecute } from './enqueue.js'
 import { approveDelivery } from './approve.js'
@@ -85,6 +86,10 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     const payload = parseJson(failed.payload_json, {})
     const extra = Object.fromEntries(Object.entries(payload).filter(([k]) => !NOT_ORIGIN.includes(k)))
     extra.retry_after_reply_id = reply.id
+    // UD-292: a session that failed on the lighter model of the area is not tried on it again: the retry runs with the area's model.
+    const failedModel = get(db, 'SELECT model FROM jobs WHERE id = ?', reply.failed_job_id)?.model ?? null
+    if (failedModel && failedModel !== resolveExecuteModel(db, { messageId, fallback: config.execute.model, escalated: true }).model) extra.escalated = true
+    else delete extra.escalated
     const jobId = enqueueExecute(db, { messageId, memberId: payload.member_id, requestedBy: actor.id, now, extra })
     if (jobId === null) throw conflict('El agente ya tiene un trabajo en cola o corriendo para este mensaje.', 'execute_busy')
     // A failed run handed the message to a person: the agent works it again as a mention does, so it is among the assignees.

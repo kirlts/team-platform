@@ -833,6 +833,22 @@
                                         "frame"
                                       ]
                                     },
+                                    "bloom_level": {
+                                      "type": [
+                                        "null",
+                                        "string"
+                                      ],
+                                      "enum": [
+                                        "remember",
+                                        "understand",
+                                        "apply",
+                                        "analyze",
+                                        "evaluate",
+                                        "create",
+                                        null
+                                      ],
+                                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                                    },
                                     "observed": {
                                       "type": "array",
                                       "items": {
@@ -1201,6 +1217,22 @@
                                 "enum": [
                                   "frame"
                                 ]
+                              },
+                              "bloom_level": {
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "enum": [
+                                  "remember",
+                                  "understand",
+                                  "apply",
+                                  "analyze",
+                                  "evaluate",
+                                  "create",
+                                  null
+                                ],
+                                "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
                               },
                               "observed": {
                                 "type": "array",
@@ -1571,6 +1603,22 @@
                                   "frame"
                                 ]
                               },
+                              "bloom_level": {
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "enum": [
+                                  "remember",
+                                  "understand",
+                                  "apply",
+                                  "analyze",
+                                  "evaluate",
+                                  "create",
+                                  null
+                                ],
+                                "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                              },
                               "observed": {
                                 "type": "array",
                                 "items": {
@@ -1843,6 +1891,21 @@
                             "frame"
                           ]
                         },
+                        "bloom_level": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "remember",
+                            "understand",
+                            "apply",
+                            "analyze",
+                            "evaluate",
+                            "create",
+                            null
+                          ]
+                        },
                         "observed": {
                           "type": "array",
                           "items": {
@@ -1946,6 +2009,22 @@
                             "enum": [
                               "frame"
                             ]
+                          },
+                          "bloom_level": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "remember",
+                              "understand",
+                              "apply",
+                              "analyze",
+                              "evaluate",
+                              "create",
+                              null
+                            ],
+                            "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
                           },
                           "observed": {
                             "type": "array",
@@ -2085,6 +2164,21 @@
                             "frame"
                           ]
                         },
+                        "bloom_level": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "remember",
+                            "understand",
+                            "apply",
+                            "analyze",
+                            "evaluate",
+                            "create",
+                            null
+                          ]
+                        },
                         "observed": {
                           "type": "array",
                           "items": {
@@ -2193,6 +2287,29 @@
                               "answered",
                               "closed"
                             ]
+                          },
+                          "bloom_level": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "remember",
+                              "understand",
+                              "apply",
+                              "analyze",
+                              "evaluate",
+                              "create",
+                              null
+                            ],
+                            "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                          },
+                          "bloom_by": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
                           },
                           "assignee_ids": {
                             "type": "array",
@@ -2962,6 +3079,29 @@
                               "closed"
                             ]
                           },
+                          "bloom_level": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "remember",
+                              "understand",
+                              "apply",
+                              "analyze",
+                              "evaluate",
+                              "create",
+                              null
+                            ],
+                            "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                          },
+                          "bloom_by": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                          },
                           "assignee_ids": {
                             "type": "array",
                             "items": {
@@ -3369,6 +3509,29 @@
                         "answered",
                         "closed"
                       ]
+                    },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -3949,6 +4112,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -4396,6 +4582,20 @@
                     "attempts": {
                       "type": "integer"
                     },
+                    "model": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "El modelo con que corrió la sesión del trabajo (UD-292)."
+                    },
+                    "cost_usd": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "description": "Lo que costó la sesión hasta ahora, en USD (UD-292)."
+                    },
                     "elapsed_ms": {
                       "type": [
                         "integer",
@@ -4645,6 +4845,29 @@
                         "answered",
                         "closed"
                       ]
+                    },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -5297,6 +5520,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -5809,6 +6055,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -6286,6 +6555,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -6754,6 +7046,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -7221,6 +7536,29 @@
                         "answered",
                         "closed"
                       ]
+                    },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -7759,6 +8097,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -8252,6 +8613,547 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
+                    "assignee_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "attachments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "input_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mime": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer"
+                          },
+                          "extracted": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "attachment_kinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reply_count": {
+                      "type": "integer"
+                    },
+                    "last_reply": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "message_id": {
+                          "type": "string"
+                        },
+                        "author_id": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "answer",
+                            "fix",
+                            "clarification",
+                            "forward"
+                          ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                        },
+                        "attachments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "reply_id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "mime": {
+                                "type": "string"
+                              },
+                              "size": {
+                                "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        },
+                        "attachment_kinds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
+                        "mentions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "edited_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "edited_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closed_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "deleted_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true."
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
+                    "observed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "What a video frame shows and nobody says, outside the body; empty when there is none."
+                    },
+                    "replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "held",
+                            "delivering",
+                            "failed"
+                          ],
+                          "description": "UD-289: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción."
+                        }
+                      }
+                    },
+                    "edits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "member_id": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/level": {
+      "put": {
+        "summary": "Fijar a mano el nivel de un mensaje (UD-292)",
+        "tags": [
+          "Messages"
+        ],
+        "description": "Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bloom_level"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "bloom_level": {
+                    "type": "string",
+                    "enum": [
+                      "remember",
+                      "understand",
+                      "apply",
+                      "analyze",
+                      "evaluate",
+                      "create"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "input_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "area_id": {
+                      "type": "string"
+                    },
+                    "template_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "author_id": {
+                      "type": "string"
+                    },
+                    "sent_by_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author."
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "answered",
+                        "closed"
+                      ]
+                    },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -8718,6 +9620,29 @@
                         "answered",
                         "closed"
                       ]
+                    },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
                     },
                     "assignee_ids": {
                       "type": "array",
@@ -9186,6 +10111,29 @@
                         "closed"
                       ]
                     },
+                    "bloom_level": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "enum": [
+                        "remember",
+                        "understand",
+                        "apply",
+                        "analyze",
+                        "evaluate",
+                        "create",
+                        null
+                      ],
+                      "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
+                    },
+                    "bloom_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The person who set the level by hand (UD-292); null while it is the analyzer's."
+                    },
                     "assignee_ids": {
                       "type": "array",
                       "items": {
@@ -9646,6 +10594,20 @@
                         ],
                         "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
                       },
+                      "execute_model": {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                      },
+                      "execute_model_direct": {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
+                      },
                       "handoffs": {
                         "type": "array",
                         "description": "Handoffs to a person in the last 7 days, by person (UD-269).",
@@ -9806,6 +10768,20 @@
                       ],
                       "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
                     },
+                    "execute_model": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                    },
+                    "execute_model_direct": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
+                    },
                     "handoffs": {
                       "type": "array",
                       "description": "Handoffs to a person in the last 7 days, by person (UD-269).",
@@ -9919,6 +10895,34 @@
                       "null"
                     ],
                     "description": "Who decides in the area (UD-269); null goes back to the first active Editor."
+                  },
+                  "execute_model": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "claude-haiku-5-5",
+                      "claude-sonnet-5-5",
+                      "claude-opus-5-5",
+                      "claude-fable-5-1",
+                      null
+                    ],
+                    "description": "The Claude model the area's unattended sessions run with (UD-292); null goes back to the installation's default."
+                  },
+                  "execute_model_direct": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "claude-haiku-5-5",
+                      "claude-sonnet-5-5",
+                      "claude-opus-5-5",
+                      "claude-fable-5-1",
+                      null
+                    ],
+                    "description": "The model for the messages whose level is a direct fix (UD-292); null runs them with the area's model."
                   }
                 }
               }
@@ -9981,6 +10985,20 @@
                         "string"
                       ],
                       "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
+                    },
+                    "execute_model": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                    },
+                    "execute_model_direct": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
                     },
                     "handoffs": {
                       "type": "array",
@@ -10174,6 +11192,20 @@
                         "string"
                       ],
                       "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
+                    },
+                    "execute_model": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292)."
+                    },
+                    "execute_model_direct": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292)."
                     },
                     "handoffs": {
                       "type": "array",

@@ -57,6 +57,8 @@ export const area = {
     id, title: { type: 'string' }, description: { type: 'string' }, position: intVar, color: { type: 'string', description: 'Area color, `#rrggbb` (UD-045).' }, deleted_at: nullableText,
     open_count: intVar, unresolved_count: intVar, template_count: intVar,
     escalation_member_id: { type: ['string', 'null'], description: 'The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor.' },
+    execute_model: { type: ['string', 'null'], description: 'The Claude model the area\'s unattended sessions run with now: its own, or the installation\'s default (UD-292).' },
+    execute_model_direct: { type: ['string', 'null'], description: 'The model for the messages whose level is a direct fix; null when they run with the area\'s model (UD-292).' },
     handoffs: { type: 'array', description: 'Handoffs to a person in the last 7 days, by person (UD-269).', items: { type: 'object', properties: { member_id: id, count: intVar } } },
     templates: { type: 'array', items: templateSummary }
   }
@@ -94,6 +96,8 @@ export const messageCard = {
     title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
+    bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', null], description: 'Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.' },
+    bloom_by: { ...nullableId, description: 'The person who set the level by hand (UD-292); null while it is the analyzer\'s.' },
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
     attachment_kinds: { type: 'array', items: { type: 'string' } },
@@ -128,6 +132,7 @@ const proposalMessage = {
     fields: { type: 'object', additionalProperties: true },
     assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id },
     source: { type: 'string', enum: ['frame'] },
+    bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', null], description: 'Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.' },
     observed: { type: 'array', items: { type: 'string', minLength: 1 } }
   }
 }
@@ -192,6 +197,7 @@ export const proposalBody = {
           attachment_ids: { type: 'array', items: idIn },
           unit_ids: { type: 'array', items: { type: 'integer' } },
           source: { type: 'string', enum: ['frame'] },
+          bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', null] },
           observed: { type: 'array', items: { type: 'string', minLength: 1 } }
         }
       }

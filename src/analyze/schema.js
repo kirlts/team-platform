@@ -4,6 +4,7 @@
 // integers that Ajv validates against the bundle, not a per-input `enum`, which would change the structure
 // and force the grammar to be recompiled on every call (report 02 §6.2).
 // No `maxItems`, `minLength` or `minItems` greater than 1 in the grammar: Anthropic does not support them [F1].
+import { BLOOM_LEVELS } from '../domain/bloom.js';
 import { compileFieldsSchema } from './templates.js';
 
 const intArray = (extra = {}) => ({ type: 'array', items: { type: 'integer' }, ...extra });
@@ -95,6 +96,9 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       title: text,
       fields: fieldsSchema,
       body: text,
+      // UD-292: the level of the request in the revised Bloom taxonomy, decided by the model that reads it; the system only maps the enum to a tier.
+      // It goes before the assignees: who answers depends on whether the work is a direct fix, a diagnosis or a decision only a person takes.
+      bloom_level: { type: 'string', enum: [...BLOOM_LEVELS] },
       // With a team, every message has an owner (H-86): the grammar of the model requires at least one id.
       assignee_ids: requireAssignee ? { ...ids, minItems: 1 } : ids,
       attachment_ids: ids,
@@ -105,7 +109,7 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       resumes_at: ids,
     },
     // The grammar requires `observed` so the model always considers it; the validation accepts an output without it (an empty list).
-    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['observed', 'resumes_at'])],
+    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['bloom_level', 'observed', 'resumes_at'])],
     additionalProperties: false,
   };
 }
@@ -159,7 +163,7 @@ export function buildProposalSchema({ validation = false } = {}) {
   const { unit_ids, ...rest } = message.properties;
   // `source` is set by the system from the kind of the units (UD-021, H-3730), never by the model of the decomposition.
   message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest, source: { type: 'string', enum: ['frame'] } };
-  message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'];
+  message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['bloom_level'])];
   return {
     type: 'object',
     properties: {

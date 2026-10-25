@@ -9,6 +9,7 @@ import { uploadInput } from './upload.js'
 import { sendVersioned, type Versioning } from './versioning.js'
 import type {
   Area,
+  BloomLevel,
   AnalysisSettings,
   AuditEntry,
   Check,
@@ -69,6 +70,10 @@ export interface AreaFields {
   color?: string
   /** Who decides in the area (UD-269); `null` goes back to the first active Editor. */
   escalation_member_id?: string | null
+  /** The Claude model the area's unattended sessions run with (UD-292); `null` goes back to the installation's default. */
+  execute_model?: string | null
+  /** The model for the messages whose level is a direct fix (UD-292); `null` runs them with the area's model. */
+  execute_model_direct?: string | null
 }
 
 export interface TemplateFields {
@@ -126,7 +131,7 @@ export function createResources(t: Transport) {
       /** Creates the area, or edits `id` when it is given. */
       save: (v: AreaFields) =>
         v.id
-          ? call<Area>(routes.areaPatch, { params: { id: v.id }, body: { title: v.title, description: v.description, color: v.color, escalation_member_id: v.escalation_member_id } })
+          ? call<Area>(routes.areaPatch, { params: { id: v.id }, body: { title: v.title, description: v.description, color: v.color, escalation_member_id: v.escalation_member_id, execute_model: v.execute_model, execute_model_direct: v.execute_model_direct } })
           : call<Area>(routes.areaCreate, { body: { title: v.title, description: v.description, color: v.color } }),
       /** Soft-deletes (Editor, UD-240): its messages stay and a restore brings it back. */
       delete: (id: string) => call(routes.areaDelete, { params: { id }, search: CONFIRM }),
@@ -186,6 +191,8 @@ export function createResources(t: Transport) {
         }),
       close: (id: string) => call(routes.messageClose, { params: { id } }),
       reopen: (id: string) => call(routes.messageReopen, { params: { id } }),
+      /** Sets the level of a message by hand (UD-292): any active person. */
+      setLevel: (v: { id: string; level: BloomLevel }) => call<MessageDetail>(routes.messageLevel, { params: { id: v.id }, body: { bloom_level: v.level } }),
       setClosed: (v: { id: string; closed: boolean }) => call(v.closed ? routes.messageClose : routes.messageReopen, { params: { id: v.id } }),
       /** Soft-deletes (UD-240): its sender or the Editor; a restore undoes it. */
       delete: (id: string) => call(routes.messageDelete, { params: { id }, search: CONFIRM }),

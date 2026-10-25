@@ -51,6 +51,10 @@ export interface Area {
   template_count?: number
   /** The person who decides in the area and receives what a session hands over (UD-269): the one set, or the first active Editor. */
   escalation_member_id?: string | null
+  /** The Claude model the area's unattended sessions run with now: its own or the installation's default (UD-292). */
+  execute_model?: string | null
+  /** The model for the messages whose level is a direct fix; null while they run with the area's model (UD-292). */
+  execute_model_direct?: string | null
   /** Handoffs to a person in the last 7 days, by person (UD-269). */
   handoffs?: { member_id: string; count: number }[]
   deleted_at?: string | null
@@ -179,8 +183,27 @@ export interface Reply {
   edited_at?: string | null
 }
 
+/** The six levels of the revised Bloom taxonomy (UD-292): the analyzer returns one per message, and a person can change it. */
+export const BLOOM_LEVELS = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] as const
+export type BloomLevel = (typeof BLOOM_LEVELS)[number]
+/** Who may work a level (UD-292): `direct` a direct fix, `complex` a diagnosis or a judgement, `person` a decision only a person takes. */
+export type BloomTier = 'direct' | 'complex' | 'person'
+export const BLOOM_TIER: Record<BloomLevel, BloomTier> = { remember: 'direct', understand: 'direct', apply: 'direct', analyze: 'complex', evaluate: 'complex', create: 'person' }
+
+/** The Claude models an area can run its unattended session with (UD-292): the same closed list as the server's, ids as the models overview gives them. */
+export const EXECUTE_MODELS = [
+  { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
+  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
+  { id: 'claude-fable-5-1', label: 'Fable 5.1' },
+] as const
+
 export interface Message {
   id: string
+  /** Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed. */
+  bloom_level?: BloomLevel | null
+  /** The person who set the level by hand (UD-292); null while it is the analyzer's. */
+  bloom_by?: string | null
   input_id?: string
   area_id: string
   author_id: string
@@ -422,6 +445,9 @@ export interface MessageTiming {
   job_status: string
   trace_id: string | null
   phase: string | null
+  /** The model the session ran with and what it has cost so far, in USD (UD-292). */
+  model?: string | null
+  cost_usd?: number | null
   elapsed_ms: number | null
   first_reply_ms: number | null
   final_reply_ms: number | null

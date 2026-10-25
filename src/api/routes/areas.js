@@ -10,6 +10,7 @@ import { mirrorTemplate, removeTemplateMirror } from '../../domain/template-file
 import { requireConfirm } from '../confirm.js'
 import { area, confirmQuery, idParams, template } from '../schemas.js'
 import { isActivePerson } from '../../domain/members.js'
+import { EXECUTE_MODEL_IDS } from '../../domain/execute-models.js'
 
 const templateBody = {
   type: 'object',
@@ -18,11 +19,12 @@ const templateBody = {
 }
 
 const colorProp = { type: 'string', pattern: AREA_COLOR_PATTERN }
+const modelProp = (description) => ({ type: ['string', 'null'], enum: [...EXECUTE_MODEL_IDS, null], description })
 
 export function registerAreaRoutes (app, ctx) {
   const { db, config, requireRole, domainEvents } = ctx
   const templateParams = { type: 'object', required: ['id', 'templateId'], properties: { id: { type: 'integer', minimum: 1 }, templateId: { type: 'integer', minimum: 1 } } }
-  const actor = (request) => ({ actorId: request.member.id })
+  const actor = (request) => ({ actorId: request.member.id, defaultModel: config.execute.model })
 
   // File copy in the volume (DATA_DIR/templates): the database rules, the file serves the backups.
   const mirror = (t) => { try { mirrorTemplate(config, t) } catch (e) { app.log.warn({ err: e }, 'could not copy the template to the volume') } }
@@ -39,7 +41,7 @@ export function registerAreaRoutes (app, ctx) {
     if (request.query.include_deleted === true && !isActivePerson(db, request.member.id)) {
       return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a una persona del equipo.' })
     }
-    return listAreas(db, { includeDeleted: request.query.include_deleted === true })
+    return listAreas(db, { includeDeleted: request.query.include_deleted === true, defaultModel: config.execute.model })
   })
 
   app.post('/areas', {
@@ -56,7 +58,7 @@ export function registerAreaRoutes (app, ctx) {
     schema: {
       summary: 'Edit an area',
       params: idParams(),
-      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp, escalation_member_id: { type: ['integer', 'null'], description: 'Who decides in the area (UD-269); null goes back to the first active Editor.' } } },
+      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp, escalation_member_id: { type: ['integer', 'null'], description: 'Who decides in the area (UD-269); null goes back to the first active Editor.' }, execute_model: modelProp('The Claude model the area\'s unattended sessions run with (UD-292); null goes back to the installation\'s default.'), execute_model_direct: modelProp('The model for the messages whose level is a direct fix (UD-292); null runs them with the area\'s model.') } },
       response: { 200: area }
     }
   }, async (request) => updateArea(db, request.params.id, request.body, actor(request)))

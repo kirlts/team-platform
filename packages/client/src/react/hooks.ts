@@ -9,6 +9,7 @@ import type { AreaFields, ProviderChange, TemplateFields } from '../resources.js
 import type { Versioning } from '../versioning.js'
 import type {
   AnalysisSettings,
+  BloomLevel,
   Check,
   InputRecord,
   Language,
@@ -347,6 +348,13 @@ export function useSetClosed() {
   const client = useTeamClient()
   const inv = useInvalidate()
   return useMutation({ mutationFn: (v: { id: string; closed: boolean }) => client.messages.setClosed(v), onSuccess: () => inv('setClosed') })
+}
+
+/** Sets the level of a message by hand (PUT /messages/:id/level, UD-292). */
+export function useSetLevel() {
+  const client = useTeamClient()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (v: { id: string; level: BloomLevel }) => client.messages.setLevel(v), onSuccess: () => inv('setLevel') })
 }
 
 /** Forwards a message to a member with the reason (POST /messages/:id/forward, UD-272). */

@@ -41,6 +41,8 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
   const base = {
     message_id: String(messageId), job_id: String(job.id), job_status: job.status, trace_id: job.trace_id ?? null,
     phase: job.phase ?? null, attempts: job.attempts,
+    // UD-292: the model the session of the job ran with and what it has cost so far (the day's meter reads the same column).
+    model: job.model ?? null, cost_usd: typeof job.cost_usd === 'number' ? job.cost_usd : null,
     elapsed_ms: job.status === 'running' ? Math.max(0, now() - job.run_at) : null,
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,
     total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null,

@@ -12,6 +12,7 @@ import { AppError, badRequest, conflict, forbidden, notFound, unprocessable } fr
 import { transitionInput } from './inputs.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { enqueueExecuteForAgents } from '../execute/enqueue.js'
+import { isBloomLevel } from './bloom.js'
 import { currentTraceparent, inTrace, traceIdOf, withSpan } from '../telemetry/api.js'
 
 /**
@@ -36,7 +37,7 @@ export function validateProposal (db, inputId, proposal, fail, { draft = false }
     const assigneeIds = checkAssignees(db, m.assignee_ids, { scope, fail })
     const attachmentIds = [...new Set(m.attachment_ids ?? [])]
     for (const id of attachmentIds) if (!inputAttachmentIds.has(id)) throw fail(`${scope}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
-    return { title: m.title.trim(), body: m.body, areaId: m.area_id, templateId: tpl?.id ?? null, fields, assigneeIds, attachmentIds, unitIds: (m.unit_ids ?? []).map(Number), observed: Array.isArray(m.observed) ? m.observed.filter((o) => typeof o === 'string' && o !== '') : [] }
+    return { title: m.title.trim(), body: m.body, areaId: m.area_id, templateId: tpl?.id ?? null, fields, assigneeIds, attachmentIds, bloomLevel: isBloomLevel(m.bloom_level) ? m.bloom_level : null, unitIds: (m.unit_ids ?? []).map(Number), observed: Array.isArray(m.observed) ? m.observed.filter((o) => typeof o === 'string' && o !== '') : [] }
   })
 }
 
@@ -82,6 +83,7 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,
         assignee_ids: e.assigneeIds, attachment_ids: e.attachmentIds, unit_ids: proposal.messages[i].unit_ids?.map(Number) ?? [],
         ...(proposal.messages[i].source === 'frame' ? { source: 'frame' } : {}),
+        ...(e.bloomLevel ? { bloom_level: e.bloomLevel } : {}),
         ...(e.observed.length ? { observed: e.observed } : {})
       })),
       discarded: (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number), reason: d.reason ?? '' }))
@@ -109,9 +111,9 @@ function insertMessages ({ db, events, now }, { input, entries, via }) {
   for (const e of entries) {
     // «Mensaje publicado» is a span of the input's trace (UD-262); its context is what the `execute` job continues.
     const messageId = inTrace(input.traceparent, () => withSpan('message.publish', { 'team.input_id': String(inputId), 'team.member_id': String(memberId), 'team.via': via }, (span) => {
-    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, observed_json, status, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), e.observed.length ? JSON.stringify(e.observed) : null, t, t)
+    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, observed_json, bloom_level, status, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), e.observed.length ? JSON.stringify(e.observed) : null, e.bloomLevel, t, t)
     const messageId = Number(r.lastInsertRowid)
     const traceparent = currentTraceparent()
     span.setAttribute('team.message_id', String(messageId))

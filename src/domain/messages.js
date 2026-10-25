@@ -23,6 +23,7 @@ import { SPOKEN_KINDS, enqueueReplyExtract } from './reply-extract.js'
 import { retryableIds, retryingIds } from '../execute/retry.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 import { isActivePerson } from './members.js'
+import { isBloomLevel } from './bloom.js'
 import { isInputParty } from './inputs.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
@@ -118,6 +119,8 @@ function hydrate (db, rows) {
     body: f.body,
     fields: parseJson(f.fields_json, {}),
     status: f.status,
+    bloom_level: f.bloom_level ?? null, // UD-292
+    bloom_by: f.bloom_by ?? null,
     assignee_ids: assigned.get(f.id) ?? [],
     attachments: atts.get(f.id) ?? [],
     attachment_kinds: [...new Set((atts.get(f.id) ?? []).map((a) => a.kind))], // distinct, in attachment order (UD-016)
@@ -443,6 +446,23 @@ export function closeMessage ({ db, events, now = Date.now }, messageId, actorId
     if (!target) throw conflict('El mensaje ya está cerrado.', 'already_closed')
     run(db, 'UPDATE messages SET status = ?, closed_at = ? WHERE id = ?', target, now(), messageId)
     audit(db, { memberId: actorId, action: 'message.close', entity: 'message', entityId: messageId, now })
+  })
+  return getMessage(db, messageId)
+}
+
+/**
+ * A person sets the level of a message by hand (UD-292). The level is data the analyzer chose with a model; whoever reads the message may
+ * disagree, and the change is theirs: `bloom_by` keeps who. It decides the model of the next session of the message (the area's «Arreglo directo»
+ * or its model), never an assignment: a session already queued or running is not touched. Any active person; the message does not change version.
+ */
+export function setMessageLevel ({ db, events, now = Date.now }, { messageId, actor, level }) {
+  events.transaction(() => {
+    const row = get(db, 'SELECT bloom_level FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
+    if (!row) throw notFound('El mensaje no existe.')
+    if (!isBloomLevel(level)) throw badRequest('El nivel no es uno de los seis de Bloom.', 'level_invalid')
+    if (row.bloom_level === level) return
+    run(db, 'UPDATE messages SET bloom_level = ?, bloom_by = ? WHERE id = ?', level, actor.id, messageId)
+    audit(db, { memberId: actor.id, action: 'message.level.update', entity: 'message', entityId: messageId, detail: { from: row.bloom_level, to: level }, now })
   })
   return getMessage(db, messageId)
 }

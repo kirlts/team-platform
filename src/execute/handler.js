@@ -25,6 +25,8 @@ import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/
 import { audit } from '../domain/audit.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
+import { resolveExecuteModel } from '../domain/execute-models.js'
+import { tierOf } from '../domain/bloom.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
@@ -289,7 +291,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       recordExecuteRun(db, {
         job_id: job.id, attempt: job.attempts, message_id: messageId ?? null, instance: instanceLabel(config),
         trace_id: job.trace_id ?? null, session_id: rec.st?.sessionId ?? null,
-        model: models.length ? models.join(',') : x.model, runner: x.runner, machine: rec.r?.machine ?? null,
+        model: models.length ? models.join(',') : (rec.model ?? x.model), runner: x.runner, machine: rec.r?.machine ?? null,
         started_at: rec.startedAt, finished_at: end,
         queue_wait_ms: Math.max(0, rec.startedAt - job.created_at),
         first_reply_ms: rec.firstReplyAt === null ? null : Math.max(0, rec.firstReplyAt - rec.startedAt),
@@ -337,6 +339,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const secret = readAgentSecret(db, vault, agent.id)
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
+    // UD-292: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
+    const { model } = resolveExecuteModel(db, { messageId, fallback: x.model, escalated: payload.escalated === true })
+    rec.model = model
     const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
     let declared
@@ -371,7 +376,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
     const promptInput = {
-      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
+      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status, tier: tierOf(message.bloom_level) },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
       deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
@@ -401,9 +406,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait')) // what is left is held by sessions that run now: it may come back when they end
     const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
     reserved.set(job.id, budgetUsd)
-    const args = claudeArgs({ ...x, budgetUsd }, schema)
+    const args = claudeArgs({ ...x, model, budgetUsd }, schema)
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
-    runSql(db, 'UPDATE jobs SET runner = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, now(), job.id)
+    runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
     rec.began = true
 
     let session = null // spans of the tools and subagents, alive while the `run` phase is
@@ -427,7 +432,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const phase = (name, fn) => withSpan(`execute.${kind}.${name}`, { 'team.step': `execute.${kind}.${name}`, 'team.runner': x.runner }, async (span) => {
       setPhase(name)
       const phaseStart = now()
-      if (name === 'run') session = createSessionTracer({ model: x.model })
+      if (name === 'run') session = createSessionTracer({ model })
       try {
         const r = await fn()
         if (r && typeof r === 'object' && 'code' in r) {
@@ -450,7 +455,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
       outcome = await withSpan('execute', {
         'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
-        'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
+        'team.runner': x.runner, 'team.model': model, 'team.level': message.bloom_level ?? '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
         await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
@@ -479,9 +484,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
           const models = Object.keys(result.modelUsage ?? {})
           recordGenAiCall(span, {
             provider: PROVIDER,
-            model: models.length === 1 ? models[0] : (models.join(',') || x.model),
+            model: models.length === 1 ? models[0] : (models.join(',') || model),
             request: { messages: [{ role: 'user', content: prompt }], effort: x.effort },
-            response: { text: JSON.stringify(result.structured_output ?? result.result ?? null), model: models[0] ?? x.model, stop_reason: result.stop_reason, duration_ms: result.duration_ms },
+            response: { text: JSON.stringify(result.structured_output ?? result.result ?? null), model: models[0] ?? model, stop_reason: result.stop_reason, duration_ms: result.duration_ms },
             usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0, cached_tokens: u.cache_read_input_tokens ?? 0, cache_creation_tokens: u.cache_creation_input_tokens ?? 0 },
             cost: result.total_cost_usd ?? null
           })

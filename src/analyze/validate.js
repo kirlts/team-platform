@@ -6,6 +6,7 @@
 // The system validates shape and sets: that the area exists, that each member and each attachment exist, that each
 // unit is in a message or in `discarded`. It never interprets the text a person wrote (§4.2).
 import Ajv from 'ajv';
+import { isBloomLevel } from '../domain/bloom.js';
 import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema, buildSplitSchema } from './schema.js';
 import { compileFieldsSchema, compileOutputSchema } from './templates.js';
 import { timeRange } from './units.js';
@@ -653,6 +654,7 @@ export function normalizeDecomposition(output) {
     fields: Object.fromEntries(Object.entries(m.fields).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v.trim()])),
     assignee_ids: sortedUnique(m.assignee_ids),
     attachment_ids: sortedUnique(m.attachment_ids),
+    ...(isBloomLevel(m.bloom_level) ? { bloom_level: m.bloom_level } : {}),
     ...(m.source === 'frame' ? { source: 'frame' } : {}),
     ...(observedOf(m).length > 0 ? { observed: observedOf(m) } : {}),
   }));

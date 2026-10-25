@@ -2,7 +2,7 @@
 
 import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
 import { get } from '../../db/index.js'
-import { addMessageAttachments, addReply, addReplyAttachments, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
+import { addMessageAttachments, addReply, addReplyAttachments, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, setMessageLevel, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
 import { forbidden, notFound } from '../../domain/errors.js'
 import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -92,7 +92,7 @@ export function registerMessageRoutes (app, ctx) {
           type: 'object', additionalProperties: true,
           properties: {
             message_id: { type: 'string' }, job_id: { type: 'string' }, job_status: { type: 'string' }, trace_id: { type: 'string', nullable: true }, phase: { type: 'string', nullable: true },
-            attempts: { type: 'integer' }, elapsed_ms: ms, first_reply_ms: ms, final_reply_ms: ms, first_reply_since_message_ms: ms, final_reply_since_message_ms: ms, total_ms: ms, queue_wait_ms: ms,
+            attempts: { type: 'integer' }, model: { type: 'string', nullable: true, description: 'El modelo con que corrió la sesión del trabajo (UD-292).' }, cost_usd: { type: 'number', nullable: true, description: 'Lo que costó la sesión hasta ahora, en USD (UD-292).' }, elapsed_ms: ms, first_reply_ms: ms, final_reply_ms: ms, first_reply_since_message_ms: ms, final_reply_since_message_ms: ms, total_ms: ms, queue_wait_ms: ms,
             phases: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, duration_ms: ms, offset_ms: ms, status: { type: 'string' } } } },
             slowest: { type: 'array', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'subagent'] }, name: { type: 'string' }, summary: { type: 'string', nullable: true }, duration_ms: ms, success: { type: 'boolean', nullable: true } } } },
             turns: { type: 'array', items: { type: 'object', additionalProperties: true } },
@@ -334,6 +334,18 @@ export function registerMessageRoutes (app, ctx) {
     reply.code(201)
     return message
   }))
+
+  app.put('/messages/:id/level', {
+    onRequest: [requireRole('person')],
+    schema: {
+      summary: 'Fijar a mano el nivel de un mensaje (UD-292)',
+      description: 'Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.',
+      params: idParams(),
+      body: { type: 'object', required: ['bloom_level'], additionalProperties: false, properties: { bloom_level: { type: 'string', enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] } } },
+      response: { 200: messageDetail }
+    }
+  }, async (request) => withSpan('message.level', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
+    () => setMessageLevel({ db, events }, { messageId: request.params.id, actor: request.member, level: request.body.bloom_level })))
 
   for (const [verb, handlerFn, summaryText] of [['close', closeMessage, 'Close a message'], ['reopen', reopenMessage, 'Reopen a closed message']]) {
     app.post(`/messages/:id/${verb}`, {

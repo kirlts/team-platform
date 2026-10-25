@@ -47,6 +47,7 @@ export const routes = {
   messageAddAttachments: route('post', '/api/messages/{id}/attachments'),
   messageClose: route('post', '/api/messages/{id}/close'),
   messageReopen: route('post', '/api/messages/{id}/reopen'),
+  messageLevel: route('put', '/api/messages/{id}/level'),
   messageTiming: route('get', '/api/messages/{id}/timing'),
   messageExecute: route('post', '/api/messages/{id}/execute'),
   messageDeliver: route('post', '/api/messages/{id}/deliver'),

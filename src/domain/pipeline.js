@@ -17,6 +17,7 @@ import { DEFAULT_LANGUAGE } from './language.js'
 import { recentInputsFor, transitionInput } from './inputs.js'
 import { autoPublishProposal } from './proposals.js'
 import { recipientsOf } from './inputs.js'
+import { keepPersonLevelFromAgents } from './level-routing.js'
 import { getAutoPublish, getFraming, getProject } from './settings.js'
 import { isStep, keyOf, phraseOf, step } from './progress-phrases.js'
 import { blobPath } from './storage.js'
@@ -252,6 +253,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // UD-291: the recipients the sender chose are the assignees of every message; the routing keeps choosing area and template, not people.
         const recipients = recipientsOf(input)
         if (recipients.length > 0) for (const m of proposalObj.messages) m.assignee_ids = [...recipients]
+        // UD-292: with no recipients chosen, the routing is automatic, and a message whose level is a decision only a person takes never goes to an agent from it.
+        else for (const m of proposalObj.messages) keepPersonLevelFromAgents(db, m, input.author_id)
 
         return () => {
           // Inside the transaction that closes the job. Each message carries its area and template.

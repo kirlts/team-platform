@@ -33,12 +33,32 @@ const SONNET_5_5 = Object.freeze({
   tier: null,
 });
 
+// Opus 5.5: 4 USD input and 20 output per million tokens, cache read 0.20, cache write 5 at 5 minutes and 8 at 1 hour (1.25 and 2 times the input), no
+// long-prompt tier. Fable 5.1: 10 USD input and 50 output, cache read 0.25, cache write 12.50 and 20, no tier. Both for the models an area can run its
+// unattended session with (UD-292). Source: platform.claude.com/docs/en/about-claude/pricing, read on 2026-10-25.
+const OPUS_5_5 = Object.freeze({
+  inputPerMTok: 4,
+  outputPerMTok: 20,
+  cacheReadPerMTok: 0.2,
+  cacheWriteMultiplier: Object.freeze({ '5m': 1.25, '1h': 2 }),
+  tier: null,
+});
+const FABLE_5_1 = Object.freeze({
+  inputPerMTok: 10,
+  outputPerMTok: 50,
+  cacheReadPerMTok: 0.25,
+  cacheWriteMultiplier: Object.freeze({ '5m': 1.25, '1h': 2 }),
+  tier: null,
+});
+
 // Groq `whisper-large-v3-turbo`: 0.04 USD per hour of audio (MASTER-SPEC §3, report 06 §3.2).
 const WHISPER_TURBO = Object.freeze({ perAudioHour: 0.04 });
 
 export const PRICES = Object.freeze({
   'anthropic/claude-haiku-5-5': HAIKU_5_5,
   'anthropic/claude-sonnet-5-5': SONNET_5_5,
+  'anthropic/claude-opus-5-5': OPUS_5_5,
+  'anthropic/claude-fable-5-1': FABLE_5_1,
   'groq-speech/whisper-large-v3-turbo': WHISPER_TURBO,
 });
 

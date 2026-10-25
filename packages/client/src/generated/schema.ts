@@ -376,6 +376,11 @@ export interface paths {
                                         unit_ids?: string[];
                                         /** @enum {string} */
                                         source?: "frame";
+                                        /**
+                                         * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                                         * @enum {null|string}
+                                         */
+                                        bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
                                         observed?: string[];
                                     } & {
                                         [key: string]: unknown;
@@ -581,6 +586,11 @@ export interface paths {
                                     unit_ids?: string[];
                                     /** @enum {string} */
                                     source?: "frame";
+                                    /**
+                                     * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                                     * @enum {null|string}
+                                     */
+                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -761,6 +771,11 @@ export interface paths {
                                     unit_ids?: string[];
                                     /** @enum {string} */
                                     source?: "frame";
+                                    /**
+                                     * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                                     * @enum {null|string}
+                                     */
+                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -842,6 +857,8 @@ export interface paths {
                             unit_ids?: number[];
                             /** @enum {string} */
                             source?: "frame";
+                            /** @enum {string|null} */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -872,6 +889,11 @@ export interface paths {
                                 unit_ids?: string[];
                                 /** @enum {string} */
                                 source?: "frame";
+                                /**
+                                 * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                                 * @enum {null|string}
+                                 */
+                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
                                 observed?: string[];
                             } & {
                                 [key: string]: unknown;
@@ -939,6 +961,8 @@ export interface paths {
                             unit_ids?: number[];
                             /** @enum {string} */
                             source?: "frame";
+                            /** @enum {string|null} */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -972,6 +996,13 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status?: "open" | "answered" | "closed";
+                                /**
+                                 * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                                 * @enum {null|string}
+                                 */
+                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                                bloom_by?: string | null;
                                 assignee_ids?: string[];
                                 attachments?: {
                                     id?: string;
@@ -1331,6 +1362,13 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status?: "open" | "answered" | "closed";
+                                /**
+                                 * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                                 * @enum {null|string}
+                                 */
+                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                                bloom_by?: string | null;
                                 assignee_ids?: string[];
                                 attachments?: {
                                     id?: string;
@@ -1529,6 +1567,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -1748,6 +1793,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -1909,6 +1961,10 @@ export interface paths {
                             trace_id?: string | null;
                             phase?: string | null;
                             attempts?: number;
+                            /** @description El modelo con que corrió la sesión del trabajo (UD-292). */
+                            model?: string | null;
+                            /** @description Lo que costó la sesión hasta ahora, en USD (UD-292). */
+                            cost_usd?: number | null;
                             elapsed_ms?: number | null;
                             first_reply_ms?: number | null;
                             final_reply_ms?: number | null;
@@ -2017,6 +2073,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2320,6 +2383,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2492,6 +2562,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2664,6 +2741,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -2839,6 +2923,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3014,6 +3105,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3208,6 +3306,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3390,6 +3495,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3520,6 +3632,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{id}/level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Fijar a mano el nivel de un mensaje (UD-292)
+         * @description Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        bloom_level: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                                /**
+                                 * @description UD-289: `held` espera la revisión, `delivering` se está entregando, `failed` la última entrega falló y no llegó a producción.
+                                 * @enum {string}
+                                 */
+                                state?: "held" | "delivering" | "failed";
+                            } | null;
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{id}/close": {
         parameters: {
             query?: never;
@@ -3562,6 +3863,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3734,6 +4042,13 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
+                            /**
+                             * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
+                             * @enum {null|string}
+                             */
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
+                            bloom_by?: string | null;
                             assignee_ids?: string[];
                             attachments?: {
                                 id?: string;
@@ -3902,6 +4217,10 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
+                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            execute_model?: null | string;
+                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
+                            execute_model_direct?: null | string;
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;
@@ -3973,6 +4292,10 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
+                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            execute_model?: null | string;
+                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
+                            execute_model_direct?: null | string;
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;
@@ -4079,6 +4402,16 @@ export interface paths {
                         color?: string;
                         /** @description Who decides in the area (UD-269); null goes back to the first active Editor. */
                         escalation_member_id?: number | null;
+                        /**
+                         * @description The Claude model the area's unattended sessions run with (UD-292); null goes back to the installation's default.
+                         * @enum {string|null}
+                         */
+                        execute_model?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
+                        /**
+                         * @description The model for the messages whose level is a direct fix (UD-292); null runs them with the area's model.
+                         * @enum {string|null}
+                         */
+                        execute_model_direct?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
                     };
                 };
             };
@@ -4102,6 +4435,10 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
+                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            execute_model?: null | string;
+                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
+                            execute_model_direct?: null | string;
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;
@@ -4176,6 +4513,10 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
+                            /** @description The Claude model the area's unattended sessions run with now: its own, or the installation's default (UD-292). */
+                            execute_model?: null | string;
+                            /** @description The model for the messages whose level is a direct fix; null when they run with the area's model (UD-292). */
+                            execute_model_direct?: null | string;
                             /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
                             handoffs?: {
                                 member_id?: string;

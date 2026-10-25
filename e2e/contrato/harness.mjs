@@ -88,14 +88,14 @@ function buildPanel () {
 }
 
 /** A running copy of the server: its own database, its own folder of files, the compiled panel, an ephemeral port. */
-async function startServer (panelDist, { config = {}, modules = {}, autoPublish = true } = {}) {
+async function startServer (panelDist, { config = {}, modules = {}, autoPublish = true, port = 0 } = {}) {
   const env = await makeEnv({
     config: { identity: { login: { ipMax: 100000, ipWindowMs: 1000 } }, panelDist, ...config },
     modules: { analyze: scriptedAnalyze, extract: quietExtract, ...modules },
     worker: true,
     autoPublish
   })
-  await env.app.listen({ host: '127.0.0.1', port: 0 })
+  await env.app.listen({ host: '127.0.0.1', port })
   const origin = `http://127.0.0.1:${env.app.server.address().port}`
   env.baseUrl = origin
   return { env, origin, db: env.db, close: () => env.close() }
@@ -227,6 +227,15 @@ export function harness () {
     return h
   })()
   return shared
+}
+
+/** A port nobody listens on now, for a server whose configuration must name its own address before it starts (the SSO return address). */
+export async function freePort () {
+  const probe = createServer()
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve))
+  const { port } = probe.address()
+  await new Promise((resolve) => probe.close(resolve))
+  return port
 }
 
 /** A fake host that signs people in (the SSO of the real host): `/entrada` checks the request, shows its own form and returns the signed payload. */

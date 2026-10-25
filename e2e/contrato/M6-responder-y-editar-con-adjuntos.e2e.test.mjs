@@ -73,8 +73,9 @@ describe('M6: replying and editing take the same attachments as creating', () =>
       // The person sees them in the thread: the photo is drawn and the other three are named in the reply.
       await settled(page)
       const thread = page.locator('section[aria-label="Respuestas"]')
-      await thread.locator('img[alt="foto-m6.png"]').waitFor({ timeout: 8000 })
-      assert.ok(await thread.locator('img[alt="foto-m6.png"]').evaluate((img) => img.complete && img.naturalWidth > 0), 'M6: the photo of the reply loads')
+      // The photo can be drawn twice for a moment (the reply as sent and as saved): the first one is the one measured.
+      await thread.locator('img[alt="foto-m6.png"]').first().waitFor({ timeout: 8000 })
+      assert.ok(await thread.locator('img[alt="foto-m6.png"]').first().evaluate((img) => img.complete && img.naturalWidth > 0), 'M6: the photo of the reply loads')
       const said = await thread.innerText()
       for (const name of ['video.webm', 'audio.wav', 'documento.pdf']) assert.ok(said.includes(name), `M6: the reply names ${name} (it says: ${said.replace(/\n+/g, ' | ')})`)
     } finally {
@@ -174,6 +175,45 @@ describe('M6: replying and editing take the same attachments as creating', () =>
       const reply = await until(async () => (await h.api('bruno').get(`/messages/${id}`)).data.replies.find((r) => r.body === 'Respuesta hablada'), { timeoutMs: 10000, everyMs: 50 })
       assert.deepEqual(kindsOf(reply.attachments ?? []), ['audio'], 'M6: the reply has the audio the microphone recorded')
       assert.ok((reply.attachments[0].size ?? 0) > 0, 'M6: the recorded audio has content')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('M6: the sender edits the message and records with the microphone: the audio joins the message', async () => {
+    const id = await h.message(h.unique('M6 microfono editar'), { as: 'bruno', files: [FILES.photo('base-mic.png')] })
+    const { page, context } = await h.open('bruno', { permissions: ['microphone'] })
+    try {
+      await page.goto(`${h.origin}/messages/${id}`)
+      await page.locator('main h1').waitFor()
+      const column = page.locator('[data-lane="message-column"]')
+      assert.ok(await column.getByRole('button', { name: 'Grabar audio' }).count(), 'M6: editing the message offers no «Grabar audio»: the microphone exists when creating and replying, not when editing')
+      await record(page, column)
+      const detail = await until(async () => {
+        const d = (await h.api('bruno').get(`/messages/${id}`)).data
+        return d.attachments.some((a) => a.kind === 'audio') ? d : null
+      }, { timeoutMs: 10000, everyMs: 50 })
+      assert.ok(detail.attachments.some((a) => a.kind === 'audio' && a.size > 0), 'M6: the audio recorded while editing has no content')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('M6: the author of a reply edits it and records with the microphone: the audio joins the reply', async () => {
+    const id = await h.message(h.unique('M6 microfono editar respuesta'), { as: 'carla', recipients: ['bruno'] })
+    await h.api('bruno').post(`/messages/${id}/replies`, { body: 'Respuesta que se completa con voz', kind: 'answer' })
+    const { page, context } = await h.open('bruno', { permissions: ['microphone'] })
+    try {
+      await page.goto(`${h.origin}/messages/${id}`)
+      await page.locator('main h1').waitFor()
+      const mine = page.locator('section[aria-label="Respuestas"] ol.thread > li article', { hasText: 'Respuesta que se completa con voz' })
+      assert.ok(await mine.getByRole('button', { name: 'Grabar audio' }).count(), 'M6: editing a reply offers no «Grabar audio»: the microphone exists when creating and replying, not when editing')
+      await record(page, mine)
+      const reply = await until(async () => {
+        const r = (await h.api('bruno').get(`/messages/${id}`)).data.replies[0]
+        return (r.attachments ?? []).some((a) => a.kind === 'audio') ? r : null
+      }, { timeoutMs: 10000, everyMs: 50 })
+      assert.ok(reply.attachments.some((a) => a.kind === 'audio' && a.size > 0), 'M6: the audio recorded while editing the reply has no content')
     } finally {
       await context.close()
     }

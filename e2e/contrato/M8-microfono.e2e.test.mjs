@@ -1,4 +1,4 @@
-// M8: the microphone works in the interface. It failed on team.devalis.cl: the page was served in a way that denied the permission.
+// M8: the microphone works in the interface. It failed on the host site: the page was served in a way that denied the permission.
 // Two halves: what the server says about the microphone in the headers of the panel, and what the person gets: «Grabar audio» records and leaves an audio.
 import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'

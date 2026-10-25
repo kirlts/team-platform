@@ -53,9 +53,10 @@ export function isRoleGoverned (db, memberId) {
  * The member a host identity points to. `closed`: it must exist (UD-007). `host`: created on its first entry, and the
  * declared role (one of ROLES; anything else counts as undeclared) replaces the stored one on every entry.
  */
-export function resolveMember (db, config, { email, name, role }, now = Date.now) {
+export function resolveMember (db, config, { email, name, role, issuedAt }, now = Date.now) {
   const provision = config.identity.provision === 'host'
-  const declared = provision && HOST_ROLES.includes(role) ? role : null
+  let declared = provision && HOST_ROLES.includes(role) ? role : null
+  const stamped = Number.isFinite(issuedAt) ? issuedAt : null
   let memberRow = findMember(db, email)
   if (!memberRow) {
     if (!provision) throw forbidden('La cuenta no está registrada en el equipo. Un editor debe agregarla.', 'member_not_registered')
@@ -68,8 +69,14 @@ export function resolveMember (db, config, { email, name, role }, now = Date.now
     memberRow = findMember(db, email)
   }
   assertActive(memberRow)
+  // A token older than the last one applied never overwrites a newer role (the host may have changed it since).
+  if (declared && stamped !== null) {
+    const last = get(db, 'SELECT host_role_iat AS iat FROM members WHERE id = ?', memberRow.id)?.iat
+    if (last !== null && last !== undefined && stamped < last) declared = null
+  }
   if (declared) {
     tx(db, () => {
+      if (stamped !== null) run(db, 'UPDATE members SET host_role_iat = ? WHERE id = ? AND (host_role_iat IS NULL OR host_role_iat < ?)', stamped, memberRow.id, stamped)
       run(db, 'INSERT OR IGNORE INTO identity_links (provider, external_id, member_id, created_at) VALUES (?, ?, ?, ?)', HOST_ROLE_LINK, String(memberRow.id), memberRow.id, now())
       if (memberRow.role !== declared) {
         run(db, 'UPDATE members SET role = ? WHERE id = ?', declared, memberRow.id)
@@ -143,7 +150,7 @@ function jwtMode ({ db, config, now }) {
       }
       const email = payload[j.emailClaim]
       if (typeof email !== 'string' || email === '') return null
-      const memberRow = resolveMember(db, config, { email, name: payload[idc.jwtNameClaim], role: payload[idc.jwtRoleClaim] }, now)
+      const memberRow = resolveMember(db, config, { email, name: payload[idc.jwtNameClaim], role: payload[idc.jwtRoleClaim], issuedAt: payload.iat }, now)
       return { ...asIdentity(memberRow), expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : null }
     }
   }

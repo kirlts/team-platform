@@ -527,3 +527,24 @@ test('H-2605, H-3720 · /me names the provider and the source; every provider ha
   assert.equal((await logout(sso)).statusCode, 204) // the panel keeps its button here
   await sso.close()
 })
+
+// A token issued before a role change never undoes it (the session of the host outlives the change).
+test('jwt (host provision): an older token does not overwrite a role applied by a newer one', async () => {
+  const env = await makeEnv({ config: { identity: { provider: 'delegated', provision: 'host', jwtRoleClaim: 'team_role', delegated: JWT } } })
+  const withIat = (claims, iat) =>
+    new SignJWT(claims).setProtectedHeader({ alg: 'HS256' }).setIssuer(JWT.jwt.issuer).setAudience(JWT.jwt.audience).setIssuedAt(iat)
+      .setExpirationTime('1h').sign(new TextEncoder().encode(JWT.jwt.secret))
+  const ask = async (claims, iat) => env.app.inject({ url: '/api/me', headers: { authorization: `Bearer ${await withIat(claims, iat)}` } })
+  const roleNow = () => get(env.db, 'SELECT role FROM members WHERE email = ?', 'ana@x.org').role
+  const t0 = Math.floor(Date.now() / 1000) - 600
+  assert.equal((await ask({ email: 'ana@x.org', team_role: 'member' }, t0)).statusCode, 200)
+  assert.equal(roleNow(), 'member')
+  assert.equal((await ask({ email: 'ana@x.org', team_role: 'editor' }, t0 + 300)).statusCode, 200)
+  assert.equal(roleNow(), 'editor')
+  // the open session still carries the token from before the change
+  assert.equal((await ask({ email: 'ana@x.org', team_role: 'member' }, t0)).statusCode, 200)
+  assert.equal(roleNow(), 'editor')
+  // a newer token lowers it again: the host governs
+  assert.equal((await ask({ email: 'ana@x.org', team_role: 'member' }, t0 + 400)).statusCode, 200)
+  assert.equal(roleNow(), 'member')
+})

@@ -60,6 +60,11 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   const author = sendAs || me?.id || ''
   /** «Para» (UD-291): the members the send is addressed to. Empty means the automatic routing assigns, as it always did. */
   const [recipients, setRecipients] = useState<string[]>([])
+  /** Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). */
+  const changeAuthor = (id: string) => {
+    setSendAs(id)
+    setRecipients((list) => list.filter((x) => x !== id))
+  }
   const [dragging, setDragging] = useState(false)
   const textArea = useRef<HTMLTextAreaElement>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -164,9 +169,9 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
         </div>
         <div className="flex items-center gap-3 max-md:contents md:ml-auto">
           <div className="min-w-0 max-md:order-2 max-md:w-full" data-testid="compose-to">
-            <RecipientsEditor ids={recipients} onChange={setRecipients} max={2} to={t('compose.to')} />
+            <RecipientsEditor ids={recipients} onChange={setRecipients} max={2} to={t('compose.to')} authorId={author} />
           </div>
-          {author && <SendAs value={author} onChange={setSendAs} />}
+          {author && <SendAs value={author} onChange={changeAuthor} />}
           <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center">
             <Send size={16} aria-hidden /> {t('compose.send')}
           </Button>

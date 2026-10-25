@@ -275,7 +275,8 @@ async function withMessages (env) {
   return {
     idea, questionArea,
     m1: await make('alfa uno', idea, [3]),
-    m2: await make('beta dos', questionArea, [3, 2]),
+    // Ed writes m2: a message is not assigned to its author (UD-300), so Ana, who is assigned to it, cannot be its sender.
+    m2: await make('beta dos', questionArea, [3, 2], env.c.ed),
     m3: await make('gamma 100% tres', questionArea, [1], env.c.beto)
   }
 }
@@ -669,7 +670,7 @@ test('loadModules builds the providers with the stored settings over the environ
 // ---------------------------------------------------------------- summary of what affects a member (UD-028)
 test('UD-028 · GET /messages/summary: each message falls into a single state (open or answered), a closed one does not count and open ones are counted per area', async () => {
   const env = await team({ worker: true })
-  const { idea, questionArea, m2 } = await withMessages(env) // Ana (2) issued m1 and m2; Beto (3) issued m3. m1 → Beto; m2 → Beto and Ana; m3 → Ed (1)
+  const { idea, questionArea, m2 } = await withMessages(env) // Ana (2) issued m1; Ed (1) issued m2; Beto (3) issued m3. m1 → Beto; m2 → Beto and Ana; m3 → Ed
   const summary = async (cookie) => (await env.api('GET', '/messages/summary', cookie)).json()
   const areaRow = (s, area) => s.areas.find((a) => a.area_id === String(area.id))
 
@@ -731,7 +732,7 @@ test('H-2000 · GET /messages?involved=me lists exactly what GET /messages/summa
   // Closed: assigned or issued, as the bar counts them.
   await env.api('POST', `/messages/${m2}/close`, env.c.ed)
   assert.deepEqual(await ids(env.c.ana, 'involved=me&status=closed'), [String(m2)])
-  assert.deepEqual(await ids(env.c.ed, 'involved=me&status=closed'), [])
+  assert.deepEqual(await ids(env.c.ed, 'involved=me&status=closed'), [String(m2)]) // Ed issued it
   assert.equal((await env.api('GET', '/messages?involved=otro', env.c.ana)).statusCode, 400)
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages?involved=me' })).statusCode, 401)
   await env.close()

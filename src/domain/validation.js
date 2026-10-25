@@ -56,15 +56,17 @@ export function checkFields (tpl, values, { scope, fail, cache }) {
 
 /**
  * Deduplicated member ids, all of which must exist and be active. A deactivated member gets no new assignments, but
- * one already assigned (`keep`) may stay.
+ * one already assigned (`keep`) may stay. With `authorId`, the author of the message is not an assignee: a message is not
+ * sent to whoever wrote it (400 `assignee_self`); an author already assigned before that rule (`keep`) may stay.
  */
-export function checkAssignees (db, ids, { scope, fail, keep = new Set() }) {
+export function checkAssignees (db, ids, { scope, fail, keep = new Set(), authorId = null }) {
   const prefix = scope ? `${scope}: ` : ''
   const unique = [...new Set(ids ?? [])]
   for (const id of unique) {
     const row = get(db, 'SELECT active FROM members WHERE id = ?', id)
     if (!row) throw fail(`${prefix}el miembro ${id} no existe.`, 'assignee_invalid')
     if (!row.active && !keep.has(id)) throw fail(`${prefix}el miembro ${id} está desactivado.`, 'assignee_inactive')
+    if (authorId !== null && Number(id) === Number(authorId) && !keep.has(id)) throw fail(`${prefix}un mensaje no se envía a quien lo escribe.`, 'assignee_self')
   }
   return unique
 }

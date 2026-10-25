@@ -1503,6 +1503,13 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Dar al texto un alto mínimo de N líneas dentro del carril: el número sería elegido, y con adjuntos y pliegues suficientes el mínimo tampoco alcanza.
 - Quitar el carril y dejar que la página se desplace desde 768 px: rompe la regla de una pantalla (UD-017) para el resto del detalle y para el hilo de respuestas, que comparte la altura.
 **Consecuencias:** `panel/src/pages/MessageDetail.tsx`, `panel/src/pages/AreaView.tsx`. Prueba de navegador `panel/src/flows-descripcion-legible.browser.test.mjs`: ocho líneas con seis adjuntos a 1440x900, 1280x720 y 390x844, claro y oscuro, sin desplazamiento propio del texto, y campo de edición sin tirador; la descripción de 1024 caracteres de un área sin caja que se desplace.
+
+## [UD-300] Un mensaje no se envía a quien lo escribe
+
+**Fecha:** 2026-10-25
+**Contexto:** Martín, 13:4x, textual: «yo te había dicho que un miembro no debería poder enviarse un mensaje a sí mismo y sin embargo veo que me aparece la opción de enviarme un mensaje a mí mismo dentro del envío de un mensaje en Team Platform». La regla estaba escrita para dos puertas: reenviar (`forward_to_self`, UD-272) y mencionar en una respuesta (`mention_self`, UD-278). No estaba para el control «Para» (UD-291), para los asignados de un mensaje ni para el reparto automático; el prompt del análisis pedía lo contrario («quien envía el input puede ser también el responsable»).
+**Decisión:** (1) El autor de un mensaje no es su destinatario ni su asignado, por ninguna puerta. Con «Enviar como» (UD-255) el autor es el miembro elegido: quien envía en nombre de otro puede dirigirlo a sí mismo, y el autor no. (2) Servidor: `POST /inputs` con el autor en `recipient_ids` es 400 `recipient_self`; publicar una propuesta o `PATCH /messages/:id` con el autor en `assignee_ids` es 400 `assignee_self`. Un autor que ya estaba asignado antes de esta regla puede quedarse. (3) El reparto automático quita al autor de los asignados de cada propuesta, y la Guardia de persona (UD-295) no lo agrega como quien decide. El prompt del análisis lo dice. (4) Panel: el selector de «Para» de la barra de nuevo mensaje y el de asignados de una propuesta o de un mensaje publicado no ofrecen al autor; al cambiar «Enviar como», el nuevo autor sale de «Para». Reenviar y mencionar ya excluían a quien escribe.
+**Consecuencias:** `resolveRecipients` y `checkAssignees` reciben `authorId`; `RecipientsEditor` recibe `authorId`. Pruebas: `src/api/recipients.test.js` y `panel/src/components/RecipientsEditor.test.tsx`.
 **Condiciones de reversión:** Las fija Martín.
 
 ## [UD-301] Una idea se construye y se muestra; sólo el visto de una persona la publica

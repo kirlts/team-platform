@@ -85,6 +85,7 @@ export const REQUEST_ERROR_CODES = [
   'range_invalid',
   'reason_required',
   'recipient_invalid',
+  'recipient_self',
   'reply_empty',
   'reply_kind_invalid',
   'role_managed_externally',

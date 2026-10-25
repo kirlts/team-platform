@@ -142,11 +142,11 @@ test('UD-071 · two simultaneous patches with the same version: exactly one wins
   await env.close()
 })
 
-test('UD-071 · changing the recipients notifies only the new ones, with a directed notice, and not the sender', async () => {
+test('UD-071 · changing the recipients notifies only the new ones, with a directed notice, and never the sender', async () => {
   const env = await team()
   const { message } = await published(env)
   const noticesBefore = all(env.db, "SELECT seq FROM job_events WHERE kind = 'message' AND json_extract(data_json, '$.reason') IS NOT 'changed'").length
-  const r = await env.api('PATCH', `/messages/${message.id}`, env.c.ana, { version: 1, assignee_ids: [env.ids.beto, env.ids.ana] })
+  const r = await env.api('PATCH', `/messages/${message.id}`, env.c.ana, { version: 1, assignee_ids: [env.ids.ed, env.ids.beto] })
   assert.equal(r.statusCode, 200, r.body)
   const rows = all(env.db, "SELECT member_id, data_json FROM job_events WHERE kind = 'message' AND json_extract(data_json, '$.reason') IS NOT 'changed' ORDER BY seq").slice(noticesBefore)
   assert.equal(rows.length, 1)
@@ -155,7 +155,7 @@ test('UD-071 · changing the recipients notifies only the new ones, with a direc
   assert.equal(JSON.parse(rows[0].data_json).message_id, Number(message.id))
 
   // Removing and re-adding the same person later notifies again; keeping the same set notifies nobody.
-  const same = await env.api('PATCH', `/messages/${message.id}`, env.c.ana, { version: 2, assignee_ids: [env.ids.beto, env.ids.ana] })
+  const same = await env.api('PATCH', `/messages/${message.id}`, env.c.ana, { version: 2, assignee_ids: [env.ids.beto, env.ids.ed] })
   assert.equal(same.statusCode, 200)
   assert.equal(all(env.db, "SELECT seq FROM job_events WHERE kind = 'message' AND json_extract(data_json, '$.reason') IS NOT 'changed'").length, noticesBefore + 1)
   await env.close()

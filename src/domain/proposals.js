@@ -25,6 +25,7 @@ import { currentTraceparent, inTrace, traceIdOf, withSpan } from '../telemetry/a
 export function validateProposal (db, inputId, proposal, fail, { draft = false } = {}) {
   if (!Array.isArray(proposal.messages) || proposal.messages.length === 0) throw fail('La propuesta necesita al menos un mensaje.', 'messages_empty')
   const cache = newValidatorCache()
+  const authorId = get(db, 'SELECT author_id FROM inputs WHERE id = ?', inputId)?.author_id ?? null
   const inputAttachmentIds = new Set(all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).map((a) => a.id))
   return proposal.messages.map((m, i) => {
     const scope = `Mensaje ${i + 1}`
@@ -34,7 +35,7 @@ export function validateProposal (db, inputId, proposal, fail, { draft = false }
     const tpl = resolveAreaAndTemplate(db, { areaId: m.area_id, templateId: m.template_id }, { scope, fail })
     const fields = withoutNulls(m.fields)
     if (!draft) checkFields(tpl, fields, { scope, fail, cache })
-    const assigneeIds = checkAssignees(db, m.assignee_ids, { scope, fail })
+    const assigneeIds = checkAssignees(db, m.assignee_ids, { scope, fail, authorId })
     const attachmentIds = [...new Set(m.attachment_ids ?? [])]
     for (const id of attachmentIds) if (!inputAttachmentIds.has(id)) throw fail(`${scope}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
     return { title: m.title.trim(), body: m.body, areaId: m.area_id, templateId: tpl?.id ?? null, fields, assigneeIds, attachmentIds, expectation: readExpectation(m), guards: touchedGuards(db, m.area_id, m), estimates: readEstimates(m), unitIds: (m.unit_ids ?? []).map(Number), observed: Array.isArray(m.observed) ? m.observed.filter((o) => typeof o === 'string' && o !== '') : [] }

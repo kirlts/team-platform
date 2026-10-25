@@ -33,7 +33,7 @@ export function registerInputRoutes (app, ctx) {
     let r
     try {
       const authorId = resolveSendAs(db, request.member.id, asMemberId)
-      const recipients = resolveRecipients(db, recipientIds)
+      const recipients = resolveRecipients(db, recipientIds, { authorId })
       r = submitInput({ db, queue, events }, { authorId, sentById: request.member.id, text, files, links, keepDraft, recipientIds: recipients })
     } catch (error) {
       await releaseBlobs(db, config, files, { discard: true })

@@ -357,6 +357,7 @@ function ProposalEditor({
             open={i === openIndex}
             onToggle={() => setOpenIndex((open) => (open === i ? -1 : i))}
             attachments={input.attachments}
+            authorId={input.author_id}
             patch={patch}
             remove={remove}
             onMissing={(names) => setMissing((prev) => (prev[i]?.join() === names.join() ? prev : { ...prev, [i]: names }))}
@@ -427,6 +428,7 @@ function ProposalRow({
   open,
   onToggle,
   attachments,
+  authorId,
   patch,
   remove,
   onMissing,
@@ -438,6 +440,7 @@ function ProposalRow({
   open: boolean
   onToggle: () => void
   attachments: Attachment[]
+  authorId: string
   patch: (index: number, label: string, fix: Partial<ProposalMessage> | ((m: ProposalMessage) => Partial<ProposalMessage>)) => Promise<void>
   remove: (index: number) => Promise<void>
   onMissing: (names: string[]) => void
@@ -505,7 +508,7 @@ function ProposalRow({
       <TemplateFields boxed={false} template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <Observed items={m.observed} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-        <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />
+        <RecipientsEditor ids={m.assignee_ids} authorId={authorId} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />
         <AttachmentPicker all={attachments} selected={m.attachment_ids} onChange={(ids) => void patch(index, t('proposal.attachmentsChanged'), { attachment_ids: ids })} />
       </div>
     </MessageFoldRow>

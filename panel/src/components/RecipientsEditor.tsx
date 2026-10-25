@@ -4,8 +4,8 @@ import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 import { MemberPicker } from './MemberPicker'
 
-/** Chips of recipients with their ×, always drawn (J2-A-21), and the picker. Past `max` the rest fold behind «+N», which opens the picker. With `to` the word names the whole control (the new message bar, UD-291). */
-export function RecipientsEditor({ ids, onChange, max = 3, to, testId }: { ids: string[]; onChange: (ids: string[]) => void; max?: number; to?: string; testId?: string }) {
+/** Chips of recipients with their ×, always drawn (J2-A-21), and the picker. Past `max` the rest fold behind «+N», which opens the picker. With `to` the word names the whole control (the new message bar, UD-291). The picker never offers `authorId`, who writes the message: a message is not sent to oneself (UD-300). */
+export function RecipientsEditor({ ids, onChange, max = 3, to, testId, authorId }: { ids: string[]; onChange: (ids: string[]) => void; max?: number; to?: string; testId?: string; authorId?: string }) {
   const t = useT()
   const { members, memberName } = useLookups()
   const shown = ids.slice(0, max)
@@ -22,7 +22,7 @@ export function RecipientsEditor({ ids, onChange, max = 3, to, testId }: { ids: 
         </li>
       ))}
       <li>
-        <MemberPicker members={members.filter((m) => m.active !== false || ids.includes(m.id))} selected={ids} onChange={onChange} hiddenCount={Math.max(0, ids.length - max)} {...(to ? { label: to, shortLabel: ids.length > 0 ? '' : to } : {})} />
+        <MemberPicker members={members.filter((m) => m.id !== authorId && (m.active !== false || ids.includes(m.id)))} selected={ids} onChange={onChange} hiddenCount={Math.max(0, ids.length - max)} {...(to ? { label: to, shortLabel: ids.length > 0 ? '' : to } : {})} />
       </li>
     </ul>
   )

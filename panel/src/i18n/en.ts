@@ -746,6 +746,8 @@ export const en: Record<MessageKey, Message> = {
   'error.input_empty': 'The submission is empty: text, a file or a link is missing',
   'error.send_as_invalid': '«Send as» is not an active member',
   'error.recipient_invalid': 'A recipient is not an active member',
+  'error.recipient_self': 'A message is not sent to whoever wrote it',
+  'error.assignee_self': 'A message is not assigned to whoever wrote it',
   'error.cannot_send_as_agent': 'An agent cannot be sent as',
   'error.invalid_status': 'Unknown status',
   'error.invalid_transition': 'The submission cannot move to that status',

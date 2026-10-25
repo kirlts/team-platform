@@ -741,6 +741,8 @@ export const es419 = {
   'error.input_empty': 'El envío está vacío: falta texto, archivo o enlace',
   'error.send_as_invalid': '«Enviar como» no es un miembro activo',
   'error.recipient_invalid': 'Un destinatario no es un miembro activo',
+  'error.recipient_self': 'Un mensaje no se envía a quien lo escribe',
+  'error.assignee_self': 'Un mensaje no se asigna a quien lo escribe',
   'error.cannot_send_as_agent': 'No se envía en nombre de un agente',
   'error.invalid_status': 'Estado desconocido',
   'error.invalid_transition': 'El envío no puede pasar a ese estado',

@@ -6,7 +6,7 @@ import { mmss } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /** Audio player with the product's skin: play or pause, progress and time. Replaces the browser's native control. */
-export function AudioPlayer({ src, name, className, onError, onReady }: { src: string; name: string; className?: string; onError?: () => void; onReady?: () => void }) {
+export function AudioPlayer({ src, name, className, preload = 'metadata', onError, onReady }: { src: string; name: string; className?: string; preload?: 'none' | 'metadata'; onError?: () => void; onReady?: () => void }) {
   const t = useT()
   const audio = useRef<HTMLAudioElement>(null)
   const handlers = useRef({ onError, onReady })
@@ -51,7 +51,7 @@ export function AudioPlayer({ src, name, className, onError, onReady }: { src: s
 
   return (
     <div className={cn('well flex items-center gap-3 rounded-full px-2 py-1', className)}>
-      <audio ref={audio} src={src} preload="metadata" />
+      <audio ref={audio} src={src} preload={preload} />
       {/* Secondary, not the primary one: the main action of the screen is another button. */}
       <Button size="icon-sm" variant="secondary" onClick={toggle} aria-label={playing ? t('audio.pause', { name }) : t('audio.play', { name })} title={playing ? t('audio.pause', { name }) : t('audio.play', { name })} className="shrink-0">
         {playing ? <Pause size={16} aria-hidden /> : <Play size={16} fill="currentColor" aria-hidden />}

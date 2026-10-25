@@ -273,10 +273,10 @@ describe('failure hunt: execute and deliver', () => {
 
   // ---- The second failed verification
   it('a verification that fails twice goes to a person with the plain notice', async () => {
-    startWorker({ deliverCommand: 'echo boom; exit 3' })
+    startWorker({ deliverCommand: 'echo boom; exit 3', deliverRetries: 1 })
     const messageId = await publishedMessage('Una entrega que nunca pasa.')
     await settle(messageId)
-    assert.match(assertSeen(messageId), /^No pasó la verificación[\s\S]*lanzar la entrega\.$/)
+    assert.match(assertSeen(messageId), /^No quedó en producción: no pasó la verificación[\s\S]*lanzar la entrega\.$/)
   })
 
   it('the phase of a job that failed is cleared', async () => {

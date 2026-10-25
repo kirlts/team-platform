@@ -31,6 +31,30 @@ describe('execute prompt order (docs/investigaciones/mediciones/2026-10-23-token
   })
 })
 
+describe('what the session may promise, how it addresses people, and what a failed check asks (UD-298)', () => {
+  for (const compact of [false, true]) {
+    it(`the instructions forbid writing about publishing and set the form of address (${compact ? 'light' : 'full'} prompt)`, () => {
+      const { stable } = buildExecuteParts(input(1, { compact }))
+      assert.match(stable, /(nothing in the future|never that it will be published or seen soon)/)
+      assert.match(stable, /«tú»[^.]*never «usted»|«tú» and never «usted»/)
+      assert.doesNotMatch(stable, /Lo verás apenas se publique/)
+    })
+  }
+  it('the schema asks whether the change touches a screen and the reason there is no capture; the full prompt says what that costs', () => {
+    const schema = finalSchema(null)
+    assert.equal(schema.properties.touches_screen.type, 'boolean')
+    assert.equal(schema.properties.no_capture_reason.type, 'string')
+    assert.match(buildExecuteParts(input(1)).stable, /never ends without at least one screenshot or the video/)
+  })
+  it('the pass after a failed check says that the test may be somebody else\'s and has to be fixed at the root', () => {
+    const { variable } = buildExecuteParts(input(1, { deliverFailure: { output: 'FALLA prueba: a.test.js › x' } }))
+    assert.match(variable, /not an end: it is your next task/)
+    assert.match(variable, /belongs to your change or is somebody else's/)
+    assert.match(variable, /never skip the test, never hide it behind a retry or a wait/)
+    assert.match(variable, /FALLA prueba: a\.test\.js › x/)
+  })
+})
+
 describe('execute session configuration (docs/investigaciones/mediciones/2026-10-23-tokens-y-cache.md)', () => {
   it('EXECUTE_SESSION_ENV and EXECUTE_STABLE_AS_SYSTEM', () => {
     const d = loadConfig({ DATA_DIR: '/tmp/x' }).execute
@@ -102,6 +126,6 @@ describe('a forwarded message in the prompt and the schema (UD-272)', () => {
     const check = new Ajv({ strict: false }).compile(finalSchema(declared, { validation: true }))
     assert.equal(check({ outcome: 'done', summary: 'x', mode: 'investigate', attachments: [{ path: 'a.pdf', name: 'A' }] }), true)
     assert.equal(check({ outcome: 'done', summary: 'x', mode: 'decide' }), false)
-    assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['approved', 'approved_reply', 'attachments', 'captures', 'close', 'close_reason', 'mode', 'summary'])
+    assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['approved', 'approved_reply', 'attachments', 'captures', 'close', 'close_reason', 'mode', 'no_capture_reason', 'summary', 'touches_screen'])
   })
 })

@@ -108,7 +108,7 @@ describe('Claude closes the message (UD-271)', () => {
     const seen = join(state, 'output.json')
     const id = await run('La agenda queda en blanco, arréglala.', { extra: ASK, command: `printf '%s' "$TEAM_OUTPUT_JSON" > ${seen}; echo abc1234` })
     assert.equal(status(id), 'closed')
-    assert.match(lastAgentReply(id), new RegExp(`Ya está en producción\\.\\n\\nCerrado: ${REASON.replace('.', '\\.')}$`))
+    assert.match(lastAgentReply(id), new RegExp(`En producción desde \\d\\d:\\d\\d \\S+\\.\\n\\nCerrado: ${REASON.replace('.', '\\.')}$`))
     assert.deepEqual(closeAudit(id).map((r) => r.member_id), [agentId], 'message.close by the agent member')
     assert.ok(env.db.prepare('SELECT closed_at FROM messages WHERE id = ?').get(id).closed_at > 0)
     assert.deepEqual(JSON.parse(readFileSync(seen, 'utf8')), { outcome: 'done' }, 'TEAM_OUTPUT_JSON has no close fields')

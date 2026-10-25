@@ -386,7 +386,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       deliverTimeoutMs: intVar(env, 'EXECUTE_DELIVER_TIMEOUT_MS', 900000, { min: 1 }), // declared courtesy, see above
       // UD-296: shell command that asks the host whether the branch is already in production ({message_id}, {job_id}, {branch}); exit 0 = yes, the last stdout line is the reference. Empty = not asked.
       deliverCheckCommand: textValue(env, 'EXECUTE_DELIVER_CHECK_COMMAND', ''),
-      deliverRetries: intVar(env, 'EXECUTE_DELIVER_RETRIES', 1, { min: 0 }), // UD-263: a failed verification returns to Claude once; a second failure is reported
+      deliverRetries: intVar(env, 'EXECUTE_DELIVER_RETRIES', null, { min: 0 }), // UD-298: a failed verification returns to Claude after each failure while the day's budget lasts; declared, it caps the rounds (0 reports the first failure)
       // UD-263: the command is idempotent by contract, so a delivery whose worker died runs once more; exit 75 never spends an attempt.
       deliverMaxAttempts: intVar(env, 'EXECUTE_DELIVER_MAX_ATTEMPTS', 2, { min: 1 }),
       // Measurement 2026-10-23-tokens-y-cache.md: any other variable of the session (CLAUDE_CODE_PROMPT_CACHE_TTL=1h, CLAUDE_CODE_DISABLE_CLAUDE_MDS=1…), same format.

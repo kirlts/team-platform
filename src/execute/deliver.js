@@ -38,8 +38,9 @@ import { step } from '../domain/progress-phrases.js'
 import { endManualSpan, startManualSpan, withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
 import { closeLine, closeReason, firstReplyAnchor } from './auto-close.js'
-import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, storeCaptures } from './captures.js'
+import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, noCaptureLine, storeCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
+import { dailyBudget } from './budget.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
 import { replyBody } from './handler.js'
 import { readTemplate } from './prompt.js'
@@ -55,11 +56,11 @@ const OUTPUT_TAIL_CHARS = 6000 // declared courtesy: the end of the output is wh
 
 const TEXTS = {
   'es-419': {
-    production: 'Ya está en producción.',
+    production: (time) => `En producción desde ${time}.`,
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
     held: (reason, captures) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción.${captures ? ' Cómo queda, en «Propuesta».' : ''}`,
     heldReason: 'el cambio necesita esa revisión',
-    verification: (branch, reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. El cambio todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
+    verification: (branch, reason, budget) => `No quedó en producción: no pasó la verificación${reason ? ` (${reason})` : ''}.${budget ? ' Se alcanzó el tope de gasto de hoy y Claude no sigue.' : ''} Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     again: (reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. Claude lo corrige y vuelve a entregar.`,
     alreadyThere: 'El cambio ya estaba en producción: llegó por otro camino y no hizo falta entregarlo de nuevo.',
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
@@ -68,11 +69,11 @@ const TEXTS = {
     interrupted: (branch) => `La entrega se interrumpió dos veces seguidas (el servicio se reinició o se cortó la conexión con la máquina de entrega) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`
   },
   en: {
-    production: 'It is in production now.',
+    production: (time) => `In production since ${time}.`,
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
     held: (reason, captures) => `Change ready for review: ${reason}. It is not in production yet.${captures ? ' How it looks, in «Proposal».' : ''}`,
     heldReason: 'the change needs that review',
-    verification: (branch, reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. The change is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
+    verification: (branch, reason, budget) => `It did not reach production: it did not pass verification${reason ? ` (${reason})` : ''}.${budget ? ' Today\'s spending cap was reached and Claude does not continue.' : ''} The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     again: (reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. Claude is fixing it and will deliver again.`,
     alreadyThere: 'The change was already in production: it arrived another way and did not need to be delivered again.',
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
@@ -118,11 +119,20 @@ export function withProductionNote (summary, note) {
   return `${/[\p{L}\p{N}]$/u.test(text) ? `${text}.` : text} ${note}`
 }
 
-/** The closing reply of a delivery in green: the summary of the session with the production note, then the lines of the system. The technical part stays in the run (UD-276). */
-export function deliveredBody ({ output, language, lines = [] }) {
+/**
+ * HH:MM of `at` with the name of the zone, in the server's time zone (TZ, UTC when unset: the same day the spending cap counts, UD-256). The zone goes with the time because
+ * a server in UTC would otherwise show a time three hours off to a person in Chile and nobody could tell.
+ */
+export const clockTime = (at) => new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short', timeZone: process.env.TZ || 'UTC' })
+
+/**
+ * The closing reply of a delivery in green: the summary of the session with «En producción desde HH:MM.», then the lines of the system. `at` is the moment the
+ * delivery was confirmed (UD-298): the reply is posted only then, so it states a fact and never a promise. The technical part stays in the run (UD-276).
+ */
+export function deliveredBody ({ output, language, lines = [], at = Date.now() }) {
   const t = textsOf(language)
   const base = output ?? {}
-  return [replyBody({ summary: withProductionNote(base.summary, t.production) }), ...lines].join('\n\n')
+  return [replyBody({ summary: withProductionNote(base.summary, t.production(clockTime(at))) }), ...lines].join('\n\n')
 }
 
 /** The last non-empty stdout line that is not a phase marker: the reference of the delivery. */
@@ -203,6 +213,8 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
         for (const reason of after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
         if (alreadyThere) closing.lines.push(textsOf(author?.language).alreadyThere)
+        const missing = noCaptureLine(payload.output, closing.files.length > 0 ? 1 : 0, author?.language) // UD-298
+        if (missing) closing.lines.push(missing)
         closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
         // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
         const request = payload.close_request ?? null // a delivery an Editor launched by hand carries no request
@@ -210,7 +222,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const why = !request || alreadyThere ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since })
         if (why) closing.lines.push(closeLine(why, author?.language))
         const { replyId } = addReply({ db, events, now }, {
-          messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: [...closing.files, ...(payload.documents?.files ?? [])]
+          messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now() }), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         if (why) closeMessage({ db, events, now }, messageId, agent.id)
         const finalAt = now()
@@ -353,7 +365,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const reason = error.code === 'deliver_timeout' ? `${Math.max(1, Math.round(x.deliverTimeoutMs / 60000))} min` : tail(String(error.output ?? ''), 160).replace(/\s+/g, ' ').trim() || 'sin salida'
       return t.environment(branch, reason)
     }
-    return error?.code === 'deliver_failed' ? t.verification(branch, failedCheck(error.output, author?.language)) : t.system(branch)
+    return error?.code === 'deliver_failed' ? t.verification(branch, failedCheck(error.output, author?.language), error.budgetSpent === true) : t.system(branch)
   }
 
   /** UD-289: the notice of a failed delivery carries the `deliver` job that failed, so that «Reintentar» launches the delivery again (the same columns as UD-282). */
@@ -409,10 +421,12 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       if (outcome.state !== 'failed') return
       const branch = payload.branch ?? `tp/${messageId}`
       const round = payload.round ?? 0
-      // A failed verification goes back to Claude once: a new `execute` with the output of the delivery in its prompt. A delivery an Editor
-      // launched by hand, a timeout or a system failure has nothing for Claude to fix and is reported.
+      // A failed verification is not an end (UD-298): it goes back to Claude, a new `execute` with the output of the delivery in its prompt, again after each
+      // failure while the day's budget lasts (EXECUTE_DELIVER_RETRIES, when declared, caps the rounds). A timeout or a system failure has nothing for Claude to fix and is reported.
       let again = null
-      if (error?.code === 'deliver_failed' && !payload.requested_by && round < x.deliverRetries) {
+      const budgetSpent = dailyBudget(db, x, now()).remaining <= 0
+      if (budgetSpent && error?.code === 'deliver_failed') error.budgetSpent = true
+      if (error?.code === 'deliver_failed' && !budgetSpent && (x.deliverRetries === null || round < x.deliverRetries)) {
         try {
           again = events.transaction(() => {
             // UD-295: the checks stayed red after the light model's own attempt (the verification of the delivery is the measurement): the second pass runs on the area's escalation model.

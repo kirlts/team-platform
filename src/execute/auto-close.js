@@ -53,6 +53,7 @@ export function closeReason (db, config, { output, request, delivered, messageId
   if (HANDOFF_OUTCOMES.includes(output?.outcome)) return null
   if (!delivered && !NO_CHANGE_OUTCOMES.includes(output?.outcome)) return null
   if (hasBefore(db, { messageId, authorId: agentId }) && after < 1) return null
+  if (output?.touches_screen === true && after < 1) return null // UD-298: a change to a screen that shows nothing is read by a person before it closes
   if (personRepliedSince(db, { messageId, agentId, since })) return null
   return request.reason
 }

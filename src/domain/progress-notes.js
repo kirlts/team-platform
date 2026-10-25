@@ -62,3 +62,18 @@ export function listProgressNotes (db, messageId) {
     return { id: n.id, message_id: n.message_id, job_id: n.job_id, author_id: n.author_id, body: n.body, minutes: data.minutes ?? null, created_at: iso(n.created_at) }
   })
 }
+
+const HANDED = { 'es-419': 'Construido; entregando a producción.', en: 'Built; delivering to production.' }
+/**
+ * UD-298: the notice that the work is built and now in delivery. It is a notice and never the closing reply: it promises nothing, and the thread says
+ * «En producción desde …» only when the delivery confirmed it.
+ */
+export function addDeliveryNote ({ db, events, now = Date.now }, { messageId, jobId, authorId, language = DEFAULT_LANGUAGE }) {
+  const at = now()
+  const body = HANDED[language] ?? HANDED[DEFAULT_LANGUAGE]
+  events.transaction(() => {
+    run(db, 'INSERT INTO progress_notes (message_id, job_id, author_id, body, data_json, session_started_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', messageId, jobId, authorId, body, JSON.stringify({ delivery: true }), at, at)
+    events.publish({ kind: 'message', data: { reason: 'changed', roots: ['messages'], message_id: String(messageId) } })
+  })
+  return body
+}

@@ -135,7 +135,7 @@ describe('the review by reply (UD-280)', () => {
     assert.equal(deliveries.length, 2)
     assert.equal(JSON.parse(deliveries[1].payload_json).requested_by, editorId, 'the delivery carries who asked for it')
     assert.match(readFileSync(log, 'utf8'), /reviewed=\n[\s\S]*reviewed=\d+\n$/)
-    assert.match(replies(messageId).at(-1), /Ya está en producción\.$/)
+    assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.$/)
     assert.equal(await pendingOf(messageId), null)
   })
 

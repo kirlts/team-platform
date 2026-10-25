@@ -145,7 +145,7 @@ describe('a message forwarded to an agent (UD-272)', () => {
   it('a document with resolve travels with the delivery: it is attached to the reply that says it is in production', async () => {
     const id = await forwarded({ extra: { mode: 'resolve', attachments: [{ path: 'informe.pdf', name: 'Informe' }, { path: 'x.pdf', name: 'Roto' }] }, attachmentFiles: { 'informe.pdf': 'pdf', 'x.pdf': 'text' } })
     const reply = lastAgentReply(id)
-    assert.match(reply.body, /Ya está en producción/)
+    assert.match(reply.body, /En producción desde/)
     assert.deepEqual(files(reply.id).map((f) => f.name), ['Informe.pdf'])
     assert.ok(reply.body.includes('No se adjuntó «Roto.pdf»: no es un PDF.'))
   })

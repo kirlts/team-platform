@@ -32,7 +32,7 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
-import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
+import { capturesDir, capturesEnv, closingCaptures, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
 import { approveDelivery } from './approve.js'
@@ -45,7 +45,7 @@ import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 import { startProgressNotices } from './progress-timer.js'
-import { DEFAULT_PROGRESS_INTERVAL_MIN } from '../domain/progress-notes.js'
+import { DEFAULT_PROGRESS_INTERVAL_MIN, addDeliveryNote } from '../domain/progress-notes.js'
 
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
@@ -687,6 +687,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         })
         if (deliverJobId !== null) {
           rec.deliverJobId = deliverJobId
+          try { addDeliveryNote({ db, events, now }, { messageId, jobId: job.id, authorId: agent.id, language: author?.language }) } catch (e) { logger?.warn({ err: e }, 'could not write the delivery notice') } // UD-298: a notice, never the closing reply
           if (preApprovedBy !== null) audit(db, { memberId: preApprovedBy, action: 'message.deliver_preapproved', entity: 'message', entityId: messageId, detail: { job_id: deliverJobId, reply: String(approvedReply ?? '').slice(0, 300) || null } })
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('done'), data: { message_id: messageId } })
           events.publishForJob(job.id, {
@@ -703,7 +704,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       // UD-271: an outcome that needs no change (`investigated`) with nothing left to the sender may close the message here; a change closes it in the delivery.
       const handOff = HANDOFF_OUTCOMES.includes(output.outcome) || edited
       const why = handOff || investigate ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload) })
-      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
+      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...(handOff || investigate ? [] : [noCaptureLine(output, captured.stored.length, author?.language)].filter(Boolean)), ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
       const { replyId } = handOff
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)

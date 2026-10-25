@@ -125,3 +125,19 @@ export function deliveryCaptureLines (stdout) {
   }
   return { list, failed }
 }
+
+const NO_CAPTURE = {
+  'es-419': { reason: (r) => `No incluye captura ni video: ${r}.`, none: 'la sesión no dejó ninguna' },
+  en: { reason: (r) => `It carries no screenshot or video: ${r}.`, none: 'the session left none' }
+}
+/**
+ * UD-298: a job that changes what a person sees on a screen (`touches_screen`, a field of the session's output the system reads as a boolean) does not close
+ * with a final reply that looks complete and shows nothing. When no capture or video is stored the reply says so, with the reason the session gave
+ * (`no_capture_reason`) or, without one, that it left none. Empty when the job does not touch a screen or the reply carries at least one.
+ */
+export function noCaptureLine (output, storedCount, language) {
+  if (output?.touches_screen !== true || storedCount > 0) return ''
+  const t = NO_CAPTURE[language] ?? NO_CAPTURE['es-419']
+  const given = typeof output.no_capture_reason === 'string' ? output.no_capture_reason.replace(/\s+/g, ' ').trim().replace(/[.\s]+$/, '').slice(0, 300) : ''
+  return t.reason(given || t.none)
+}

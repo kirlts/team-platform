@@ -1,7 +1,7 @@
 // UD-276: the reply of the thread is the summary and the lines of the system; the technical output is kept apart.
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { deliveredBody, heldBody } from './deliver.js'
+import { clockTime, deliveredBody, heldBody } from './deliver.js'
 import { detailEntries, replyBody, failureBody } from './handler.js'
 
 // The shape of the closing output that gave the reply of message 115 its blocks (2026-10-24).
@@ -23,9 +23,9 @@ describe('the reply is for a person, not for the log', () => {
   })
 
   it('a delivery in green: the summary, the production note and the lines of the system', () => {
-    const body = deliveredBody({ output: { ...output, outcome: 'done' }, template, ref: 'abc1234', language: 'es-419', lines: ['**Antes**: Ficha. Equipo > Ficha, Clínica Sur, doctor.', 'Cerrado: Ya está en producción y no queda nada por revisar.'] })
+    const body = deliveredBody({ output: { ...output, outcome: 'done' }, template, ref: 'abc1234', language: 'es-419', at: Date.UTC(2026, 9, 25, 14, 28), lines: ['**Antes**: Ficha. Equipo > Ficha, Clínica Sur, doctor.', 'Cerrado: Ya está en producción y no queda nada por revisar.'] })
     assert.doesNotMatch(body, TECHNICAL)
-    assert.equal(body, 'Hoy las fotos se suben solo desde el panel.\n\nSumar la subida desde la ficha es posible y queda a su decisión. Ya está en producción.\n\n**Antes**: Ficha. Equipo > Ficha, Clínica Sur, doctor.\n\nCerrado: Ya está en producción y no queda nada por revisar.')
+    assert.equal(body, `Hoy las fotos se suben solo desde el panel.\n\nSumar la subida desde la ficha es posible y queda a su decisión. En producción desde ${clockTime(Date.UTC(2026, 9, 25, 14, 28))}.\n\n**Antes**: Ficha. Equipo > Ficha, Clínica Sur, doctor.\n\nCerrado: Ya está en producción y no queda nada por revisar.`)
   })
 
   it('a held delivery: the summary and the reason, no field and no outcome', () => {

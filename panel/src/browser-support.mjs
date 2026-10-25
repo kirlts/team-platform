@@ -53,7 +53,7 @@ export function launchBrowser() {
  * `${origin}/api/…` and `page.goto(origin)` keep working; `host` is the bare origin.
  */
 export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/' } = {}) {
-  // Without a dist somebody built before (a test run alone, outside the arnés), it builds its own instead of serving nothing.
+  // Without a dist somebody built before (a test run alone, outside the test script), it builds its own instead of serving nothing.
   const dist = build || !existsSync(join(ROOT, 'dist', 'index.html')) ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
   const dropDist = () => dist && rmSync(dist, { recursive: true, force: true })
   if (dist) {

@@ -5,6 +5,7 @@
 import { get, run as runSql } from '../db/index.js'
 import { infra } from '../domain/errors.js'
 import { spawnStreaming } from './runners.js'
+import { costOfResult } from '../telemetry/pricing.js'
 
 /** Whether the stored assessment of the message lacks the judgement: a boolean `idea_guard` is the only thing that says it was made. */
 export function ideaGuardMissing (db, messageId) {
@@ -57,7 +58,7 @@ export async function ensureIdeaGuard ({ db, config, signal, messageId, run = (o
     if (r.code === 0 && !r.spawnError) {
       const result = JSON.parse(r.stdout ?? '')
       out = result.structured_output
-      cost = typeof result.total_cost_usd === 'number' ? result.total_cost_usd : 0
+      cost = costOfResult(result) ?? 0
     }
   } catch { out = null }
   if (!out || typeof out.idea_guard !== 'boolean') throw infra('No se pudo juzgar si el pedido es una idea; se reintenta.', 'idea_guard_unavailable')

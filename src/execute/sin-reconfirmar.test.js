@@ -133,7 +133,7 @@ describe('a change the person already approved is not held again (UD-286)', () =
     assert.equal(deliveries.length, 2)
     assert.ok(JSON.parse(deliveries[1].payload_json).approved_by, 'the delivery carries who approved')
     assert.match(readFileSync(log, 'utf8'), /reviewed=\n[\s\S]*reviewed=\d+\n$/, 'the host script sees TEAM_REVIEWED_BY')
-    assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.$/)
+    assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     assert.equal(await pendingOf(messageId), null)
     assert.ok(env.db.prepare("SELECT id FROM audit_log WHERE action = 'message.deliver_preapproved'").get(), 'the pre-approval is audited')
   })

@@ -1,5 +1,5 @@
 // C14. Claude can close a message when that is right: the session asks (`close`), the system decides with its own conditions and the model cannot override them.
-// Martín, 2026-10-24 15:39.
+// Martín, 2026-10-24 15:39. UD-310 (2026-10-25): «si algo queda cerrado, debe marcarse como cerrado».
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 import { iniciarCiclo, ORDEN, until } from './ciclo.mjs'
@@ -59,14 +59,27 @@ describe('C14 Claude cierra un mensaje cuando corresponde', () => {
     assert.notEqual(c.estado(id), 'closed')
   })
 
-  it('con close en falso o sin motivo el mensaje queda respondido', async () => {
+  it('UD-310: lo terminado se cierra solo, con close en falso o sin motivo, con la línea fija del sistema', async () => {
     extra({ outcome: 'investigated', close: false, close_reason: 'duda' })
     const a = await c.enviar('El texto del correo de confirmación tiene un error.')
     await c.esperar(a)
-    assert.equal(c.estado(a), 'answered')
-    extra({ outcome: 'investigated', close: true })
+    assert.equal(c.estado(a), 'closed')
+    assert.match((await c.ultimaDeClaude(a)).body, /Cerrado: Revisado, no había nada que cambiar\.$/)
+    extra({ outcome: 'done' })
     const b = await c.enviar('El correo de recordatorio sale dos veces.')
     await c.esperar(b)
-    assert.equal(c.estado(b), 'answered')
+    assert.equal(c.estado(b), 'closed')
+    assert.match((await c.ultimaDeClaude(b)).body, /En producción desde[\s\S]*Cerrado: Entregado y comprobado en producción\.$/)
+  })
+
+  it('una entrega que falla sin pedido de cierre tampoco cierra', async () => {
+    await c.detener()
+    c.iniciar({ deliverCommand: ORDEN.fallaPrueba(), deliverRetries: 0 })
+    extra({ outcome: 'done' })
+    const id = await c.enviar('La lista de pacientes se corta al final.')
+    await c.esperar(id)
+    assert.notEqual(c.estado(id), 'closed')
+    await c.detener()
+    c.iniciar({ deliverCommand: ORDEN.pasa })
   })
 })

@@ -3,6 +3,7 @@
 // Records its arguments, cwd, PATH entries and TEAM_* variables, optionally calls `team reply` through the PATH as the
 // real session would, and prints NDJSON. FAKE_EXECUTE_MODE: ok | no-structured | error | hang | exit | api-error | invalid-output | reject-flag.
 // FAKE_EXECUTE_FAIL_FIRST=n makes the first n calls (counted in calls.jsonl) behave as FAKE_EXECUTE_FAIL_MODE and the rest as `ok`.
+// FAKE_EXECUTE_MODEL_USAGE (JSON) replaces the `modelUsage` of the result: the tokens of every model, subagents included, and the CLI's own cost.
 // FAKE_EXECUTE_SLEEP_MS holds the session that long before its result (a session that is still working).
 // FAKE_EXECUTE_GIT=1 makes the session commit and push, with the lines git prints in the results of its Bash calls.
 // FAKE_EXECUTE_HOOK=1 runs, after every simulated batch of tools, the PostToolBatch hook that came in `--settings` the way Claude Code does (the command with the event as JSON on stdin,
@@ -108,7 +109,7 @@ process.stdin.on('end', async () => {
   if (mode === 'hang') { setInterval(() => {}, 1000); return }
   if (process.env.FAKE_EXECUTE_SLEEP_MS) await pause(Number(process.env.FAKE_EXECUTE_SLEEP_MS))
   if (state) appendFileSync(`${state}/ends.jsonl`, `${JSON.stringify({ pid: process.pid, t1: Date.now() })}\n`)
-  const base = { type: 'result', subtype: 'success', is_error: false, session_id: sessionId, duration_ms: 61000, num_turns: 3, total_cost_usd: 1.2345, usage: { input_tokens: 52000, output_tokens: 3100, cache_read_input_tokens: 40000, cache_creation_input_tokens: 2000 }, modelUsage: { 'claude-sonnet-5-5': {} } }
+  const base = { type: 'result', subtype: 'success', is_error: false, session_id: sessionId, duration_ms: 61000, num_turns: 3, total_cost_usd: 1.2345, usage: { input_tokens: 52000, output_tokens: 3100, cache_read_input_tokens: 40000, cache_creation_input_tokens: 2000 }, modelUsage: process.env.FAKE_EXECUTE_MODEL_USAGE ? JSON.parse(process.env.FAKE_EXECUTE_MODEL_USAGE) : { 'claude-sonnet-5-5': {} } }
   if (mode === 'error') return out({ ...base, subtype: 'error_max_budget_usd', is_error: true, result: 'budget reached' })
   if (mode === 'no-structured') return out({ ...base, result: 'done, but no structured output' })
   if (mode === 'api-error') return out({ ...base, is_error: true, result: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}' })

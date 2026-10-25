@@ -112,3 +112,51 @@ export function hasPrice(provider, model) {
 export function unpricedSlots(slots) {
   return slots.filter((s) => s.available && !hasPrice(s.provider, s.model));
 }
+
+/**
+ * The cost and the tokens of a whole `claude -p` run, from the `modelUsage` of its result (`{ model: { inputTokens, outputTokens,
+ * cacheReadInputTokens, cacheCreationInputTokens, costUSD, costBasis } }`). `modelUsage` adds the subagents' requests; the result's
+ * top-level `usage` counts only the session's own turns. The CLI prices a model it does not know («costBasis: "unknown"», measured
+ * with 2.1.284 and `claude-haiku-5-5`) at a fallback rate about 30 times Haiku 5.5's, so for those models the table is the source:
+ * a model with a «list» basis keeps the CLI's figure, a model of unknown basis and with a price here gets the table's, and one with
+ * neither keeps the CLI's. The long-prompt tier of Haiku 5.5 applies per request and an aggregate cannot tell which ones crossed it,
+ * so a tiered model carries `cost_min_usd` (every request below the tier) and `cost_usd` is the upper bound (every request above,
+ * cache at the same ratios to the input as below the tier).
+ * @param {Record<string, object>|undefined} modelUsage
+ * @returns {{ tokens: {input: number, output: number, cache_read: number, cache_write: number}, cost_usd: number, cost_min_usd: number, models: object[] }|null}
+ *   null when `modelUsage` carries no token counts
+ */
+export function costOfModelUsage(modelUsage) {
+  const entries = Object.entries(modelUsage ?? {}).filter(([, m]) => m && typeof m === 'object' && ['inputTokens', 'outputTokens', 'cacheReadInputTokens', 'cacheCreationInputTokens'].some((k) => typeof m[k] === 'number'));
+  if (entries.length === 0) return null;
+  const tokens = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+  let cost = 0;
+  let costMin = 0;
+  const models = entries.map(([model, m]) => {
+    const t = { input: m.inputTokens ?? 0, output: m.outputTokens ?? 0, cache_read: m.cacheReadInputTokens ?? 0, cache_write: m.cacheCreationInputTokens ?? 0 };
+    tokens.input += t.input + t.cache_read + t.cache_write; // same convention as the `input_tokens` column: everything the model read
+    tokens.output += t.output;
+    tokens.cache_read += t.cache_read;
+    tokens.cache_write += t.cache_write;
+    const cli = typeof m.costUSD === 'number' ? m.costUSD : null;
+    const price = lookup('anthropic', model);
+    let max = cli;
+    let min = cli;
+    let source = 'cli';
+    if (m.costBasis === 'unknown' && price && price.perAudioHour === undefined) {
+      const at = (inputPrice) => (t.input * inputPrice + t.cache_read * inputPrice * (price.cacheReadPerMTok / price.inputPerMTok) + t.cache_write * inputPrice * price.cacheWriteMultiplier['5m'] + t.output * price.outputPerMTok) / PER_MILLION;
+      min = Number(at(price.inputPerMTok).toFixed(12));
+      max = price.tier ? Number(at(price.tier.inputPerMTok).toFixed(12)) : min;
+      source = price.tier ? 'table_bounds' : 'table';
+    }
+    cost += max ?? 0;
+    costMin += min ?? 0;
+    return { model, ...t, cli_cost_usd: cli, cost_basis: m.costBasis ?? null, cost_usd: max, cost_min_usd: min, source };
+  });
+  return { tokens, cost_usd: Number(cost.toFixed(12)), cost_min_usd: Number(costMin.toFixed(12)), models };
+}
+
+/** What a `claude -p` run cost: the priced figure of its `modelUsage` (subagents included, a model the CLI does not know priced by the table), else the CLI's own `total_cost_usd`. */
+export function costOfResult(result) {
+  return costOfModelUsage(result?.modelUsage)?.cost_usd ?? (typeof result?.total_cost_usd === 'number' ? result.total_cost_usd : null);
+}

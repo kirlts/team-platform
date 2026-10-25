@@ -23,6 +23,7 @@ import { mentionAnswered } from '../domain/mentions.js'
 import { admitSession, dailyBudget, localDay, sessionReserve } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { audit } from '../domain/audit.js'
+import { costOfModelUsage, costOfResult } from '../telemetry/pricing.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
@@ -328,6 +329,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const u = result?.usage ?? {}
       const input = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
       const phaseMs = rec.phaseMs
+      const byModel = costOfModelUsage(result?.modelUsage) // the subagents' tokens and a price for a model the CLI does not know
       recordExecuteRun(db, {
         job_id: job.id, attempt: job.attempts, message_id: messageId ?? null, instance: instanceLabel(config),
         trace_id: job.trace_id ?? null, session_id: rec.st?.sessionId ?? null,
@@ -339,10 +341,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         create_ms: phaseMs.create ?? null, run_ms: phaseMs.run ?? null, destroy_ms: phaseMs.destroy ?? null,
         tools_ms: s ? s.tools_ms : null,
         judge_ms: marks.judge_ms ?? null, delivery_ms: marks.delivery_ms ?? null, wait_ms: marks.wait_ms ?? null,
-        input_tokens: result ? input : (s?.input_tokens ?? null), output_tokens: result ? (u.output_tokens ?? 0) : (s?.output_tokens ?? null),
-        cache_read_tokens: result ? (u.cache_read_input_tokens ?? 0) : (s?.cache_read_tokens ?? null),
-        cache_write_tokens: result ? (u.cache_creation_input_tokens ?? 0) : (s?.cache_write_tokens ?? null),
-        cost_usd: typeof result?.total_cost_usd === 'number' ? result.total_cost_usd : null,
+        input_tokens: byModel ? byModel.tokens.input : (result ? input : (s?.input_tokens ?? null)), output_tokens: byModel ? byModel.tokens.output : (result ? (u.output_tokens ?? 0) : (s?.output_tokens ?? null)),
+        cache_read_tokens: byModel ? byModel.tokens.cache_read : (result ? (u.cache_read_input_tokens ?? 0) : (s?.cache_read_tokens ?? null)),
+        cache_write_tokens: byModel ? byModel.tokens.cache_write : (result ? (u.cache_creation_input_tokens ?? 0) : (s?.cache_write_tokens ?? null)),
+        cost_usd: costOfResult(result),
+        model_usage_json: byModel ? JSON.stringify(byModel.models) : null,
         turns: rec.st?.turns ?? null, tool_count: s?.tools ?? null, subagent_count: s?.subagents ?? null,
         detail_json: rec.detail ? JSON.stringify(rec.detail) : null,
         review_answered: rec.reviewAnswered ? 1 : null,
@@ -548,11 +551,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
             request: { messages: [{ role: 'user', content: prompt }], effort: x.effort },
             response: { text: JSON.stringify(result.structured_output ?? result.result ?? null), model: models[0] ?? model, stop_reason: result.stop_reason, duration_ms: result.duration_ms },
             usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0, cached_tokens: u.cache_read_input_tokens ?? 0, cache_creation_tokens: u.cache_creation_input_tokens ?? 0 },
-            cost: result.total_cost_usd ?? null
+            cost: costOfResult(result)
           })
-          if (typeof result.total_cost_usd === 'number') {
-            span.setAttribute('team.cost_usd', result.total_cost_usd)
-            runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after; it adds up: the second try of a job must not erase what the first one spent
+          const costUsd = costOfResult(result)
+          if (typeof costUsd === 'number') {
+            span.setAttribute('team.cost_usd', costUsd)
+            runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', costUsd, job.id) // UD-256, also when the job fails after; it adds up: the second try of a job must not erase what the first one spent
           }
         }
         // UD-268: the screenshots are stored while the job directory exists; the closing reply attaches them when it is posted.
@@ -637,7 +641,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         signal: ctx.signal,
         prompt: buildJudgePrompt({
           message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,
-          captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: result.total_cost_usd ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
+          captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: costOfResult(result) ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
         })
       })
       if (judgment?.cost) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', judgment.cost, job.id) // it counts in the day's cap with the job
@@ -656,7 +660,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const now_ = get(db, `SELECT status, deleted_at, title, body, fields_json, area_id, template_id,
                                    EXISTS (SELECT 1 FROM message_assignees a WHERE a.message_id = messages.id AND a.member_id = ?) AS held FROM messages WHERE id = ?`, agent.id, messageId)
       if (!now_ || now_.deleted_at !== null || now_.status === 'closed' || now_.held !== 1) {
-        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, skipped: 'message_changed', session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null } })
+        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, skipped: 'message_changed', session_id: outcome.st.sessionId, cost_usd: costOfResult(result) } })
         return
       }
       const edited = fingerprint(now_) !== startedWith
@@ -674,7 +678,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
           const lang = author?.language
           addReply({ db, events, now }, { messageId, authorId: agent.id, kind: 'answer', body: (lang === 'en' ? `${labelOfModel(model)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(model)} no cerró: siguió ${labelOfModel(stronger)}.`) })
           audit(db, { memberId: agent.id, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: job.id, job_id: next, from: model, to: stronger, why: cannotClose === true ? 'cannot_close' : 'blocked' }, now })
-          events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, escalated_job_id: String(next), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null } })
+          events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, escalated_job_id: String(next), session_id: outcome.st.sessionId, cost_usd: costOfResult(result) } })
           return
         }
       }
@@ -703,7 +707,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         rec.deliveryHeld = true
         audit(db, { memberId: agent.id, action: 'message.idea_shown', entity: 'message', entityId: messageId, detail: { job_id: job.id, reply_id: replyId, reason: String(idea.idea_reason ?? '').slice(0, 300) || null }, now })
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
-        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true, session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null } })
+        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true, session_id: outcome.st.sessionId, cost_usd: costOfResult(result) } })
         return
       }
       if (hands && !edited) {
@@ -723,7 +727,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('done'), data: { message_id: messageId } })
           events.publishForJob(job.id, {
             kind: 'done',
-            data: { status: 'done', message_id: String(messageId), reply_id: null, deliver_job_id: String(deliverJobId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
+            data: { status: 'done', message_id: String(messageId), reply_id: null, deliver_job_id: String(deliverJobId), session_id: outcome.st.sessionId, cost_usd: costOfResult(result) }
           })
           return
         }
@@ -747,7 +751,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
       events.publishForJob(job.id, {
         kind: 'done',
-        data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
+        data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: costOfResult(result) }
       })
     }
   }

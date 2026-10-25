@@ -433,8 +433,12 @@ for (const [width, height] of SIZES) {
         const list = Array.isArray(body) ? body : body.items
         const rich = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
         await open(page, `/messages/${rich.id}`)
-        const thumbs = await page.evaluate(() => document.querySelectorAll('main video').length)
+        // A video on the server is drawn as a plain tile under the play mark, never as a <video> that makes the browser read the file
+        // (Thumb.tsx, bench 2026-10-24): the tile is what proves a video thumbnail is on screen.
+        const thumbs = await page.evaluate(() => document.querySelectorAll('main span[role="img"]').length)
         assert.ok(thumbs > 0, 'the message has no video thumbnail on screen: the test would prove nothing')
+        const videosNow = await page.evaluate(() => document.querySelectorAll('main video').length)
+        assert.strictEqual(videosNow, 0, `${videosNow} <video> elements are mounted for thumbnails of files on the server`)
         // From here on the page is quiet: any `<video>` added is a thumbnail drawn again.
         await page.evaluate(() => {
           window.__videosAdded = 0

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AreaChip } from '@/components/AreaChip'
 import { AreaPicker } from '@/components/AreaPicker'
 import { AddTile, MediaGallery } from '@/components/MediaGallery'
+import { RecordAudioButton } from '@/components/MediaDraft'
 import { Details } from '@/components/Details'
 import { Badge } from '@/components/ui/badge'
 import { toGalleryItems } from '@/lib/gallery'
@@ -300,6 +301,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                     add(files)
                   }}
                 />
+                <div className="flex items-center gap-1 px-1.5">
+                  <RecordAudioButton disabled={addFiles.isPending} onRecorded={(file) => add([file])} onProblem={(p) => notices.show({ text: t(p === 'microphone' ? 'media.noMicrophone' : 'media.recordFailed') })} />
+                </div>
               </>
             )}
           </div>

@@ -7,6 +7,7 @@ import type { MessageDetail, Reply } from '@team-platform/client'
 import { useAddReplyAttachments, useEditReply, useMe } from '@team-platform/client/react'
 import { useLookups } from './lookups'
 import { MemberPicker } from './MemberPicker'
+import { RecordAudioButton } from './MediaDraft'
 
 /**
  * What the author does to their own reply besides its text (UD-279), with the same words as a message: «+ Adjunto» to add files, a cross on each file to
@@ -57,6 +58,9 @@ export function ReplyTools({ message, reply }: { message: MessageDetail; reply: 
         <button type="button" disabled={add.isPending} onClick={() => input.current?.click()} aria-label={t('published.addFiles')} title={t('published.addFiles')} className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-3 text-sm font-semibold text-muted hover:bg-hover hover:text-accent disabled:opacity-50 pointer-coarse:min-h-11">
           <Plus size={16} aria-hidden /> {t('media.addShort')}
         </button>
+      </li>
+      <li className="flex items-center gap-1">
+        <RecordAudioButton disabled={add.isPending} onRecorded={(file) => add.mutate({ replyId: reply.id, files: [file] }, { onError: fail })} onProblem={(p) => notices.show({ text: t(p === 'microphone' ? 'media.noMicrophone' : 'media.recordFailed') })} />
       </li>
       <li>
         <MemberPicker

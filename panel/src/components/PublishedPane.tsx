@@ -141,7 +141,7 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
       />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {canEdit ? (
-          <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
+          <RecipientsEditor ids={m.assignee_ids} authorId={m.author_id} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
         ) : null}
         {canEdit && (
           <AttachmentPicker

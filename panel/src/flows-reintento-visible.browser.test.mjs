@@ -1,5 +1,5 @@
-// UD-290: «Reintentar» responde en el clic. El aviso de la sesión fallida se reemplaza en su lugar por «Reintentando» antes de que el servidor conteste, y vuelve
-// con el motivo y el botón si el servidor rechaza el reintento.
+// UD-290: «Reintentar» answers on click. The notice of the failed session is replaced in place by «Reintentando» before the server answers, and comes
+// back with the reason and the button if the server rejects the retry.
 // Real browser against dev-server.mjs serving panel/dist: `PANEL_FLOWS_PORT=… node --test src/flows-reintento-visible.browser.test.mjs`.
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
@@ -56,7 +56,7 @@ async function session(viewport) {
 
 describe('Reintentar responde en el clic (UD-290)', () => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    test(`el aviso se reemplaza por «Reintentando» antes de la respuesta del servidor a ${viewport.width} px`, async () => {
+    test(`the notice is replaced by «Reintentando» before the server answers at ${viewport.width} px`, async () => {
       const { page, context } = await session(viewport)
       try {
         let release
@@ -71,23 +71,23 @@ describe('Reintentar responde en el clic (UD-290)', () => {
         assert.equal(await page.getByText(NOTICE).count(), 1)
         await page.getByTestId('retry-execute').click()
         await page.getByTestId('retrying').waitFor()
-        assert.equal(answered, false, 'el servidor todavía no contestó')
-        assert.equal(await page.getByText(NOTICE).count(), 0, 'el aviso de error ya no está')
-        assert.equal(await page.getByTestId('retry-execute').count(), 0, 'ni el botón')
+        assert.equal(answered, false, 'the server has not answered yet')
+        assert.equal(await page.getByText(NOTICE).count(), 0, 'the error notice is gone')
+        assert.equal(await page.getByTestId('retry-execute').count(), 0, 'and so is the button')
         assert.ok((await page.getByTestId('retrying').innerText()).includes('Reintentando'))
         assert.equal(await page.getByRole('progressbar', { name: 'Reintentando' }).count(), 1)
         await settled(page)
         if (SHOTS) await page.screenshot({ path: `${SHOTS}/reintentando-${viewport.width}.png` })
         release()
         await page.waitForResponse((r) => r.url().includes('/retry'))
-        assert.equal(await page.getByTestId('retrying').count(), 1, 'con el trabajo encolado sigue «Reintentando»')
+        assert.equal(await page.getByTestId('retrying').count(), 1, 'with the job queued it stays «Reintentando»')
         assert.ok(id)
       } finally {
         await context.close()
       }
     })
 
-    test(`si el servidor rechaza, vuelve el aviso con el motivo y el botón a ${viewport.width} px`, async () => {
+    test(`if the server rejects, the notice comes back with the reason and the button at ${viewport.width} px`, async () => {
       const { page, context } = await session(viewport)
       try {
         let release
@@ -103,7 +103,7 @@ describe('Reintentar responde en el clic (UD-290)', () => {
         release()
         await page.getByRole('alert').waitFor()
         assert.equal(await page.getByText(NOTICE).count(), 1, 'vuelve el aviso')
-        assert.equal(await page.getByTestId('retry-execute').count(), 1, 'y el botón')
+        assert.equal(await page.getByTestId('retry-execute').count(), 1, 'and the button')
         assert.equal(await page.getByTestId('retrying').count(), 0)
         await settled(page)
         if (SHOTS) await page.screenshot({ path: `${SHOTS}/rechazado-${viewport.width}.png` })

@@ -23,7 +23,7 @@ import { buildExecutePrompt } from './prompt.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 const MIGRATIONS = fileURLToPath(new URL('../db/migrations', import.meta.url))
-const PORT = 8647 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: three suites shared 8647 and collided with EADDRINUSE when run in parallel
 
 describe('a change the person already approved is not held again (UD-286)', () => {
   let env, state, worker, editor, editorId, author, agentId, vault, counter
@@ -85,7 +85,7 @@ describe('a change the person already approved is not held again (UD-286)', () =
     author = await login(env, 'ana@x.org')
     setProjectDescription(env.db, 'Descripción del proyecto: agenda de clínicas.')
     env.config.execute.deliverCommand = 'true' // the API answers `POST /messages/:id/deliver` only when the instance declares the command
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(async () => {
     await worker?.stop()

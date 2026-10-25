@@ -19,7 +19,7 @@ import { createExecuteHandler } from './handler.js'
 import { enqueueExecute } from './enqueue.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8647 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: three suites shared 8647 and collided with EADDRINUSE when run in parallel
 const CHECK = {
   searched: ['docs/USER-DECISIONS.md: UD-100 a UD-268', 'CLAUDE.md del anfitrión'], why_not_covered: 'Ninguna fija el precio.',
   recommendation: 'Cobrar al cierre del mes.', if_wrong: 'Si cobra al inicio, se devuelve; si al cierre y era al inicio, se pierde un mes.', question: '¿Se cobra al inicio o al cierre del mes?'
@@ -83,7 +83,7 @@ describe('handoff to a person', () => {
     const authorId = await addMember(env, { email: 'ana@x.org', name: 'Ana' })
     updateMember(env.db, authorId, { profile: 'Perfil de Ana: llevo la agenda de la clínica.' })
     author = await login(env, 'ana@x.org')
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(() => { process.env.FAKE_EXECUTE_MODE = 'ok'; process.env.FAKE_EXECUTE_REPLY = '1'; delete process.env.FAKE_EXECUTE_EXTRA })
   after(async () => { await worker?.stop(); await env.close() })

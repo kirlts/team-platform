@@ -1,12 +1,14 @@
 // The walkthrough of a proposal (UD-275): the shape of what it writes. Headless Chromium against a page of its own; nothing deployed.
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { execFile } from 'node:child_process'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { pathToFileURL } from 'node:url'
+import { TEAM_COMPANIONS } from '../src/execute/handler.js'
 import { checkCaptures } from './team.mjs'
 import { clock, recordWalkthrough, webmSize } from './walkthrough.mjs'
 
@@ -76,5 +78,19 @@ describe('team walkthrough', () => {
     assert.deepEqual(noLimit.rejected.map((x) => x.reason), ['not_image'])
     const twice = await checkCaptures([list[0], list[0]], { dir: out, max: 3, maxBytes: 7 * 1024 * 1024, maxVideoBytes: MAX_VIDEO_BYTES })
     assert.deepEqual(twice.rejected.map((x) => x.reason), ['too_many'])
+  })
+
+  it('records from the job directory as a session gets it: `team` copied with its companions, no repository around (job 144: «Cannot find module walkthrough.mjs»)', async () => {
+    const bin = join(dir, 'job', 'bin')
+    mkdirSync(bin, { recursive: true })
+    for (const name of ['team.mjs', ...TEAM_COMPANIONS]) copyFileSync(new URL(`./${name}`, import.meta.url), join(bin, name))
+    const out = join(dir, 'job', 'captures')
+    const env = { ...process.env, TEAM_CAPTURES_DIR: out, TEAM_PLAYWRIGHT_DIR: new URL('../panel', import.meta.url).pathname }
+    const result = await new Promise((resolve) => execFile('node', [join(bin, 'team.mjs'), 'walkthrough', '--url', url, '--steps', JSON.stringify(STEPS), '--place', 'Fichas', '--as', 'Clínica Sur, recepción'], { cwd: join(dir, 'job'), env }, (error, stdout, stderr) => resolve({ code: error?.code ?? 0, stdout, stderr })))
+    assert.equal(result.code, 0, result.stderr)
+    assert.equal(result.stderr.trim(), '')
+    assert.ok(statSync(join(out, 'walkthrough-desktop.webm')).size > 0, 'a non-empty video')
+    const captures = JSON.parse(readFileSync(join(out, 'captures.json'), 'utf8'))
+    assert.equal(captures[0].path, 'walkthrough-desktop.webm', 'the video goes first')
   })
 })

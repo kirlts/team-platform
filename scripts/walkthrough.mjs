@@ -9,6 +9,8 @@
 // the second. Used from `team walkthrough`; `playwright` is loaded from the host (the repository's own dependency), never bundled.
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /** The two sizes of the review (UD-275). Video size = viewport size: Playwright scales a video down to fit 800x800 unless `size` is given (playwright.dev/docs/videos, consulted 2026-10-24). */
@@ -119,6 +121,19 @@ export function webmSize (bytes) {
   return width && height ? { width, height } : null
 }
 
+/**
+ * Playwright from the host, wherever the `team` script runs from: the session copies `team` into its job directory, where a plain `import('playwright')`
+ * finds nothing. Looked up from `$TEAM_PLAYWRIGHT_DIR`, the working directory (the repository of the branch: plataforma/ carries it), and the copy the
+ * harness machine installs for the `tp` user (`~/.tp-playwright`, preparar.sh). null when none is there.
+ */
+export function loadPlaywright (env = process.env, cwd = process.cwd()) {
+  const bases = [env.TEAM_PLAYWRIGHT_DIR, join(cwd, 'plataforma'), cwd, join(env.HOME ?? homedir(), '.tp-playwright')].filter(Boolean)
+  for (const base of bases) {
+    try { return createRequire(join(base, 'package.json'))('playwright') } catch { /* next base */ }
+  }
+  return null
+}
+
 /** The CLI of `team walkthrough`: `--url`, `--steps <json|file>`, `--profile desktop|phone|both`, `--out <dir>`, `--place`, `--as`, `--masked true|false`. */
 export async function runWalkthrough (options, env = process.env) {
   const need = (k) => { if (typeof options[k] !== 'string' || options[k].trim() === '') throw new Error(`team walkthrough: --${k} is required.`); return options[k] }
@@ -130,8 +145,7 @@ export async function runWalkthrough (options, env = process.env) {
   const profiles = profile === 'both' ? ['desktop', 'phone'] : [profile]
   const outDir = options.out ?? env.TEAM_CAPTURES_DIR
   if (!outDir) throw new Error('team walkthrough: --out or $TEAM_CAPTURES_DIR is required.')
-  let playwright = null
-  try { playwright = await import('playwright') } catch { /* without Playwright the walkthrough says so in one line */ }
+  const playwright = loadPlaywright(env)
   if (!playwright) return { steps: [], captures: [], videos: [], failed: [{ profile, reason: 'no browser: Playwright is not installed on this host' }] }
   return recordWalkthrough({ url, steps, profiles, outDir, place: need('place'), as: need('as'), masked: options.masked === 'true', playwright })
 }

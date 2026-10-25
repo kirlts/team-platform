@@ -43,6 +43,8 @@ import { createStreamReader } from './stream.js'
 
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
+// Modules that `team.mjs` imports at run time and that must travel with it (only Node built-ins inside): without them `team walkthrough` died with «Cannot find module walkthrough.mjs» (job 144, 2026-10-24).
+export const TEAM_COMPANIONS = ['walkthrough.mjs']
 const PROVIDER = 'claude-code'
 const STDERR_TAIL_CHARS = 600 // declared courtesy: the cause of a process that fails is at the END of its stderr (the start is ssh and useradd noise); enough for the last lines, short enough for `last_error`
 
@@ -208,6 +210,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       await mkdir(join(workdir, 'bin'))
       // `team` in the session's PATH: the standalone script next to a shim, so a machine gets it with the job dir.
       await copyFile(TEAM_SCRIPT, join(workdir, 'bin', 'team.mjs'))
+      for (const name of TEAM_COMPANIONS) await copyFile(fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)), join(workdir, 'bin', name))
       await writeFile(join(workdir, 'bin', 'team'), '#!/bin/sh\nexec node "$(dirname "$0")/team.mjs" "$@"\n', { mode: 0o755 })
       let cwd = workdir
       let worktree = null

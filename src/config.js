@@ -356,7 +356,11 @@ export function loadConfig (env = process.env, overrides = {}) {
       model: textValue(env, 'EXECUTE_MODEL', 'claude-sonnet-5-5'), // UD-255: Sonnet 5.5; with UD-295 the model a session escalates to and the one of a message with no level
       lightModel: textValue(env, 'EXECUTE_LIGHT_MODEL', 'claude-haiku-5-5'), // UD-295: the model of levels 1 and 2 until an area names another; the prompt, tools and hooks of a light session apply to it
       effort: choiceVar(env, 'EXECUTE_EFFORT', ['low', 'medium', 'high', 'xhigh', 'max'], 'medium'), // UD-255: medium reasoning; `claude --help` 2.1.284 lists these levels for --effort
-      maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start
+      maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start; the cap of one session, not what it holds back of the day (UD-305)
+      // UD-305: what a session holds back of the day's cap comes from the cost of the finished jobs of its model (90th percentile). The knob, when declared, rules;
+      // the fallback is declared courtesy (the value of UD-255) and applies only until a job of that model has a measured cost.
+      sessionReserveUsd: decimal(env, 'EXECUTE_SESSION_RESERVE_USD', null, { min: 0.01 }),
+      sessionReserveFallbackUsd: decimal(env, 'EXECUTE_SESSION_RESERVE_FALLBACK_USD', 10, { min: 0.01 }), // declared courtesy: UD-255's 10 USD, no measurement behind it
       // UD-256: 10 USD per day in total across `execute` jobs; the day is the server's local day (TZ, UTC when unset).
       dailyBudgetUsd: decimal(env, 'EXECUTE_DAILY_BUDGET_USD', 10, { min: 0 }),
       infraRetryWaitMs: intVar(env, 'EXECUTE_INFRA_RETRY_WAIT_MS', 30_000, { min: 0 }), // measurement 2026-10-22 (creating a machine took 32 s, as EXECUTE_CAPACITY_WAIT_MS): wait before the second try of a job that failed by infrastructure (a machine not created, a 529)

@@ -446,6 +446,8 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_MODEL` | Omisión `claude-sonnet-5-5` |
 | `EXECUTE_EFFORT` | Omisión `medium` |
 | `EXECUTE_MAX_BUDGET_USD` | Tope de gasto por mensaje (omisión 10) |
+| `EXECUTE_SESSION_RESERVE_USD` | Opcional. Lo que cada sesión reserva del día; si está, manda sobre la medición (UD-305) |
+| `EXECUTE_SESSION_RESERVE_FALLBACK_USD` | Reserva mientras no hay ningún trabajo terminado del modelo con costo medido (omisión 10, cortesía declarada de UD-255) |
 | `EXECUTE_MAX_TURNS` | Omisión 60 |
 | `EXECUTE_MAX_SUBAGENTS` | Omisión 3 |
 | `EXECUTE_MAX_ATTEMPTS` | Omisión 1 |

@@ -20,7 +20,7 @@ import { AppError, infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
-import { dailyBudget, localDay } from './budget.js'
+import { admitSession, dailyBudget, localDay, sessionReserve } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { audit } from '../domain/audit.js'
 import { step } from '../domain/progress-phrases.js'
@@ -437,10 +437,13 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       noticeBudgetWait(job, messageId, now() + budget.nextDayMs)
       throw new Deferred(budget.nextDayMs, step('budgetWait'), { code: 'budget_day', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent })
     }
-    const available = budget.remaining - [...reserved.values()].reduce((a, b) => a + b, 0)
-    if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait'), { code: 'budget_reserved', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent, reserved_usd: [...reserved.values()].reduce((a, b) => a + b, 0), sessions: reserved.size }) // what is left is held by sessions that run now: it may come back when they end
-    const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
-    reserved.set(job.id, budgetUsd)
+    // UD-305: each session holds back what the sessions of its model cost (90th percentile), not a chosen 10 USD; its own cap stays `maxBudgetUsd`.
+    const reserve = sessionReserve(db, x, model, now())
+    const held = [...reserved.values()].reduce((a, b) => a + b, 0)
+    const admission = admitSession({ remaining: budget.remaining, held, sessions: reserved.size, reserveUsd: reserve.usd, maxBudgetUsd: x.maxBudgetUsd })
+    if (!admission.ok) throw new Deferred(x.capacityWaitMs, step('budgetWait'), { code: 'budget_reserved', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent, reserved_usd: held, sessions: reserved.size, reserve_usd: reserve.usd, reserve_basis: reserve.basis }) // what is left is held by sessions that run now: it may come back when they end
+    const budgetUsd = admission.budgetUsd
+    reserved.set(job.id, admission.holdUsd)
     const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, assessed: estimates !== null })
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
@@ -451,7 +454,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
       budgetUsd,
-      onEvent: (event) => session?.onEvent(event),
+      onEvent: (event) => {
+        session?.onEvent(event)
+        // UD-305: the reserve follows the real cost: a session that already spent more than it held holds what it spent (it is released when the job ends and counts as cost then).
+        const spent = reader.state().spentUsd
+        if (reserved.has(job.id) && spent > reserved.get(job.id)) reserved.set(job.id, spent)
+      },
       onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
     })
     queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')

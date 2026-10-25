@@ -304,6 +304,21 @@ describe('failure hunt: execute and deliver', () => {
     }
   })
 
+  it('the reserve of a session is what its model cost, so three sessions run together under a day of 3 USD that a reserve of 10 would serialize (UD-305)', async () => {
+    process.env.FAKE_EXECUTE_SLEEP_MS = '400'
+    env.db.prepare("UPDATE jobs SET cost_usd = NULL WHERE kind = 'execute'").run()
+    const longAgo = Date.now() - 2 * 24 * 3600 * 1000 // finished two days ago: it measures the cost and is not today's spend
+    for (let i = 0; i < 4; i++) env.db.prepare("INSERT INTO jobs (kind, payload_json, status, run_at, created_at, finished_at, cost_usd, model) VALUES ('execute', '{}', 'done', ?, ?, ?, 0.1, 'claude-sonnet-5-5')").run(longAgo, longAgo, longAgo)
+    startWorker({ dailyBudgetUsd: 3, maxBudgetUsd: 1, capacityWaitMs: 100, model: 'claude-sonnet-5-5' })
+    const ids = []
+    for (let i = 0; i < 3; i++) ids.push(await publishedMessage(`Mensaje medido ${i}.`))
+    await Promise.all(ids.map(settle))
+    const done = ends()
+    const runs = calls().map((c) => ({ t0: c.t0, t1: done.find((e) => e.pid === c.pid).t1 }))
+    assert.equal(runs.length, 3, 'every message was worked')
+    assert.ok(Math.max(...runs.map((r) => r.t0)) < Math.min(...runs.map((r) => r.t1)), 'the three sessions were alive at the same time')
+  })
+
   // ---- The message changes while Claude works
   it('a message that loses the agent while it works stops the session and the message goes on without Claude', async () => {
     process.env.FAKE_EXECUTE_SLEEP_MS = '3000'

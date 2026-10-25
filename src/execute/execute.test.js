@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, it } from 'node:test'
 import { loadConfig, otelPairs } from '../config.js'
 import { updateMember } from '../domain/members.js'
+import { createLogger } from '../log.js'
 import { createPipeline } from '../domain/pipeline.js'
 import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
@@ -28,12 +29,12 @@ describe('execute job', () => {
   let env, state, worker, editor, author, agentId, agent, vault
   const cookieHeaders = (cookie) => ({ cookie, 'x-team-request': 'panel' })
 
-  function startWorker (execute = {}, extraEnv = {}) {
+  function startWorker (execute = {}, extraEnv = {}, logger = undefined) {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT), ...extraEnv }, {
       execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 50, ...execute }
     })
     const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }) }
-    worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
+    worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers, ...(logger ? { logger } : {}) })
     worker.start()
   }
   const calls = () => { try { return readFileSync(join(state, 'calls.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)) } catch { return [] } }
@@ -535,6 +536,42 @@ describe('execute job', () => {
       assert.deepEqual(JSON.parse(rows[0].data_json).reason, { code: 'capacity', quota_machines: 2 })
       assert.equal(JSON.parse(rows[0].data_json).event, 'waited', 'it closed when the session started')
       assert.equal(rows[1].body, 'Claude empezó a trabajar')
+    })
+
+    it('capacity wait: one «En espera» row with the reason and the hour it began, updated and never duplicated, closed on start; the log says the reason (UD-303)', async () => {
+      const count = join(env.dir, `refusals-${Date.now()}`)
+      const lines2 = []
+      const logger = createLogger({ logLevel: 'info' }, {}, { write: (l) => lines2.push(JSON.parse(l)) })
+      // Refuses with 75 three times, saying the quota the second time, and then creates the machine.
+      startWorker(machine({ machineCreate: `n=$(cat ${count} 2>/dev/null || echo 0); n=$((n+1)); echo $n > ${count}; if [ $n -le 3 ]; then [ $n -eq 2 ] && echo '##team quota machines=2' >&2; exit 75; fi; echo create {job_id} >> ${log}; echo vm-{job_id}`, capacityWaitMs: 150 }), {}, logger)
+      const id = await enqueue()
+      const rows = () => env.db.prepare("SELECT id, body, data_json, created_at FROM progress_notes WHERE job_id = ? AND json_extract(data_json, '$.event') = 'waiting'").all(id)
+      await until(() => rows()[0], { timeoutMs: 10000 })
+      const first = rows()[0]
+      assert.match(first.body, /^En espera: .*\nMotivo: no hay una máquina de trabajo libre ahora\.$/)
+      assert.equal(JSON.parse(first.data_json).since, first.created_at, 'the hour it began waiting is kept')
+      await until(() => rows()[0]?.body.includes('cuota de Google admite 2 máquinas'), { timeoutMs: 10000 })
+      const second = rows()
+      assert.equal(second.length, 1, 'rewritten in place, not duplicated')
+      assert.equal(second[0].id, first.id)
+      assert.equal(second[0].created_at, first.created_at, 'the hour does not move with each deferral')
+      assert.equal((await waitJob(id)).status, 'done')
+      const all2 = env.db.prepare('SELECT data_json FROM progress_notes WHERE job_id = ? ORDER BY id').all(id).map((r) => JSON.parse(r.data_json).event)
+      assert.deepEqual(all2, ['waited', 'started'], 'closed when the session started')
+      const deferred = lines2.filter((l) => l.job_id === id && /^job deferred/.test(l.msg))
+      assert.ok(deferred.length >= 3)
+      assert.equal(deferred[0].msg, 'job deferred: En espera: máquina disponible')
+      assert.equal(deferred[0].reason.code, 'capacity')
+      assert.ok(lines2.every((l) => !String(l.msg).includes('[object Object]')))
+    })
+
+    it('capacity wait: the row closes when the job fails for good', async () => {
+      const flag = join(env.dir, `refused-${Date.now()}`)
+      startWorker(machine({ machineCreate: `if [ -e ${flag} ]; then exit 1; else touch ${flag}; exit 75; fi`, capacityWaitMs: 150 }))
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'failed')
+      const events = env.db.prepare("SELECT data_json FROM progress_notes WHERE job_id = ? ORDER BY id").all(id).map((r) => JSON.parse(r.data_json).event)
+      assert.ok(events.includes('waited') && !events.includes('waiting'), `${events}`)
     })
 
     it('a restart in the middle of the session leaves the machine alone and the next worker runs the same machine command again, destroying only at the end', async () => {

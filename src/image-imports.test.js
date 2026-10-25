@@ -50,3 +50,14 @@ test('every companion of team.mjs is in the build context', async () => {
     .filter((f) => !ignore.includes(`!scripts/${f}`) || !runtime.includes(`COPY scripts/${f} `))
   assert.deepEqual(missing, [])
 })
+
+// A COPY of a script that .dockerignore still excludes fails the build at the registry, not in tests:
+// remove-member.mjs did on 2026-10-25 and the night deploy stopped there.
+test('every COPY scripts/<file> in the Dockerfile is allowed by .dockerignore', () => {
+  const root = path.resolve(import.meta.dirname, '..')
+  const ignore = readFileSync(path.join(root, '.dockerignore'), 'utf8').split('\n')
+  const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
+  const copied = [...dockerfile.matchAll(/^COPY scripts\/([^\s]+)/gm)].map((m) => m[1])
+  const missing = [...new Set(copied)].filter((f) => !ignore.includes(`!scripts/${f}`))
+  assert.deepEqual(missing, [], `.dockerignore must allow: ${missing.join(', ')}`)
+})

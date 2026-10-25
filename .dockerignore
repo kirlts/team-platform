@@ -13,6 +13,7 @@ docs
 scripts
 !scripts/check-ffmpeg.sh
 !scripts/team.mjs
+!scripts/remove-member.mjs
 !scripts/walkthrough.mjs
 !scripts/repo-map.mjs
 !scripts/tiempos.mjs

@@ -419,7 +419,7 @@ export const es419 = {
   'team.reactivateOf': 'Reactivar a {name}',
   'team.delete': 'Eliminar',
   'team.deleteOf': 'Eliminar a {name}',
-  'team.deleteHint': 'Elimina al miembro; sus mensajes y respuestas quedan con el autor «Miembro eliminado»',
+  'team.deleteHint': 'Sus mensajes y respuestas quedan con el autor «Miembro eliminado»',
   'team.deletedDone': '{name} eliminado',
   'team.deletedWithHistory': '{name} eliminado · Conserva {messages} mensajes y {replies} respuestas',
   'team.passwordNew': 'Contraseña nueva',

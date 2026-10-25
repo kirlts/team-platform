@@ -419,7 +419,7 @@ export const en: Record<MessageKey, Message> = {
   'team.reactivateOf': 'Reactivate {name}',
   'team.delete': 'Delete',
   'team.deleteOf': 'Delete {name}',
-  'team.deleteHint': 'Deletes the member; their messages and replies stay with the author «Miembro eliminado»',
+  'team.deleteHint': 'Their messages and replies stay with the author «Miembro eliminado»',
   'team.deletedDone': '{name} deleted',
   'team.deletedWithHistory': '{name} deleted · Keeps {messages} messages and {replies} replies',
   'team.passwordNew': 'New password',

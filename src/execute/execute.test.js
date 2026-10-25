@@ -525,6 +525,23 @@ describe('execute job', () => {
       assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
     })
 
+    it('a restart in the middle of the session leaves the machine alone and the next worker runs the same machine command again, destroying only at the end', async () => {
+      process.env.FAKE_EXECUTE_MODE = 'hang'
+      startWorker(machine())
+      const id = await enqueue()
+      await until(() => lines().includes(`run vm-${id}`) && calls().length > 0, { timeoutMs: 10000 })
+      await worker.stop() // what a deploy does: SIGTERM, the jobs in progress go back to the queue
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`], 'neither collect nor destroy ran: the session is still the machine\'s')
+      const parked = env.queue.getJob(id)
+      assert.equal(parked.status, 'queued')
+      assert.equal(parked.attempts, 0, 'the attempt is refunded: a deploy is not a failure of the job')
+      process.env.FAKE_EXECUTE_MODE = 'ok'
+      startWorker(machine())
+      const done = await waitJob(id)
+      assert.equal(done.status, 'done', done.last_error)
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `create ${id}`, `run vm-${id}`, `destroy vm-${id}`], 'one destroy, after the session finished')
+    })
+
     it('destroys it when the session runs out of time', async () => {
       process.env.FAKE_EXECUTE_MODE = 'hang'
       startWorker(machine({ timeoutMs: 1500, killGraceMs: 2000 })) // the job's own cap is the timeout plus three graces: a stalled worker must not reach it before the session's timeout does

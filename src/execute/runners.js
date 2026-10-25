@@ -133,6 +133,15 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
     result = { ...ran, timedOut: ran.timedOut || created.timedOut, phase: 'run', machine }
     return result
   } finally {
+    // A worker that shuts down (a deploy) while the session runs leaves the machine and the session alone: the host's RUN command keeps the session
+    // apart from this connection, and the worker that takes the job next calls RUN again and attaches to it (2026-10-25, job 156: the session lived 17 min after
+    // the restart and the repetition would have started another). Destroying here would kill the work that the next attempt is going to pick up.
+    // An abort before RUN (a machine still being created) has no session to keep and is destroyed as always.
+    if (signal?.aborted && signal.reason === 'shutdown' && result?.phase === 'run') {
+      if (result) result.detached = true
+      log(`shutdown: machine ${machine} and its session stay for the next attempt of job ${jobId}`)
+      return result
+    }
     // Before destroying: afterwards the transcript is gone. A failure here is recorded and never fails the job.
     // stderr keeps its END: on a machine its start is ssh and useradd noise and the cause comes last (job 132, 2026-10-24).
     if (x.machineCollect && result?.phase === 'run' && !signal?.aborted) {

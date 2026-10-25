@@ -52,9 +52,13 @@ export function launchBrowser() {
  * `base` mounts the panel and its API under a path (H-3721): `origin` then ends with that path (no trailing slash), so
  * `${origin}/api/…` and `page.goto(origin)` keep working; `host` is the bare origin.
  */
-export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/' } = {}) {
-  // Without a dist somebody built before (a test run alone, outside the test script), it builds its own instead of serving nothing.
-  const dist = build || !existsSync(join(ROOT, 'dist', 'index.html')) ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
+export async function startPanel(requestedPort, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/', fixedPort = process.env.PANEL_FIXED_PORTS === '1' } = {}) {
+  // The port is the system's choice (0) unless the caller or PANEL_FIXED_PORTS=1 asks for that exact one: files that run in parallel used to
+  // share a few hard-coded numbers (8742, 8806, 8967) and one of the two servers left. The port that came out is read from the server's own line.
+  const port = fixedPort ? requestedPort : 0
+  // The build that the runner made once (PANEL_DEV_DIST) or panel/dist is served as it is. Without either (a test run alone, outside the runner), it builds its own instead of serving nothing.
+  const shared = process.env.PANEL_DEV_DIST && existsSync(join(process.env.PANEL_DEV_DIST, 'index.html'))
+  const dist = !shared && (build || !existsSync(join(ROOT, 'dist', 'index.html'))) ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
   const dropDist = () => dist && rmSync(dist, { recursive: true, force: true })
   if (dist) {
     try {
@@ -71,11 +75,12 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     stdio: ['pipe', 'pipe', 'inherit'],
   })
   // The server says when it listens; a port already taken makes it exit. Neither is guessed with a pause: a test never talks to a server that is not its own (H-900).
-  await new Promise((resolve, reject) => {
+  const listening = await new Promise((resolve, reject) => {
     let said = ''
     server.stdout.on('data', (chunk) => {
       said += chunk
-      if (said.includes('[dev-server] DEVELOPMENT DOUBLE SERVER')) resolve()
+      const line = said.match(/\[dev-server\] DEVELOPMENT DOUBLE SERVER with sample data at http:\/\/127\.0\.0\.1:(\d+)/)
+      if (line) resolve(Number(line[1]))
     })
     server.once('exit', (code) => reject(new Error(`el servidor de ejemplo salió con ${code} antes de escuchar en el puerto ${port}; ¿está ocupado?`)))
     server.once('error', reject)
@@ -84,7 +89,7 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     throw error
   })
   const browser = await launchBrowser()
-  const host = `http://127.0.0.1:${port}`
+  const host = `http://127.0.0.1:${listening}`
   const origin = `${host}${base.replace(/\/+$/, '')}`
   return {
     origin,

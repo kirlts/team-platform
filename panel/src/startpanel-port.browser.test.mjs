@@ -6,9 +6,9 @@ import { ROOT, startPanel } from './browser-support.mjs'
 
 test('startPanel refuses a port that is already taken instead of talking to the other server', async () => {
   const port = Number(process.env.PANEL_PORT_TAKEN_PORT ?? 8918)
-  const first = await startPanel(port, { build: false })
+  const first = await startPanel(port, { build: false, fixedPort: true })
   try {
-    await assert.rejects(() => startPanel(port, { build: false }), new RegExp(`puerto ${port}`))
+    await assert.rejects(() => startPanel(port, { build: false, fixedPort: true }), new RegExp(`puerto ${port}`))
   } finally {
     await first.stop()
   }

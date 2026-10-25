@@ -22,6 +22,7 @@ import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
 import { login, startPanel, settled, watchRequests } from './browser-support.mjs'
 import { cutMessages, feedsInPage } from './home-feeds-support.mjs'
+import { ALL_SIZES, SHARDS } from './fit-shards.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -31,12 +32,9 @@ const PORT = Number(process.env.PANEL_FIT_PORT ?? 8795)
 let panel
 let ORIGIN = ''
 const TIMES = 8
-const SIZES = [
-  [1440, 900],
-  [1280, 720],
-  [1920, 1080],
-  [2560, 1440],
-]
+const SHARD = process.env.FIT_SHARD ?? ''
+if (SHARD && !SHARDS.includes(SHARD)) throw new Error(`FIT_SHARD=${SHARD}: expected one of ${SHARDS.join(', ')}`)
+const SIZES = SHARD ? ALL_SIZES.filter(([w, h]) => `${w}x${h}` === SHARD) : ALL_SIZES
 
 /**
  * Vertical lanes allowed to scroll by themselves. Each one is a region whose content has no upper
@@ -347,7 +345,7 @@ async function openFirst(page, timeout = 20000) {
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor()
 }
 
-describe('the two lists of Inicio fill a window that grows', () => {
+describe('the two lists of Inicio fill a window that grows', { skip: !!SHARD && SHARD !== 'grow' }, () => {
   test('after growing, each list shows as many rows as when opened at the larger size', async () => {
     const context = await panel.browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'es-CL' })
     const page = await context.newPage()

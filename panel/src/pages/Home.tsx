@@ -93,6 +93,10 @@ export function Home() {
   useEffect(() => {
     void invalidateRoots(queryClient, ['inputs'])
   }, [started, ended, queryClient])
+  // A job that ends may have published messages (auto-publication, UD-070): the feed under the bar shows them without a reload.
+  useEffect(() => {
+    if (ended > 0) void invalidateRoots(queryClient, ['messages', 'areas'])
+  }, [ended, queryClient])
 
   const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
 

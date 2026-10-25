@@ -45,7 +45,8 @@ const runRow = {
     outcome: { type: 'string', nullable: true }, error_code: { type: 'string', nullable: true }, delivered: { type: 'boolean', nullable: true },
     transcript_ref: { type: 'string', nullable: true }, transcript_error: { type: 'string', nullable: true },
     deliver_job_id: { type: 'string', nullable: true }, delivery_ref: { type: 'string', nullable: true }, delivery_held: { type: 'boolean', nullable: true }, // the `deliver` job that followed the run and what its command printed (UD-263)
-    slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } }
+    slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    model_usage: { type: 'array', nullable: true, items: { type: 'object', additionalProperties: true }, description: 'Tokens and cost by model, subagents included.' }
   }
 }
 const periodQuery = {

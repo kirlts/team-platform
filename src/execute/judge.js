@@ -6,6 +6,7 @@
 // scored `applies: false` and is left out of its axis; it is never scored 0 to fill it. The axis target comes from the McGrath quadrant of the task (PPD-K, phase 1).
 import { get, run as runSql } from '../db/index.js'
 import { spawnStreaming } from './runners.js'
+import { costOfResult } from '../telemetry/pricing.js'
 
 export const AXES = Object.freeze([
   { axis: 1, name: 'Alineación estratégica' },
@@ -106,7 +107,7 @@ export async function runJudge ({ config, prompt, signal, run = (opts) => spawnS
     const out = result.structured_output
     if (!out || !Array.isArray(out.kpis) || !QUADRANTS[out.quadrant]) return null
     const kpis = out.kpis.filter((k) => KPIS.some((x2) => x2.id === k.id) && Number.isInteger(k.score) && k.score >= -2 && k.score <= 2)
-    return { model: x.judgeModel, quadrant: out.quadrant, kpis, axes: axisScores(kpis, out.quadrant), summary: String(out.summary ?? ''), cost: typeof result.total_cost_usd === 'number' ? result.total_cost_usd : null }
+    return { model: x.judgeModel, quadrant: out.quadrant, kpis, axes: axisScores(kpis, out.quadrant), summary: String(out.summary ?? ''), cost: costOfResult(result) }
   } catch { return null }
 }
 

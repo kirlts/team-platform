@@ -612,6 +612,22 @@ describe('execute job', () => {
       return { messageId, id: Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]) }
     }
 
+    it('a run whose subagents moved the tokens records them and the table price, not the CLI fallback rate (measured 2026-10-25, job 165)', async () => {
+      process.env.FAKE_EXECUTE_MODEL_USAGE = JSON.stringify({ 'claude-haiku-5-5': { inputTokens: 334, outputTokens: 84734, cacheReadInputTokens: 6302596, cacheCreationInputTokens: 196404, costUSD: 4.0957, costBasis: 'unknown' } })
+      try {
+        startWorker()
+        const { id } = await enqueueFirst()
+        const job = await waitJob(id)
+        assert.equal(job.status, 'done', job.last_error)
+        const r = rowOf(id)
+        assert.equal(r.cache_read_tokens, 6302596, 'the subagents\' reads are in the column, not only the session\'s own turns')
+        assert.ok(r.cost_usd > 0 && r.cost_usd < 1, `cost ${r.cost_usd}`)
+        assert.ok(Math.abs(env.db.prepare('SELECT cost_usd FROM jobs WHERE id = ?').get(id).cost_usd - r.cost_usd) < 1e-6, 'the daily budget counts the same figure')
+        const [m] = JSON.parse(r.model_usage_json)
+        assert.deepEqual([m.model, m.cli_cost_usd, m.cost_basis], ['claude-haiku-5-5', 4.0957, 'unknown'])
+      } finally { delete process.env.FAKE_EXECUTE_MODEL_USAGE }
+    })
+
     it('a finished run leaves one row with the times, the tokens, the cost and the ten slowest tools', async () => {
       process.env.FAKE_EXECUTE_MULTI = '1'
       startWorker()

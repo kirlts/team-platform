@@ -14715,7 +14715,7 @@
     },
     "/api/messages/{id}/deliver": {
       "post": {
-        "summary": "Encolar la entrega a producción de un mensaje (Editor)",
+        "summary": "Encolar la entrega a producción de un mensaje (cualquier persona activa, UD-286)",
         "tags": [
           "Messages"
         ],
@@ -14776,7 +14776,7 @@
     },
     "/api/messages/{id}/discard-delivery": {
       "post": {
-        "summary": "Descartar la rama de una entrega retenida (Editor)",
+        "summary": "Descartar la rama de una entrega retenida (cualquier persona activa, UD-286)",
         "tags": [
           "Messages"
         ],

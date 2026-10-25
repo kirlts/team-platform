@@ -14,7 +14,7 @@ test('there are at least six cases', () => {
 });
 
 for (const c of cases) {
-  const units = unitsOf(c.input);
+  const units = unitsOf(c.input, c.expected);
   const ids = units.map((u) => u.id);
 
   test(`${c.id}: the reference covers each numbered unit exactly once`, () => {
@@ -98,7 +98,7 @@ test('the steps case is one piece with a cap of three messages, never one messag
 test('the assertion accepts up to the cap on the steps case and fails ten messages, one per step', async () => {
   const { default: assertMece } = await import('./assert.mjs');
   const c = cases.find((x) => x.id === '10-funcionalidad-en-pasos');
-  const units = unitsOf(c.input);
+  const units = unitsOf(c.input, c.expected);
   const ids = c.expected.messages[0].unit_ids;
   const run = (messages) => assertMece({ status: 'ok', units, proposal: { messages, discarded: [] } }, { vars: { case: c.id } });
   const make = (groups) => groups.map((g, i) => ({ id: `m${i}`, title: `t${i}`, area_id: 3, template_id: 3, unit_ids: g }));

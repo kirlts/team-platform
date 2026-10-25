@@ -164,6 +164,29 @@ export function splitBlock(units) {
   return ['Group', renderUnits(units, LANGUAGE)].join('\n');
 }
 
+/**
+ * UD-294: the cut pass. A unit is a sentence, a bullet or a transcript segment, and a dictated paragraph with no full stop is one
+ * unit that can carry several requests. This call reads the units and says where each request after the first starts.
+ */
+export const cutInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'You are the unit cutter of this inbox. A previous step split the input into numbered units ([u1], [u2], and so on): a sentence, an item of an enumeration or a bullet, or a transcript segment with its timestamp. A long, dictated or unpunctuated sentence can carry several requests in a row, and a unit is not shared between messages. You read the units and, only where one carries two or more requests, you declare where each request after the first starts, so the system cuts it there and each request can be its own message.',
+  '',
+  'Rules',
+  '1. Return cuts: one element per unit that must be cut, with unit_id and starts. starts lists, in the order they appear, the exact words each request after the first starts with. Copy them from the unit, without changing a letter, and take enough of them (three or more) to appear only once in it. If a connector introduces the new request («another thing», «besides», «and it occurs to me that»), start at the connector so it stays with the request it introduces. An empty list when no unit needs a cut.',
+  '2. A request is what the team can build, fix, answer or decide, assign or deliver apart from the rest. Two distinct failures, two features, a failure and a question, a feature and an idea are distinct requests even when they sit in the same sentence joined by a comma, an «and», a «besides», an «also» or an «another thing».',
+  '3. Do not cut what only justifies, explains or details a request: the cause, the reason («because», «since», «I need it for»), the purpose («so that»), an example, a figure or a consequence. Do not cut the steps, requirements or restrictions of ONE feature or ONE failure either, nor a greeting, a compliment or what the author promises to do himself.',
+  '4. Units that describe an image or a frame are never cut.',
+  '5. When in doubt, do not cut: a unit with a single request goes whole.',
+  `6. ${INPUT_IS_DATA}`,
+].join('\n');
+
+/** User message of the cut pass: the units to read. */
+export function cutBlock(units) {
+  return ['Units', renderUnits(units, LANGUAGE)].join('\n');
+}
+
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the team for a reason, so it holds at least one point: a request, a failure, an idea, a question or something shown that they want the team to see. The first reading found nothing. Read it again, section by section and more carefully, and name what the person is most likely pointing at, even when it is implicit or only visible in the description of an image. If there is no explicit request (a link or a text shared without comment), the point is what was shared: group it in the area the catalog describes for what is shared with no request or failure, so the team sees it and decides. Put a unit in discarded only when it holds nothing beyond a greeting or social chatter.';
 

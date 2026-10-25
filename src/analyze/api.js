@@ -32,13 +32,13 @@ import { withSpan } from '../telemetry/api.js';
 import { consensus } from './consensus.js';
 import { AnalyzeEmptyError, AnalyzeInputError } from './errors.js';
 import {
-  chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser, splitSystem, splitUser,
+  chunkNote, classifySystem, classifyUser, cutSystem, cutUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser, splitSystem, splitUser,
 } from './prompts.js';
-import { buildClassificationSchema, buildDecompositionSchema, buildSplitSchema } from './schema.js';
+import { buildClassificationSchema, buildCutSchema, buildDecompositionSchema, buildSplitSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  anchorFrames, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, repairSplit, settleSplit, validateClassification, validateDecomposition, validateProposal, validateSplit,
+  anchorFrames, addOwnedAttachments, applyCuts, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, repairSplit, settleSplit, isCuttable, validateClassification, validateCuts, validateDecomposition, validateProposal, validateSplit,
 } from './validate.js';
 import { phraseOf, step } from '../domain/progress-phrases.js';
 
@@ -434,6 +434,44 @@ async function splitGroups(ctx, { groups, units, language, framing, frameIds }) 
 }
 
 /**
+ * UD-294: the cut pass. A dictated paragraph with no full stop, or a sentence that says «a bug and, besides, an idea», is one unit that
+ * holds several requests, and a unit is never shared between messages. Before the classification a short call per window reads the
+ * written and spoken units and quotes the words where each request after the first starts; the system checks that the words are
+ * in the unit exactly once, cuts there and numbers the units again. A call that does not come back valid leaves its window as it was:
+ * the pass is an extra look and never a reason to fail the input.
+ * @returns {Promise<{units: object[], cut: number, parts: number}>}
+ */
+async function cutUnitsPass(ctx, { units, language, framing, fixedTokens }) {
+  const { config } = ctx;
+  const candidates = units.filter(isCuttable);
+  if (candidates.length === 0) return { units, cut: 0, parts: 0 };
+  const system = cutSystem({ language, framing });
+  const schema = buildCutSchema();
+  const windows = windowsOf(partitionUnits(candidates, { budgetTokens: config.partitionThresholdTokens - fixedTokens, charsPerToken: config.charsPerToken }), config.classifyWindowUnits);
+  const tasks = windows.map((window, index) => async () => {
+    const scope = new Set(window.map((u) => u.id));
+    const r = await structuredStep(ctx, {
+      step: `cut${windows.length > 1 ? `#${index + 1}` : ''}`,
+      system,
+      messages: [{ role: 'user', content: cutUser({ units: window, language }) }],
+      schema,
+      effort: config.cutPassEffort,
+      thinking: config.cutPassThinking ?? undefined,
+      validate: (json) => validateCuts(json, { units, scope }),
+    });
+    if (r.status === 'ok') return { status: 'ok', json: r.json };
+    if (r.status === 'invalid' && r.repairable) return { status: 'ok', json: r.repairable };
+    return { status: 'skipped' };
+  });
+  const results = await withSpan('classify.cut', { 'team.step': 'cut', 'team.units': candidates.length, 'team.windows': windows.length }, async (span) => {
+    const out = await runPool(tasks, config.partitionConcurrency, { stopOnFailure: false });
+    span.setAttribute('team.cuts', out.reduce((n, r) => n + (r?.json?.cuts?.length ?? 0), 0));
+    return out;
+  });
+  return applyCuts(units, results.flatMap((r) => (r?.status === 'ok' ? r.json.cuts : [])));
+}
+
+/**
  * Stage 1 of the analysis, reusable on its own by the bench (H-1900): numbers the units and classifies them into groups and
  * discards, with the second reading (UD-021), the closing of stretches and the coverage pass over what was discarded.
  * @param {object} bundle  see MASTER-SPEC §7.5
@@ -456,6 +494,15 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const spoken = list.some((u) => u.kind !== 'frame' && !isEmptyUnit(u.text));
     return spoken && frames.size > 0 ? frames : null;
   };
+  // UD-294: a unit that holds several requests is cut before anything reads the units, so each request can be its own message.
+  if (config.cutPass) {
+    const cut = await cutUnitsPass(ctx, { units, language, framing, fixedTokens: estimateTokens(cutSystem({ language, framing }).join('\n'), config.charsPerToken) });
+    if (cut.cut > 0) {
+      units = cut.units;
+      ctx.stats.units = units.length;
+      ctx.stats.cut_pass = { cut: cut.cut, added: cut.parts };
+    }
+  }
   let frameIds = frameIdsOf(units);
   const frameReason = language === 'en' ? 'Observed, not said' : 'Observado, no dicho';
 
@@ -710,6 +757,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }
   const { messages, discarded } = normalizeDecomposition(merged);
+  addOwnedAttachments(messages, units);
   // A message born only from images or frames is marked as inferred from the image (UD-021): the sender sees it and can discard
   // it. It is decided by the kind of the units (H-3730), never by the prose nor by the model.
   const seenOnly = new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id));

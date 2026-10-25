@@ -140,7 +140,7 @@ describe('one request per message: spoken runs and declared resumes (H-3730)', (
     const bundle = await makeBundle({ text: '', attachments: [{ id: 1, kind: 'video', extracted: voice }] });
     two.messages = [bugMessage([1, 2, 5], 'A'), bugMessage([3, 4], 'B')];
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [group([1, 2, 3, 4, 5])], discarded: [] } : two) });
-    const result = await analyze(bundle, { providers: fake, config: { splitPass: false } });
+    const result = await analyze(bundle, { providers: fake, config: { splitPass: false, cutPass: false } });
     assert.equal(result.status, 'ok');
     assert.equal(result.stats.undeclared_runs, 1);
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[1, 2, 5], [3, 4]]);
@@ -153,7 +153,7 @@ describe('one request per message: spoken runs and declared resumes (H-3730)', (
 describe('the classification names the request of each group and the decomposition receives it (H-3730)', () => {
   it('the request goes to the user message of the decomposition of its group', async () => {
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [{ ...group([1, 2, 3]), requests: ['Quitar el rechazo sin comprobante'] }, { ...group([4, 5]), requests: ['Abrir el historial anterior'] }], discarded: [{ unit_ids: [6], reason: 'x' }] } : decompose(req)) });
-    const result = await analyze(await videoBundle(), { providers: fake });
+    const result = await analyze(await videoBundle(), { providers: fake, config: { cutPass: false } });
     assert.equal(result.status, 'ok');
     const notes = fake.calls.text.filter((r) => !isClassify(r)).map((r) => lastUserText(r).match(/(?:pedido de este grupo|request of this group as): «([^»]+)»/)?.[1]).sort();
     assert.deepEqual(notes, ['Abrir el historial anterior', 'Quitar el rechazo sin comprobante']);

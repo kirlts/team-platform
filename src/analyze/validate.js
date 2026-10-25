@@ -6,9 +6,9 @@
 // The system validates shape and sets: that the area exists, that each member and each attachment exist, that each
 // unit is in a message or in `discarded`. It never interprets the text a person wrote (§4.2).
 import Ajv from 'ajv';
-import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema, buildSplitSchema } from './schema.js';
+import { buildClassificationSchema, buildCutSchema, buildDecompositionSchema, buildProposalSchema, buildSplitSchema } from './schema.js';
 import { compileFieldsSchema, compileOutputSchema } from './templates.js';
-import { timeRange } from './units.js';
+import { isEmptyUnit, timeRange } from './units.js';
 
 export const ajv = new Ajv({
   allErrors: true,
@@ -311,6 +311,104 @@ export function applySplits(units, splits) {
     applied += 1;
   }
   return { units: out, applied };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cut pass (UD-294): a unit that holds several requests is cut where the model says each later one starts.
+// ---------------------------------------------------------------------------------------------
+
+/** True for a unit the cut pass may read: what a person wrote or said. A frame description, a table row and a unit with no content are never cut. */
+export function isCuttable(unit) {
+  return unit.kind !== 'frame' && !unit.table && !isEmptyUnit(unit.text);
+}
+
+/** Where each `start` of a cut begins in the unit, or the reason one of them cannot be used. Shape only: the words are in the unit once. */
+function cutPositions(cut, unit) {
+  const label = unit.kind === 'voice' ? (unit.text.match(VOICE_LABEL)?.[0] ?? '') : '';
+  const body = unit.text.slice(label.length);
+  const positions = [];
+  const problems = [];
+  for (const raw of cut.starts) {
+    const at = String(raw ?? '').trim();
+    const index = at === '' ? -1 : body.indexOf(at);
+    if (index <= 0) problems.push(`«${at}» is not inside the text of u${unit.id} after its first word; copy the words exactly`);
+    else if (body.indexOf(at, index + 1) !== -1) problems.push(`«${at}» appears more than once in u${unit.id}; copy more words`);
+    else positions.push(index);
+  }
+  return { label, body, positions: [...new Set(positions)].sort((a, b) => a - b), problems };
+}
+
+/**
+ * Validation of the cut pass: every cut names a unit of this scope that can be cut, and each quoted start is in it exactly once.
+ * What the retry does not fix comes back in `repairable`: `applyCuts` skips what does not hold.
+ * @param {any} output  `{cuts: [{unit_id, starts}]}`
+ * @param {{units: object[], scope: Set<number>}} ctx
+ */
+export function validateCuts(output, { units, scope }) {
+  const validate = compile(buildCutSchema({ validation: true }));
+  if (!validate(output)) return { errors: formatAjvErrors(validate.errors) };
+  const errors = [];
+  const seen = new Set();
+  output.cuts.forEach((cut, i) => {
+    const unit = units.find((u) => u.id === cut.unit_id);
+    if (!unit || !scope.has(unit.id)) errors.push(`cut ${i + 1}: unit ${cut.unit_id} is not in the units you were given`);
+    else if (!isCuttable(unit)) errors.push(`cut ${i + 1}: u${unit.id} cannot be cut (it describes an image or a frame, a table row or has no content of its own)`);
+    else if (seen.has(unit.id)) errors.push(`cut ${i + 1}: u${unit.id} already has a cut; put all its starts in one element`);
+    else cutPositions(cut, unit).problems.forEach((p) => errors.push(`cut ${i + 1}: ${p}`));
+    seen.add(cut.unit_id);
+  });
+  return errors.length > 0 ? { errors, repairable: output } : { errors: [] };
+}
+
+/**
+ * Cuts each declared unit at the words it quotes and numbers every unit again, in order, from 1. The parts keep the source, the kind,
+ * the time and the section of the unit; a voice part carries the label of its unit («[00:09-00:17] Voz:»), a chat part its sender.
+ * A start that is not in the unit, or is in it twice, is skipped; so is a cut on a unit that cannot be cut.
+ * @param {object[]} units
+ * @param {{unit_id: number, starts: string[]}[]} cuts
+ * @returns {{units: object[], cut: number, parts: number}}  `cut` units were cut, adding `parts` units
+ */
+export function applyCuts(units, cuts) {
+  const byUnit = new Map(cuts.map((c) => [c.unit_id, c]));
+  const out = [];
+  let cut = 0;
+  let added = 0;
+  for (const unit of units) {
+    const declared = byUnit.get(unit.id);
+    const { label, body, positions } = declared && isCuttable(unit) ? cutPositions(declared, unit) : { positions: [] };
+    if (positions.length === 0) {
+      out.push({ ...unit });
+      continue;
+    }
+    const edges = [0, ...positions, body.length];
+    const pieces = edges.slice(0, -1).map((from, k) => body.slice(from, edges[k + 1]).trim());
+    if (pieces.some((piece) => piece === '')) {
+      out.push({ ...unit });
+      continue;
+    }
+    pieces.forEach((piece, k) => {
+      const prefix = k === 0 ? label : (unit.kind === 'voice' ? label : (unit.sender ? `${unit.sender}: ` : ''));
+      out.push({ ...unit, label: `${unit.label}.c${k + 1}`, item: k === 0 ? unit.item : false, text: `${prefix}${piece}`.trim() });
+    });
+    cut += 1;
+    added += pieces.length - 1;
+  }
+  return { units: out.map((u, i) => ({ ...u, id: i + 1 })), cut, parts: added };
+}
+
+/**
+ * UD-294: a message carries the attachments its own units come from (the voice note that states the request, the screenshot whose
+ * description it cites), even when the model left them out of `attachment_ids`; what the model added as context stays. Ids only.
+ * @param {{unit_ids: number[], attachment_ids: number[]}[]} messages
+ * @param {{id: number, source: {type: string, attachment_id?: number}}[]} units
+ */
+export function addOwnedAttachments(messages, units) {
+  const owner = new Map(units.filter((u) => u.source?.type === 'attachment').map((u) => [u.id, u.source.attachment_id]));
+  for (const m of messages) {
+    const own = m.unit_ids.map((id) => owner.get(id)).filter((id) => id !== undefined);
+    m.attachment_ids = [...new Set([...m.attachment_ids, ...own])].sort((a, b) => a - b);
+  }
+  return messages;
 }
 
 /**

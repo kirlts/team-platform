@@ -2,7 +2,7 @@
   "id": "09-oracion-compuesta",
   "title": "Oraciones compuestas con dos puntos cada una",
   "kind": "texto corto",
-  "description": "Cada oración mezcla un elogio o un enlace con dos hechos accionables. La oración es una sola unidad y no se puede repartir entre mensajes, así que el mensaje que la cita tiene que recoger los dos hechos (campo mentions de expected.json). El saludo y la firma no son accionables.",
+  "description": "Cada oración mezcla un elogio o un enlace con dos hechos accionables. La oración es una unidad, así que antes de clasificar el paso de corte (UD-293) la parte donde empieza el segundo hecho y cada hecho es su propio mensaje (campo cuts de expected.json). El saludo y la firma no son accionables.",
   "text": "Hola equipo, les dejo lo que vi en la prueba de hoy.\n\nMe encanta cómo quedó el panel de equipo, pero el menú se corta en el teléfono y la página de ajustes tarda más de diez segundos en cargar.\n\nLa lista de entregas tarda casi un minuto en abrir y los botones se ven desalineados en la tableta.\n\nSaludos, Camila",
   "attachments": []
 }

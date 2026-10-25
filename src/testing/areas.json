@@ -13,7 +13,8 @@
   "areas": {
     "src/execute/": ["src/execute/*.test.js", "src/telemetry/execute-runs.test.js", "scripts/team.test.mjs"],
     "src/telemetry/": ["src/telemetry/*.test.js", "src/telemetry-integration.test.js"],
-    "src/analyze/": ["src/analyze/*.test.js"],
+    "src/analyze/": ["src/analyze/*.test.js", "bench/envios/*.test.js"],
+    "bench/": ["bench/*.test.js", "bench/envios/*.test.js"],
     "src/extract/": ["src/extract/*.test.js"],
     "src/providers/": ["src/providers/*.test.js"],
     "src/identity/": ["src/identity/*.test.js", "src/api/identity-host.test.js"],

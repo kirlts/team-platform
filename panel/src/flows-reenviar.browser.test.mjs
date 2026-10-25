@@ -61,5 +61,5 @@ describe('forwarding a message', () => {
     })
   }
 
-  // The refusal of a forward with no reason is checked once, on the real server: e2e/contrato/M4-reenviar-con-comentario.e2e.test.mjs.
+  // The refusal of a forward with no reason is checked once, on the real server: test M4 of the e2e contract suite.
 })

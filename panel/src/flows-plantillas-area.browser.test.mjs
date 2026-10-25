@@ -206,5 +206,5 @@ describe('the window of a template (UD-297)', () => {
   })
 })
 
-// The models of an area are the Editor's (UD-297): one test per guarantee, and it runs on the real server: e2e/contrato/A2-modelos-solo-editor.e2e.test.mjs
+// The models of an area are the Editor's (UD-297): one test per guarantee, and it runs on the real server: test A2 of the e2e contract suite
 // (the Editor sees both selectors, a member does not reach them, the API answers 403 and saves nothing).

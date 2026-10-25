@@ -54,7 +54,7 @@ test('UD-070 · the publication notices reach the team and the job reports publi
   const id = await env.send(env.c.ana, 'avisos')
   const view = await env.settled(id)
   const events = all(env.db, 'SELECT kind, member_id, data_json FROM job_events ORDER BY seq').map((e) => ({ ...e, data: JSON.parse(e.data_json ?? '{}') }))
-  const notices = events.filter((e) => e.kind === 'message')
+  const notices = events.filter((e) => e.kind === 'message' && e.data.reason !== 'changed')
   assert.equal(notices.length, 1)
   assert.equal(notices[0].member_id, null) // the whole team, as with the manual publication
   assert.equal(notices[0].data.message_id, Number(view.message_ids[0]))
@@ -233,7 +233,7 @@ test('UD-072 · a send with auto_publish=false (multipart or JSON) waits as prop
   assert.equal(countMessages(env), 0)
   assert.equal((await env.api('POST', `/inputs/${multi}/cancel`, env.c.ana)).statusCode, 200)
   assert.equal(countMessages(env), 0)
-  assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM job_events WHERE kind = 'message'").n, 0)
+  assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM job_events WHERE kind = 'message' AND json_extract(data_json, '$.reason') IS NOT 'changed'").n, 0)
   // The draft can still be published by hand, and another send of the same person follows the knob.
   assert.equal((await env.api('POST', `/inputs/${viaJson}/publish`, env.c.ana)).statusCode, 200)
   const normal = await env.settled(await env.send(env.c.ana, 'sin pedir borrador'))

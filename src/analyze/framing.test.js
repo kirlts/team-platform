@@ -45,9 +45,9 @@ test('a saved framing opens the system prompt of classification, decomposition a
   assert.ok(classifySystem({ areas: [], templates: [], language: 'en', framing: '  ' }).join('\n').startsWith(defaultFraming('en')))
 })
 
-test('GET and PATCH /settings/analysis: editor only, per language, capped, and blank goes back to the default', async () => {
+test('GET /settings/analysis for any person, PATCH editor only (UD-287), per language, capped, and blank goes back to the default', async () => {
   const env = await team({ config: { identity: { login: { ipMax: 1000 } }, analysis: { framingMaxChars: 200 } } })
-  assert.equal((await env.api('GET', '/settings/analysis', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/settings/analysis', env.c.ana)).statusCode, 200)
   assert.equal((await env.api('PATCH', '/settings/analysis', env.c.ana, { framing: { 'es-419': FRAMING } })).statusCode, 403)
   const start = (await env.api('GET', '/settings/analysis', env.c.ed)).json()
   assert.deepEqual(start.framing['es-419'], { value: defaultFraming('es-419'), default: defaultFraming('es-419'), custom: false })

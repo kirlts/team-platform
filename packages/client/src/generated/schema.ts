@@ -4659,7 +4659,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Editar un miembro, o desactivarlo y reactivarlo con `active`. El perfil sólo se edita aquí si el miembro es un agente (UD-281) y sólo lo cambia un Editor (UD-287); el de una persona lo edita ella con `PATCH /members/me` (UD-023) */
+        /** Editar un miembro, o desactivarlo y reactivarlo con `active`. El `profile` de cualquier miembro, persona o agente, sólo lo cambia un Editor (UD-287, UD-288); cada persona edita el suyo con `PATCH /members/me` (UD-023) */
         patch: {
             parameters: {
                 query?: never;

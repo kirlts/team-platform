@@ -4,7 +4,7 @@ import { Assessment, Bare, hasAssessment } from '@/components/Assessment'
 import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { Observed } from '@/components/Observed'
-import { DetailBody, JudgmentBody, TimingBody } from '@/components/Timing'
+import { DetailBody, hasTiming, JudgmentBody, TimingBody } from '@/components/Timing'
 import { useT } from '@/i18n'
 
 /**
@@ -36,7 +36,7 @@ function Shell({ message, template, timing }: { message: MessageDetail; template
   const parts = {
     observed: !!message.observed?.length,
     evaluation,
-    timing: !!data,
+    timing: hasTiming(data),
     detail: rows > 0,
     judgment: !!data?.judgment,
   }
@@ -50,11 +50,13 @@ function Shell({ message, template, timing }: { message: MessageDetail; template
           </Bare>
         )}
         {parts.evaluation && <Assessment message={message} template={template} bare />}
-        {parts.timing && (
+        {(parts.timing || parts.detail || parts.judgment) && (
           <div data-timing className="contents">
-            <Bare title={t('timing.title')}>
-              <TimingBody messageId={message.id} />
-            </Bare>
+            {parts.timing && (
+              <Bare title={t('timing.title')}>
+                <TimingBody messageId={message.id} />
+              </Bare>
+            )}
             {parts.detail && (
               <Bare title={t('timing.detail')}>
                 <DetailBody messageId={message.id} />

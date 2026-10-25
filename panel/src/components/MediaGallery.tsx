@@ -276,7 +276,7 @@ export function AddTile({ onAdd, busy = false }: { onAdd: () => void; busy?: boo
       title={t('published.addFiles')}
       disabled={busy}
       onClick={onAdd}
-      className="hit flex h-full min-h-[3.25rem] w-[3.25rem] items-center justify-center rounded-md border border-dashed border-line-strong text-muted hover:bg-hover hover:text-accent disabled:opacity-50"
+      className="hit flex h-[52px] w-[52px] items-center justify-center rounded-md border border-dashed border-line-strong text-muted hover:bg-hover hover:text-accent disabled:opacity-50"
     >
       <Plus size={18} aria-hidden />
     </button>

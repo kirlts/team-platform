@@ -555,18 +555,20 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
     }
   })
 
-  test('on a desktop each block is justified from the measured width up, and the gap stays within the reference (J3-A-21, UD-034)', async () => {
-    const { page, context } = await session('ana')
+  // UD-309: the thread is the 28 rem column at the right and the fields of the message sit in two columns, so at 1440 px the fields are
+  // narrower than the measure; the wide case is read at 1920 px, where each field has room for it.
+  test('on a wide desktop each block is justified from the measured width up, and the gap stays within the reference (J3-A-21, UD-034)', async () => {
+    const { page, context } = await session('ana', { width: 1920, height: 1080 })
     try {
       await openLongMessage(page)
       // The width the rule reads is the content box: the one the words have.
       const blocks = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => ({ width: el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight), align: getComputedStyle(el).textAlign })))
-      assert.ok(blocks.some((b) => b.align === 'justify'), 'at 1440 px there are justified paragraphs')
+      assert.ok(blocks.some((b) => b.align === 'justify'), 'at 1920 px there are justified paragraphs')
       const min = 29.2 * 15
       for (const b of blocks) assert.equal(b.align === 'justify', b.width >= min, `a block of ${Math.round(b.width)} px is aligned ${b.align}`)
       // The reference is the largest gap seen at 1440 px (UD-034): 14.2 px at 15 px of type.
       const worst = Math.max(...(await gaps(page)).map((g) => g.gap))
-      assert.ok(worst <= 19.5, `gap of ${worst} px between words at 1440 px`)
+      assert.ok(worst <= 19.5, `gap of ${worst} px between words at 1920 px`)
       // The alignment of a wide block is the hook `--prose-align`: the skin decides it (the default here is justified), and the block
       // that is narrower than the measure stays at the left whatever the skin says.
       const body = page.locator('[data-message-body] .prose-block').first()

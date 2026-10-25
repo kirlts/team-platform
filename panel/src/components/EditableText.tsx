@@ -102,7 +102,7 @@ export function EditableText({
   const box = cn('-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px', !prose && 'text-left')
 
   if (!canEdit) {
-    return <span className={cn(render && value ? 'block' : type, !value && 'text-faint', className)}>{value ? (render ? render(value) : value) : shown}</span>
+    return <span className={cn(render && value ? 'block' : cn(type, prose && 'block'), !value && 'text-faint', className)}>{value ? (render ? render(value) : value) : shown}</span>
   }
 
   const open = () => {

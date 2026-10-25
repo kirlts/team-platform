@@ -233,6 +233,7 @@ export const es419 = {
 
   'fields.required': 'Obligatorio',
   'fields.optional': 'Sin dato',
+  'fields.add': 'Agregar {label}',
   'fields.requiredError': 'Obligatorio',
 
   'area.none': 'Sin área',
@@ -358,6 +359,7 @@ export const es419 = {
   'assessment.irreversibility': 'Irreversibilidad',
   'assessment.certainty': 'Certeza',
   'assessment.none': 'Sin indicar',
+  'assessment.previous': 'Datos anteriores',
   'judgment.title': 'Adecuación',
   'judgment.none': 'Sin juicio',
   'judgment.axes': 'Ejes',

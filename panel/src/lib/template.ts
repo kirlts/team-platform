@@ -179,3 +179,37 @@ export function missingRequired(fields: Record<string, string | null> | null | u
 }
 
 export type WithFields = Pick<ProposalMessage | Message, 'fields'>
+
+/**
+ * What the analyzer writes in a required field its input does not answer. The prompt hands it this exact text (src/analyze/prompts-es.js), so the
+ * panel compares it as a marker of the protocol, never as a reading of what a person wrote.
+ */
+export const NOT_STATED = 'No indicado'
+
+/** A field has something to read when it is not empty and not the marker of «the input did not say». */
+export function isStated(value: string | null | undefined): boolean {
+  const v = (value ?? '').trim()
+  return v !== '' && v.replace(/\.$/, '').toLowerCase() !== NOT_STATED.toLowerCase()
+}
+
+/**
+ * Labels of the fields earlier templates asked for and today's no longer do (2026-10-25: the fields that stayed empty, repeated the text or asked the
+ * model something were retired). A message keeps what it already had under them; the key is a name, so its label is kept here.
+ */
+const RETIRED_LABELS: Record<string, string> = {
+  need: 'Necesidad', request: 'Pedido', users: 'Quién', acceptance: 'Listo cuando', later: 'Después',
+  actual: 'Qué pasa', expected: 'Se esperaba', where: 'Dónde', seen_by: 'Visto por',
+  question: 'Pregunta', for_decision: 'Para qué', evidence: 'Evidencia',
+  what: 'Acción', where_ops: 'Dónde', undoable: 'Reversible', limit_touched: 'Límite',
+  options: 'Opciones', recommendation: 'Recomendación', if_wrong: 'Si se equivoca', holder: 'Quién decide',
+  rule: 'Regla', enforced_in: 'Dónde se aplica', decision_touched: 'Decisión que toca',
+  value_missing: 'Valor faltante', limits: 'Límites', undo: 'Reversión',
+}
+
+/** What a message stores under names its template no longer has, when there is something to read. */
+export function retiredValues(values: Record<string, string | null> | null | undefined, template: readonly TemplateField[]): { name: string; label: string; value: string }[] {
+  const known = new Set(template.map((f) => f.name))
+  return Object.entries(values ?? {})
+    .filter(([name, v]) => !known.has(name) && isStated(v))
+    .map(([name, v]) => ({ name, label: RETIRED_LABELS[name] ?? name.replace(/_/g, ' '), value: (v as string).trim() }))
+}

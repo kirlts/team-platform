@@ -233,6 +233,7 @@ export const en: Record<MessageKey, Message> = {
 
   'fields.required': 'Required',
   'fields.optional': 'No value',
+  'fields.add': 'Add {label}',
   'fields.requiredError': 'Required',
 
   'area.none': 'No area',
@@ -358,6 +359,7 @@ export const en: Record<MessageKey, Message> = {
   'assessment.irreversibility': 'Irreversibility',
   'assessment.certainty': 'Certainty',
   'assessment.none': 'Not stated',
+  'assessment.previous': 'Earlier data',
   'judgment.title': 'Adequacy',
   'judgment.none': 'No judgement',
   'judgment.axes': 'Axes',

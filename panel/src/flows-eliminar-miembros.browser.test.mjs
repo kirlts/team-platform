@@ -1,6 +1,6 @@
 // UD-240, H-3703: an Editor deletes a member from Equipo, in a real browser against dev-server.mjs serving panel/dist
-// (`npm run test:flows`). UD-253: «Eliminar» deletes with one click, with everything of theirs, and no step that confirms it;
-// the notice says how much went. «Desactivar» stays as the other way out.
+// (`npm run test:flows`). UD-253: «Eliminar» deletes with one click and no step that confirms it; UD-292: what the member published stays
+// under «Miembro eliminado» and the notice says how much stays. «Desactivar» stays as the other way out.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
@@ -102,7 +102,7 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('with history: one click deletes him with his messages and replies, and the notice gives the figures', async () => {
+  test('with history: one click deletes him, his messages and replies stay under «Miembro eliminado», and the notice gives the figures', async () => {
     const { page, context } = await session('ana')
     try {
       const expected = await page.evaluate(async () => {
@@ -118,13 +118,20 @@ describe('Eliminar un miembro', () => {
       assert.ok(expected.messages > 0 && expected.replies > 0, 'Bruno has no history in the sample data')
       const row = rowOf(page, 'bruno@dev.invalid')
       await act(page, row, 'Bruno Prueba', 'Eliminar a Bruno Prueba')
-      await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Envíos 0 · Mensajes ${expected.messages} · Respuestas ${expected.replies}`, { exact: true }).waitFor()
+      await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Conserva ${expected.messages} mensajes y ${expected.replies} respuestas`, { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
       await settled(page)
       assert.equal(await rowOf(page, 'bruno@dev.invalid').count(), 0)
-      assert.ok(!(await members(page)).some((m) => m.email === 'bruno@dev.invalid'), 'the server still lists him')
-      const left = await page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/messages?limit=100')).json()).map((m) => m.id))
-      for (const id of expected.ids) assert.ok(!left.includes(id), `message ${id} of Bruno survived`)
+      assert.equal(await page.getByText('Miembro eliminado', { exact: true }).count(), 0, 'the placeholder is listed in Equipo')
+      const list = await members(page)
+      assert.ok(!list.some((m) => m.email === 'bruno@dev.invalid'), 'the server still lists him')
+      assert.equal(list.filter((m) => m.removed).length, 1)
+      const after = await page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/messages?limit=100')).json()).map((m) => ({ id: m.id, author: m.author_id })))
+      for (const id of expected.ids) assert.equal(after.find((m) => m.id === id)?.author, 'u-removed', `message ${id} of Bruno lost its place in the thread`)
+      await page.screenshot({ path: process.env.CAPTURE_DIR ? `${process.env.CAPTURE_DIR}/equipo-1440.png` : undefined })
+      await page.setViewportSize({ width: 390, height: 844 })
+      await settled(page)
+      await page.screenshot({ path: process.env.CAPTURE_DIR ? `${process.env.CAPTURE_DIR}/equipo-390.png` : undefined })
     } finally {
       await context.close()
     }

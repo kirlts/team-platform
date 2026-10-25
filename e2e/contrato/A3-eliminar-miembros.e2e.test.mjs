@@ -74,7 +74,7 @@ describe('A3: removing members keeps what they published; Super Admin is not a m
       await page.getByRole('button', { name: 'Agregar miembro' }).waitFor()
       assert.equal(await page.getByText(/super\s*admin/i).count(), 0, 'A3: Equipo shows Super Admin')
       await page.goto(h.origin)
-      await page.getByRole('button', { name: 'Para' }).click()
+      await page.getByTestId('compose-to').getByRole('button', { name: 'Para' }).click()
       await page.getByRole('listbox, menu, dialog').first().waitFor().catch(() => {})
       assert.equal(await page.getByText(/super\s*admin/i).count(), 0, 'A3: the «Para» control offers Super Admin')
     } finally { await context.close() }

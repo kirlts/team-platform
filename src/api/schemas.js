@@ -36,14 +36,14 @@ export const member = {
   properties: {
     id, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string', enum: ['member', 'editor'] },
     kind: { type: 'string', enum: ['person', 'agent'], description: '«agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.' },
-    profile: { type: 'string' }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, created_at: { type: 'string' }
+    profile: { type: 'string' }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, removed: { type: 'boolean', description: 'Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige.' }, created_at: { type: 'string' }
   },
   required: ['id', 'email', 'name', 'role', 'language', 'active']
 }
 
 export const templateSummary = {
   type: 'object',
-  properties: { id, area_id: id, name: { type: 'string' }, description: { type: 'string' }, updated_at: { type: 'string' }, deleted_at: nullableText }
+  properties: { id, area_id: id, name: { type: 'string' }, description: { type: 'string' }, progress_interval_min: { type: 'integer', description: 'Minutes between two progress notices while Claude works (0 = off; UD-293).' }, updated_at: { type: 'string' }, deleted_at: nullableText }
 }
 
 export const template = {
@@ -57,9 +57,9 @@ export const area = {
     id, title: { type: 'string' }, description: { type: 'string' }, position: intVar, color: { type: 'string', description: 'Area color, `#rrggbb` (UD-045).' }, deleted_at: nullableText,
     open_count: intVar, unresolved_count: intVar, template_count: intVar,
     escalation_member_id: { type: ['string', 'null'], description: 'The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor.' },
-    execute_model: { type: ['string', 'null'], description: 'The larger model of the area: where the light model\'s work escalates and the one of a message with no estimates; its own, or the installation\'s default (UD-292).' },
-    execute_model_light: { type: ['string', 'null'], description: 'The light model of the area: its own, or the installation\'s light model (UD-292).' },
-    guards: { type: 'array', description: 'The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.', items: { type: 'object', properties: { id: { type: 'integer' }, text: { type: 'string' }, mechanism: { type: 'string' }, person: { type: 'boolean' } } } },
+    execute_model: { type: ['string', 'null'], description: 'The larger model of the area: where the light model\'s work escalates and the one of a message with no estimates; its own, or the installation\'s default (UD-295).' },
+    execute_model_light: { type: ['string', 'null'], description: 'The light model of the area: its own, or the installation\'s light model (UD-295).' },
+    guards: { type: 'array', description: 'The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.', items: { type: 'object', properties: { id: { type: 'integer' }, text: { type: 'string' }, mechanism: { type: 'string' }, person: { type: 'boolean' } } } },
     handoffs: { type: 'array', description: 'Handoffs to a person in the last 7 days, by person (UD-269).', items: { type: 'object', properties: { member_id: id, count: intVar } } },
     templates: { type: 'array', items: templateSummary }
   }
@@ -97,7 +97,7 @@ export const messageCard = {
     title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
-    assessment: { type: 'object', description: 'What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.', properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, estimates: { type: ['object', 'null'], additionalProperties: true, properties: { understand_vs_create: { type: 'number' }, irreversibility: { type: 'number' }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number' }, reason: { type: 'string' } } }, by: { ...nullableId, description: 'The person who changed it by hand; null while it is the analyzer\'s.' } } },
+    assessment: { type: 'object', description: 'What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.', properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, estimates: { type: ['object', 'null'], additionalProperties: true, properties: { understand_vs_create: { type: 'number' }, irreversibility: { type: 'number' }, value_holder: { type: 'string', enum: ['person', 'model'] }, certainty: { type: 'number' }, reason: { type: 'string' } } }, by: { ...nullableId, description: 'The person who changed it by hand; null while it is the analyzer\'s.' } } },
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
     attachment_kinds: { type: 'array', items: { type: 'string' } },
@@ -115,6 +115,7 @@ export const messageDetail = {
     trace_id: { ...nullableText, description: 'Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution.' },
     observed: { type: 'array', items: { type: 'string' }, description: 'What a video frame shows and nobody says, outside the body; empty when there is none.' },
     replies: { type: 'array', items: reply },
+    progress_notes: { type: 'array', description: 'Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.', items: { type: 'object', properties: { id, message_id: id, job_id: id, author_id: id, body: { type: 'string' }, minutes: { type: ['integer', 'null'] }, created_at: { type: 'string' } } } },
     pending_delivery: {
       type: 'object', nullable: true,
       description: 'UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.',

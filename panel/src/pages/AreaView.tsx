@@ -120,7 +120,7 @@ function AreaViewBody({ area }: { area: Area }) {
       </header>
       <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider}>
         <AreaModels area={area} canEdit={me?.role === 'editor'} onChange={changeModel} />
-        {/* UD-292: next to the models, the Guards of the area: the walls, in a window of their own. */}
+        {/* UD-295: next to the models, the Guards of the area: the walls, in a window of their own. */}
         <AreaGuards area={area} canEdit={me?.role === 'editor'} />
       </AreaOwner>
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
@@ -208,7 +208,7 @@ function AreaOwner({ area, canEdit, onChange, children }: { area: Area; canEdit:
 }
 
 /**
- * The two Claude models of the area (UD-292): the light one, which takes what the analyzer estimates within its limits, and the larger one, where its work escalates and which takes the rest.
+ * The two Claude models of the area (UD-295): the light one, which takes what the analyzer estimates within its limits, and the larger one, where its work escalates and which takes the rest.
  * Two selects, each the field: they save on change (Editor only).
  */
 function AreaModels({ area, canEdit, onChange }: { area: Area; canEdit: boolean; onChange: (field: 'execute_model' | 'execute_model_light', id: string) => void | Promise<unknown> }) {

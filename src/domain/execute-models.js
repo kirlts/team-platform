@@ -1,4 +1,4 @@
-// The Claude models an area can run its unattended session with (UD-292), and which one runs a message.
+// The Claude models an area can run its unattended session with (UD-295), and which one runs a message.
 //
 // The list is closed: the current generation of the Claude API, with the ids exactly as the models overview gives them
 // (platform.claude.com/docs/en/about-claude/models/overview, read 2026-10-25). Mythos 5.1 is left out (limited availability) and so are the
@@ -22,7 +22,7 @@ export const labelOfModel = (id) => EXECUTE_MODELS.find((m) => m.id === id)?.lab
 /**
  * The model that runs `messageId`'s session and why: `{ model, source, estimates }`.
  *   estimates present   the area's light model while the analyzer's estimates stay within `limits` (see `modelFor`), else the area's larger one.
- *   no estimates        the larger one (what every message ran with before UD-292).
+ *   no estimates        the larger one (what every message ran with before UD-295).
  *   `escalated`         the session of the light model did not close (measured, see the handler): the larger one, never the light one again.
  * `source` says which applied: `light`, `major`, `escalated` or `legacy`. The area's larger model defaults to `fallback` (EXECUTE_MODEL), its light one to `light` (EXECUTE_LIGHT_MODEL).
  */

@@ -4,7 +4,7 @@ import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /**
- * What the analyzer says a message touches (UD-292), on its card: one badge for each Guard of its area that the message touches, and one when the value that is missing is a person's.
+ * What the analyzer says a message touches (UD-295), on its card: one badge for each Guard of its area that the message touches, and one when the value that is missing is a person's.
  * Only a Guard is a yes or no (Kairós): the estimates are continuous and live in the detail of the message. Nothing here is a control; the person changes it in the detail.
  */
 export function AssessmentMarks({ message, className }: { message: Pick<Message, 'area_id' | 'assessment'>; className?: string }) {

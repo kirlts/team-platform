@@ -370,7 +370,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       if (error?.code === 'deliver_failed' && !payload.requested_by && round < x.deliverRetries) {
         try {
           again = events.transaction(() => {
-            // UD-292: the checks stayed red after the light model's own attempt (the verification of the delivery is the measurement): the second pass runs on the area's escalation model.
+            // UD-295: the checks stayed red after the light model's own attempt (the verification of the delivery is the measurement): the second pass runs on the area's escalation model.
             const ranWith = get(db, 'SELECT model FROM jobs WHERE id = ?', payload.execute_job_id)?.model ?? null
             const stronger = ranWith && ranWith === x.lightModel ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, escalated: true }).model : null
             const escalate = stronger !== null && stronger !== ranWith

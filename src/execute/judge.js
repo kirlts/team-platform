@@ -1,4 +1,4 @@
-// The judgement of a finished job with the IMK (UD-292, Instrumento de Medición Kairós 4.0): four axes, twelve KPI from -2 to +2, each with a quote, a claim and its reasoning
+// The judgement of a finished job with the IMK (UD-295, Instrumento de Medición Kairós 4.0): four axes, twelve KPI from -2 to +2, each with a quote, a claim and its reasoning
 // (the annotated scoring of PPD-K, phase 2). A cheap model judges the reply, the output and the evidence of the job; it is saved with the job and shown in its detail. It answers
 // «how adequate was what it did», which the estimates and the limits of the light model only guess before the work: that adequacy is what says whether the light model was enough.
 //

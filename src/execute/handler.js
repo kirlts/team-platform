@@ -44,6 +44,8 @@ import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
+import { startProgressNotices } from './progress-timer.js'
+import { DEFAULT_PROGRESS_INTERVAL_MIN } from '../domain/progress-notes.js'
 
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
@@ -83,7 +85,7 @@ export function stderrTail (text, chars = STDERR_TAIL_CHARS) {
 }
 
 /**
- * What the analyzer expects of this session and which walls of the area the message touches (UD-292), as the text of the `expectation` block. The mechanism that holds each Guard is
+ * What the analyzer expects of this session and which walls of the area the message touches (UD-295), as the text of the `expectation` block. The mechanism that holds each Guard is
  * named so the session knows where the wall is; it is not asked to remember it. Empty when the analyzer said nothing.
  */
 export function assessmentText (message, db) {
@@ -110,7 +112,7 @@ export const SYSTEM_FILE_ON_MACHINE = '@JOB_DIR@/system.md'
 export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type: 'command', command: 'team mentions' }] }] } }
 
 /**
- * The hooks the invocation declares (UD-292). A hard rule is not a paragraph the model has to remember: it is a hook that runs whether it remembers or not.
+ * The hooks the invocation declares (UD-295). A hard rule is not a paragraph the model has to remember: it is a hook that runs whether it remembers or not.
  * Every session has the live mentions. A direct fix on the area's light model also has `team map` at the start (the short map of the repository as context), `team guard` before every Bash call (no push to `main`, no forced push) and, when
  * the host declares it (EXECUTE_DIRECT_STOP_COMMAND), its check at the end: the command gets the event as JSON on stdin, exit 2 with the reason on stderr sends the
  * session back to work, and it must exit 0 when `stop_hook_active` is true so a session is held once, not forever.
@@ -128,7 +130,7 @@ export function sessionSettings ({ light = false, assessed = false, stopCommand 
   return { hooks }
 }
 
-/** The arguments of `claude -p` (UD-255). `light`: a direct fix on the area's own direct model (UD-292). */
+/** The arguments of `claude -p` (UD-255). `light`: a direct fix on the area's own direct model (UD-295). */
 export function claudeArgs (x, schema, { light = false, assessed = false } = {}) {
   return [
     '-p',
@@ -236,7 +238,7 @@ export function failureBody (error, language, { timeoutMs = 0, mentionAgent = nu
 
 const fingerprint = (m) => JSON.stringify([m.title, m.body, m.fields_json, m.area_id, m.template_id])
 
-export function createExecuteHandler ({ db, config, queue, events, vault, logger = null, now = Date.now }) {
+export function createExecuteHandler ({ db, config, queue, events, vault, logger = null, now = Date.now, progressUnitMs = 60_000 /* calendar constant: one minute; a test shortens it */ }) {
   const x = config.execute
   const ajv = new Ajv({ allErrors: true, strict: false })
 
@@ -374,12 +376,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const secret = readAgentSecret(db, vault, agent.id)
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
-    // UD-292: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
+    // UD-295: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
     const { model, estimates } = resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: payload.escalated === true })
-    const light = model === x.lightModel // the light model (Haiku 5.5): the minimal prompt, the narrow tools, the map and the hooks of UD-292 apply
+    const light = model === x.lightModel // the light model (Haiku 5.5): the minimal prompt, the narrow tools, the map and the hooks of UD-295 apply
     rec.model = model
     rec.light = light
-    const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
+    const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown, progress_interval_min FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
     let declared
     try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
@@ -404,7 +406,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null, reviewing: review !== null, light })
     const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
     let hostInstructions = ''
-    // UD-292: the host's minimal version of its rules for a light session, when it declares one.
+    // UD-295: the host's minimal version of its rules for a light session, when it declares one.
     const hostFile = light && x.directHostInstructions ? x.directHostInstructions : x.hostInstructions
     if (hostFile) {
       try { hostInstructions = await readFile(hostFile, 'utf8') } catch (error) {
@@ -451,6 +453,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     rec.began = true
 
     let session = null // spans of the tools and subagents, alive while the `run` phase is
+    let notices = { stop () {} } // the clock of the progress notices (UD-293), alive while the `run` phase is
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
       budgetUsd,
@@ -471,7 +474,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const phase = (name, fn) => withSpan(`execute.${kind}.${name}`, { 'team.step': `execute.${kind}.${name}`, 'team.runner': x.runner }, async (span) => {
       setPhase(name)
       const phaseStart = now()
-      if (name === 'run') session = createSessionTracer({ model })
+      if (name === 'run') {
+        session = createSessionTracer({ model })
+        // UD-293: from here until the session ends, a notice in the thread every `progress_interval_min` of the template.
+        notices = startProgressNotices({ db, events, now, logger, jobId: job.id, messageId, authorId: memberId, language: author?.language, intervalMin: templateRow?.progress_interval_min ?? DEFAULT_PROGRESS_INTERVAL_MIN, unitMs: progressUnitMs, reader })
+      }
       try {
         const r = await fn()
         if (r && typeof r === 'object' && 'code' in r) {
@@ -480,7 +487,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         }
         return r
       } finally {
-        if (name === 'run') { rec.session = session?.finish(span) ?? null; session = null }
+        if (name === 'run') { notices.stop(); rec.session = session?.finish(span) ?? null; session = null }
         rec.phaseMs[name] = Math.max(0, now() - phaseStart)
       }
     })
@@ -602,7 +609,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
-    // UD-292: the IMK judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Not when the work goes on in a stronger model:
+    // UD-295: the IMK judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Not when the work goes on in a stronger model:
     // the judge reads the end of the work. A judge that cannot run leaves the job unjudged; the job does not depend on it.
     const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked')
     let judgment = null
@@ -635,7 +642,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
       const edited = fingerprint(now_) !== startedWith
       if (judgment) saveJudgment(db, { jobId: job.id, messageId, judgment, workedWith: model, now })
-      // UD-292: the session of the light model says, as a parameter, that it could not close, or ends `blocked`: the work is relaunched once on the area's escalation model,
+      // UD-295: the session of the light model says, as a parameter, that it could not close, or ends `blocked`: the work is relaunched once on the area's escalation model,
       // on the same branch, and the thread says so. What the system reads is the field and the outcome, never the words; never the other way round and never twice.
       const stronger = light && payload.escalated !== true ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: true }).model : null
       if (stronger && stronger !== model && (cannotClose === true || output.outcome === 'blocked') && !edited) {

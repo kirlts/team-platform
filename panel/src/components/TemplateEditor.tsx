@@ -13,13 +13,30 @@ import { SaveDot, type SaveTone } from './SaveDot'
 
 /** Longest label the server accepts for a field (src/analyze/templates.js, FIELD_LABEL_MAX). */
 const LABEL_MAX = 120
+/** Most minutes between two progress notices the server accepts (src/domain/progress-notes.js, MAX_PROGRESS_INTERVAL_MIN). */
+const PROGRESS_MAX = 1440
 
 /**
  * What a person edits of a template: its fields (label and whether it is required) and the instructions to the
  * model. The file with its frontmatter (J1-A-32) is built from these parts and never shown. Each change goes out
  * as a whole file through `onSave`, so the caller can make it an operation that Deshacer takes back.
  */
-export function TemplateContentEditor({ name, description, markdown, onSave }: { name: string; description: string; markdown: string; onSave: (next: string) => void | Promise<unknown> }) {
+export function TemplateContentEditor({
+  name,
+  description,
+  markdown,
+  onSave,
+  progressInterval,
+  onProgressInterval,
+}: {
+  name: string
+  description: string
+  markdown: string
+  onSave: (next: string) => void | Promise<unknown>
+  /** Minutes between two progress notices while Claude works (UD-293); with `onProgressInterval`, the editor shows «Avisos de progreso». */
+  progressInterval?: number
+  onProgressInterval?: (next: number) => void | Promise<unknown>
+}) {
   const t = useT()
   const errorText = useErrorText()
   const fields = useMemo(() => parseTemplateFields(markdown), [markdown])
@@ -85,6 +102,8 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
         </p>
       )}
 
+      {onProgressInterval && <ProgressInterval value={progressInterval ?? 0} onSave={onProgressInterval} />}
+
       <section aria-label={t('templates.instructions')} className="flex flex-col gap-3">
         <h2>{t('templates.instructions')}</h2>
         <div className="rounded-lg bg-surface px-4 py-3">
@@ -92,6 +111,31 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
         </div>
       </section>
     </div>
+  )
+}
+
+/** «Avisos de progreso» (UD-293): the minutes between two notices in the thread while Claude works; 0 turns them off. Edited in place like the rest. */
+function ProgressInterval({ value, onSave }: { value: number; onSave: (next: number) => void | Promise<unknown> }) {
+  const t = useT()
+  const [editing, setEditing] = useState(false)
+  const rule = (v: string) => (/^\d+$/.test(v.trim()) && Number(v) <= PROGRESS_MAX ? null : t('templates.progressRule', { n: PROGRESS_MAX }))
+  return (
+    <section aria-label={t('templates.progress')} className="flex flex-col gap-3">
+      <h2>{t('templates.progress')}</h2>
+      <div className="flex items-baseline gap-2 rounded-lg bg-surface px-4 py-3">
+        <EditableText
+          value={String(value)}
+          label={t('templates.progress')}
+          validate={rule}
+          onSave={(v) => onSave(Number(v.trim()))}
+          onEditingChange={setEditing}
+          className="w-24"
+          displayClassName="font-medium tabular-nums"
+          render={(v) => (v === '0' ? t('templates.progressOff') : v)}
+        />
+        {(editing || value > 0) && <span className="text-sm text-muted">{t('templates.progressUnit')}</span>}
+      </div>
+    </section>
   )
 }
 

@@ -83,6 +83,33 @@ export function buildSplitSchema({ validation = false } = {}) {
   };
 }
 
+/**
+ * Schema of the cut pass: the units that hold more than one request, each with the words where every request after the first
+ * starts. The words are copied from the unit; the system checks that each one is in it exactly once and cuts there
+ * (`applyCuts`). It decides nothing about the meaning of the text: the model says where, the system checks the form.
+ */
+export function buildCutSchema({ validation = false } = {}) {
+  return {
+    type: 'object',
+    properties: {
+      cuts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            unit_id: { type: 'integer' },
+            starts: { type: 'array', items: validation ? { type: 'string', minLength: 1 } : { type: 'string' } },
+          },
+          required: ['unit_id', 'starts'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['cuts'],
+    additionalProperties: false,
+  };
+}
+
 function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
   // `unit_ids` goes first: the model anchors the message to its evidence before writing it (report 02 §6.2).
   // All the properties are required, so the output order is that of the schema [F1].
@@ -97,7 +124,7 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       title: text,
       fields: fieldsSchema,
       body: text,
-      // UD-292: what the analyzer says about the request beyond its text (KAIROS-PARA-TEAM-PLATFORM.md of the host): what is expected of Claude in natural words, the Guards of the
+      // UD-295: what the analyzer says about the request beyond its text (KAIROS-PARA-TEAM-PLATFORM.md of the host): what is expected of Claude in natural words, the Guards of the
       // area it touches (the one boolean thing) and continuous estimates with their reason. They go before the assignees: who answers depends on them. The grammar cannot bound a number
       // (Anthropic does not support `minimum`/`maximum` in it), so the range is checked by the validation and by the system.
       expectation: { type: 'string' },

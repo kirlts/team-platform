@@ -1,4 +1,4 @@
--- The models of the unattended session per area, the Guards of an area, what the analyzer estimates about each message and the judgement of each job (UD-292). Forward only; the runner opens the transaction.
+-- The models of the unattended session per area, the Guards of an area, what the analyzer estimates about each message and the judgement of each job (UD-295). Forward only; the runner opens the transaction.
 --   areas.execute_model          the larger model: the one the light model's work escalates to and the one of a message with no estimates; NULL reads as EXECUTE_MODEL (what every area ran with until now).
 --   areas.execute_model_light    the light model: the one of a message whose estimates stay within the limits; NULL reads as EXECUTE_LIGHT_MODEL (Haiku 5.5).
 --   areas.guards_json            the Guards of the area, `[{ id, text, mechanism, person }]`: the walls, each with the mechanism that holds it. The Editor writes them (a configured text).

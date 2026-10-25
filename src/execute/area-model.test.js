@@ -1,4 +1,4 @@
-// UD-292: the model of the unattended session comes from the area and from what the analyzer estimates about the message, never from a box a level puts it in. The light model takes
+// UD-295: the model of the unattended session comes from the area and from what the analyzer estimates about the message, never from a box a level puts it in. The light model takes
 // what stays within its limits, the area's larger one the rest; a person's Guard puts a person on the message next to Claude; a session of the light model that cannot close goes on
 // in the larger one, on the same branch, and the thread says so; every finished job is judged with the IMK.
 import assert from 'node:assert/strict'

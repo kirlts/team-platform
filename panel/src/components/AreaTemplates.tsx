@@ -168,7 +168,7 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
   const output = useMemo(() => parseTemplateOutput(template.body_markdown), [template.body_markdown])
 
-  const change = (field: 'name' | 'description' | 'body_markdown', next: string) => {
+  const change = <F extends 'name' | 'description' | 'body_markdown' | 'progress_interval_min'>(field: F, next: Template[F]) => {
     const prev = template[field]
     return undo.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: template.id, [field]: next }), undo: () => save.mutateAsync({ id: template.id, [field]: prev }) })
   }
@@ -227,6 +227,8 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
         description={template.description}
         markdown={template.body_markdown}
         onSave={(next) => change('body_markdown', next)}
+        progressInterval={template.progress_interval_min ?? 0}
+        onProgressInterval={(next) => change('progress_interval_min', next)}
       />
     </article>
   )

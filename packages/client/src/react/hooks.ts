@@ -349,7 +349,7 @@ export function useSetClosed() {
   return useMutation({ mutationFn: (v: { id: string; closed: boolean }) => client.messages.setClosed(v), onSuccess: () => inv('setClosed') })
 }
 
-/** Changes the assessment of a message by hand (PUT /messages/:id/assessment, UD-292). */
+/** Changes the assessment of a message by hand (PUT /messages/:id/assessment, UD-295). */
 export function useSetAssessment() {
   const client = useTeamClient()
   const inv = useInvalidate()

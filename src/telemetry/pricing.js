@@ -35,7 +35,7 @@ const SONNET_5_5 = Object.freeze({
 
 // Opus 5.5: 4 USD input and 20 output per million tokens, cache read 0.20, cache write 5 at 5 minutes and 8 at 1 hour (1.25 and 2 times the input), no
 // long-prompt tier. Fable 5.1: 10 USD input and 50 output, cache read 0.25, cache write 12.50 and 20, no tier. Both for the models an area can run its
-// unattended session with (UD-292). Source: platform.claude.com/docs/en/about-claude/pricing, read on 2026-10-25.
+// unattended session with (UD-295). Source: platform.claude.com/docs/en/about-claude/pricing, read on 2026-10-25.
 const OPUS_5_5 = Object.freeze({
   inputPerMTok: 4,
   outputPerMTok: 20,

@@ -53,7 +53,7 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
         close_reason: { type: 'string', description: 'One line in the reply language: why nothing is left for the sender. Required with close true.' }
       }
     : {}
-  // UD-292: a session on the light model says, as a parameter, that it cannot close the work: the system reads the field and relaunches the work on the escalation model.
+  // UD-295: a session on the light model says, as a parameter, that it cannot close the work: the system reads the field and relaunches the work on the escalation model.
   const escalation = light || validation
     ? { cannot_close: { type: 'boolean', description: 'true when you could not finish the work with what you have: the checks stay red after your own attempts, the change turned out bigger than the message says, or you are guessing. The system then continues on a stronger model, on the same branch. false or omitted when you finished.' } }
     : {}
@@ -93,7 +93,7 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
 }
 
 /**
- * The stable part of a direct fix on a light model (UD-292): the same duties in a third of the words. What a hard rule needs is not said here
+ * The stable part of a direct fix on a light model (UD-295): the same duties in a third of the words. What a hard rule needs is not said here
  * as prose but enforced by hooks the invocation declares (`sessionSettings`): the checks before finishing, the map of the repository at the start.
  * The prompt describes the space the model works in; it does not ask it to remember rules. Tokens of this part, measured: docs/investigaciones/mediciones/.
  */
@@ -153,7 +153,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
       ? '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`. When the work and the checks are done, push the branch: the system delivers it to production after you finish.'
       : '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`: leave the branch; a person delivers it.',
     '- Run the checks the repository asks for the parts you touched before you finish.',
-    '- Checks (UD-292). You may be the light model: the checks are the whole safeguard. Before you push, run the tests that cover every file you changed and the ones the repository calls critical (its CLAUDE.md and rules say which). Do not end with `outcome` `done` while one of them fails or none covers the change: write the missing test first. A change that draws a screen carries its walkthrough video and screenshots, and `summary` says what to look at. If you cannot finish it with what you have (the checks stay red after your own attempts, the change is bigger than the message says, or you are guessing), end with `cannot_close` true and say what you did in `summary`: the system continues on a stronger model, on the same branch.',
+    '- Checks (UD-295). You may be the light model: the checks are the whole safeguard. Before you push, run the tests that cover every file you changed and the ones the repository calls critical (its CLAUDE.md and rules say which). Do not end with `outcome` `done` while one of them fails or none covers the change: write the missing test first. A change that draws a screen carries its walkthrough video and screenshots, and `summary` says what to look at. If you cannot finish it with what you have (the checks stay red after your own attempts, the change is bigger than the message says, or you are guessing), end with `cannot_close` true and say what you did in `summary`: the system continues on a stronger model, on the same branch.',
     '## Replies to the sender (at least two)',
     '1. Examine the situation first, changing nothing: read the message and, when it points at something on a screen, look at that place the way the rules of the host say, before you read any code. If the request is not yours (`your_profile` and the template say who takes it), end at once with `outcome` `not_mine` and the reason in one line as `summary`, and send no reply. Otherwise send the first reply after that look, not before: what you saw, what you understood and where you start, in two or three short plain sentences for someone who is not technical, with no file paths, component names or jargon. A screenshot you took goes in this same reply with `--captures` (the «before»); if none of them is accepted the command posts nothing and exits non-zero, so fix the captures and call it again. Example: `team reply <message id> --body "Veo … Empiezo por …" --captures <json|file>`, with the id of the `message` block. If the `job` block says this is a second pass after a failed delivery, the sender already got your first reply: do not send another one.',
     '2. When you finish, your final structured output carries `summary`: two short paragraphs addressed directly to the sender (the `sender` block), in the reply language of the `job` block, written the way you would brief a project manager and for their profile: what happened, what changes for the people who use the product and the decision that is left to them, if any. No file paths, file names, commands, component names or jargon, and a figure only when it matters to them. The reply carries nothing else of your output: the technical fields are kept apart for whoever wants them. The worker posts it as your closing reply; do not post it yourself. If the first reply carried a screenshot, take the same place again once the change is done and list it in `captures` (the «after»). The rest of the output follows the template\'s output format.',
@@ -178,7 +178,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     // -- What changes with the message --
     block('sender', `${author.name}\n\n${author.profile ?? ''}`),
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
-    // UD-292: what the analyzer says is expected of this session, in its own words, and the walls of the area this message touches (the mechanism that holds each is the system's).
+    // UD-295: what the analyzer says is expected of this session, in its own words, and the walls of the area this message touches (the mechanism that holds each is the system's).
     ...(assessment ? [block('expectation', assessment)] : []),
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     ...(mention ? [block('mentioned', mention)] : []), // UD-278: who called the agent and the whole thread (src/execute/mention-context.js)

@@ -180,7 +180,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // Without an active area that has an active template the analysis can never place a message: fail before spending the
         // extraction (a video takes minutes), with a code of its own instead of the analyzer's generic `input`.
         // Only areas that have a template to place a message in: an area without one offered to the model could be chosen, and its group could not be published.
-        // UD-292: each area carries its Guards (the walls the analyzer cites by id), next to the description that describes its space.
+        // UD-295: each area carries its Guards (the walls the analyzer cites by id), next to the description that describes its space.
         const areas = all(db, 'SELECT a.id, a.title, a.description, a.position, a.guards_json FROM areas a WHERE a.deleted_at IS NULL AND EXISTS (SELECT 1 FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) ORDER BY a.position, a.id')
           .map(({ guards_json: guards, ...a }) => ({ ...a, guards: guardsList(guards) }))
         const templates = all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id')
@@ -258,7 +258,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // UD-291: the recipients the sender chose are the assignees of every message; the routing keeps choosing area and template, not people.
         const recipients = recipientsOf(input)
         if (recipients.length > 0) for (const m of proposalObj.messages) m.assignee_ids = [...recipients]
-        // UD-292: with no recipients chosen, the routing is automatic, and a Guard about a person that the message touches puts a person among the assignees, next to Claude.
+        // UD-295: with no recipients chosen, the routing is automatic, and a Guard about a person that the message touches puts a person among the assignees, next to Claude.
         else for (const m of proposalObj.messages) ensurePersonWhenTouched(db, m, input.author_id)
 
         return () => {

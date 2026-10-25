@@ -110,6 +110,13 @@ export const KNOBS = Object.freeze({
   splitPassEffort: { value: 'low', source: 'H-3737; measurement 2026-10-23-documentos-largos' },
   splitPassThinking: { value: 'disabled', source: 'H-3737; the same task as the decomposition, over fewer units' },
 
+  // H-3745: the cut pass. Before the classification a short call reads the written and spoken units and says where a unit holds
+  // more than one request (a dictated paragraph with no full stop, a sentence that says «a bug and, besides, an idea»); the system
+  // checks the words it quotes and cuts there, so each request can be its own message. Same task size as the split check.
+  cutPass: { value: true, source: 'UD-294; measurement 2026-10-25-un-envio-varios-mensajes' },
+  cutPassEffort: { value: 'low', source: 'UD-294; same task as the split check (H-3737)' },
+  cutPassThinking: { value: 'disabled', source: 'UD-294; same task as the split check (H-3737)' },
+
   // Extra environment variables for the harness process.
   harnessEnv: { value: Object.freeze({}), source: 'UD-008' },
 });
@@ -129,7 +136,7 @@ export function resolveConfig(overrides = {}) {
     if (!(key in KNOBS)) throw new TypeError(`Unknown analyzer knob: «${key}»`);
     if (value !== undefined) config[key] = value;
   }
-  for (const key of ['classifyEffort', 'decomposeEffort', 'splitPassEffort']) {
+  for (const key of ['classifyEffort', 'decomposeEffort', 'splitPassEffort', 'cutPassEffort']) {
     if (!EFFORTS.has(config[key])) throw new TypeError(`${key} must be one of ${[...EFFORTS].join(', ')}`);
   }
   for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits', 'classifyWindowUnits', 'httpRetryBaseMs', 'httpRetryMaxWaitMs']) {
@@ -140,7 +147,8 @@ export function resolveConfig(overrides = {}) {
   }
   if (!Number.isInteger(config.classifyDraws) || config.classifyDraws < 1) throw new TypeError('classifyDraws must be an integer greater than or equal to 1');
   if (typeof config.splitPass !== 'boolean') throw new TypeError('splitPass must be true or false');
-  for (const key of ['classifyThinking', 'decomposeThinking', 'splitPassThinking']) {
+  if (typeof config.cutPass !== 'boolean') throw new TypeError('cutPass must be true or false');
+  for (const key of ['classifyThinking', 'decomposeThinking', 'splitPassThinking', 'cutPassThinking']) {
     if (config[key] !== null && config[key] !== 'disabled') throw new TypeError(`${key} must be null or «disabled»`);
   }
   if (config.cacheTtl !== '5m' && config.cacheTtl !== '1h') throw new TypeError('cacheTtl must be «5m» or «1h»');

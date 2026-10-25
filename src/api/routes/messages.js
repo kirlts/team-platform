@@ -92,7 +92,7 @@ export function registerMessageRoutes (app, ctx) {
           type: 'object', additionalProperties: true,
           properties: {
             message_id: { type: 'string' }, job_id: { type: 'string' }, job_status: { type: 'string' }, trace_id: { type: 'string', nullable: true }, phase: { type: 'string', nullable: true },
-            attempts: { type: 'integer' }, model: { type: 'string', nullable: true, description: 'El modelo con que corrió la sesión del trabajo (UD-292).' }, cost_usd: { type: 'number', nullable: true, description: 'Lo que costó la sesión hasta ahora, en USD (UD-292).' }, elapsed_ms: ms, first_reply_ms: ms, final_reply_ms: ms, first_reply_since_message_ms: ms, final_reply_since_message_ms: ms, total_ms: ms, queue_wait_ms: ms,
+            attempts: { type: 'integer' }, model: { type: 'string', nullable: true, description: 'El modelo con que corrió la sesión del trabajo (UD-295).' }, cost_usd: { type: 'number', nullable: true, description: 'Lo que costó la sesión hasta ahora, en USD (UD-295).' }, elapsed_ms: ms, first_reply_ms: ms, final_reply_ms: ms, first_reply_since_message_ms: ms, final_reply_since_message_ms: ms, total_ms: ms, queue_wait_ms: ms,
             phases: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, duration_ms: ms, offset_ms: ms, status: { type: 'string' } } } },
             slowest: { type: 'array', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'subagent'] }, name: { type: 'string' }, summary: { type: 'string', nullable: true }, duration_ms: ms, success: { type: 'boolean', nullable: true } } } },
             turns: { type: 'array', items: { type: 'object', additionalProperties: true } },
@@ -338,7 +338,7 @@ export function registerMessageRoutes (app, ctx) {
   app.put('/messages/:id/assessment', {
     onRequest: [requireRole('person')],
     schema: {
-      summary: 'Cambiar a mano la evaluación de un mensaje (UD-292)',
+      summary: 'Cambiar a mano la evaluación de un mensaje (UD-295)',
       description: 'Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.',
       params: idParams(),
       body: { type: 'object', minProperties: 1, additionalProperties: false, properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, value_holder: { type: 'string', enum: ['person', 'model'] } } },

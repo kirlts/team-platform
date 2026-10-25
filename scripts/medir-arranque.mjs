@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Measures what the start of an `execute` session weighs in real tokens (UD-292): the same message, once with the full prompt and once as a direct fix
+// Measures what the start of an `execute` session weighs in real tokens (UD-295): the same message, once with the full prompt and once as a direct fix
 // on a light model (minimal prompt, map of the repository, hooks). It calls `claude -p --output-format json --max-turns 1` and reads `usage` of the result,
 // so the figure is the API's own count of the first request, not an estimate. It spends real money (cents with Haiku 5.5).
 //

@@ -45,7 +45,7 @@ function TimingBody({ messageId }: { messageId: string }) {
     [t('timing.finalReply'), d.final_reply_ms === null ? '—' : seconds(d.final_reply_ms)],
     [t('timing.total'), d.total_ms === null ? '—' : seconds(d.total_ms)],
     [t('timing.wait'), d.queue_wait_ms === null ? '—' : seconds(d.queue_wait_ms)],
-    // UD-292: the model of the session and what it has cost.
+    // UD-295: the model of the session and what it has cost.
     [t('timing.model'), d.model ? (EXECUTE_MODELS.find((m) => m.id === d.model)?.label ?? d.model) : '—'],
     [t('timing.cost'), typeof d.cost_usd === 'number' ? `US$ ${d.cost_usd.toFixed(2)}` : '—'],
   ]
@@ -115,7 +115,7 @@ function DetailBody({ messageId }: { messageId: string }) {
 }
 
 /**
- * «Adecuación» (UD-292): the IMK judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
+ * «Adecuación» (UD-295): the IMK judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
  * each with the quote that supports it. It answers how adequate what the model did was, which is what says whether the light model was enough.
  */
 function JudgmentBody({ messageId }: { messageId: string }) {

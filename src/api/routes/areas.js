@@ -9,13 +9,14 @@ import {
 import { mirrorTemplate, removeTemplateMirror } from '../../domain/template-files.js'
 import { requireConfirm } from '../confirm.js'
 import { area, confirmQuery, idParams, template } from '../schemas.js'
+import { MAX_PROGRESS_INTERVAL_MIN } from '../../domain/progress-notes.js'
 import { isActivePerson } from '../../domain/members.js'
 import { EXECUTE_MODEL_IDS } from '../../domain/execute-models.js'
 
 const templateBody = {
   type: 'object',
   additionalProperties: false,
-  properties: { body_markdown: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 } }
+  properties: { body_markdown: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, progress_interval_min: { type: 'integer', minimum: 0, maximum: MAX_PROGRESS_INTERVAL_MIN, description: 'Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293).' } }
 }
 
 const colorProp = { type: 'string', pattern: AREA_COLOR_PATTERN }
@@ -58,7 +59,7 @@ export function registerAreaRoutes (app, ctx) {
     schema: {
       summary: 'Edit an area',
       params: idParams(),
-      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp, escalation_member_id: { type: ['integer', 'null'], description: 'Who decides in the area (UD-269); null goes back to the first active Editor.' }, execute_model: modelProp('The larger model of the area (UD-292): where the light model\'s work escalates and the one of a message with no estimates; null goes back to the installation\'s default.'), execute_model_light: modelProp('The light model of the area (UD-292): it takes the messages whose estimates stay within the limits; null goes back to the installation\'s light model.'), guards: { type: 'array', description: 'The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.', items: { type: 'object', additionalProperties: false, required: ['text'], properties: { id: { type: 'integer' }, text: { type: 'string' }, mechanism: { type: 'string' }, person: { type: 'boolean' } } } } } },
+      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp, escalation_member_id: { type: ['integer', 'null'], description: 'Who decides in the area (UD-269); null goes back to the first active Editor.' }, execute_model: modelProp('The larger model of the area (UD-295): where the light model\'s work escalates and the one of a message with no estimates; null goes back to the installation\'s default.'), execute_model_light: modelProp('The light model of the area (UD-295): it takes the messages whose estimates stay within the limits; null goes back to the installation\'s light model.'), guards: { type: 'array', description: 'The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.', items: { type: 'object', additionalProperties: false, required: ['text'], properties: { id: { type: 'integer' }, text: { type: 'string' }, mechanism: { type: 'string' }, person: { type: 'boolean' } } } } } },
       response: { 200: area }
     }
   }, async (request) => updateArea(db, request.params.id, request.body, actor(request)))

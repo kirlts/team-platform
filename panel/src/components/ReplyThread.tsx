@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
-import type { MessageDetail, Reply } from '@team-platform/client'
+import type { MessageDetail, ProgressNote, Reply } from '@team-platform/client'
 import { useDeleteReply, useEditReply, useMe, useRestoreReply } from '@team-platform/client/react'
 import { useUndo } from '@/lib/undo'
 import { Avatar } from './Avatar'
@@ -23,7 +23,10 @@ const THREAD_LIMIT = 5
 const THREAD_TAIL = 3
 
 /** A row of the thread: a reply, or the place where one was just deleted, with Deshacer in it (UD-240, as the templates do). */
-type ReplyItem = { kind: 'reply'; reply: Reply } | { kind: 'removed'; reply: Reply }
+type ReplyItem = { kind: 'reply'; reply: Reply } | { kind: 'removed'; reply: Reply } | { kind: 'progress'; note: ProgressNote }
+
+/** The key of a row, and its place in time: replies and progress notices share the thread by `created_at` (UD-293). */
+const itemKey = (x: ReplyItem) => (x.kind === 'progress' ? `progress-${x.note.id}` : `${x.kind}-${x.reply.id}`)
 
 /**
  * Replies of a message: one under another in order, joined by a vertical line, with the last one set apart; past `THREAD_LIMIT` the first and
@@ -58,10 +61,29 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
     // A notice that a retry replaced is not drawn once that job ended: its answer, or a new notice with its reason, is in the thread (UD-290).
     const items: ReplyItem[] = shown.map((reply) => ({ kind: 'reply', reply }))
     if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', reply: removed.reply })
+    // A progress notice goes after the last row that is older than it: replies keep their order and the notice lands between them (UD-293).
+    for (const note of message.progress_notes ?? []) {
+      let at = items.length
+      while (at > 0 && items[at - 1]!.kind !== 'progress' && Date.parse((items[at - 1] as { reply: Reply }).reply.created_at) > Date.parse(note.created_at)) at -= 1
+      items.splice(at, 0, { kind: 'progress', note })
+    }
     return items
-  }, [shown, removed, showRemoved])
+  }, [shown, removed, showRemoved, message.progress_notes])
   const [expanded, setExpanded] = useState(false)
-  const folded = !expanded && rows.length > THREAD_LIMIT ? rows.length - 1 - THREAD_TAIL : 0
+  // The limit counts replies: a notice is not one, so it never makes a short thread fold. A notice between two folded replies folds with them.
+  const replyRows = rows.filter((x) => x.kind !== 'progress').length
+  const foldedReplies = !expanded && replyRows > THREAD_LIMIT ? replyRows - 1 - THREAD_TAIL : 0
+  const hidden = useMemo(() => {
+    let seen = 0
+    return rows.map((x) => {
+      if (x.kind === 'progress') return foldedReplies > 0 && seen >= 1 && seen <= foldedReplies
+      seen += 1
+      return foldedReplies > 0 && seen > 1 && seen <= foldedReplies + 1
+    })
+  }, [rows, foldedReplies])
+  const folded = foldedReplies
+  const lastReplyKey = [...rows].reverse().find((x) => x.kind !== 'progress')
+  const firstHidden = hidden.indexOf(true)
   const remove = (reply: Reply) => {
     const index = message.replies.findIndex((x) => x.id === reply.id)
     const mark = undo.undoCount + 1
@@ -106,8 +128,8 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
           <ol className="thread relative flex flex-col gap-3">
             <span aria-hidden className="thread-line absolute bottom-4 left-4 top-4 w-px -translate-x-1/2 bg-line-strong" />
             {rows.map((x, i) => {
-              if (folded > 0 && i > 0 && i <= folded) {
-                if (i > 1) return null
+              if (hidden[i]) {
+                if (i !== firstHidden) return null
                 return (
                   <li key="folded" className="relative flex items-center gap-3">
                     <span aria-hidden className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg text-muted ring-4 ring-bg">
@@ -119,8 +141,32 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                   </li>
                 )
               }
-              const last = i === rows.length - 1
-              const key = `${x.kind}-${x.reply.id}`
+              const last = x === lastReplyKey
+              const key = itemKey(x)
+              // A progress notice (UD-293): a quiet row with the time and what Claude reports, between the message and the final answer. It stays when the answer arrives.
+              if (x.kind === 'progress') {
+                const lines = x.note.body.split('\n')
+                return (
+                  <li key={key} data-testid="progress-note" className="relative flex gap-3">
+                    <span aria-hidden className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg ring-4 ring-bg">
+                      <span className="h-2 w-2 rounded-full bg-accent" />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5 py-1 text-xs text-muted">
+                      <div className="flex flex-wrap items-baseline gap-x-2.5">
+                        <time dateTime={x.note.created_at} className="tabular-nums">
+                          {format.stamp(x.note.created_at)}
+                        </time>
+                        <span className="font-medium tabular-nums text-fg">{lines[0]}</span>
+                      </div>
+                      {lines.slice(1).map((line, n) => (
+                        <span key={n} className="break-words">
+                          {line}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                )
+              }
               if (x.kind === 'removed') {
                 return (
                   <li key={key} className="relative flex gap-3">

@@ -1,11 +1,69 @@
 {
   "id": "09-oracion-compuesta",
+  "cuts": [
+    {
+      "unit_id": 2,
+      "starts": [
+        "y la página de ajustes"
+      ]
+    },
+    {
+      "unit_id": 3,
+      "starts": [
+        "y los botones se"
+      ]
+    }
+  ],
   "messages": [
-    { "id": "m1", "title": "Corregir el menú cortado en el teléfono y la lentitud de la página de ajustes", "area_id": 2, "template_id": 2, "unit_ids": [2], "mentions": ["menú", "ajustes"] },
-    { "id": "m2", "title": "Corregir la lentitud de la lista de entregas y los botones desalineados en la tableta", "area_id": 2, "template_id": 2, "unit_ids": [3], "mentions": ["entregas", "botones"] }
+    {
+      "id": "m1",
+      "title": "Corregir el menú cortado en el teléfono",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        2
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Corregir la lentitud de la página de ajustes",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        3
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Corregir la lentitud de la lista de entregas",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        4
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Corregir los botones desalineados en la tableta",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        5
+      ]
+    }
   ],
   "discarded": [
-    { "unit_ids": [1], "reason": "saludo" },
-    { "unit_ids": [4], "reason": "firma" }
+    {
+      "unit_ids": [
+        1
+      ],
+      "reason": "saludo"
+    },
+    {
+      "unit_ids": [
+        6
+      ],
+      "reason": "firma"
+    }
   ]
 }

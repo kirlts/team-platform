@@ -19,7 +19,7 @@ import { harnessPrompt, resolveLanguage } from './prompts.js';
 import { buildProposalSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { numberUnits, renderUnits } from './units.js';
-import { describeConflicts, normalizeDecomposition, validateProposal } from './validate.js';
+import { addOwnedAttachments, describeConflicts, normalizeDecomposition, validateProposal } from './validate.js';
 import { phraseOf, step } from '../domain/progress-phrases.js';
 
 const PROVIDER = 'claude-code';
@@ -266,6 +266,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config, signal })
             done = 2;
             report(step('validate'));
             const { messages, discarded } = normalizeDecomposition(proposal);
+            addOwnedAttachments(messages, units);
             done = 3;
             report(step('proposalReady'));
             return { status: 'ok', proposal: { messages, discarded }, units, calls, stats };

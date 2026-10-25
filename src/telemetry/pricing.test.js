@@ -43,7 +43,7 @@ test('Sonnet 5.5: 2 USD input, 10 output, 0.10 cache read, cache write 1.25 and 
   close(estimateCostUsd({ provider: 'anthropic', model: 'claude-sonnet-5-5', usage: { input_tokens: 500_000, output_tokens: 0, cached_tokens: 100_000 } }), (500_000 * 2 + 100_000 * 0.1) / 1e6);
 });
 
-test('Opus 5.5 (4 and 20 USD, cache read 0.20) and Fable 5.1 (10 and 50, cache read 0.25): the models an area can run with (UD-292)', () => {
+test('Opus 5.5 (4 and 20 USD, cache read 0.20) and Fable 5.1 (10 and 50, cache read 0.25): the models an area can run with (UD-295)', () => {
   close(estimateCostUsd({ provider: 'anthropic', model: 'claude-opus-5-5', usage: { input_tokens: 1000, output_tokens: 200, cached_tokens: 5000 } }), (1000 * 4 + 200 * 20 + 5000 * 0.2) / 1e6);
   close(estimateCostUsd({ provider: 'anthropic', model: 'claude-fable-5-1', usage: { input_tokens: 1000, output_tokens: 200, cached_tokens: 5000 } }), (1000 * 10 + 200 * 50 + 5000 * 0.25) / 1e6);
   close(estimateCostUsd({ provider: 'anthropic', model: 'claude-fable-5-1', usage: { input_tokens: 0, cache_creation_tokens: 10_000 } }), (10_000 * 12.5) / 1e6);

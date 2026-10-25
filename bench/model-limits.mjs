@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// What the light model can close and what it cannot (UD-292): real tasks of this repository, of rising difficulty, run with the same harness prompt and the same tools on two models,
+// What the light model can close and what it cannot (UD-295): real tasks of this repository, of rising difficulty, run with the same harness prompt and the same tools on two models,
 // each judged by a check that runs on the result, never by reading what the model says. It spends the quota of the account that runs it (`claude -p` without ANTHROPIC_API_KEY).
 // The result is the table of the measurement of the light model's limits and the first values of EXECUTE_LIGHT_LIMITS.
 //

@@ -34,3 +34,20 @@ La CLI informa para Haiku 5.5 un costo 28 veces mayor que el de los precios publ
 - No hay tope de pasos ni de tokens por nivel (Martín, 2026-10-25: «sin tope de pasos por nivel, solamente el tope de presupuesto diario»). Lo que se ahorra es lo que se carga al empezar: herramientas, prompt, reglas y mapa.
 - Las reglas duras no se piden en el prompt. `team guard` (gancho `PreToolUse`) impide empujar `main` y forzar un push.
 - `EXECUTE_DIRECT_STOP_COMMAND` es el gancho `Stop` con el que el anfitrión exige sus pruebas críticas antes de terminar.
+
+## Reglas del anfitrión que pasan de prosa a gancho
+
+Las instrucciones del arnés del anfitrión (`instrucciones-del-harness.md`, 2.597 palabras) mezclan descripción del espacio con reglas que no deben depender de que el modelo las recuerde. La plataforma ya trae el mecanismo (`--settings` con ganchos de Claude Code); lo que sigue es el reparto entre lo que la plataforma hace cumplir y lo que le corresponde declarar al anfitrión.
+
+| Regla de la prosa | Gancho | Quién lo escribe |
+|---|---|---|
+| Nunca empujar `main`; no forzar un push | `PreToolUse` sobre Bash: `team guard` | Plataforma (hecho) |
+| La rama del trabajo es la única que se empuja | `team guard` rechaza un push a `main` o `master` en cualquier forma (`HEAD:main`, `-C ruta push`) | Plataforma (hecho) |
+| Las pruebas críticas pasan antes de terminar | `Stop`: `EXECUTE_DIRECT_STOP_COMMAND` | Anfitrión (la plataforma lo declara y lo ejecuta) |
+| Un cambio de pantalla deja su video | `Stop` del anfitrión (ya existe `exigir-el-video.sh`) | Anfitrión |
+| El juez distinto del autor marca el árbol antes de entregar | `Stop` del anfitrión que lee el último `Juzgado-por` | Anfitrión |
+| No usar `sleep`, sondeos ni `npx vitest run` sin archivos | `PreToolUse` sobre Bash del anfitrión | Anfitrión |
+| Producción sólo se lee | Cuenta `solo_lectura` (el servidor responde 403) | Anfitrión (ya existe) |
+| Ninguna credencial en un archivo | Gancho de commit del repositorio | Anfitrión (ya existe) |
+
+Lo que queda como prosa es lo que describe el espacio: dónde está el repositorio, cómo se mira producción, cómo se arma la pila propia y cómo se redacta la respuesta final. Un borrador de esa versión mínima (313 palabras) se midió en este documento; el anfitrión lo adopta con `EXECUTE_DIRECT_HOST_INSTRUCTIONS`.

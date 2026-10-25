@@ -1,4 +1,4 @@
-// What the analyzer says about each message beyond its text (UD-292), and what the system does with it.
+// What the analyzer says about each message beyond its text (UD-295), and what the system does with it.
 //
 // Kairós does not sort work into boxes. A request is a point in a space, described by continuous estimates with their reason, and only a Guard is boolean
 // (KAIROS-PARA-TEAM-PLATFORM.md of the host §1 and §2: Vector, Filo, Contrapeso and Cadenas describe the space; the Guard is the only wall). So the analyzer returns, as
@@ -48,7 +48,7 @@ export function touchesPerson (db, areaId, { guards = [], estimates = null } = {
 
 /**
  * Which model the estimates call for: the light one unless a dimension passes its limit, then the area's larger one. The limits come from the measurement of the light model
- * (the measurement of bench/model-limits.mjs, UD-292), not from a hand-picked number; without estimates (a message from before they existed) it is the larger one.
+ * (the measurement of bench/model-limits.mjs, UD-295), not from a hand-picked number; without estimates (a message from before they existed) it is the larger one.
  * `limits`: { create, irreversibility, certainty }: above the first two, or below the third, the light model does not take it.
  */
 export function modelFor (estimates, limits) {

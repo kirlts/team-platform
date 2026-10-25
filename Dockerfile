@@ -166,6 +166,7 @@ COPY src ./src
 COPY templates ./templates
 COPY ejemplos ./ejemplos
 COPY scripts/team.mjs ./scripts/team.mjs
+COPY scripts/remove-member.mjs ./scripts/remove-member.mjs
 COPY scripts/walkthrough.mjs ./scripts/walkthrough.mjs
 COPY scripts/repo-map.mjs ./scripts/repo-map.mjs
 COPY scripts/tiempos.mjs ./scripts/tiempos.mjs

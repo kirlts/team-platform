@@ -47,7 +47,7 @@ export function personRepliedSince (db, { messageId, agentId, since }) {
  */
 export function closeReason (db, config, { output, request, delivered, messageId, agentId, after, since }) {
   if (!config.execute.autoClose || !request) return null
-  // UD-292: a Guard about a person that the message touches, or a value only a person has, and Claude does not close alone: the person reads and decides.
+  // UD-295: a Guard about a person that the message touches, or a value only a person has, and Claude does not close alone: the person reads and decides.
   const row = get(db, 'SELECT area_id, guards_json, estimates_json FROM messages WHERE id = ?', messageId)
   if (row && touchesPerson(db, row.area_id, { guards: JSON.parse(row.guards_json || '[]'), estimates: row.estimates_json ? JSON.parse(row.estimates_json) : null })) return null
   if (HANDOFF_OUTCOMES.includes(output?.outcome)) return null

@@ -66,6 +66,16 @@ export function classifyUser({ units, attachments, language, secondPass = false,
   return [...note, set.attachmentsBlock(attachments, units), '', ...(recentBlock ? [recentBlock, ''] : []), set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
 }
 
+/** UD-294: system prompt of the cut pass; stable, so it is cached across windows. */
+export function cutSystem({ language, framing }) {
+  return [promptSet(language).cutInstructions(framing)];
+}
+
+/** User message of the cut pass: the units to read. */
+export function cutUser({ units, language }) {
+  return promptSet(language).cutBlock(units);
+}
+
 /** H-3737: system prompt of the split check of one group; stable, so it is cached across groups. */
 export function splitSystem({ language, framing }) {
   return [promptSet(language).splitInstructions(framing)];
@@ -81,7 +91,7 @@ export function splitUser({ units, language }) {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * UD-292: the area the group belongs to, as the space where the work happens: what it describes (its description), and its Guards, the walls, each with an id the model cites in
+ * UD-295: the area the group belongs to, as the space where the work happens: what it describes (its description), and its Guards, the walls, each with an id the model cites in
  * `guards_touched`. The mechanism that holds a Guard is the system's and does not travel. Nothing here enumerates levels or kinds of work: the space is described, the model places the request in it.
  */
 export function areaBlock(area, language) {

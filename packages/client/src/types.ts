@@ -18,6 +18,8 @@ export interface Member {
   active: boolean
   /** `agent`: worked by an unattended Claude Code session (UD-254). */
   kind?: 'person' | 'agent'
+  /** Only the author «Miembro eliminado» (UD-292): it keeps what a deleted member published and is not listed in Equipo. */
+  removed?: boolean
 }
 
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */
@@ -51,11 +53,11 @@ export interface Area {
   template_count?: number
   /** The person who decides in the area and receives what a session hands over (UD-269): the one set, or the first active Editor. */
   escalation_member_id?: string | null
-  /** The larger model of the area: where the light model's work escalates, and the one of a message with no estimates (UD-292). */
+  /** The larger model of the area: where the light model's work escalates, and the one of a message with no estimates (UD-295). */
   execute_model?: string | null
-  /** The light model of the area: the one of a message whose estimates stay within the limits (UD-292). */
+  /** The light model of the area: the one of a message whose estimates stay within the limits (UD-295). */
   execute_model_light?: string | null
-  /** The Guards of the area (UD-292). */
+  /** The Guards of the area (UD-295). */
   guards?: Guard[]
   /** Handoffs to a person in the last 7 days, by person (UD-269). */
   handoffs?: { member_id: string; count: number }[]
@@ -68,6 +70,8 @@ export interface Template {
   name: string
   description: string
   body_markdown: string
+  /** Minutes between two progress notices while Claude works on a message of this template; 0 turns them off (UD-293). */
+  progress_interval_min?: number
   updated_at: string
   deleted_at?: string | null
 }
@@ -185,7 +189,7 @@ export interface Reply {
   edited_at?: string | null
 }
 
-/** The Claude models an area can run its unattended session with (UD-292): the same closed list as the server's, ids as the models overview gives them. */
+/** The Claude models an area can run its unattended session with (UD-295): the same closed list as the server's, ids as the models overview gives them. */
 export const EXECUTE_MODELS = [
   { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
   { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
@@ -193,7 +197,7 @@ export const EXECUTE_MODELS = [
   { id: 'claude-fable-5-1', label: 'Fable 5.1' },
 ] as const
 
-/** A wall of an area (UD-292, a Kairós Guard): the only boolean thing, with the mechanism that holds it; `person` marks one that is about a person. */
+/** A wall of an area (UD-295, a Kairós Guard): the only boolean thing, with the mechanism that holds it; `person` marks one that is about a person. */
 export interface Guard {
   id?: number
   text: string
@@ -201,7 +205,7 @@ export interface Guard {
   person?: boolean
 }
 
-/** What the analyzer says about a message beyond its text, or a person changed (UD-292). The estimates are continuous, from 0 to 1, with their reason. */
+/** What the analyzer says about a message beyond its text, or a person changed (UD-295). The estimates are continuous, from 0 to 1, with their reason. */
 export interface Assessment {
   /** What is expected of Claude, in natural words. */
   expectation: string
@@ -212,7 +216,7 @@ export interface Assessment {
   by: string | null
 }
 
-/** The IMK judgement of a finished job (UD-292): four axes against the target of the task's quadrant, twelve KPI from -2 to +2 with quote and reasoning. */
+/** The IMK judgement of a finished job (UD-295): four axes against the target of the task's quadrant, twelve KPI from -2 to +2 with quote and reasoning. */
 export interface Judgment {
   job_id: string
   judge_model: string
@@ -226,7 +230,7 @@ export interface Judgment {
 
 export interface Message {
   id: string
-  /** What the analyzer says about the message beyond its text (UD-292). */
+  /** What the analyzer says about the message beyond its text (UD-295). */
   assessment?: Assessment
   input_id?: string
   area_id: string
@@ -271,8 +275,22 @@ export interface PendingDelivery {
   state: 'held' | 'delivering' | 'failed'
 }
 
+/** A progress notice of Claude while it works (UD-293): not a reply, so it does not count in `reply_count` or change the status. */
+export interface ProgressNote {
+  id: string
+  message_id: string
+  job_id: string
+  author_id: string
+  body: string
+  /** Minutes since the session started when the notice was written. */
+  minutes: number | null
+  created_at: string
+}
+
 export interface MessageDetail extends Message {
   replies: Reply[]
+  /** The progress notices, in the order they were written; the thread draws them by `created_at` between the replies (UD-293). */
+  progress_notes?: ProgressNote[]
   /** The review a held delivery waits for; null when none (UD-275). */
   pending_delivery?: PendingDelivery | null
   /** What a video frame shows and nobody says; outside the body, empty when there is none. */
@@ -469,10 +487,10 @@ export interface MessageTiming {
   job_status: string
   trace_id: string | null
   phase: string | null
-  /** The model the session ran with and what it has cost so far, in USD (UD-292). */
+  /** The model the session ran with and what it has cost so far, in USD (UD-295). */
   model?: string | null
   cost_usd?: number | null
-  /** The IMK judgement of the latest finished job (UD-292), or null. */
+  /** The IMK judgement of the latest finished job (UD-295), or null. */
   judgment?: Judgment | null
   elapsed_ms: number | null
   first_reply_ms: number | null
@@ -612,6 +630,8 @@ export interface DeleteInputResult {
 export interface DeleteMemberResult {
   member_id: string
   deleted: { inputs: number; messages: number; replies: number }
+  /** What stays under the author «Miembro eliminado» (UD-292). */
+  kept?: { inputs: number; messages: number; replies: number }
 }
 
 /** What the member editor sends (PATCH /members/:id, or /members/me for oneself). */

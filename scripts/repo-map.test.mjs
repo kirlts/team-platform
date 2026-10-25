@@ -1,4 +1,4 @@
-// The map of the repository a session starts in (UD-292): within its token budget, from git alone, rebuilt only when the structure changes.
+// The map of the repository a session starts in (UD-295): within its token budget, from git alone, rebuilt only when the structure changes.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'

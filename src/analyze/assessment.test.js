@@ -1,4 +1,4 @@
-// UD-292: what the analyzer returns beyond the text of a message: what is expected of Claude in natural words, the Guards of the area it touches (the only boolean), and continuous
+// UD-295: what the analyzer returns beyond the text of a message: what is expected of Claude in natural words, the Guards of the area it touches (the only boolean), and continuous
 // estimates with their reason. The grammar requires them so the model always decides them; the validation bounds the numbers and accepts a proposal without them (a draft from before).
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'

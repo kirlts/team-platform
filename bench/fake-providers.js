@@ -65,6 +65,11 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
 
   const script = async (req) => {
     await sleep(latencyMs);
+    // Cut pass (UD-293): a perfect reader cuts exactly where the reference says (`expected.cuts`), in the units it was shown.
+    if (req.schema.properties.cuts) {
+      const scope = new Set(unitIdsIn(req));
+      return respond({ cuts: (expected.cuts ?? []).filter((c) => scope.has(c.unit_id)) }, req);
+    }
     if (req.schema.properties.groups) {
       // Only what the request shows: the analyzer also asks about a part of the units (second pass over what the first left out).
       const scope = new Set(unitIdsIn(req));
@@ -94,7 +99,7 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
         fields: Object.fromEntries(fieldProps.map((name) => [name, 'dato de la referencia'])),
         body: `Cuerpo de «${m.title}».`,
         assignee_ids: [],
-        attachment_ids: [],
+        attachment_ids: [...(m.attachment_ids ?? [])],
         // Where the reference skips units (the person talked about another request), the message resumes (H-3730).
         resumes_at: [...m.unit_ids].sort((a, b) => a - b).filter((id, i, ids) => i > 0 && id !== ids[i - 1] + 1),
         observed: [],

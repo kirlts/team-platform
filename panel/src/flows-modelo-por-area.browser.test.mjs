@@ -1,4 +1,4 @@
-// The models, the Guards and the assessment of a message (UD-292) seen from the panel, in a real browser against dev-server.mjs: `npm run test:flows`.
+// The models, the Guards and the assessment of a message (UD-295) seen from the panel, in a real browser against dev-server.mjs: `npm run test:flows`.
 // The Editor picks the light and the larger model and writes the Guards of an area; the card shows the Guards a message touches; the detail shows the assessment and the
 // IMK judgement, and a person changes the assessment from it.
 import assert from 'node:assert'
@@ -32,7 +32,7 @@ const api = async (page, path) => (await page.request.fetch(`${origin}/api${path
 const areaOf = async (page, id) => { const r = await api(page, '/areas'); return (r.items ?? r).find((a) => a.id === id) }
 const saved = (page, pattern, method = 'PATCH') => page.waitForResponse((r) => r.url().includes(pattern) && r.request().method() === method)
 
-describe('models and Guards of the area (UD-292)', () => {
+describe('models and Guards of the area (UD-295)', () => {
   for (const [name, viewport] of SIZES) {
     test(`${name}: the Editor chooses the light and the larger model and they are saved`, async () => {
       const { page, context } = await session(viewport)
@@ -91,7 +91,7 @@ describe('models and Guards of the area (UD-292)', () => {
   })
 })
 
-describe('assessment of a message (UD-292)', () => {
+describe('assessment of a message (UD-295)', () => {
   for (const [name, viewport] of SIZES) {
     test(`${name}: the card shows the Guards the message touches, and the detail shows the assessment and lets a person change it`, async () => {
       const { page, context } = await session(viewport)

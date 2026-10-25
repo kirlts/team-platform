@@ -48,10 +48,10 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
   const base = {
     message_id: String(messageId), job_id: String(job.id), job_status: job.status, trace_id: job.trace_id ?? null,
     phase: job.phase ?? null, attempts: job.attempts,
-    // UD-292: the model the session of the job ran with and what it has cost so far (the day's meter reads the same column).
+    // UD-295: the model the session of the job ran with and what it has cost so far (the day's meter reads the same column).
     // The cost is the whole of the message's execute jobs: when the light model did not close, its job and the larger model's both count.
     model: job.model ?? null, cost_usd: costOfMessage(db, messageId) ?? (typeof job.cost_usd === 'number' ? job.cost_usd : null),
-    // UD-292: the IMK judgement of the job, or null while there is none.
+    // UD-295: the IMK judgement of the job, or null while there is none.
     judgment: judgmentOfMessage(db, messageId),
     elapsed_ms: job.status === 'running' ? Math.max(0, now() - job.run_at) : null,
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,

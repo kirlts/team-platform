@@ -4,6 +4,7 @@
 // real session would, and prints NDJSON. FAKE_EXECUTE_MODE: ok | no-structured | error | hang | exit | api-error | invalid-output | reject-flag.
 // FAKE_EXECUTE_FAIL_FIRST=n makes the first n calls (counted in calls.jsonl) behave as FAKE_EXECUTE_FAIL_MODE and the rest as `ok`.
 // FAKE_EXECUTE_SLEEP_MS holds the session that long before its result (a session that is still working).
+// FAKE_EXECUTE_GIT=1 makes the session commit and push, with the lines git prints in the results of its Bash calls.
 // FAKE_EXECUTE_HOOK=1 runs, after every simulated batch of tools, the PostToolBatch hook that came in `--settings` the way Claude Code does (the command with the event as JSON on stdin,
 // its stdout read as a hook output) and records the `additionalContext` it returned in hook-context.jsonl. FAKE_EXECUTE_GATE=<fifo> holds the session after its first batch until something is
 // written to that named pipe (the test posts a mention in between, then releases it); the file gate-reached tells the test the session is there.
@@ -20,7 +21,7 @@ if (process.env.FAKE_EXECUTE_FAIL_FIRST) {
 let stdin = ''
 process.stdin.on('data', (d) => { stdin += d })
 process.stdin.on('end', async () => {
-  // UD-292: the IMK judge is one more call of `claude -p` (a single JSON result, no stream). It is answered here and is not one of the session's calls: calls.jsonl keeps only those.
+  // UD-295: the IMK judge is one more call of `claude -p` (a single JSON result, no stream). It is answered here and is not one of the session's calls: calls.jsonl keeps only those.
   // FAKE_JUDGE=off makes it fail the way a missing binary does; otherwise it scores the KPI 2.1 and 1.2 and leaves the rest as not observed.
   if (stdin.startsWith('Eres un juez del IMK')) {
     if (process.env.FAKE_JUDGE === 'off') process.exit(1)
@@ -89,6 +90,13 @@ process.stdin.on('end', async () => {
   if (process.env.FAKE_EXECUTE_GATE) { writeFileSync(`${state}/gate-reached`, ''); readFileSync(process.env.FAKE_EXECUTE_GATE); hook() }
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test', description: 'Pruebas de la pantalla' } }] } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: 'tool-1', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/repo/src/screen.tsx' } }] } })
+  // FAKE_EXECUTE_GIT=1: the session commits and pushes its branch, and git's own lines come back in the results of the Bash calls (progress notices, UD-293).
+  if (process.env.FAKE_EXECUTE_GIT === '1') {
+    out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu-commit', name: 'Bash', input: { command: 'git commit -am arreglo' } }] } })
+    out({ type: 'user', session_id: sessionId, message: { content: [{ type: 'tool_result', tool_use_id: 'tu-commit', content: `[tp/${team.TEAM_MESSAGE_ID} a1b2c3d] Arregla la agenda en blanco\n 1 file changed, 2 insertions(+)` }] } })
+    out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu-push', name: 'Bash', input: { command: 'git push origin HEAD' } }] } })
+    out({ type: 'user', session_id: sessionId, message: { content: [{ type: 'tool_result', tool_use_id: 'tu-push', content: [{ type: 'text', text: `To github.com:x/y.git\n * [new branch]      tp/${team.TEAM_MESSAGE_ID} -> tp/${team.TEAM_MESSAGE_ID}` }] }] } })
+  }
   process.stdout.write('not json\n')
   if (mode === 'hang') { setInterval(() => {}, 1000); return }
   if (process.env.FAKE_EXECUTE_SLEEP_MS) await pause(Number(process.env.FAKE_EXECUTE_SLEEP_MS))

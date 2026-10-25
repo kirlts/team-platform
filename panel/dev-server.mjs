@@ -76,7 +76,7 @@ const areaView = (a) => {
   const person = (mid) => members.find((m) => m.id === mid && m.kind !== 'agent' && m.active)
   const decider = person(a.escalation_member_id) ?? members.find((m) => m.role === 'editor' && m.kind !== 'agent' && m.active)
   const { escalation_member_id: _stored, ...rest } = a
-  // UD-292: the larger and the light model of the area as they apply now, and its Guards.
+  // UD-295: the larger and the light model of the area as they apply now, and its Guards.
   return { ...rest, execute_model: a.execute_model ?? 'claude-sonnet-5-5', execute_model_light: a.execute_model_light ?? 'claude-haiku-5-5', guards: a.guards ?? [], escalation_member_id: decider?.id ?? null, handoffs: a.handoffs ?? [] }
 }
 
@@ -1642,7 +1642,7 @@ const server = createServer(async (req, res) => {
         return send(res, 200, { id: msg.id, status: msg.status, closed_at: msg.closed_at })
       }
       if (m[2] === 'assessment' && method === 'PUT') {
-        // UD-292: any person of the team changes the assessment by hand: the expectation, the Guards it touches and who holds the value.
+        // UD-295: any person of the team changes the assessment by hand: the expectation, the Guards it touches and who holds the value.
         const body = await readJson(req)
         const area = areas.find((a) => a.id === msg.area_id)
         const a = (msg.assessment ??= { expectation: '', guards: [], estimates: null, by: null })
@@ -1718,7 +1718,7 @@ const server = createServer(async (req, res) => {
         area[key] = body[key]
       }
       if (body.guards !== undefined) {
-        // UD-292: a Guard keeps its id when the list is rewritten; a new one takes the next.
+        // UD-295: a Guard keeps its id when the list is rewritten; a new one takes the next.
         const known = new Set((area.guards ?? []).map((g) => g.id))
         let next = Math.max(0, ...(area.guards ?? []).map((g) => g.id)) + 1
         if (body.guards.some((g) => !String(g.text ?? '').trim())) return fail(res, 422, 'Cada Guardia lleva su texto.', 'guard_invalid')
@@ -1837,32 +1837,46 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, target)
     }
-    // Deleting a member for good (UD-240): without history it goes; with history, 409 with the counts unless purge=true.
+    // Deleting a member (UD-240, UD-292): what they published stays under «Miembro eliminado», what is not published goes; `purge=true` takes everything.
     if (m && method === 'DELETE') {
       const target = members.find((x) => x.id === m[1])
-      if (!target) return fail(res, 404, 'No existe')
+      if (!target || target.removed) return fail(res, 404, 'No existe')
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
       if (target.id === me.id) return fail(res, 409, 'No se puede eliminar la propia cuenta.', 'cannot_delete_self')
       if (target.role === 'editor' && target.active && members.filter((x) => x.role === 'editor' && x.active && x.id !== target.id).length === 0) return fail(res, 409, 'El equipo conserva siempre un Editor activo.', 'last_editor')
+      const purge = url.searchParams.get('purge') === 'true'
       const ownInputs = [...inputs.values()].filter((i) => i.author_id === target.id)
       const ownMessages = messages.filter((x) => x.author_id === target.id)
       const ownReplies = [...replies.values()].flat().filter((r) => r.author_id === target.id)
-      const deleted = { inputs: ownInputs.length, messages: ownMessages.length, replies: ownReplies.length }
-      const assigned = messages.some((x) => (x.assignee_ids ?? []).includes(target.id))
-      if ((deleted.inputs || deleted.messages || deleted.replies || assigned) && url.searchParams.get('purge') !== 'true') {
-        return send(res, 409, { code: 'member_has_history', message: 'El miembro tiene historial: se desactiva, o se elimina con todo lo suyo.', ...deleted })
-      }
-      for (const i of ownInputs) inputs.delete(i.id)
-      for (const x of ownMessages) replies.delete(x.id)
-      messages.splice(0, messages.length, ...messages.filter((x) => x.author_id !== target.id))
-      for (const x of messages) {
-        const rest = (replies.get(x.id) ?? []).filter((r) => r.author_id !== target.id)
-        replies.set(x.id, rest)
-        x.assignee_ids = (x.assignee_ids ?? []).filter((a) => a !== target.id)
-        syncStatus(x)
+      const kept = { inputs: 0, messages: 0, replies: 0 }
+      let deleted
+      if (purge) {
+        deleted = { inputs: ownInputs.length, messages: ownMessages.length, replies: ownReplies.length }
+        for (const i of ownInputs) inputs.delete(i.id)
+        for (const x of ownMessages) replies.delete(x.id)
+        messages.splice(0, messages.length, ...messages.filter((x) => x.author_id !== target.id))
+        for (const x of messages) {
+          const rest = (replies.get(x.id) ?? []).filter((r) => r.author_id !== target.id)
+          replies.set(x.id, rest)
+          x.assignee_ids = (x.assignee_ids ?? []).filter((a) => a !== target.id)
+          syncStatus(x)
+        }
+      } else {
+        let ghost = members.find((x) => x.removed)
+        if (!ghost) { ghost = { id: 'u-removed', email: 'removed-member@members.invalid', name: 'Miembro eliminado', role: 'member', profile: '', language: 'es-419', active: false, removed: true }; members.push(ghost) }
+        const unpublished = ownInputs.filter((i) => i.status !== 'published')
+        for (const i of unpublished) inputs.delete(i.id)
+        for (const i of ownInputs) if (i.status === 'published') i.author_id = ghost.id
+        for (const x of ownMessages) x.author_id = ghost.id
+        for (const r of ownReplies) r.author_id = ghost.id
+        for (const x of messages) x.assignee_ids = (x.assignee_ids ?? []).filter((a) => a !== target.id)
+        deleted = { inputs: unpublished.length, messages: 0, replies: 0 }
+        kept.inputs = ownInputs.length - unpublished.length
+        kept.messages = ownMessages.length
+        kept.replies = ownReplies.length
       }
       members.splice(members.indexOf(target), 1)
-      return send(res, 200, { member_id: target.id, deleted })
+      return send(res, 200, { member_id: target.id, deleted, kept })
     }
     if (path === '/settings/providers' && method === 'GET') {
       return send(res, 200, providersView())

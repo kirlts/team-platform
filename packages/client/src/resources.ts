@@ -70,11 +70,11 @@ export interface AreaFields {
   color?: string
   /** Who decides in the area (UD-269); `null` goes back to the first active Editor. */
   escalation_member_id?: string | null
-  /** The larger model of the area (UD-292); `null` goes back to the installation's default. */
+  /** The larger model of the area (UD-295); `null` goes back to the installation's default. */
   execute_model?: string | null
-  /** The light model of the area (UD-292); `null` goes back to the installation's light model. */
+  /** The light model of the area (UD-295); `null` goes back to the installation's light model. */
   execute_model_light?: string | null
-  /** The Guards of the area, all of them (UD-292): one that keeps its `id` stays the same Guard. */
+  /** The Guards of the area, all of them (UD-295): one that keeps its `id` stays the same Guard. */
   guards?: Guard[]
 }
 
@@ -83,6 +83,7 @@ export interface TemplateFields {
   name?: string
   description?: string
   body_markdown?: string
+  progress_interval_min?: number
 }
 
 export type ProviderChange = Pick<ProviderSetting, 'slot'> & Partial<Pick<ProviderSetting, 'provider' | 'model' | 'base_url'>>
@@ -116,7 +117,7 @@ export function createResources(t: Transport) {
       saveLanguage: (language: Language) => call<Member>(routes.memberPatchSelf, { body: { language } }),
       /** Another member's password (Editor): it closes that person's sessions. */
       setPassword: (v: { id: string; password: string }) => call<Member>(routes.memberPatch, { params: { id: v.id }, body: { password: v.password } }),
-      /** Deleting for good (Editor, UD-240). `purge` takes their history too; without it a member with history is a 409 `member_has_history`. */
+      /** Deleting (any active person, UD-292): what the member published stays under «Miembro eliminado»; `purge` takes their history too. */
       delete: (v: { id: string; purge?: boolean }) =>
         call<DeleteMemberResult>(routes.memberDelete, { params: { id: v.id }, search: `${CONFIRM}${v.purge ? '&purge=true' : ''}` }),
     },
@@ -193,7 +194,7 @@ export function createResources(t: Transport) {
         }),
       close: (id: string) => call(routes.messageClose, { params: { id } }),
       reopen: (id: string) => call(routes.messageReopen, { params: { id } }),
-      /** Changes the assessment of a message by hand (UD-292): any active person. */
+      /** Changes the assessment of a message by hand (UD-295): any active person. */
       setAssessment: (v: { id: string; expectation?: string; guards?: number[]; value_holder?: 'person' | 'model' }) => call<MessageDetail>(routes.messageAssessment, { params: { id: v.id }, body: { expectation: v.expectation, guards: v.guards, value_holder: v.value_holder } }),
       setClosed: (v: { id: string; closed: boolean }) => call(v.closed ? routes.messageClose : routes.messageReopen, { params: { id: v.id } }),
       /** Soft-deletes (UD-240): its sender or the Editor; a restore undoes it. */

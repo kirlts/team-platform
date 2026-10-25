@@ -626,7 +626,7 @@
     overflow-wrap: anywhere;
   }
 
-  /* A Guard that a message touches (UD-292): a neutral badge in the ink of the text that says less, so it is not read as the state or as the area. One about a person takes the accent edge. */
+  /* A Guard that a message touches (UD-295): a neutral badge in the ink of the text that says less, so it is not read as the state or as the area. One about a person takes the accent edge. */
   .guard-mark {
     display: inline-flex;
     align-items: center;

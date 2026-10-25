@@ -1,4 +1,4 @@
-// A short map of the repository a session starts in (UD-292): what a light model needs to know what it is getting into, in about 800 tokens.
+// A short map of the repository a session starts in (UD-295): what a light model needs to know what it is getting into, in about 800 tokens.
 // It runs inside the session (a SessionStart hook calls `team map`), in the repository it works on, so it is the same on the local runner and on a machine.
 //
 //   structure   top-level folders with their file count, and where screens, API, migrations and tests live. Computed from the file list of `git ls-files`
@@ -19,7 +19,7 @@ const git = async (cwd, args) => (await run('git', ['-c', 'core.quotepath=off', 
 export const MAP_DAYS = 30 // Martín's window: the files most touched in the last 30 days
 export const MAP_TOP_FILES = 10
 export const MAP_MAX_TOKENS = 800 // Martín's budget for the whole map
-// A line of code or Spanish prose is about 3 characters per token with the current tokenizer; the measurement of UD-292 sets the real figure.
+// A line of code or Spanish prose is about 3 characters per token with the current tokenizer; the measurement of UD-295 sets the real figure.
 export const CHARS_PER_TOKEN = 3
 
 const NOISE = /(^|\/)(node_modules|dist|build|coverage|\.next|vendor)\/|package-lock\.json$|pnpm-lock\.yaml$|yarn\.lock$|\.min\.(js|css)$|openapi\.json$|\/generated\/|\.(png|jpe?g|webp|gif|svg|ico|woff2?|webm|mp4)$/

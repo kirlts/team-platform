@@ -86,7 +86,7 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     const payload = parseJson(failed.payload_json, {})
     const extra = Object.fromEntries(Object.entries(payload).filter(([k]) => !NOT_ORIGIN.includes(k)))
     extra.retry_after_reply_id = reply.id
-    // UD-292: a session that failed on the lighter model of the area is not tried on it again: the retry runs with the area's model.
+    // UD-295: a session that failed on the lighter model of the area is not tried on it again: the retry runs with the area's model.
     const failedModel = get(db, 'SELECT model FROM jobs WHERE id = ?', reply.failed_job_id)?.model ?? null
     if (failedModel && failedModel !== resolveExecuteModel(db, { messageId, fallback: config.execute.model, escalated: true }).model) extra.escalated = true
     else delete extra.escalated

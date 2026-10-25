@@ -211,6 +211,10 @@
                     "active": {
                       "type": "boolean"
                     },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                    },
                     "created_at": {
                       "type": "string"
                     },
@@ -2376,7 +2380,7 @@
                           },
                           "assessment": {
                             "type": "object",
-                            "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                            "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                             "properties": {
                               "expectation": {
                                 "type": "string"
@@ -2719,6 +2723,39 @@
                                     "string",
                                     "null"
                                   ]
+                                }
+                              }
+                            }
+                          },
+                          "progress_notes": {
+                            "type": "array",
+                            "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "message_id": {
+                                  "type": "string"
+                                },
+                                "job_id": {
+                                  "type": "string"
+                                },
+                                "author_id": {
+                                  "type": "string"
+                                },
+                                "body": {
+                                  "type": "string"
+                                },
+                                "minutes": {
+                                  "type": [
+                                    "null",
+                                    "integer"
+                                  ]
+                                },
+                                "created_at": {
+                                  "type": "string"
                                 }
                               }
                             }
@@ -3194,7 +3231,7 @@
                           },
                           "assessment": {
                             "type": "object",
-                            "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                            "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                             "properties": {
                               "expectation": {
                                 "type": "string"
@@ -3652,7 +3689,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -3995,6 +4032,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -4281,7 +4351,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -4628,6 +4698,39 @@
                         }
                       }
                     },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
                     "pending_delivery": {
                       "type": [
                         "object",
@@ -4781,14 +4884,14 @@
                         "string",
                         "null"
                       ],
-                      "description": "El modelo con que corrió la sesión del trabajo (UD-292)."
+                      "description": "El modelo con que corrió la sesión del trabajo (UD-295)."
                     },
                     "cost_usd": {
                       "type": [
                         "number",
                         "null"
                       ],
-                      "description": "Lo que costó la sesión hasta ahora, en USD (UD-292)."
+                      "description": "Lo que costó la sesión hasta ahora, en USD (UD-295)."
                     },
                     "elapsed_ms": {
                       "type": [
@@ -5042,7 +5145,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -5385,6 +5488,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -5743,7 +5879,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -6086,6 +6222,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -6305,7 +6474,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -6648,6 +6817,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -6832,7 +7034,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -7175,6 +7377,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -7350,7 +7585,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -7693,6 +7928,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -7868,7 +8136,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -8211,6 +8479,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -8455,7 +8756,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -8798,6 +9099,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -8998,7 +9332,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -9341,6 +9675,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -9444,7 +9811,7 @@
     },
     "/api/messages/{id}/assessment": {
       "put": {
-        "summary": "Cambiar a mano la evaluación de un mensaje (UD-292)",
+        "summary": "Cambiar a mano la evaluación de un mensaje (UD-295)",
         "tags": [
           "Messages"
         ],
@@ -9546,7 +9913,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -9889,6 +10256,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -10063,7 +10463,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -10406,6 +10806,39 @@
                               "string",
                               "null"
                             ]
+                          }
+                        }
+                      }
+                    },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
                           }
                         }
                       }
@@ -10580,7 +11013,7 @@
                     },
                     "assessment": {
                       "type": "object",
-                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates.",
+                      "description": "What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates.",
                       "properties": {
                         "expectation": {
                           "type": "string"
@@ -10927,6 +11360,39 @@
                         }
                       }
                     },
+                    "progress_notes": {
+                      "type": "array",
+                      "description": "Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "minutes": {
+                            "type": [
+                              "null",
+                              "integer"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
                     "pending_delivery": {
                       "type": [
                         "object",
@@ -11093,18 +11559,18 @@
                           "null",
                           "string"
                         ],
-                        "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
+                        "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295)."
                       },
                       "execute_model_light": {
                         "type": [
                           "null",
                           "string"
                         ],
-                        "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                        "description": "The light model of the area: its own, or the installation's light model (UD-295)."
                       },
                       "guards": {
                         "type": "array",
-                        "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                        "description": "The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -11154,6 +11620,10 @@
                             },
                             "description": {
                               "type": "string"
+                            },
+                            "progress_interval_min": {
+                              "type": "integer",
+                              "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
                             },
                             "updated_at": {
                               "type": "string"
@@ -11288,18 +11758,18 @@
                         "null",
                         "string"
                       ],
-                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
+                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295)."
                     },
                     "execute_model_light": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                      "description": "The light model of the area: its own, or the installation's light model (UD-295)."
                     },
                     "guards": {
                       "type": "array",
-                      "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                      "description": "The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -11349,6 +11819,10 @@
                           },
                           "description": {
                             "type": "string"
+                          },
+                          "progress_interval_min": {
+                            "type": "integer",
+                            "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
                           },
                           "updated_at": {
                             "type": "string"
@@ -11444,7 +11918,7 @@
                       "claude-fable-5-1",
                       null
                     ],
-                    "description": "The larger model of the area (UD-292): where the light model's work escalates and the one of a message with no estimates; null goes back to the installation's default."
+                    "description": "The larger model of the area (UD-295): where the light model's work escalates and the one of a message with no estimates; null goes back to the installation's default."
                   },
                   "execute_model_light": {
                     "type": [
@@ -11458,11 +11932,11 @@
                       "claude-fable-5-1",
                       null
                     ],
-                    "description": "The light model of the area (UD-292): it takes the messages whose estimates stay within the limits; null goes back to the installation's light model."
+                    "description": "The light model of the area (UD-295): it takes the messages whose estimates stay within the limits; null goes back to the installation's light model."
                   },
                   "guards": {
                     "type": "array",
-                    "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                    "description": "The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.",
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
@@ -11552,18 +12026,18 @@
                         "null",
                         "string"
                       ],
-                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
+                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295)."
                     },
                     "execute_model_light": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                      "description": "The light model of the area: its own, or the installation's light model (UD-295)."
                     },
                     "guards": {
                       "type": "array",
-                      "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                      "description": "The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -11613,6 +12087,10 @@
                           },
                           "description": {
                             "type": "string"
+                          },
+                          "progress_interval_min": {
+                            "type": "integer",
+                            "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
                           },
                           "updated_at": {
                             "type": "string"
@@ -11780,18 +12258,18 @@
                         "null",
                         "string"
                       ],
-                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292)."
+                      "description": "The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295)."
                     },
                     "execute_model_light": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "description": "The light model of the area: its own, or the installation's light model (UD-292)."
+                      "description": "The light model of the area: its own, or the installation's light model (UD-295)."
                     },
                     "guards": {
                       "type": "array",
-                      "description": "The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person.",
+                      "description": "The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -11841,6 +12319,10 @@
                           },
                           "description": {
                             "type": "string"
+                          },
+                          "progress_interval_min": {
+                            "type": "integer",
+                            "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
                           },
                           "updated_at": {
                             "type": "string"
@@ -11933,6 +12415,10 @@
                       "description": {
                         "type": "string"
                       },
+                      "progress_interval_min": {
+                        "type": "integer",
+                        "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
+                      },
                       "updated_at": {
                         "type": "string"
                       },
@@ -12001,6 +12487,12 @@
                   "description": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "progress_interval_min": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440,
+                    "description": "Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293)."
                   }
                 },
                 "required": [
@@ -12040,6 +12532,10 @@
                     },
                     "description": {
                       "type": "string"
+                    },
+                    "progress_interval_min": {
+                      "type": "integer",
+                      "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
                     },
                     "updated_at": {
                       "type": "string"
@@ -12110,6 +12606,12 @@
                   "description": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "progress_interval_min": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440,
+                    "description": "Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293)."
                   }
                 },
                 "minProperties": 1
@@ -12156,6 +12658,10 @@
                     },
                     "description": {
                       "type": "string"
+                    },
+                    "progress_interval_min": {
+                      "type": "integer",
+                      "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
                     },
                     "updated_at": {
                       "type": "string"
@@ -12301,6 +12807,10 @@
                     "description": {
                       "type": "string"
                     },
+                    "progress_interval_min": {
+                      "type": "integer",
+                      "description": "Minutes between two progress notices while Claude works (0 = off; UD-293)."
+                    },
                     "updated_at": {
                       "type": "string"
                     },
@@ -12421,6 +12931,10 @@
                           },
                           "active": {
                             "type": "boolean"
+                          },
+                          "removed": {
+                            "type": "boolean",
+                            "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
                           },
                           "created_at": {
                             "type": "string"
@@ -12576,6 +13090,10 @@
                     "active": {
                       "type": "boolean"
                     },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                    },
                     "created_at": {
                       "type": "string"
                     },
@@ -12705,6 +13223,10 @@
                     },
                     "active": {
                       "type": "boolean"
+                    },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
                     },
                     "created_at": {
                       "type": "string"
@@ -12854,6 +13376,10 @@
                     "active": {
                       "type": "boolean"
                     },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                    },
                     "created_at": {
                       "type": "string"
                     }
@@ -12897,7 +13423,7 @@
         }
       },
       "delete": {
-        "summary": "Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas",
+        "summary": "Eliminar un miembro (exige ?confirm=true). Sus mensajes y respuestas publicados quedan con el autor «Miembro eliminado» y sus envíos sin publicar se retiran; con `purge=true` se borra todo lo suyo. Su correo queda retirado: el ingreso del anfitrión no lo crea de nuevo",
         "tags": [
           "Team"
         ],
@@ -12942,6 +13468,21 @@
                   "properties": {
                     "member_id": {
                       "type": "string"
+                    },
+                    "kept": {
+                      "type": "object",
+                      "description": "Lo suyo que se conserva con el autor «Miembro eliminado».",
+                      "properties": {
+                        "inputs": {
+                          "type": "integer"
+                        },
+                        "messages": {
+                          "type": "integer"
+                        },
+                        "replies": {
+                          "type": "integer"
+                        }
+                      }
                     },
                     "deleted": {
                       "type": "object",

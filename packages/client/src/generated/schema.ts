@@ -159,6 +159,8 @@ export interface paths {
                             /** @enum {string} */
                             language?: "es-419" | "en";
                             active?: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                             project_name?: string;
                             provider?: string;
@@ -1020,7 +1022,7 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status?: "open" | "answered" | "closed";
-                                /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                                /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                                 assessment?: {
                                     expectation?: string;
                                     guards?: number[];
@@ -1121,6 +1123,16 @@ export interface paths {
                                     created_at?: string;
                                     version?: number;
                                     edited_at?: string | null;
+                                }[];
+                                /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                                progress_notes?: {
+                                    id?: string;
+                                    message_id?: string;
+                                    job_id?: string;
+                                    author_id?: string;
+                                    body?: string;
+                                    minutes?: null | number;
+                                    created_at?: string;
                                 }[];
                                 /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                                 pending_delivery?: {
@@ -1396,7 +1408,7 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status?: "open" | "answered" | "closed";
-                                /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                                /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                                 assessment?: {
                                     expectation?: string;
                                     guards?: number[];
@@ -1611,7 +1623,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -1712,6 +1724,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -1847,7 +1869,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -1949,6 +1971,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -2025,9 +2057,9 @@ export interface paths {
                             trace_id?: string | null;
                             phase?: string | null;
                             attempts?: number;
-                            /** @description El modelo con que corrió la sesión del trabajo (UD-292). */
+                            /** @description El modelo con que corrió la sesión del trabajo (UD-295). */
                             model?: string | null;
-                            /** @description Lo que costó la sesión hasta ahora, en USD (UD-292). */
+                            /** @description Lo que costó la sesión hasta ahora, en USD (UD-295). */
                             cost_usd?: number | null;
                             elapsed_ms?: number | null;
                             first_reply_ms?: number | null;
@@ -2137,7 +2169,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -2238,6 +2270,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -2457,7 +2499,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -2558,6 +2600,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -2646,7 +2698,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -2747,6 +2799,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -2835,7 +2897,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -2936,6 +2998,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3027,7 +3099,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -3128,6 +3200,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3219,7 +3301,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -3320,6 +3402,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3430,7 +3522,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -3531,6 +3623,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3629,7 +3731,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -3730,6 +3832,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3785,7 +3897,7 @@ export interface paths {
         };
         get?: never;
         /**
-         * Cambiar a mano la evaluación de un mensaje (UD-292)
+         * Cambiar a mano la evaluación de un mensaje (UD-295)
          * @description Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.
          */
         put: {
@@ -3829,7 +3941,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -3930,6 +4042,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -4019,7 +4141,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -4120,6 +4242,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -4208,7 +4340,7 @@ export interface paths {
                             };
                             /** @enum {string} */
                             status?: "open" | "answered" | "closed";
-                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-292): what is expected of Claude, the Guards of the area it touches and its estimates. */
+                            /** @description What the analyzer says about the message beyond its text, or a person changed (UD-295): what is expected of Claude, the Guards of the area it touches and its estimates. */
                             assessment?: {
                                 expectation?: string;
                                 guards?: number[];
@@ -4310,6 +4442,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -4393,11 +4535,11 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295). */
                             execute_model?: null | string;
-                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            /** @description The light model of the area: its own, or the installation's light model (UD-295). */
                             execute_model_light?: null | string;
-                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
                                 text?: string;
@@ -4414,6 +4556,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4475,11 +4619,11 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295). */
                             execute_model?: null | string;
-                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            /** @description The light model of the area: its own, or the installation's light model (UD-295). */
                             execute_model_light?: null | string;
-                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
                                 text?: string;
@@ -4496,6 +4640,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4593,16 +4739,16 @@ export interface paths {
                         /** @description Who decides in the area (UD-269); null goes back to the first active Editor. */
                         escalation_member_id?: number | null;
                         /**
-                         * @description The larger model of the area (UD-292): where the light model's work escalates and the one of a message with no estimates; null goes back to the installation's default.
+                         * @description The larger model of the area (UD-295): where the light model's work escalates and the one of a message with no estimates; null goes back to the installation's default.
                          * @enum {string|null}
                          */
                         execute_model?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
                         /**
-                         * @description The light model of the area (UD-292): it takes the messages whose estimates stay within the limits; null goes back to the installation's light model.
+                         * @description The light model of the area (UD-295): it takes the messages whose estimates stay within the limits; null goes back to the installation's light model.
                          * @enum {string|null}
                          */
                         execute_model_light?: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5" | "claude-fable-5-1" | null;
-                        /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                        /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                         guards?: {
                             id?: number;
                             text: string;
@@ -4632,11 +4778,11 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295). */
                             execute_model?: null | string;
-                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            /** @description The light model of the area: its own, or the installation's light model (UD-295). */
                             execute_model_light?: null | string;
-                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
                                 text?: string;
@@ -4653,6 +4799,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4717,11 +4865,11 @@ export interface paths {
                             template_count?: number;
                             /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
                             escalation_member_id?: null | string;
-                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-292). */
+                            /** @description The larger model of the area: where the light model's work escalates and the one of a message with no estimates; its own, or the installation's default (UD-295). */
                             execute_model?: null | string;
-                            /** @description The light model of the area: its own, or the installation's light model (UD-292). */
+                            /** @description The light model of the area: its own, or the installation's light model (UD-295). */
                             execute_model_light?: null | string;
-                            /** @description The Guards of the area (UD-292): each wall with the mechanism that holds it; `person` marks one that is about a person. */
+                            /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
                                 text?: string;
@@ -4738,6 +4886,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4798,6 +4948,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -4837,6 +4989,8 @@ export interface paths {
                         body_markdown: string;
                         name?: string;
                         description?: string;
+                        /** @description Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293). */
+                        progress_interval_min?: number;
                     };
                 };
             };
@@ -4852,6 +5006,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -4947,6 +5103,8 @@ export interface paths {
                         body_markdown?: string;
                         name?: string;
                         description?: string;
+                        /** @description Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293). */
+                        progress_interval_min?: number;
                     };
                 };
             };
@@ -4962,6 +5120,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -5018,6 +5178,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -5088,6 +5250,8 @@ export interface paths {
                                 /** @enum {string} */
                                 language: "es-419" | "en";
                                 active: boolean;
+                                /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                                removed?: boolean;
                                 created_at?: string;
                             }[];
                             page?: number;
@@ -5161,6 +5325,8 @@ export interface paths {
                             /** @enum {string} */
                             language: "es-419" | "en";
                             active: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                             /** @description Sólo al crear un agente; no se vuelve a mostrar. */
                             agent_secret?: string;
@@ -5244,6 +5410,8 @@ export interface paths {
                             /** @enum {string} */
                             language: "es-419" | "en";
                             active: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                         };
                     };
@@ -5276,7 +5444,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas */
+        /** Eliminar un miembro (exige ?confirm=true). Sus mensajes y respuestas publicados quedan con el autor «Miembro eliminado» y sus envíos sin publicar se retiran; con `purge=true` se borra todo lo suyo. Su correo queda retirado: el ingreso del anfitrión no lo crea de nuevo */
         delete: {
             parameters: {
                 query?: {
@@ -5299,6 +5467,12 @@ export interface paths {
                     content: {
                         "application/json": {
                             member_id: string;
+                            /** @description Lo suyo que se conserva con el autor «Miembro eliminado». */
+                            kept?: {
+                                inputs?: number;
+                                messages?: number;
+                                replies?: number;
+                            };
                             deleted: {
                                 inputs: number;
                                 messages: number;
@@ -5372,6 +5546,8 @@ export interface paths {
                             /** @enum {string} */
                             language: "es-419" | "en";
                             active: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                         };
                     };

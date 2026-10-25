@@ -25,6 +25,7 @@ import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 import { isActivePerson } from './members.js'
 import { assessmentOf, guardsOf } from './assessment.js'
 import { isInputParty } from './inputs.js'
+import { listProgressNotes } from './progress-notes.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification', 'forward']
@@ -119,7 +120,7 @@ function hydrate (db, rows) {
     body: f.body,
     fields: parseJson(f.fields_json, {}),
     status: f.status,
-    assessment: assessmentOf(f), // UD-292
+    assessment: assessmentOf(f), // UD-295
     assignee_ids: assigned.get(f.id) ?? [],
     attachments: atts.get(f.id) ?? [],
     attachment_kinds: [...new Set((atts.get(f.id) ?? []).map((a) => a.kind))], // distinct, in attachment order (UD-016)
@@ -236,7 +237,7 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const retrying = retryingIds(db, replyRows) // UD-290
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), edits, pending_delivery: pendingDelivery(db, id) }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pendingDelivery(db, id) }
 }
 
 /**
@@ -450,7 +451,7 @@ export function closeMessage ({ db, events, now = Date.now }, messageId, actorId
 }
 
 /**
- * A person changes the assessment of a message by hand (UD-292): what is expected of Claude, the Guards it touches, who has the missing value. They are what the analyzer said
+ * A person changes the assessment of a message by hand (UD-295): what is expected of Claude, the Guards it touches, who has the missing value. They are what the analyzer said
  * with a model; whoever reads the message may disagree, and `assessed_by` keeps who. The change decides the model and the opening of the NEXT session, never an assignment: a session
  * already queued or running is not touched. Any active person; the message does not change version.
  */

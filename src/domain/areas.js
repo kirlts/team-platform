@@ -9,9 +9,10 @@ import { deciderOf } from './escalation.js'
 import { conflict, notFound, unprocessable } from './errors.js'
 import { EXECUTE_MODEL_IDS, isExecuteModel } from './execute-models.js'
 import { parseTemplate, withFrontmatter } from './template-file.js'
+import { DEFAULT_PROGRESS_INTERVAL_MIN } from './progress-notes.js'
 
 const toTemplate = (f, withBody) => ({
-  id: f.id, area_id: f.area_id, name: f.name, description: f.description, updated_at: iso(f.updated_at), deleted_at: iso(f.deleted_at),
+  id: f.id, area_id: f.area_id, name: f.name, description: f.description, progress_interval_min: f.progress_interval_min ?? DEFAULT_PROGRESS_INTERVAL_MIN, updated_at: iso(f.updated_at), deleted_at: iso(f.deleted_at),
   ...(withBody ? { body_markdown: f.body_markdown } : {})
 })
 
@@ -31,7 +32,7 @@ function handoffsOf (db, areaId, now) {
 /** An area as the API shows it: `escalation_member_id` is the person who decides now (the stored one, or the default), and `handoffs` the week's count. */
 const withEscalation = (db, a, now, defaults) => {
   const decider = deciderOf(db, a.id)
-  // UD-292: the two models as they apply now (the area's own or the installation's default: Haiku light, Sonnet larger) and the Guards of the area.
+  // UD-295: the two models as they apply now (the area's own or the installation's default: Haiku light, Sonnet larger) and the Guards of the area.
   return { ...a, execute_model: a.execute_model ?? defaults.model ?? null, execute_model_light: a.execute_model_light ?? defaults.light ?? null, guards: parseGuards(a.guards_json), escalation_member_id: decider === null ? null : String(decider), handoffs: handoffsOf(db, a.id, now) }
 }
 
@@ -42,7 +43,7 @@ export function listAreas (db, { includeDeleted = false, now = Date.now, default
            (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status <> 'closed' AND m.deleted_at IS NULL) AS unresolved_count,
            (SELECT COUNT(*) FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) AS template_count
       FROM areas a ${includeDeleted ? '' : 'WHERE a.deleted_at IS NULL'} ORDER BY a.position, a.id`)
-  const tpls = all(db, `SELECT id, area_id, name, description, updated_at, deleted_at FROM templates ${includeDeleted ? '' : 'WHERE deleted_at IS NULL'} ORDER BY id`)
+  const tpls = all(db, `SELECT id, area_id, name, description, progress_interval_min, updated_at, deleted_at FROM templates ${includeDeleted ? '' : 'WHERE deleted_at IS NULL'} ORDER BY id`)
   return areas.map((a) => ({ ...withEscalation(db, a, now, { model: defaultModel, light: lightModel }), deleted_at: iso(a.deleted_at), templates: tpls.filter((p) => p.area_id === a.id).map((p) => toTemplate(p, false)) }))
 }
 
@@ -52,7 +53,7 @@ export function getArea (db, id, { includeDeleted = false } = {}) {
   return dbRow
 }
 
-/** The Guards of an area as stored (UD-292): `[{ id, text, mechanism, person }]`. */
+/** The Guards of an area as stored (UD-295): `[{ id, text, mechanism, person }]`. */
 const parseGuards = (text) => { try { const l = JSON.parse(text ?? '[]'); return Array.isArray(l) ? l : [] } catch { return [] } }
 
 /**
@@ -157,14 +158,14 @@ function nameIsFree (db, areaId, name, exceptId = null) {
  * Creates a template. `body_markdown` is the complete file with its header (§7.9); optional `name` and
  * `description` rewrite the header. The `name` and `description` columns always come from the header.
  */
-export function createTemplate (db, areaId, { body_markdown: markdown, name, description }, { actorId = null, now = Date.now } = {}) {
+export function createTemplate (db, areaId, { body_markdown: markdown, name, description, progress_interval_min: interval }, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     getArea(db, areaId)
     const textValue = name !== undefined || description !== undefined ? withFrontmatter(markdown, { name, description }) : markdown
     const t = parseTemplate(textValue)
     nameIsFree(db, areaId, t.name)
-    const r = run(db, 'INSERT INTO templates (area_id, name, description, body_markdown, updated_at) VALUES (?, ?, ?, ?, ?)',
-      areaId, t.name, t.description, textValue, now())
+    const r = run(db, 'INSERT INTO templates (area_id, name, description, body_markdown, progress_interval_min, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      areaId, t.name, t.description, textValue, interval ?? DEFAULT_PROGRESS_INTERVAL_MIN, now())
     const id = Number(r.lastInsertRowid)
     audit(db, { memberId: actorId, action: 'template.create', entity: 'template', entityId: id, detail: { area_id: areaId, name: t.name }, now })
     return toTemplate(getTemplate(db, areaId, id), true)
@@ -180,8 +181,9 @@ export function updateTemplate (db, areaId, id, patch, { actorId = null, now = D
     }
     const t = parseTemplate(textValue)
     nameIsFree(db, areaId, t.name, id)
-    run(db, 'UPDATE templates SET name = ?, description = ?, body_markdown = ?, updated_at = ? WHERE id = ?', t.name, t.description, textValue, now(), id)
-    audit(db, { memberId: actorId, action: 'template.update', entity: 'template', entityId: id, detail: { area_id: areaId, name: t.name }, now })
+    const interval = patch.progress_interval_min ?? current.progress_interval_min
+    run(db, 'UPDATE templates SET name = ?, description = ?, body_markdown = ?, progress_interval_min = ?, updated_at = ? WHERE id = ?', t.name, t.description, textValue, interval, now(), id)
+    audit(db, { memberId: actorId, action: 'template.update', entity: 'template', entityId: id, detail: { area_id: areaId, name: t.name, ...(interval !== current.progress_interval_min ? { progress_interval_min: interval } : {}) }, now })
     return toTemplate(getTemplate(db, areaId, id), true)
   })
 }

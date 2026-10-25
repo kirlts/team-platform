@@ -23,7 +23,7 @@ const members = [
   { id: '2', name: 'Ana', email: 'ana@x.org', role: 'member', kind: 'person', active: true },
   { id: '3', name: 'Claude', email: 'claude@x.org', role: 'member', kind: 'agent', active: true },
 ]
-const api = mockApi(async (path: string) => {
+mockApi(async (path: string) => {
   if (path === '/me') return { id: '1', email: 'm@x.org', name: 'Martín', role: 'editor', language: 'es-419', active: true, provider: 'local' }
   if (path === '/members') return { items: members }
   return { items: [] }

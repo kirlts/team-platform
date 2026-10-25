@@ -172,6 +172,8 @@ export interface Reply {
   forwarded_to?: string | null
   /** The reply tells a failed `execute` job that `POST /messages/:id/replies/:replyId/retry` launches again (UD-282). */
   retryable?: boolean
+  /** UD-307: the «Lista para ver» reply whose branch waits for a person; `POST /messages/:id/deliver` («Publicar») delivers it. */
+  publishable?: boolean
   /** The job that retried this notice (UD-290): the notice stays, marked as replaced; the thread omits it once that job ended. */
   replaced_by_job_id?: string | null
   /** The job that retried the notice is still queued or running: the thread draws «Reintentando» in its place (UD-290). */

@@ -386,6 +386,9 @@ export interface paths {
                                         value_holder?: "person" | "model";
                                         certainty?: number;
                                         estimate_reason?: string;
+                                        idea?: number;
+                                        idea_guard?: boolean;
+                                        idea_reason?: string;
                                         observed?: string[];
                                     } & {
                                         [key: string]: unknown;
@@ -599,6 +602,9 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     estimate_reason?: string;
+                                    idea?: number;
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -787,6 +793,9 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     estimate_reason?: string;
+                                    idea?: number;
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -876,6 +885,9 @@ export interface paths {
                             value_holder?: "person" | "model";
                             certainty?: number;
                             estimate_reason?: string;
+                            idea?: number;
+                            idea_guard?: boolean;
+                            idea_reason?: string;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -914,6 +926,9 @@ export interface paths {
                                 value_holder?: "person" | "model";
                                 certainty?: number;
                                 estimate_reason?: string;
+                                idea?: number;
+                                idea_guard?: boolean;
+                                idea_reason?: string;
                                 observed?: string[];
                             } & {
                                 [key: string]: unknown;
@@ -989,6 +1004,9 @@ export interface paths {
                             value_holder?: "person" | "model";
                             certainty?: number;
                             estimate_reason?: string;
+                            idea?: number;
+                            idea_guard?: boolean;
+                            idea_reason?: string;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -1033,6 +1051,11 @@ export interface paths {
                                         value_holder?: "person" | "model";
                                         certainty?: number;
                                         reason?: string;
+                                        /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                        idea?: null | number;
+                                        /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                        idea_guard?: boolean;
+                                        idea_reason?: string;
                                     } & {
                                         [key: string]: unknown;
                                     });
@@ -1060,6 +1083,8 @@ export interface paths {
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                     forwarded_to?: string | null;
+                                    /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                    publishable?: boolean;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1102,6 +1127,8 @@ export interface paths {
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                     forwarded_to?: string | null;
+                                    /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                    publishable?: boolean;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1419,6 +1446,11 @@ export interface paths {
                                         value_holder?: "person" | "model";
                                         certainty?: number;
                                         reason?: string;
+                                        /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                        idea?: null | number;
+                                        /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                        idea_guard?: boolean;
+                                        idea_reason?: string;
                                     } & {
                                         [key: string]: unknown;
                                     });
@@ -1446,6 +1478,8 @@ export interface paths {
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                     forwarded_to?: string | null;
+                                    /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                    publishable?: boolean;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1634,6 +1668,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -1661,6 +1700,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1703,6 +1744,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1880,6 +1923,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -1907,6 +1955,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1949,6 +1999,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2180,6 +2232,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -2207,6 +2264,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2249,6 +2308,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2510,6 +2571,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -2537,6 +2603,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2579,6 +2647,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2709,6 +2779,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -2736,6 +2811,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2778,6 +2855,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2908,6 +2987,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -2935,6 +3019,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2977,6 +3063,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3110,6 +3198,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -3137,6 +3230,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3179,6 +3274,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3312,6 +3409,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -3339,6 +3441,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3381,6 +3485,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3533,6 +3639,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -3560,6 +3671,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3602,6 +3715,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3742,6 +3857,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -3769,6 +3889,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3811,6 +3933,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3952,6 +4076,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -3979,6 +4108,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4021,6 +4152,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4152,6 +4285,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -4179,6 +4317,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4221,6 +4361,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4351,6 +4493,11 @@ export interface paths {
                                     value_holder?: "person" | "model";
                                     certainty?: number;
                                     reason?: string;
+                                    /** @description UD-307: how much of the request is an idea to explore (0 to 1); null in a message from before it existed. */
+                                    idea?: null | number;
+                                    /** @description UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */
+                                    idea_guard?: boolean;
+                                    idea_reason?: string;
                                 } & {
                                     [key: string]: unknown;
                                 });
@@ -4378,6 +4525,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -4420,6 +4569,8 @@ export interface paths {
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
                                 forwarded_to?: string | null;
+                                /** @description UD-307: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica. */
+                                publishable?: boolean;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -5568,6 +5719,81 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/host/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The notices of the member of a host token (host site)
+         * @description Los avisos que afectan a la persona del token del anfitrión: los mensajes abiertos y respondidos que la afectan (UD-028), con sus conteos y los últimos `limit`, el abierto antes que el respondido y dentro de cada estado el más reciente. Cada ítem trae `path`, la dirección del mensaje en el panel. Sólo lectura, y nunca crea la cuenta: 401 sin token válido, 404 `member_not_registered` si el correo no es de un miembro, 403 `account_inactive` si está desactivado.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            member?: {
+                                id?: string;
+                                name?: string;
+                                email?: string;
+                                role?: string;
+                            };
+                            counts?: {
+                                open?: number;
+                                answered?: number;
+                                total?: number;
+                            };
+                            items?: {
+                                message_id?: string;
+                                title?: string;
+                                /** @enum {string} */
+                                status?: "open" | "answered";
+                                at?: string;
+                                path?: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/settings/providers": {
@@ -7595,7 +7821,7 @@ export interface paths {
         put?: never;
         /**
          * Encolar la entrega a producción de un mensaje (cualquier persona activa, UD-286)
-         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama.
+         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama. UD-307: también publica el trabajo «Lista para ver»; sólo una persona (409 `not_a_person`).
          */
         post: {
             parameters: {

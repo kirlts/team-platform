@@ -307,7 +307,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           </div>
 
           <Observed items={m.observed} />
-          <Assessment message={m} />
+          <Assessment message={m} template={template} />
           <Timing messageId={m.id} assigneeIds={m.assignee_ids} />
         </div>
 

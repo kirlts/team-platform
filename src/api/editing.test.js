@@ -218,6 +218,21 @@ test('UD-017 · the author edits title, body, fields and assignees of a publishe
   await env.close()
 })
 
+test('UD-017 · a field the template no longer asks for stays on the message and does not fail an edit; a new unknown field is 400', async () => {
+  const env = await team({ worker: true })
+  const { messageId } = await published(env)
+  const stored = { ...ERROR_FIELDS, value_missing: 'nadie' }
+  run(env.db, 'UPDATE messages SET fields_json = ? WHERE id = ?', JSON.stringify(stored), messageId)
+  const edited = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { fields: { ...stored, actual: 'se cuelga' } })
+  assert.equal(edited.statusCode, 200, edited.body)
+  assert.deepEqual(edited.json().fields, { ...stored, actual: 'se cuelga' }) // what it had under the retired name is kept
+  const invented = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { fields: { ...stored, inventado: 'x' } })
+  assert.equal(invented.statusCode, 400)
+  assert.equal(invented.json().code, 'fields_invalid')
+  assert.equal(JSON.parse(get(env.db, 'SELECT fields_json FROM messages WHERE id = ?', messageId).fields_json).inventado, undefined)
+  await env.close()
+})
+
 test('UD-071 · only the sender edits a message: another member and an editor get 403 and nothing changes', async () => {
   const env = await team({ worker: true })
   const { messageId } = await published(env)

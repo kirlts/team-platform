@@ -83,8 +83,9 @@ function replyAttachmentsOf (db, replyIds) {
   return table
 }
 
-const toReply = (r, atts = [], mentions = [], retryable = false, retrying = false) => ({
+const toReply = (r, atts = [], mentions = [], retryable = false, retrying = false, publishable = false) => ({
   id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, retryable, // UD-282: the notice of a failed session can be launched again
+  publishable, // UD-307: «Lista para ver»: the branch it shows waits for a person's «Publicar»
   replaced_by_job_id: r.replaced_by_job_id ?? null, retrying, // UD-290: a retry replaced the notice; `retrying` while that job is queued or running
   mentions, // UD-278: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
@@ -235,9 +236,12 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const mentions = mentionsOf(db, replyRows.map((r) => r.id))
   const retryable = retryableIds(db, replyRows) // UD-282
   const retrying = retryingIds(db, replyRows) // UD-290
+  // UD-307: the «Lista para ver» reply of the branch that still waits (the latest one) offers «Publicar» while nobody is delivering it.
+  const pending = pendingDelivery(db, id)
+  const shownReply = pending?.state === 'held' ? replyRows.filter((r) => r.publish_json && parseJson(r.publish_json, {}).job_id === Number(pending.job_id)).at(-1)?.id ?? null : null
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pendingDelivery(db, id) }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id), r.id === shownReply)), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pending }
 }
 
 /**
@@ -292,7 +296,12 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
     // Fields are checked whenever they or their template change, because the template defines which are required.
     if (patch.fields !== undefined || templateChanges) {
       const fields = withoutNulls(patch.fields ?? parseJson(row.fields_json, {}))
-      checkFields(tpl, fields, { fail, cache: newValidatorCache() })
+      // A name the message already stored that its template no longer asks for (the 2026-10-25 retirement of the fields that stayed empty) is kept
+      // as it is and not checked: editing another field must not fail on, or erase, what was there. A name that is new, or any name when the template changes, must be one of the template's.
+      const defined = new Set((tpl?.parsed.fields ?? []).map((f) => f.name))
+      const stored = parseJson(row.fields_json, {})
+      const retired = templateChanges ? [] : Object.keys(fields).filter((k) => !defined.has(k) && Object.hasOwn(stored, k))
+      checkFields(tpl, Object.fromEntries(Object.entries(fields).filter(([k]) => !retired.includes(k))), { fail, cache: newValidatorCache() })
       next.fields_json = JSON.stringify(fields)
     }
 

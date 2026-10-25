@@ -217,9 +217,9 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         if (missing) closing.lines.push(missing)
         closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
         // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
-        const request = payload.close_request ?? null // a delivery an Editor launched by hand carries no request
+        const request = payload.close_request ?? null // optional (UD-310): a delivery an Editor launched by hand, or a session that did not ask, carries none
         const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
-        const why = !request || alreadyThere ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since })
+        const why = alreadyThere ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since, language: author?.language })
         if (why) closing.lines.push(closeLine(why, author?.language))
         const { replyId } = addReply({ db, events, now }, {
           messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now() }), files: [...closing.files, ...(payload.documents?.files ?? [])]

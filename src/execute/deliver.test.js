@@ -121,7 +121,7 @@ describe('deliver job', () => {
     assert.equal((await waitJob(delivery.id)).status, 'done')
     const mine = replies(messageId)
     assert.equal(mine.length, 2, 'the first reply and ONE closing reply')
-    assert.match(mine[1], /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\. En producción desde \d\d:\d\d \S+\.$/)
+    assert.match(mine[1], /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\. En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     assert.equal(readFileSync(log, 'utf8').trim(), `${messageId} '${messageId}' 'tp/${messageId}' '${delivery.id}' tp/${messageId}`)
 
     assert.deepEqual(phrasesOf(delivery.id).filter((p) => p.startsWith('Entrega')), ['Entrega: verificación', 'Entrega: verificación', 'Entrega: despliegue'])
@@ -159,7 +159,7 @@ describe('deliver job', () => {
     const rows = env.db.prepare('SELECT ra.name FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId)
     assert.deepEqual(rows.map((x) => x.name), ['Después - Bandeja sin el error.png'])
     const closing = replies(messageId)[1]
-    assert.match(closing, /En producción desde \d\d:\d\d \S+\.\n\n\*\*Después\*\*: Bandeja sin el error\. Correos > Bandeja, Clínica Sur, administrador\.$/)
+    assert.match(closing, /En producción desde \d\d:\d\d \S+\.\n\n\*\*Después\*\*: Bandeja sin el error\. Correos > Bandeja, Clínica Sur, administrador\.(\n\nCerrado: .+)?$/)
   })
 
   it('the delivery takes the after from production at the place, role and size of the before, and the branch capture is only a fallback (UD-268)', async () => {
@@ -218,12 +218,12 @@ describe('deliver job', () => {
     assert.equal(jobsOf(messageId, 'execute').length, 1, 'nothing goes back to Claude')
     const mine = replies(messageId)
     assert.equal(mine.length, 2)
-    assert.match(mine[1], /En producción desde \d\d:\d\d \S+\.$/)
+    assert.match(mine[1], /En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
   })
 
   it('exit 76 holds the delivery for a person: one reply, no retry, no second pass, the output of the session reaches the command', async () => {
     const log = path('held-log')
-    startWorker({ deliverCommand: 'true' })
+    startWorker({ deliverCommand: 'true', autoClose: false }) // UD-310: the first delivery would close the message and the held one needs it open
     const messageId = await publishedMessage('Un cobro que sale doble.')
     await settle(messageId)
     await worker.stop()
@@ -291,7 +291,7 @@ describe('deliver job', () => {
       await worker.stop()
       startWorker({ deliverCommand: holdUnlessReviewed(log) })
       await settle(messageId)
-      assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
       assert.equal(await pendingOf(messageId), null, 'delivered: no review left')
       assert.match(readFileSync(log, 'utf8'), /reviewed=\n[\s\S]*reviewed=\d+\n$/, 'the first delivery was held; the approved one carried the reviewer')
     })
@@ -321,7 +321,7 @@ describe('deliver job', () => {
       assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'message.deliver_retry' AND entity_id = ?").get(String(messageId)).n, 1)
       startWorker({ deliverCommand: 'echo ref-retry' })
       await settle(messageId)
-      assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
       assert.equal(await pendingOf(messageId), null)
       assert.equal((await view()).replies.some((r) => r.retryable), false)
     })
@@ -383,7 +383,7 @@ describe('deliver job', () => {
     assert.equal(mine.length, 3, 'the first reply, the notice that the delivery went back to Claude (UD-296) and ONE closing reply')
     assert.match(mine[0], /^Recibido/)
     assert.equal(mine[1], 'No pasó la verificación. Claude lo corrige y vuelve a entregar.', 'no test name in this output: the sentence stands without one')
-    assert.match(mine[2], /En producción desde \d\d:\d\d \S+\.$/)
+    assert.match(mine[2], /En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     assert.equal(env.db.prepare('SELECT delivered FROM execute_runs WHERE job_id = ?').get(executes[0].id).delivered, 0)
     assert.equal(env.db.prepare('SELECT delivered FROM execute_runs WHERE job_id = ?').get(executes[1].id).delivered, 1)
   })
@@ -486,7 +486,7 @@ describe('deliver job', () => {
       startWorker({ deliverCheckCommand: withBranch(host('pending', false)), deliverCommand: `echo ran >> ${log}; echo ref-real` })
       assert.equal((await waitJob(await hand(messageId))).status, 'done')
       assert.equal(readFileSync(log, 'utf8').trim(), 'ran', 'the command ran')
-      assert.match(replies(messageId).at(-1), /^En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(replies(messageId).at(-1), /^En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     })
 
     it('a check that does not answer yes leaves the delivery as it was', async () => {
@@ -514,7 +514,7 @@ describe('deliver job', () => {
       assert.equal(mine.length, 4, 'the first reply, one notice per failure and ONE final reply')
       assert.equal(mine[1], 'No pasó la verificación: la agenda abre en blanco. Claude lo corrige y vuelve a entregar.')
       assert.equal(mine[2], mine[1])
-      assert.match(mine[3], /En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(mine[3], /En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
       assert.deepEqual(notes(messageId), ['Construido; entregando a producción.', 'Construido; entregando a producción.', 'Construido; entregando a producción.'], 'a notice of delivery each time, never a promise')
       const prompt = calls().at(-1).stdin
       assert.match(prompt, /A failed check is not an end[\s\S]*never skip the test, never hide it behind a retry or a wait/)
@@ -532,7 +532,7 @@ describe('deliver job', () => {
       writeFileSync(gate, '')
       assert.equal((await waitJob(delivery.id)).status, 'done')
       const final = replies(messageId).at(-1)
-      assert.match(final, /^Arreglé la pantalla que quedaba en blanco\.[\s\S]*En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(final, /^Arreglé la pantalla que quedaba en blanco\.[\s\S]*En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
       const stamp = env.db.prepare("SELECT created_at FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1").get(messageId).created_at
       assert.ok(final.includes(clockTime(stamp)) || final.includes(clockTime(stamp - 60000)), 'the time is the one of the confirmation')
     })
@@ -737,7 +737,7 @@ describe('deliver job', () => {
       assert.equal((await waitJob(jobId)).status, 'done')
       const mine = replies(messageId)
       assert.equal(mine.length, 3, 'the first reply, the answer of execute (no separate delivery then) and the note')
-      assert.match(mine[2], /^En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(mine[2], /^En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     })
 
     it('a delivery launched again keeps the summary of the session', async () => {
@@ -750,7 +750,7 @@ describe('deliver job', () => {
       const res = await post(messageId)
       assert.equal(res.statusCode, 202, res.body)
       await waitJob(Number(res.json().job_id))
-      assert.match(replies(messageId).at(-1), /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\. En producción desde \d\d:\d\d \S+\.$/)
+      assert.match(replies(messageId).at(-1), /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\. En producción desde \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     })
   })
 })
@@ -774,7 +774,7 @@ describe('pieces of the delivery', () => {
     assert.equal(clockTime(at), process.env.TZ ? clockTime(at) : '14:28 UTC')
     assert.equal(deliveredBody({ output: { outcome: 'done', summary: 'Listo.' }, ref: 'https://x.org/c/1', language: 'es-419', at }), `Listo. En producción desde ${clockTime(at)}.`)
     assert.equal(deliveredBody({ output: { outcome: 'done', summary: 'Done.' }, language: 'en', at }), `Done. In production since ${clockTime(at)}.`)
-    assert.match(deliveredBody({ output: { outcome: 'done', summary: 'Done.' }, ref: 'abc', language: 'en' }), /^Done\. In production since \d\d:\d\d \S+\.$/)
+    assert.match(deliveredBody({ output: { outcome: 'done', summary: 'Done.' }, ref: 'abc', language: 'en' }), /^Done\. In production since \d\d:\d\d \S+\.(\n\nCerrado: .+)?$/)
     assert.equal(deliveredBody({ output: null, ref: null, language: 'es-419', at }), `En producción desde ${clockTime(at)}.`)
   })
 

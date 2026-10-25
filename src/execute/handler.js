@@ -738,7 +738,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const editedNote = edited ? [(FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']).edited] : []
       // UD-271: an outcome that needs no change (`investigated`) with nothing left to the sender may close the message here; a change closes it in the delivery.
       const handOff = HANDOFF_OUTCOMES.includes(output.outcome) || edited
-      const why = handOff || investigate ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload) })
+      const why = handOff || investigate || mention ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload), language: author?.language })
       const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...(handOff || investigate ? [] : [noCaptureLine(output, captured.stored.length, author?.language, rejectedCaptures)].filter(Boolean)), ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
       const { replyId } = handOff
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })

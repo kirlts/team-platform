@@ -200,7 +200,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           </h1>
           {/* The count of the thread, next to the title: the thread itself is the narrow column on the right. */}
           <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted">
-            {t('replies.title')}
+            <span>{t('replies.title')}</span>
             <Badge tone="neutral" className="tabular-nums">
               {m.replies.length}
             </Badge>
@@ -219,7 +219,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_clamp(26rem,28%,28rem)]">
         {/* The column is the lane (UD-299): from 768 px the screen keeps its height and the whole column scrolls, so the text of the message is never the block that shrinks to a line. */}
         <div data-lane="message-column" className="scroll-thin flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-1 [&>*]:shrink-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted">
             {canEdit ? (
               <AreaPicker
                 areaId={m.area_id}
@@ -252,7 +252,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             )}
             {/* The recipients share the line of the badges while they fit and wrap right under them when they do not. */}
             {canEdit ? (
-            <RecipientsEditor ids={m.assignee_ids} authorId={m.author_id} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
+            <RecipientsEditor compact ids={m.assignee_ids} authorId={m.author_id} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
           ) : (
             <Recipients ids={m.assignee_ids} max={desktop ? 4 : 2} />
           )}

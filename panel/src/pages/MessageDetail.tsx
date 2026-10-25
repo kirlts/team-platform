@@ -245,7 +245,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           <ReviewPending message={m} />
 
           {canEdit ? (
-            <RecipientsEditor ids={m.assignee_ids} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
+            <RecipientsEditor ids={m.assignee_ids} authorId={m.author_id} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
           ) : (
             <Recipients ids={m.assignee_ids} max={desktop ? 4 : 2} />
           )}

@@ -94,7 +94,7 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
         fields: Object.fromEntries(fieldProps.map((name) => [name, 'dato de la referencia'])),
         body: `Cuerpo de «${m.title}».`,
         assignee_ids: [],
-        attachment_ids: [],
+        attachment_ids: [...(m.attachment_ids ?? [])],
         // Where the reference skips units (the person talked about another request), the message resumes (H-3730).
         resumes_at: [...m.unit_ids].sort((a, b) => a - b).filter((id, i, ids) => i > 0 && id !== ids[i - 1] + 1),
         observed: [],

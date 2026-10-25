@@ -161,6 +161,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const switcher = page.getByTestId('send-switcher')
       await switcher.waitFor()
       const options = switcher.getByRole('option')
+      await options.nth(1).waitFor()
       assert.equal(await options.count(), 2)
       const row = await switcher.boundingBox()
       const labels = []

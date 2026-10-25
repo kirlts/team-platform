@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useOptionalEventsStore } from '@team-platform/client/react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Play, X } from '@/components/icons'
 import { useFormat, useT } from '@/i18n'
@@ -32,10 +33,20 @@ export function Thumb({
   const t = useT()
   const format = useFormat()
   const [zoomed, setZoomed] = useState(false)
+  // A photo that does not load is the tile of its kind, never the browser's broken-image mark with its alternative text.
+  const [broken, setBroken] = useState(false)
+  // The file may only be waiting to be published: the next event of the stream draws the photo again.
+  const events = useOptionalEventsStore()
+  useEffect(() => {
+    if (!broken || !events) return
+    const again = () => setBroken(false)
+    const stops = [events.onNewMessage(again), events.onDone(again), events.onChanged(again)]
+    return () => stops.forEach((stop) => stop())
+  }, [broken, events])
   const label = item.name ?? t(MEDIA_KEY[item.kind])
   const inner =
-    item.kind === 'image' && item.src ? (
-      <img src={item.src} alt={label} className="h-full w-full rounded-[4px] object-cover" loading="lazy" />
+    item.kind === 'image' && item.src && !broken ? (
+      <img src={item.src} alt={label} onError={() => setBroken(true)} className="h-full w-full rounded-[4px] object-cover" loading="lazy" />
     ) : item.kind === 'video' && item.src ? (
       <span className="relative block h-full w-full">
         {/* A file still on the person's computer (blob:) costs nothing to read, so its first frame is the picture. One on the server is not read for a
@@ -53,7 +64,7 @@ export function Thumb({
         </span>
       </span>
     ) : (
-      <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[4px] bg-raised text-accent-deep">
+      <span role={broken ? 'img' : undefined} aria-label={broken ? label : undefined} className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[4px] bg-raised text-accent-deep">
         <MediaIcon kind={item.kind} size={Math.round(px * 0.38)} />
       </span>
     )

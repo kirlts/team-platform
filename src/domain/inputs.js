@@ -137,11 +137,14 @@ export function proposalView (payload) {
   }
 }
 
+/** Whose an input is (UD-255): the author it is attributed to and the member who had the session when «Enviar como» sent it. One rule for the input, its card and its files. */
+export const isInputParty = (input, memberId) => input.author_id === memberId || input.sent_by_member_id === memberId
+
 /** View of an input for its sender: attachments, status, current job, units and proposal if one exists. */
 export function getInputView ({ db, queue, events }, inputId, memberId) {
   const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
   // Someone else's input is indistinguishable from a nonexistent one.
-  if (!input || (input.author_id !== memberId && input.sent_by_member_id !== memberId)) throw notFound('El input no existe.')
+  if (!input || !isInputParty(input, memberId)) throw notFound('El input no existe.')
   return buildInputView({ db, queue, events }, input)
 }
 

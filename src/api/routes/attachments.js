@@ -106,7 +106,7 @@ export function registerAttachmentRoutes (app, ctx) {
     }
   }, async (request) => {
     const att = get(db, 'SELECT id, kind, extracted_text FROM reply_attachments WHERE id = ?', request.params.id)
-    if (!att || !['audio', 'video'].includes(att.kind) || !att.extracted_text || !canReadReplyAttachment(db, att.id)) throw notFound('El adjunto no tiene transcripción.')
+    if (!att || !['audio', 'video'].includes(att.kind) || !att.extracted_text || !canReadReplyAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no tiene transcripción.')
     return { text: att.extracted_text }
   })
 
@@ -116,7 +116,7 @@ export function registerAttachmentRoutes (app, ctx) {
     schema: { summary: 'El archivo adjunto a una respuesta, con soporte de rangos', params: idParams(), querystring: downloadQuery, response: responses }
   }, async (request, reply) => {
     const att = get(db, 'SELECT * FROM reply_attachments WHERE id = ?', request.params.id)
-    if (!att || att.kind === 'link' || !canReadReplyAttachment(db, att.id)) throw notFound('El adjunto no existe.')
+    if (!att || att.kind === 'link' || !canReadReplyAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no existe.')
     return sendFile(att, request, reply)
   })
 }

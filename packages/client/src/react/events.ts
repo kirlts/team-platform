@@ -38,6 +38,11 @@ export function useEventsStore(): EventsStore {
   return store
 }
 
+/** The store when there is a session stream above, `null` in a piece drawn on its own (a test): for what listens to the events but can live without them. */
+export function useOptionalEventsStore(): EventsStore | null {
+  return useContext(EventsContext)
+}
+
 export function useEventsSnapshot() {
   const store = useEventsStore()
   return useSyncExternalStore(store.subscribe, store.getSnapshot)

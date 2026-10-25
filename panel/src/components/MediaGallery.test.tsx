@@ -2,6 +2,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { EventsStore } from '@team-platform/client'
+import { EventsProvider } from '@team-platform/client/react'
 import { I18nProvider } from '@/i18n'
 import { stepIndex, toGalleryItems, type GalleryItem } from '@/lib/gallery'
 import { MediaGallery } from './MediaGallery'
@@ -152,5 +155,30 @@ describe('gallery helpers', () => {
     expect(reply[0].src).toBe('/api/replies/attachments/a1')
     expect(reply[0].transcriptSrc).toBe('/api/replies/attachments/a1/transcript') // a reply's speech is read too (UD-279)
     expect(reply[1].transcriptSrc).toBeUndefined()
+  })
+
+  it('waits for the stream when a file is not readable yet, draws no error, and loads by itself when something is published', () => {
+    const store = new EventsStore()
+    wrap(
+      <QueryClientProvider client={new QueryClient()}>
+        <EventsProvider store={store} connect={false}>
+          <MediaGallery items={[photo(1)]} />
+        </EventsProvider>
+      </QueryClientProvider>,
+    )
+    const first = document.querySelector('[data-gallery-viewer] img') as HTMLImageElement
+    fireEvent.error(first)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByText('No se pudo cargar')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    expect(document.querySelector('[data-gallery-viewer] img')).toBeNull() // no broken image with its alternative text
+    expect(document.querySelector('[data-gallery-waiting]')).not.toBeNull()
+    act(() => store.newMessage({ message_id: '117', title: 'x', author_id: '3' } as never))
+    const again = document.querySelector('[data-gallery-viewer] img') as HTMLImageElement
+    expect(again).not.toBeNull()
+    expect(again).not.toBe(first)
+    // Still unreadable after the event: now it is a failure, with its button.
+    fireEvent.error(again)
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: 'Reintentar' })).toBeTruthy()
   })
 })

@@ -41,6 +41,14 @@ async function openMessage(page, title) {
   await page.locator('[data-gallery]').first().waitFor()
 }
 
+/** A write by anybody makes the server say `message` to the whole team (src/api/index.js): the event the gallery waits for when a file is not readable yet. */
+async function poke(page, title) {
+  const body = await (await page.request.get(`${origin}/api/messages?limit=200`)).json()
+  const found = (body.items ?? body).find((m) => m.title === title)
+  const res = await page.request.post(`${origin}/api/messages/${found.id}/replies`, { data: { body: 'aviso de prueba', kind: 'answer' }, headers: { 'x-team-request': 'panel' } })
+  assert.ok(res.ok(), `the write that raises the event: ${res.status()}`)
+}
+
 const gallery = (page) => page.locator('[data-gallery]').first()
 const counter = (page) => gallery(page).locator('[data-gallery-count]')
 const thumbs = (page) => gallery(page).locator('[data-gallery-thumb] button')
@@ -49,6 +57,31 @@ const shot = async (page, name) => {
 }
 /** Waits until the counter of the gallery says «n de total». */
 const until = (page, n, total) => counter(page).filter({ hasText: `${n} de ${total}` }).waitFor()
+
+describe('a file that is not readable yet', () => {
+  test('the gallery waits without an error and loads the photo by itself when the stream reports a change', async () => {
+    const { page, context } = await session()
+    try {
+      let readable = false
+      await page.route(/\/api\/attachments\/[^/?]+$/, (route) => (readable ? route.continue() : route.fulfill({ status: 404, contentType: 'application/json', body: '{"code":"not_found","message":"El adjunto no existe."}' })))
+      await openMessage(page, 'Galería de seis fotos')
+      await gallery(page).locator('[data-gallery-waiting]').first().waitFor()
+      assert.equal(await gallery(page).getByRole('alert').count(), 0)
+      assert.equal(await gallery(page).getByRole('button', { name: 'Reintentar' }).count(), 0)
+      readable = true
+      await poke(page, 'Galería de seis fotos')
+      await gallery(page).locator('[data-gallery-viewer] img').first().waitFor()
+      await page.waitForFunction(() => {
+        const img = document.querySelector('[data-gallery-viewer] img')
+        return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0
+      })
+      assert.equal(await gallery(page).locator('[data-gallery-waiting]').count(), 0)
+      assert.equal(await gallery(page).getByRole('alert').count(), 0)
+    } finally {
+      await context.close()
+    }
+  })
+})
 
 describe('selection and navigation', () => {
   test('six photos: one viewer, six thumbnails, the current one marked, and the counter follows every way of moving', async () => {
@@ -203,6 +236,11 @@ describe('each kind of medium', () => {
       assert.equal(await gallery(page).getByRole('link', { name: 'Abrir informe-del-cliente.pdf' }).count(), 1)
       await thumbs(page).nth(1).click()
       await until(page, 2, 3)
+      // The first failure is a wait for the stream, not an error, and draws no broken image.
+      await gallery(page).locator('[data-gallery-waiting]').first().waitFor()
+      assert.equal(await gallery(page).getByRole('alert').count(), 0, 'a file that is not there yet is not an error')
+      assert.equal(await gallery(page).locator('[data-gallery-viewer] img[alt="image."]').count(), 0)
+      await poke(page, 'Galería de seis fotos') // the stream says something changed: the file is asked again, and this time it is a failure for real
       const alert = gallery(page).getByRole('alert')
       await alert.waitFor()
       assert.match((await alert.textContent()) ?? '', /No se pudo cargar/)

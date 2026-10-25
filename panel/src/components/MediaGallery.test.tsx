@@ -181,4 +181,48 @@ describe('gallery helpers', () => {
     fireEvent.error(again)
     expect(within(screen.getByRole('alert')).getByRole('button', { name: 'Reintentar' })).toBeTruthy()
   })
+
+  it('draws no «Abrir en otra pestaña» link: the download icon is the only way out, with its name', () => {
+    wrap(<MediaGallery items={[{ ...photo(1), download: '/api/attachments/p1?download=1' }, photo(2)]} />)
+    expect(screen.queryByText('Abrir en otra pestaña')).toBeNull()
+    expect(document.querySelector('[data-gallery] a[target="_blank"]')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Descargar foto-1.png' })).toBeTruthy()
+  })
+
+  it('keeps the caption on one line: no wrapping, and the name is the part that is cut', () => {
+    wrap(<MediaGallery items={[{ ...photo(1), name: 'una-captura-de-pantalla-con-un-nombre-larguisimo-que-no-cabe.png', size: 149504 }, photo(2)]} />)
+    const caption = document.querySelector('[data-gallery-caption]') as HTMLElement
+    expect(caption.className).toContain('whitespace-nowrap')
+    expect(caption.className).not.toContain('flex-wrap')
+    const name = screen.getByText(/una-captura-de-pantalla/)
+    expect(name.className).toContain('truncate')
+    expect(name.getAttribute('title')).toContain('nombre-larguisimo')
+    expect(caption.querySelector('[data-gallery-count]')?.className).toContain('shrink-0')
+  })
+
+  it('has no height of its own: the viewer takes what the medium needs', () => {
+    wrap(<MediaGallery items={photos} />)
+    const viewer = document.querySelector('[data-gallery-viewer]') as HTMLElement
+    expect(viewer.className).not.toMatch(/(^|\s)h-/)
+    expect(viewer.firstElementChild?.className).not.toContain('h-full')
+  })
+
+  it('adds a «+» square at the end of the strip that asks for files, also with a single medium', () => {
+    const onAdd = vi.fn()
+    const { rerender } = wrap(<MediaGallery items={[photo(1)]} onAdd={onAdd} />)
+    const strip = document.querySelector('[data-gallery-strip]') as HTMLElement
+    expect(strip).not.toBeNull()
+    const tile = within(strip).getByRole('button', { name: 'Agregar adjuntos' })
+    expect(strip.lastElementChild?.contains(tile)).toBe(true)
+    fireEvent.click(tile)
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    rerender(<I18nProvider language="es-419"><MediaGallery items={photos} onAdd={onAdd} /></I18nProvider>)
+    expect(document.querySelectorAll('[data-gallery-thumb]')).toHaveLength(4)
+    expect(document.querySelector('[data-gallery-strip]')?.lastElementChild?.querySelector('[data-gallery-add]')).not.toBeNull()
+  })
+
+  it('without onAdd there is no «+»', () => {
+    wrap(<MediaGallery items={photos} />)
+    expect(document.querySelector('[data-gallery-add]')).toBeNull()
+  })
 })

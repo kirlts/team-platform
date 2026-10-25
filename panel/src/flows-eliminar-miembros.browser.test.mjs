@@ -59,7 +59,7 @@ async function act(page, row, name, entry) {
 const members = (page) => page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()))
 
 describe('Eliminar un miembro', () => {
-  test('the Editor sees «Eliminar» on every other row and not on their own; a member sees none', async () => {
+  test('any person of the team sees «Eliminar» on every other row and not on their own (UD-287)', async () => {
     const { page, context } = await session('ana')
     try {
       assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row offers deletion')
@@ -71,7 +71,9 @@ describe('Eliminar un miembro', () => {
     }
     const other = await session('bruno')
     try {
-      assert.equal(await other.page.getByRole('button', { name: /^(Eliminar|Acciones de)/ }).count(), 0, 'a member sees a delete button')
+      assert.equal(await rowOf(other.page, 'bruno@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row offers deletion')
+      const menu = await openActions(other.page, rowOf(other.page, 'eduardo@dev.invalid'), 'Eduardo Valenzuela Ibáñez')
+      assert.equal(await menu.getByRole('menuitem', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).count(), 1, 'a member deletes others')
     } finally {
       await other.context.close()
     }

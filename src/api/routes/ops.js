@@ -1,4 +1,4 @@
-// Editor operations routes: the job queue, its purge and the log.
+// Operations routes (any active person): the job queue, its purge and the log.
 
 import { audit, listAudit } from '../../domain/audit.js'
 import { AppError, notFound } from '../../domain/errors.js'
@@ -69,9 +69,9 @@ export function registerOpsRoutes (app, ctx) {
   const { db, config, queue, events, requireRole, telemetry } = ctx
 
   app.get('/jobs', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'The job queue, filterable by state (editor)',
+      summary: 'The job queue, filterable by state',
       querystring: {
         type: 'object', additionalProperties: false,
         properties: { ...pageQuerySchema(config), state: { type: 'string', enum: ['queued', 'running', 'done', 'failed', 'cancelled'] } }
@@ -85,9 +85,9 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.get('/jobs/:id/trace', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'The span tree of a job (editor)',
+      summary: 'The span tree of a job',
       description: 'One tree per queue attempt: times per step, provider calls with their tokens and cost. Nanoseconds travel as text. 404 if the job left no spans.',
       params: idParams(),
       response: { 200: { type: 'object', additionalProperties: true } }
@@ -100,9 +100,9 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.get('/ops/execute-runs', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'History of the execute runs, newest first (editor)',
+      summary: 'History of the execute runs, newest first',
       description: 'One row per run of an `execute` job: times per phase, tokens, cost, outcome, delivery and where the session transcript was copied. Kept EXECUTE_RUNS_RETENTION_DAYS (365 by default), longer than the spans (UD-262).',
       querystring: { type: 'object', additionalProperties: false, properties: { ...pageQuerySchema(config), ...periodQuery, message_id: { type: 'string', pattern: '^[0-9]+$' }, outcome: { type: 'string' } } },
       response: { 200: pageEnvelope(runRow) }
@@ -114,9 +114,9 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.get('/ops/execute-runs/summary', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Figures of the execute runs of a period (editor)',
+      summary: 'Figures of the execute runs of a period',
       description: 'Average, p50 and p95 per phase, mean and total cost, delivery rate, rate of runs whose outcome is `investigated` (already resolved) and the ten slowest tool calls of the period. Nearest-rank percentiles.',
       querystring: { type: 'object', additionalProperties: false, properties: periodQuery },
       response: {
@@ -140,7 +140,7 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.delete('/jobs', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
       summary: 'Purge the finished jobs of a state (requires ?confirm=true)',
       querystring: {
@@ -157,9 +157,9 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.post('/ops/reset', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Empty the test data (editor; requires ?confirm=true)',
+      summary: 'Empty the test data (requires ?confirm=true)',
       description: '`content`: inputs, attachments, jobs, proposals, messages, replies and telemetry spans, plus the files of the attachments volume left without a reference; members, areas, templates, settings and provider connections stay. `everything`: also every member except the one who asks, and areas and templates go back to the initial set of `templates/`. One transaction; the audit log keeps its history and gains a `data.reset` row with the same figures (UD-240).',
       querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' } } },
       body: { type: 'object', additionalProperties: false, required: ['scope'], properties: { scope: { type: 'string', enum: SCOPES } } },
@@ -183,9 +183,9 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.post('/ops/seed', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Load the sample set of ejemplos/ (editor; requires ?confirm=true)',
+      summary: 'Load the sample set of ejemplos/ (requires ?confirm=true)',
       description: 'Sends each file and subfolder of `ejemplos/` as one input in the name of who asks, through the real analysis; the progress shows in the sender\'s tray like any send. Answers 202 with `created` (new sends) and `existing` (already there, by content). Real cost of the full set: about 0.01 USD with Claude Haiku 5.5 (UD-252).',
       querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' } } },
       response: { 202: { type: 'object', properties: { created: { type: 'integer' }, existing: { type: 'integer' } } } }
@@ -199,9 +199,9 @@ export function registerOpsRoutes (app, ctx) {
   })
 
   app.get('/audit', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Log: who created, published, closed, reopened or edited, and when (editor)',
+      summary: 'Log: who created, published, closed, reopened or edited, and when',
       querystring: {
         type: 'object', additionalProperties: false,
         properties: { ...pageQuerySchema(config), entity: { type: 'string' }, action: { type: 'string' } }

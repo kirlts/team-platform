@@ -205,7 +205,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Service status (the detail of database, queue and providers is for the editor only) */
+        /** Service status (the detail of database, queue and providers is for a person of the team only) */
         get: {
             parameters: {
                 query?: never;
@@ -288,7 +288,7 @@ export interface paths {
         };
         /**
          * Listar los inputs propios
-         * @description Los del miembro de la sesión; con `all=1` (sólo el Editor, 403 para un miembro) los de todos, cada uno con `author_name`, el nombre de su emisor (la cola del Editor, UD-251). `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).
+         * @description Los del miembro de la sesión; con `all=1` (una persona del equipo; 403 para un agente) los de todos, cada uno con `author_name`, el nombre de su emisor (la cola del equipo, UD-251). `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).
          */
         get: {
             parameters: {
@@ -617,8 +617,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o el Editor; exige ?confirm=true)
-         * @description Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y no es Editor; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.
+         * Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o una persona del equipo; exige ?confirm=true)
+         * @description Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y quien pide no es una persona del equipo; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.
          */
         delete: {
             parameters: {
@@ -1010,7 +1010,7 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                                 closed_at?: string | null;
-                                /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                                /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                                 deleted_at?: string | null;
                                 /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                                 trace_id?: string | null;
@@ -1213,8 +1213,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Volver a encolar el análisis de un input ya extraído (su emisor o el editor)
-         * @description Útil cuando cambió una plantilla, el modelo o las áreas, o cuando el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs con propuesta, fallidos o cancelados (en otro caso, 404); el editor, sobre cualquiera. Un envío publicado sólo lo reprocesa un Editor (403 para su emisor): sus mensajes vivos pasan a la papelera con sus respuestas, restaurables (UD-240), la propuesta se descarta y el envío vuelve a la cola sin confirmación; `set_aside` trae la cuenta de mensajes y de respuestas apartados. En vuelo, 409 `not_reprocessable`.
+         * Volver a encolar el análisis de un input ya extraído (su emisor o una persona del equipo)
+         * @description Útil cuando cambió una plantilla, el modelo o las áreas, o cuando el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un agente lo hace sobre sus propios inputs con propuesta, fallidos o cancelados (en otro caso, 404); una persona del equipo, sobre cualquiera (UD-287). Un envío publicado lo reprocesa cualquiera de ellas: sus mensajes vivos pasan a la papelera con sus respuestas, restaurables (UD-240), la propuesta se descarta y el envío vuelve a la cola sin confirmación; `set_aside` trae la cuenta de mensajes y de respuestas apartados. En vuelo, 409 `not_reprocessable`.
          */
         post: {
             parameters: {
@@ -1274,7 +1274,7 @@ export interface paths {
         };
         /**
          * Team messages, with filters
-         * @description `for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person. `deleted=1`: sólo los mensajes borrados (UD-250), los más recién borrados primero: quien los escribió ve los suyos y un Editor todos; se restauran con `POST /messages/:id/restore`.
+         * @description `for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person. `deleted=1`: sólo los mensajes borrados (UD-250), los más recién borrados primero: quien los escribió ve los suyos y cualquier persona del equipo todos; se restauran con `POST /messages/:id/restore`.
          */
         get: {
             parameters: {
@@ -1361,7 +1361,7 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                                 closed_at?: string | null;
-                                /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                                /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                                 deleted_at?: string | null;
                             }[];
                             page?: number;
@@ -1475,7 +1475,7 @@ export interface paths {
         };
         /**
          * A message with its thread
-         * @description Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a un Editor (UD-240); un Miembro recibe 403.
+         * @description Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.
          */
         get: {
             parameters: {
@@ -1555,7 +1555,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -1630,8 +1630,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Borrar un mensaje publicado (su emisor o un Editor; exige ?confirm=true)
-         * @description Borrado en blando (UD-240): el mensaje deja de aparecer en las listas, los conteos, la búsqueda, los avisos y el hilo de sus respuestas, y `GET /messages/:id` responde 404. Lo deshace `POST /messages/:id/restore`. 403 `not_message_author` si quien pide no es el emisor ni un Editor; 404 si no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Deja la fila `message.delete` en la bitácora.
+         * Borrar un mensaje publicado (su emisor o una persona del equipo; exige ?confirm=true)
+         * @description Borrado en blando (UD-240): el mensaje deja de aparecer en las listas, los conteos, la búsqueda, los avisos y el hilo de sus respuestas, y `GET /messages/:id` responde 404. Lo deshace `POST /messages/:id/restore`. 403 `not_message_author` si quien pide no es el emisor ni una persona del equipo; 404 si no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Deja la fila `message.delete` en la bitácora.
          */
         delete: {
             parameters: {
@@ -1673,7 +1673,7 @@ export interface paths {
         head?: never;
         /**
          * Editar un mensaje publicado (sólo su emisor): título, texto, campos, plantilla, área, destinatarios y adjuntos
-         * @description Actualización parcial (UD-017, UD-071). `version` es obligatoria: la que se leyó en el mensaje; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Cambiar el área exige `template_id` de esa área. `attachment_ids` reordena o quita adjuntos del envío del que nació el mensaje. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at`, deja una fila en `edits` (quién, cuándo y qué campos, sin valores) y avisa a los destinatarios nuevos. 403 `not_message_author` si no es el emisor, tampoco un editor; un valor inexistente o un campo desconocido es 400.
+         * @description Actualización parcial (UD-017, UD-071). `version` es obligatoria: la que se leyó en el mensaje; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Cambiar el área exige `template_id` de esa área. `attachment_ids` reordena o quita adjuntos del envío del que nació el mensaje. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at`, deja una fila en `edits` (quién, cuándo y qué campos, sin valores) y avisa a los destinatarios nuevos. 403 `not_message_author` si no es el emisor, tampoco otra persona del equipo; un valor inexistente o un campo desconocido es 400.
          */
         patch: {
             parameters: {
@@ -1766,7 +1766,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -1948,8 +1948,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Restaurar un mensaje borrado (su emisor o un Editor)
-         * @description Quita `deleted_at` y devuelve el mensaje con su hilo tal como estaba (UD-240). 409 `not_deleted` si no está borrado; 403 `not_message_author` si quien pide no es el emisor ni un Editor. Deja la fila `message.restore` en la bitácora.
+         * Restaurar un mensaje borrado (su emisor o una persona del equipo)
+         * @description Quita `deleted_at` y devuelve el mensaje con su hilo tal como estaba (UD-240). 409 `not_deleted` si no está borrado; 403 `not_message_author` si quien pide no es el emisor ni una persona del equipo. Deja la fila `message.restore` en la bitácora.
          */
         post: {
             parameters: {
@@ -2027,7 +2027,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -2115,8 +2115,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Borrar varios mensajes de una vez (su emisor o un Editor; exige ?confirm=true)
-         * @description Borrado en blando de cada mensaje de `ids` (UD-253), en una sola transacción: todos o ninguno. 403 `not_message_author` con `ids` (los que quien pide no puede borrar) si alguno no es suyo y no es Editor; 404 `not_found` con `ids` si alguno no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Hasta 100 ids, el tope de página de la API. Deja una fila `message.delete` por mensaje en la bitácora. Lo deshace `POST /messages/restore` con los mismos `ids`.
+         * Borrar varios mensajes de una vez (su emisor o una persona del equipo; exige ?confirm=true)
+         * @description Borrado en blando de cada mensaje de `ids` (UD-253), en una sola transacción: todos o ninguno. 403 `not_message_author` con `ids` (los que quien pide no puede borrar) si alguno no es suyo y no es persona del equipo; 404 `not_found` con `ids` si alguno no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Hasta 100 ids, el tope de página de la API. Deja una fila `message.delete` por mensaje en la bitácora. Lo deshace `POST /messages/restore` con los mismos `ids`.
          */
         post: {
             parameters: {
@@ -2178,8 +2178,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Restaurar varios mensajes borrados de una vez (su emisor o un Editor)
-         * @description Quita `deleted_at` de cada mensaje de `ids` (UD-253), en una sola transacción: todos o ninguno. 403 `not_message_author` con `ids` si alguno no es de quien pide y no es Editor; 404 `not_found` con `ids` si alguno no existe; 409 `not_deleted` con `ids` si alguno no está borrado. Hasta 100 ids. Deja una fila `message.restore` por mensaje en la bitácora.
+         * Restaurar varios mensajes borrados de una vez (su emisor o una persona del equipo)
+         * @description Quita `deleted_at` de cada mensaje de `ids` (UD-253), en una sola transacción: todos o ninguno. 403 `not_message_author` con `ids` si alguno no es de quien pide y no es persona del equipo; 404 `not_found` con `ids` si alguno no existe; 409 `not_deleted` con `ids` si alguno no está borrado. Hasta 100 ids. Deja una fila `message.restore` por mensaje en la bitácora.
          */
         post: {
             parameters: {
@@ -2240,8 +2240,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Borrar una respuesta (su autor o un Editor; exige ?confirm=true)
-         * @description Borrado en blando (UD-240): la respuesta sale del hilo, del conteo y de la búsqueda, y el estado del mensaje se recalcula: `answered` vuelve a `open` si no queda ninguna respuesta vigente y el mensaje no está cerrado. Devuelve el mensaje con su hilo. Lo deshace `POST /replies/:id/restore`. 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si la respuesta no existe, ya está borrada o no es de ese mensaje; 400 `confirm_required` sin la confirmación. Deja la fila `reply.delete` en la bitácora.
+         * Borrar una respuesta (su autor o una persona del equipo; exige ?confirm=true)
+         * @description Borrado en blando (UD-240): la respuesta sale del hilo, del conteo y de la búsqueda, y el estado del mensaje se recalcula: `answered` vuelve a `open` si no queda ninguna respuesta vigente y el mensaje no está cerrado. Devuelve el mensaje con su hilo. Lo deshace `POST /replies/:id/restore`. 403 `not_reply_author` si quien pide no es el autor ni una persona del equipo; 404 si la respuesta no existe, ya está borrada o no es de ese mensaje; 400 `confirm_required` sin la confirmación. Deja la fila `reply.delete` en la bitácora.
          */
         delete: {
             parameters: {
@@ -2322,7 +2322,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -2398,7 +2398,7 @@ export interface paths {
         head?: never;
         /**
          * Editar una respuesta: su texto, sus adjuntos y sus menciones (sólo su autor)
-         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-279): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
+         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-279): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco otra persona del equipo; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
          */
         patch: {
             parameters: {
@@ -2486,7 +2486,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -2650,7 +2650,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -2738,8 +2738,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Restaurar una respuesta borrada (su autor o un Editor)
-         * @description Quita `deleted_at` de la respuesta, recalcula el estado de su mensaje (`open` pasa a `answered` si no está cerrado) y devuelve el mensaje con su hilo (UD-240). 409 `not_deleted` si no está borrada; 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si no existe o su mensaje está borrado. Deja la fila `reply.restore` en la bitácora.
+         * Restaurar una respuesta borrada (su autor o una persona del equipo)
+         * @description Quita `deleted_at` de la respuesta, recalcula el estado de su mensaje (`open` pasa a `answered` si no está cerrado) y devuelve el mensaje con su hilo (UD-240). 409 `not_deleted` si no está borrada; 403 `not_reply_author` si quien pide no es el autor ni una persona del equipo; 404 si no existe o su mensaje está borrado. Deja la fila `reply.restore` en la bitácora.
          */
         post: {
             parameters: {
@@ -2817,7 +2817,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -2906,7 +2906,7 @@ export interface paths {
         put?: never;
         /**
          * Agregar archivos o enlaces a un mensaje publicado (sólo su emisor)
-         * @description Multipart: `version` (la leída del mensaje), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs`. Los adjuntos nuevos quedan al final y su lectura se encola como la de cualquier adjunto. Cuenta como una edición: sube `version`, fija `edited_at` y deja una fila en `edits`. 403 `not_message_author` si no es el emisor (tampoco un Editor), 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada. Quitar o reordenar adjuntos va por `PATCH /messages/:id` (`attachment_ids`).
+         * @description Multipart: `version` (la leída del mensaje), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs`. Los adjuntos nuevos quedan al final y su lectura se encola como la de cualquier adjunto. Cuenta como una edición: sube `version`, fija `edited_at` y deja una fila en `edits`. 403 `not_message_author` si no es el emisor (tampoco otra persona del equipo), 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada. Quitar o reordenar adjuntos va por `PATCH /messages/:id` (`attachment_ids`).
          */
         post: {
             parameters: {
@@ -2984,7 +2984,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -3170,7 +3170,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -3344,7 +3344,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -3508,7 +3508,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -3672,7 +3672,7 @@ export interface paths {
                             version?: number;
                             edited_at?: string | null;
                             closed_at?: string | null;
-                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            /** @description Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
                             /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
                             trace_id?: string | null;
@@ -4448,7 +4448,7 @@ export interface paths {
         };
         put?: never;
         /**
-         * Add a member (editor)
+         * Add a member. `profile` (configured text) asks for an Editor (UD-287)
          * @description `kind: agent` crea un miembro que trabaja una sesión desatendida de Claude Code (UD-254): tiene perfil como cualquiera, nunca contraseña (400 `agent_has_no_password` si se envía), y la respuesta trae `agent_secret` una sola vez: con ese secreto firma `X-Team-User`, `X-Team-Ts` y `X-Team-Sig` (HMAC-SHA256 de `ts.MÉTODO.ruta.correo`).
          */
         post: {
@@ -4610,7 +4610,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Eliminar un miembro (editor; exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas */
+        /** Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas */
         delete: {
             parameters: {
                 query?: {
@@ -4659,7 +4659,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil sólo se edita aquí si el miembro es un agente (UD-281); el de una persona lo edita ella con `PATCH /members/me` (UD-023) */
+        /** Editar un miembro, o desactivarlo y reactivarlo con `active`. El perfil sólo se edita aquí si el miembro es un agente (UD-281) y sólo lo cambia un Editor (UD-287); el de una persona lo edita ella con `PATCH /members/me` (UD-023) */
         patch: {
             parameters: {
                 query?: never;
@@ -4913,7 +4913,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Cambiar el nombre o la descripción del proyecto (editor)
+         * Cambiar el nombre o la descripción del proyecto (editor: texto configurado)
          * @description JSON `{ description?, name? }` o multipart con un archivo `file` (.md) o un campo `description`. La descripción reemplaza a la anterior y viaja entera al analizador; su tope es `PROJECT_DESCRIPTION_MAX_CHARS` caracteres (413 `too_large` si lo supera). `name` es el nombre que muestra la barra superior; vacío vuelve a `PROJECT_NAME` (H-3722), tope `PROJECT_NAME_MAX_CHARS`.
          */
         patch: {
@@ -5028,7 +5028,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Cambiar el modo de publicación (editor)
+         * Cambiar el modo de publicación
          * @description Con `auto_publish: false` vuelve la revisión previa: la propuesta queda `proposed` hasta que su emisor la publique. Sólo afecta a los análisis que terminen después; lo ya publicado no se toca.
          */
         patch: {
@@ -5083,8 +5083,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Encuadre del análisis (editor)
-         * @description Por idioma: el texto vigente, el de omisión y si el Editor lo cambió (H-3722).
+         * Encuadre del análisis
+         * @description Por idioma: el texto vigente, el de omisión y si se cambió (H-3722).
          */
         get: {
             parameters: {
@@ -5141,7 +5141,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Cambiar el encuadre del análisis (editor)
+         * Cambiar el encuadre del análisis (editor: texto configurado)
          * @description `{ framing: { "es-419"?: texto, en?: texto } }`. El texto abre las instrucciones de sistema del analizador en ese idioma; vacío vuelve al de omisión. Tope `ANALYSIS_FRAMING_MAX_CHARS` caracteres por idioma (413 `too_large`). Sólo afecta a los análisis que empiecen después.
          */
         patch: {
@@ -5550,7 +5550,7 @@ export interface paths {
         post?: never;
         /**
          * Eliminar un proveedor propio
-         * @description Sólo los proveedores agregados por el Editor. 409 `provider_in_use` si una función lo usa.
+         * @description Sólo los proveedores agregados por el equipo. 409 `provider_in_use` si una función lo usa.
          */
         delete: {
             parameters: {
@@ -5986,7 +5986,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The job queue, filterable by state (editor) */
+        /** The job queue, filterable by state */
         get: {
             parameters: {
                 query?: {
@@ -6104,7 +6104,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The span tree of a job (editor)
+         * The span tree of a job
          * @description One tree per queue attempt: times per step, provider calls with their tokens and cost. Nanoseconds travel as text. 404 if the job left no spans.
          */
         get: {
@@ -6161,7 +6161,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * History of the execute runs, newest first (editor)
+         * History of the execute runs, newest first
          * @description One row per run of an `execute` job: times per phase, tokens, cost, outcome, delivery and where the session transcript was copied. Kept EXECUTE_RUNS_RETENTION_DAYS (365 by default), longer than the spans (UD-262).
          */
         get: {
@@ -6273,7 +6273,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Figures of the execute runs of a period (editor)
+         * Figures of the execute runs of a period
          * @description Average, p50 and p95 per phase, mean and total cost, delivery rate, rate of runs whose outcome is `investigated` (already resolved) and the ten slowest tool calls of the period. Nearest-rank percentiles.
          */
         get: {
@@ -6433,7 +6433,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Empty the test data (editor; requires ?confirm=true)
+         * Empty the test data (requires ?confirm=true)
          * @description `content`: inputs, attachments, jobs, proposals, messages, replies and telemetry spans, plus the files of the attachments volume left without a reference; members, areas, templates, settings and provider connections stay. `everything`: also every member except the one who asks, and areas and templates go back to the initial set of `templates/`. One transaction; the audit log keeps its history and gains a `data.reset` row with the same figures (UD-240).
          */
         post: {
@@ -6502,7 +6502,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Load the sample set of ejemplos/ (editor; requires ?confirm=true)
+         * Load the sample set of ejemplos/ (requires ?confirm=true)
          * @description Sends each file and subfolder of `ejemplos/` as one input in the name of who asks, through the real analysis; the progress shows in the sender's tray like any send. Answers 202 with `created` (new sends) and `existing` (already there, by content). Real cost of the full set: about 0.01 USD with Claude Haiku 5.5 (UD-252).
          */
         post: {
@@ -6557,7 +6557,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Log: who created, published, closed, reopened or edited, and when (editor) */
+        /** Log: who created, published, closed, reopened or edited, and when */
         get: {
             parameters: {
                 query?: {
@@ -6631,7 +6631,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Encolar el trabajo `execute` de un mensaje (Editor)
+         * Encolar el trabajo `execute` de un mensaje (cualquier persona activa, UD-287)
          * @description Una sesión desatendida de Claude Code trabaja el mensaje como el miembro agente indicado (UD-254). Sin `member_id`, un trabajo por cada agente activo entre sus destinatarios. Responde 202 con los trabajos creados. 409 `no_agent_assignee` si el mensaje no tiene un agente activo asignado, 409 `execute_busy` si cada agente ya tiene uno en cola o corriendo, 409 `message_closed` si está cerrado, 400 `not_an_agent` si `member_id` no es un agente.
          */
         post: {
@@ -7172,7 +7172,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Summary of how the interface is used (editor)
+         * Summary of how the interface is used
          * @description Percentiles (p50, p75, p95, nearest rank) by task and by screen, error and abandonment rates, and the worst journeys by clicks to complete. The window is the last `days` days, at most the span retention.
          */
         get: {
@@ -7234,7 +7234,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Turn interface telemetry on or off (editor) */
+        /** Turn interface telemetry on or off */
         patch: {
             parameters: {
                 query?: never;

@@ -1,4 +1,4 @@
-// Provider connections: see, add, replace and retire the API keys, and diagnose (UD-120, UD-121). Editor only.
+// Provider connections: see, add, replace and retire the API keys, and diagnose (UD-120, UD-121). Any active person (UD-287).
 //
 // The key is a value in a request body and never anywhere else: it is sealed before it touches the database, it is not in
 // any response (only its last four characters), not in an audit record, not in a log line and not in an error. A new key is
@@ -65,7 +65,7 @@ export function registerConnectionRoutes (app, ctx) {
   const { db, config, requireRole, modules } = ctx
   const env = modules.env ?? process.env
   const vault = modules.vault
-  const editor = [requireRole('editor')]
+  const person = [requireRole('person')]
   const timeoutMs = config.providers.probe.timeoutMs
 
   const view = (name) => connectionView(db, config, env, db.prepare('SELECT * FROM provider_connections WHERE name = ?').get(name) ?? { name }, name, vault)
@@ -99,12 +99,12 @@ export function registerConnectionRoutes (app, ctx) {
   const bodyKey = { type: 'string', minLength: KEY_MIN_CHARS, maxLength: KEY_MAX_CHARS } // a real key is 20 to 200 characters; the bounds only refuse an empty or absurd value
 
   app.get('/settings/connections', {
-    onRequest: editor,
+    onRequest: person,
     schema: { summary: 'Proveedores conectados, sin sus claves', description: 'Cada conexión con su estado (`no_key`, `configured`, `failing`), el origen de la clave (`stored` o `environment`), sus últimos 4 caracteres y las funciones que la usan. Las claves no salen nunca por la API.', response: { 200: { type: 'object', properties: { items: { type: 'array', items: connectionSchema }, presets: { type: 'array', items: presetSchema } } } } }
   }, async () => ({ items: listConnections(db, config, env, vault), presets: listPresets() }))
 
   app.post('/settings/connections', {
-    onRequest: editor,
+    onRequest: person,
     schema: {
       summary: 'Agregar un proveedor compatible con OpenAI',
       description: 'Un preajuste (`preset`) o uno propio (`name` y `base_url`). La clave se prueba antes de guardarse; si la prueba falla no se guarda nada (422 `provider_check_failed`).',
@@ -134,7 +134,7 @@ export function registerConnectionRoutes (app, ctx) {
   })
 
   app.put('/settings/connections/:name/key', {
-    onRequest: editor,
+    onRequest: person,
     schema: {
       summary: 'Reemplazar la clave de un proveedor, con prueba previa',
       description: 'La clave nueva se prueba con una llamada mínima. Sólo si funciona reemplaza a la anterior; si falla, la anterior sigue activa y la respuesta es 422 `provider_check_failed` con la causa.',
@@ -155,7 +155,7 @@ export function registerConnectionRoutes (app, ctx) {
   })
 
   app.delete('/settings/connections/:name/key', {
-    onRequest: editor,
+    onRequest: person,
     schema: {
       summary: 'Retirar la clave guardada de un proveedor',
       description: 'Bloqueado (409 `provider_in_use`, con `used_by`) si una función depende de esa clave y el entorno no tiene otra. Una clave que viene del entorno del servidor no se retira desde aquí (409 `key_from_environment`).',
@@ -177,10 +177,10 @@ export function registerConnectionRoutes (app, ctx) {
   })
 
   app.delete('/settings/connections/:name', {
-    onRequest: editor,
+    onRequest: person,
     schema: {
       summary: 'Eliminar un proveedor propio',
-      description: 'Sólo los proveedores agregados por el Editor. 409 `provider_in_use` si una función lo usa.',
+      description: 'Sólo los proveedores agregados por el equipo. 409 `provider_in_use` si una función lo usa.',
       params: nameParams,
       response: { 200: { type: 'object', properties: { deleted: { type: 'boolean' } } } }
     }
@@ -195,7 +195,7 @@ export function registerConnectionRoutes (app, ctx) {
   })
 
   app.post('/settings/connections/:name/check', {
-    onRequest: editor,
+    onRequest: person,
     schema: {
       summary: 'Diagnosticar un proveedor',
       description: 'Una llamada mínima con la clave vigente. Responde 200 aunque la prueba falle: `ok`, `cause`, `status`, `duration_ms` y, si el proveedor la ofrece, la lista de modelos. Guarda el resultado como último diagnóstico.',
@@ -216,7 +216,7 @@ export function registerConnectionRoutes (app, ctx) {
   })
 
   app.post('/settings/providers/:slot/check', {
-    onRequest: editor,
+    onRequest: person,
     schema: {
       summary: 'Diagnosticar una función',
       description: 'La llamada mínima va al proveedor y al modelo que la función usa hoy. Responde 200 con el resultado aunque falle.',

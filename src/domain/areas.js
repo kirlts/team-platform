@@ -1,4 +1,4 @@
-// Areas and templates (MASTER-SPEC §1.1, §7.9). The Editor manages them. They are soft-deleted (`deleted_at`):
+// Areas and templates (MASTER-SPEC §1.1, §7.9). The Editor, whose only privilege is changing configured texts (UD-287), manages them. They are soft-deleted (`deleted_at`):
 // no message that references them is lost, and `restore` brings them back. Uniqueness (area title, template name
 // within an area) applies among the current ones and a clash is a 409.
 

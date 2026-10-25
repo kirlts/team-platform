@@ -100,7 +100,7 @@ export const messageCard = {
     reply_count: intVar,
     last_reply: { ...reply, nullable: true },
     created_at: { type: 'string' }, updated_at: { type: 'string' }, version: intVar, edited_at: nullableText, closed_at: nullableText,
-    deleted_at: { ...nullableText, description: 'Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true.' }
+    deleted_at: { ...nullableText, description: 'Set while the message is deleted (UD-240); only an active person of the team sees such a message, with include_deleted=true.' }
   }
 }
 

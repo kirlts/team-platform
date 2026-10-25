@@ -216,3 +216,16 @@ export async function openSse (env, url, { cookie, headers = {} } = {}) {
     close () { controller.abort() }
   }
 }
+
+/** Creates an agent member through the API (as `editorCookie`) and returns a caller that signs each request with the agent's secret. */
+export async function addAgent (env, editorCookie, email = 'agente@x.org') {
+  const { signHeader } = await import('../identity/delegated.js')
+  const res = await env.app.inject({ method: 'POST', url: '/api/members', headers: { cookie: editorCookie, 'x-team-request': 'panel' }, payload: { email, name: 'Agente', kind: 'agent' } })
+  if (res.statusCode !== 201) throw new Error(`agent ${res.statusCode}: ${res.body}`)
+  const agent = res.json()
+  return (method, url, payload) => {
+    const ts = String(Math.floor(Date.now() / 1000))
+    const headers = { 'x-team-user': email, 'x-team-ts': ts, 'x-team-sig': signHeader(agent.agent_secret, { ts, method, pathname: `/api${url}`.split('?')[0], email, bind: true }) }
+    return env.app.inject({ method, url: `/api${url}`, headers, payload })
+  }
+}

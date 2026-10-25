@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { get } from '../db/index.js'
 import { deleteMember } from '../domain/members.js'
 import { blobPath } from '../domain/storage.js'
-import { addMember, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
 
 async function team (opts = {}) {
   const env = await makeEnv({ ...opts, config: { identity: { login: { ipMax: 1000 } } } })
@@ -168,9 +168,9 @@ test('nobody deletes themselves (409 cannot_delete_self) and the last active Edi
   await env.close()
 })
 
-test('a common member receives 403 and nothing changes', async () => {
+test('an agent receives 403 and nothing changes (a member is a person, UD-287)', async () => {
   const env = await team()
-  const r = await env.api('DELETE', '/members/3?confirm=true', env.c.ana)
+  const r = await (await addAgent(env, env.c.ed))('DELETE', '/members/3?confirm=true')
   assert.equal(r.statusCode, 403)
   assert.ok(get(env.db, 'SELECT id FROM members WHERE id = 3'))
   assert.equal((await env.api('GET', '/me', env.c.beto)).statusCode, 200)

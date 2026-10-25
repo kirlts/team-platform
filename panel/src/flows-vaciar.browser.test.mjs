@@ -33,11 +33,11 @@ async function session(who) {
 }
 
 describe('Configuración, Datos', () => {
-  test('a member does not see the section', async () => {
+  test('a member sees the section too (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {
-      assert.equal(await page.locator('[data-data-reset]').count(), 0)
-      assert.equal(await page.getByRole('button', { name: 'Vaciar contenido' }).count(), 0)
+      assert.equal(await page.locator('[data-data-reset]').count(), 1)
+      assert.equal(await page.getByRole('button', { name: 'Vaciar contenido' }).count(), 1)
     } finally {
       await context.close()
     }

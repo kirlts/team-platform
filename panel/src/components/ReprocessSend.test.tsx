@@ -55,11 +55,11 @@ describe('ReprocessSend', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('is not there for a member', async () => {
+  it('is there for a member too (UD-287)', async () => {
     role = 'member'
     wrap()
     await waitFor(() => expect(calls).toContain('GET /me'))
     await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByRole('button', { name: 'Reprocesar' })).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Reprocesar' })).toBeTruthy()
   })
 })

@@ -1,5 +1,5 @@
 // Area and template routes (MASTER-SPEC §7.1). Any member can read areas (the sidebar, the badges and the
-// filters need them); creating, editing, deleting, restoring and everything about templates belongs to the editor.
+// filters need them); creating, editing, deleting and restoring an area or a template (configured texts) belongs to the Editor (UD-287).
 // Deleting is soft and requires ?confirm=true; messages that reference an area or template are never lost.
 
 import {
@@ -9,6 +9,7 @@ import {
 import { mirrorTemplate, removeTemplateMirror } from '../../domain/template-files.js'
 import { requireConfirm } from '../confirm.js'
 import { area, confirmQuery, idParams, template } from '../schemas.js'
+import { isActivePerson } from '../../domain/members.js'
 
 const templateBody = {
   type: 'object',
@@ -34,9 +35,9 @@ export function registerAreaRoutes (app, ctx) {
       response: { 200: { type: 'array', items: area } }
     }
   }, async (request, reply) => {
-    // Only the editor sees the deleted ones, to restore them.
-    if (request.query.include_deleted === true && request.member.role !== 'editor') {
-      return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a un editor.' })
+    // Any active person sees the deleted ones, to restore them (UD-287).
+    if (request.query.include_deleted === true && !isActivePerson(db, request.member.id)) {
+      return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a una persona del equipo.' })
     }
     return listAreas(db, { includeDeleted: request.query.include_deleted === true })
   })
@@ -75,7 +76,7 @@ export function registerAreaRoutes (app, ctx) {
   }, async (request) => restoreArea(db, request.params.id, actor(request)))
 
   app.get('/areas/:id/templates', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
       summary: 'Templates of an area, with the complete file',
       params: idParams(),

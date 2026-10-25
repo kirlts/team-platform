@@ -105,7 +105,6 @@ describe('Configuración', () => {
     const { page, context } = await session('ana', DESKTOP)
     try {
       await page.goto(`${origin}/settings`)
-      await page.getByText('Idioma de la interfaz y de los mensajes que redacta el modelo').waitFor()
       await page.locator('label', { hasText: 'Proveedor' }).first().waitFor()
       const labels = await page.evaluate(() => {
         const names = ['Nombre', 'Correo', 'Rol', 'Idioma', 'Proveedor', 'Modelo']
@@ -148,7 +147,7 @@ describe('Entrada', () => {
         await page.goto(origin)
         const card = page.locator('form')
         await card.waitFor()
-        const note = await card.getByText('Cuentas creadas por el Editor del equipo').boundingBox()
+        const note = await card.getByText('Cuentas creadas por el equipo').boundingBox()
         const logo = await card.locator('h1').boundingBox()
         const box = await card.boundingBox()
         const above = logo.y - box.y

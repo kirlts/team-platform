@@ -1,5 +1,5 @@
 // Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
-// publish, cancel, delete (UD-240) and, for the editor, reprocess.
+// publish, cancel, delete (UD-240) and reprocess.
 
 import { forbidden } from '../../domain/errors.js'
 import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
@@ -11,6 +11,7 @@ import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idParams, inputView, messageDetail, proposalBody, proposalView, publishBody } from '../schemas.js'
 import { readInputUpload } from '../upload.js'
+import { isActivePerson } from '../../domain/members.js'
 
 const createdSchema = {
   type: 'object',
@@ -47,7 +48,7 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Listar los inputs propios',
-      description: 'Los del miembro de la sesión; con `all=1` (sólo el Editor, 403 para un miembro) los de todos, cada uno con `author_name`, el nombre de su emisor (la cola del Editor, UD-251). `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
+      description: 'Los del miembro de la sesión; con `all=1` (una persona del equipo; 403 para un agente) los de todos, cada uno con `author_name`, el nombre de su emisor (la cola del equipo, UD-251). `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -66,7 +67,7 @@ export function registerInputRoutes (app, ctx) {
     const p = pageParams(request.query, config)
     const order = request.query.order ?? (request.query.mine ? 'asc' : 'desc')
     const everyone = request.query.all !== undefined
-    if (everyone && request.member.role !== 'editor') throw forbidden('Sólo el Editor lista los envíos de todos.')
+    if (everyone && !isActivePerson(db, request.member.id)) throw forbidden('Sólo una persona del equipo lista los envíos de todos.')
     const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order, everyone, compact: request.query.compact !== undefined })
     return pageResult(r.items, r.total, p)
   })
@@ -143,8 +144,8 @@ export function registerInputRoutes (app, ctx) {
   app.delete('/inputs/:id', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o el Editor; exige ?confirm=true)',
-      description: 'Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y no es Editor; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.',
+      summary: 'Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o una persona del equipo; exige ?confirm=true)',
+      description: 'Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y quien pide no es una persona del equipo; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.',
       params: idParams(),
       querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, with_messages: { type: 'boolean' } } },
       response: {
@@ -168,8 +169,8 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs/:id/reprocess', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Volver a encolar el análisis de un input ya extraído (su emisor o el editor)',
-      description: 'Útil cuando cambió una plantilla, el modelo o las áreas, o cuando el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs con propuesta, fallidos o cancelados (en otro caso, 404); el editor, sobre cualquiera. Un envío publicado sólo lo reprocesa un Editor (403 para su emisor): sus mensajes vivos pasan a la papelera con sus respuestas, restaurables (UD-240), la propuesta se descarta y el envío vuelve a la cola sin confirmación; `set_aside` trae la cuenta de mensajes y de respuestas apartados. En vuelo, 409 `not_reprocessable`.',
+      summary: 'Volver a encolar el análisis de un input ya extraído (su emisor o una persona del equipo)',
+      description: 'Útil cuando cambió una plantilla, el modelo o las áreas, o cuando el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un agente lo hace sobre sus propios inputs con propuesta, fallidos o cancelados (en otro caso, 404); una persona del equipo, sobre cualquiera (UD-287). Un envío publicado lo reprocesa cualquiera de ellas: sus mensajes vivos pasan a la papelera con sus respuestas, restaurables (UD-240), la propuesta se descarta y el envío vuelve a la cola sin confirmación; `set_aside` trae la cuenta de mensajes y de respuestas apartados. En vuelo, 409 `not_reprocessable`.',
       params: idParams(),
       response: {
         202: {

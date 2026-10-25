@@ -76,7 +76,7 @@ describe('reprocessing a published send (UD-258)', () => {
     }
   })
 
-  test('a member sees no «Reprocesar» on their own published send', async () => {
+  test('a member sees «Reprocesar» on their own published send (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {
       await send(page, 'La exportación a PDF falla con tablas largas.')
@@ -84,7 +84,7 @@ describe('reprocessing a published send (UD-258)', () => {
       await drawer.getByTestId('published-message').first().waitFor({ timeout: 20000 })
       await settled(page)
       assert.equal(await drawer.getByTestId('delete-send').count(), 1, 'the drawer is the published one')
-      assert.equal(await drawer.getByTestId('reprocess-send').count(), 0)
+      assert.equal(await drawer.getByTestId('reprocess-send').count(), 1)
     } finally {
       await context.close()
     }

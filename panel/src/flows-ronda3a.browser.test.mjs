@@ -801,16 +801,15 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
     }
   })
 
-  test('only the Editor sees the providers, and so the name of a server variable (J3-A-40)', async () => {
+  test('any person of the team sees the providers, and so the name of a server variable (J3-A-40, UD-287)', async () => {
     const editor = await session('ana')
     const member = await session('bruno')
     try {
       await editor.page.goto(`${origin}/settings`)
       await editor.page.locator('[data-providers]').waitFor()
       await member.page.goto(`${origin}/settings`)
-      await member.page.getByRole('heading', { name: 'Cuenta' }).waitFor()
-      assert.equal(await member.page.getByText('GROQ_API_KEY').count(), 0)
-      assert.equal(await member.page.getByRole('heading', { name: 'Proveedores' }).count(), 0)
+      await member.page.locator('[data-providers]').waitFor()
+      assert.equal(await member.page.getByRole('heading', { name: 'Proveedores' }).count(), 1)
     } finally {
       await editor.context.close()
       await member.context.close()
@@ -878,7 +877,7 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       assert.ok(orb.width >= 24, `the sphere measures ${orb.width} px`)
       const mark = await card.locator('h1 span').last().evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       assert.ok(mark >= 18, `the mark measures ${mark} px`)
-      const note = card.getByText('Cuentas creadas por el Editor del equipo')
+      const note = card.getByText('Cuentas creadas por el equipo')
       const style = await note.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), color: getComputedStyle(el).color }))
       assert.ok(style.size >= 15, `the note measures ${style.size} px`)
       // Contrast of the note on the card, measured.

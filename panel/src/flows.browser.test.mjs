@@ -744,7 +744,7 @@ describe('states, keyboard and rows', () => {
       await page.getByLabel('Contraseña').fill('corta')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').first().waitFor()
-      await page.getByText('Cuentas creadas por el Editor del equipo').waitFor()
+      await page.getByText('Cuentas creadas por el equipo').waitFor()
     } finally {
       await context.close()
     }

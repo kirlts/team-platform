@@ -10,7 +10,7 @@ import { useOptionalUndo } from '@/lib/undo'
 export const TRASH_PATH = '/messages?f=deleted:eq:si'
 
 /**
- * Analyzes a published send again (UD-258), for the Editor. One click, no confirmation (UD-253): the messages it had go to the
+ * Analyzes a published send again (UD-258), for any person of the team (UD-287). One click, no confirmation (UD-253): the messages it had go to the
  * trash with their replies and the notice says how many, with the way to «Borrados» to bring them back.
  */
 export function ReprocessSend({ input, className }: { input: InputRecord; className?: string }) {
@@ -20,7 +20,7 @@ export function ReprocessSend({ input, className }: { input: InputRecord; classN
   const undo = useOptionalUndo()
   const me = useMe().data
   const reprocess = useReprocess()
-  if (me?.role !== 'editor') return null
+  if (!me) return null
 
   const run = async () => {
     try {

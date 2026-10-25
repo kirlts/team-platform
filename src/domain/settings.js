@@ -64,7 +64,7 @@ export function setProviderOverrides (db, overrides, now = Date.now) {
 }
 
 
-// ---- Project description (UD-024). Free Markdown written by the editor; it travels whole to the analyzer.
+// ---- Project description (UD-024). Free Markdown written by the Editor (a configured text); it travels whole to the analyzer.
 const PROJECT_DESCRIPTION_KEY = 'project_description'
 
 export function getProjectDescription (db) {
@@ -158,7 +158,7 @@ export function setAutoPublish (db, value, now = Date.now) {
            ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`, AUTO_PUBLISH_KEY, JSON.stringify(value), now())
 }
 
-// ---- Interface telemetry (UD-091). One switch, written by the Editor; without a stored value the configuration decides.
+// ---- Interface telemetry (UD-091). One switch, written by any active person; without a stored value the configuration decides.
 const UI_TELEMETRY_KEY = 'telemetry.ui_enabled'
 
 export function getUiTelemetryEnabled (db, config) {

@@ -78,11 +78,12 @@ describe('deleting a message (H-3700)', () => {
     }
   })
 
-  test('another member sees no «Borrar» on a message that is not theirs; the Editor does', async () => {
+  test('another member and the Editor both see «Borrar» on a message that is not theirs (UD-287)', async () => {
     const { page, context } = await session('carla')
     try {
       await openFromList(page, 'Definir el tamaño')
-      assert.equal(await page.getByRole('button', { name: 'Borrar', exact: true }).count(), 0, 'Carla did not send it')
+      await page.getByRole('button', { name: 'Borrar', exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
+      assert.equal(await page.getByRole('button', { name: 'Borrar', exact: true }).count(), 1, 'any person of the team deletes any message')
     } finally {
       await context.close()
     }
@@ -90,7 +91,7 @@ describe('deleting a message (H-3700)', () => {
     try {
       await openFromList(editor.page, 'Definir el tamaño')
       await editor.page.getByRole('button', { name: 'Borrar', exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
-      assert.equal(await editor.page.getByRole('button', { name: 'Borrar', exact: true }).count(), 1, 'the Editor deletes any message')
+      assert.equal(await editor.page.getByRole('button', { name: 'Borrar', exact: true }).count(), 1, 'the Editor deletes any message too')
     } finally {
       await editor.context.close()
     }
@@ -128,7 +129,7 @@ describe('deleting a reply (H-3701)', () => {
     }
   })
 
-  test('deleting the only reply returns the message to Abierto; its author alone sees «Borrar respuesta»', async () => {
+  test('deleting the only reply returns the message to Abierto; any person of the team sees «Borrar respuesta» (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {
       // «Arreglar el error al iniciar sesión…» has one reply, by Bruno; Carla sent the message.
@@ -150,7 +151,7 @@ describe('deleting a reply (H-3701)', () => {
     const other = await session('carla')
     try {
       await openFromList(other.page, 'Arreglar el error')
-      assert.equal(await other.page.locator('section[aria-label="Respuestas"]').getByRole('button', { name: 'Borrar respuesta' }).count(), 0, 'Carla did not write it')
+      assert.equal(await other.page.locator('section[aria-label="Respuestas"]').getByRole('button', { name: 'Borrar respuesta' }).count(), 1, 'Carla did not write it and still deletes it')
     } finally {
       await other.context.close()
     }

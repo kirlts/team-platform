@@ -38,13 +38,13 @@ export function Settings() {
   return (
     <UndoProvider stack={undo}>
       <div data-scrolling-page className="flex w-full max-w-[72rem] flex-col gap-5 px-5 py-6 md:px-10 md:py-5">
-        <PageHeader title={t('nav.settings')} aside={editor ? <UndoButtons stack={undo} /> : undefined} />
+        <PageHeader title={t('nav.settings')} aside={<UndoButtons stack={undo} />} />
         <div className="grid items-start gap-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Account />
             <Theme />
-            {editor && <PublicationSetting />}
-            {editor && <UiTelemetrySetting />}
+            <PublicationSetting />
+            <UiTelemetrySetting />
           </div>
           <div className="flex min-w-0 flex-col gap-5">
             <Project editor={editor} />
@@ -52,15 +52,13 @@ export function Settings() {
             {editor && <FramingSetting />}
           </div>
         </div>
-        {editor && <ProviderSettings />}
-        {editor && <DataReset />}
+        <ProviderSettings />
+        <DataReset />
         {/* The queue draws its own rule at the top: inside the box it is not needed. */}
-        {editor && (
-          <div className="glass leaf p-5 [&>section]:border-t-0 [&>section]:pt-0">
-            <QueuePanel />
-          </div>
-        )}
-        {editor && <AuditLog />}
+        <div className="glass leaf p-5 [&>section]:border-t-0 [&>section]:pt-0">
+          <QueuePanel />
+        </div>
+        <AuditLog />
       </div>
     </UndoProvider>
   )
@@ -162,7 +160,7 @@ function Theme() {
   )
 }
 
-/** Project description in markdown: the whole team reads it, the Editor writes it (UD-024) in an editor that grows with its text (UD-123). */
+/** Project description in markdown: the whole team reads it, the Editor writes it (UD-024, a configured text) in an editor that grows with its text (UD-123). */
 function Project({ editor }: { editor: boolean }) {
   const t = useT()
   return (

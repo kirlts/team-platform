@@ -417,7 +417,7 @@ describe('the color of an area (UD-045)', () => {
 })
 
 describe('the publication setting (UD-070)', () => {
-  test('the Editor switches between «Al analizar» and «Tras revisar» and the next send follows it; a member does not see the control', async () => {
+  test('any person of the team switches between «Al analizar» and «Tras revisar» and the next send follows it (UD-287)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/settings`)
@@ -442,9 +442,10 @@ describe('the publication setting (UD-070)', () => {
     const member = await session('bruno')
     try {
       await member.page.goto(`${origin}/settings`)
-      await member.page.getByRole('heading', { name: 'Tema' }).waitFor()
-      assert.equal(await member.page.getByRole('radiogroup', { name: 'Publicación' }).count(), 0, 'a member does not see the knob')
-      assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: false } })).status, 403)
+      await member.page.getByRole('radiogroup', { name: 'Publicación' }).waitFor()
+      assert.equal(await member.page.getByRole('radiogroup', { name: 'Publicación' }).count(), 1, 'a member sees the knob')
+      assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: false } })).status, 200)
+      assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: true } })).status, 200)
     } finally {
       await member.context.close()
     }

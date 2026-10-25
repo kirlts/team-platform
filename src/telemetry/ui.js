@@ -73,7 +73,7 @@ const widthClass = (w) => BREAKPOINTS.find(([, upTo]) => w < upTo)[0];
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 
 /**
- * The summary the Editor reads (`GET /telemetry/ui-summary`). `sinceMs` and `untilMs` are Unix milliseconds.
+ * The summary an active person reads (`GET /telemetry/ui-summary`). `sinceMs` and `untilMs` are Unix milliseconds.
  * The volume is bounded by retention (7 days) and by the ingestion limits, so every row is read; there is no sampling.
  */
 export function uiSummary (db, { sinceMs, untilMs, worstJourneys = 10 }) {

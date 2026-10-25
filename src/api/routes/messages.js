@@ -11,6 +11,7 @@ import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema, replyPatchBody } from '../schemas.js'
 import { readMessageAttachmentUpload, readReplyUpload } from '../upload.js'
+import { isActivePerson } from '../../domain/members.js'
 
 export function registerMessageRoutes (app, ctx) {
   const { db, config, events, queue, requireRole } = ctx
@@ -19,7 +20,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Team messages, with filters',
-      description: '`for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person. `deleted=1`: sólo los mensajes borrados (UD-250), los más recién borrados primero: quien los escribió ve los suyos y un Editor todos; se restauran con `POST /messages/:id/restore`.',
+      description: '`for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person. `deleted=1`: sólo los mensajes borrados (UD-250), los más recién borrados primero: quien los escribió ve los suyos y cualquier persona del equipo todos; se restauran con `POST /messages/:id/restore`.',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -41,7 +42,6 @@ export function registerMessageRoutes (app, ctx) {
     const p = pageParams(q, config)
     const r = listMessages(db, {
       viewerId: request.member.id,
-      viewerRole: request.member.role,
       forMember: q.for === undefined ? null : q.for === 'me' ? 'me' : Number(q.for),
       involved: q.involved === 'me',
       area: q.area ?? null,
@@ -68,14 +68,14 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'A message with its thread',
-      description: 'Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a un Editor (UD-240); un Miembro recibe 403.',
+      description: 'Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.',
       params: idParams(),
       querystring: { type: 'object', additionalProperties: false, properties: { include_deleted: { type: 'boolean' } } },
       response: { 200: messageDetail }
     }
   }, async (request, reply) => {
-    if (request.query.include_deleted === true && request.member.role !== 'editor') {
-      return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a un editor.' })
+    if (request.query.include_deleted === true && !isActivePerson(db, request.member.id)) {
+      return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a una persona del equipo.' })
     }
     return getMessage(db, request.params.id, { includeDeleted: request.query.include_deleted === true })
   })
@@ -116,8 +116,8 @@ export function registerMessageRoutes (app, ctx) {
   app.delete('/messages/:id', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Borrar un mensaje publicado (su emisor o un Editor; exige ?confirm=true)',
-      description: 'Borrado en blando (UD-240): el mensaje deja de aparecer en las listas, los conteos, la búsqueda, los avisos y el hilo de sus respuestas, y `GET /messages/:id` responde 404. Lo deshace `POST /messages/:id/restore`. 403 `not_message_author` si quien pide no es el emisor ni un Editor; 404 si no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Deja la fila `message.delete` en la bitácora.',
+      summary: 'Borrar un mensaje publicado (su emisor o una persona del equipo; exige ?confirm=true)',
+      description: 'Borrado en blando (UD-240): el mensaje deja de aparecer en las listas, los conteos, la búsqueda, los avisos y el hilo de sus respuestas, y `GET /messages/:id` responde 404. Lo deshace `POST /messages/:id/restore`. 403 `not_message_author` si quien pide no es el emisor ni una persona del equipo; 404 si no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Deja la fila `message.delete` en la bitácora.',
       params: idParams(),
       querystring: confirmQuery,
       response: { 204: { type: 'null', description: 'Message deleted; restored with POST /messages/:id/restore.' } }
@@ -131,8 +131,8 @@ export function registerMessageRoutes (app, ctx) {
   app.post('/messages/:id/restore', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Restaurar un mensaje borrado (su emisor o un Editor)',
-      description: 'Quita `deleted_at` y devuelve el mensaje con su hilo tal como estaba (UD-240). 409 `not_deleted` si no está borrado; 403 `not_message_author` si quien pide no es el emisor ni un Editor. Deja la fila `message.restore` en la bitácora.',
+      summary: 'Restaurar un mensaje borrado (su emisor o una persona del equipo)',
+      description: 'Quita `deleted_at` y devuelve el mensaje con su hilo tal como estaba (UD-240). 409 `not_deleted` si no está borrado; 403 `not_message_author` si quien pide no es el emisor ni una persona del equipo. Deja la fila `message.restore` en la bitácora.',
       params: idParams(),
       response: { 200: messageDetail }
     }
@@ -151,8 +151,8 @@ export function registerMessageRoutes (app, ctx) {
   app.post('/messages/delete', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Borrar varios mensajes de una vez (su emisor o un Editor; exige ?confirm=true)',
-      description: `Borrado en blando de cada mensaje de \`ids\` (UD-253), en una sola transacción: todos o ninguno. 403 \`not_message_author\` con \`ids\` (los que quien pide no puede borrar) si alguno no es suyo y no es Editor; 404 \`not_found\` con \`ids\` si alguno no existe o ya está borrado; 400 \`confirm_required\` sin la confirmación. Hasta ${config.list.pageMax} ids, el tope de página de la API. Deja una fila \`message.delete\` por mensaje en la bitácora. Lo deshace \`POST /messages/restore\` con los mismos \`ids\`.`,
+      summary: 'Borrar varios mensajes de una vez (su emisor o una persona del equipo; exige ?confirm=true)',
+      description: `Borrado en blando de cada mensaje de \`ids\` (UD-253), en una sola transacción: todos o ninguno. 403 \`not_message_author\` con \`ids\` (los que quien pide no puede borrar) si alguno no es suyo y no es persona del equipo; 404 \`not_found\` con \`ids\` si alguno no existe o ya está borrado; 400 \`confirm_required\` sin la confirmación. Hasta ${config.list.pageMax} ids, el tope de página de la API. Deja una fila \`message.delete\` por mensaje en la bitácora. Lo deshace \`POST /messages/restore\` con los mismos \`ids\`.`,
       querystring: confirmQuery,
       body: bulkBody,
       response: { 200: bulkResult }
@@ -167,8 +167,8 @@ export function registerMessageRoutes (app, ctx) {
   app.post('/messages/restore', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Restaurar varios mensajes borrados de una vez (su emisor o un Editor)',
-      description: `Quita \`deleted_at\` de cada mensaje de \`ids\` (UD-253), en una sola transacción: todos o ninguno. 403 \`not_message_author\` con \`ids\` si alguno no es de quien pide y no es Editor; 404 \`not_found\` con \`ids\` si alguno no existe; 409 \`not_deleted\` con \`ids\` si alguno no está borrado. Hasta ${config.list.pageMax} ids. Deja una fila \`message.restore\` por mensaje en la bitácora.`,
+      summary: 'Restaurar varios mensajes borrados de una vez (su emisor o una persona del equipo)',
+      description: `Quita \`deleted_at\` de cada mensaje de \`ids\` (UD-253), en una sola transacción: todos o ninguno. 403 \`not_message_author\` con \`ids\` si alguno no es de quien pide y no es persona del equipo; 404 \`not_found\` con \`ids\` si alguno no existe; 409 \`not_deleted\` con \`ids\` si alguno no está borrado. Hasta ${config.list.pageMax} ids. Deja una fila \`message.restore\` por mensaje en la bitácora.`,
       body: bulkBody,
       response: { 200: bulkResult }
     }
@@ -180,8 +180,8 @@ export function registerMessageRoutes (app, ctx) {
   app.delete('/messages/:id/replies/:replyId', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Borrar una respuesta (su autor o un Editor; exige ?confirm=true)',
-      description: 'Borrado en blando (UD-240): la respuesta sale del hilo, del conteo y de la búsqueda, y el estado del mensaje se recalcula: `answered` vuelve a `open` si no queda ninguna respuesta vigente y el mensaje no está cerrado. Devuelve el mensaje con su hilo. Lo deshace `POST /replies/:id/restore`. 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si la respuesta no existe, ya está borrada o no es de ese mensaje; 400 `confirm_required` sin la confirmación. Deja la fila `reply.delete` en la bitácora.',
+      summary: 'Borrar una respuesta (su autor o una persona del equipo; exige ?confirm=true)',
+      description: 'Borrado en blando (UD-240): la respuesta sale del hilo, del conteo y de la búsqueda, y el estado del mensaje se recalcula: `answered` vuelve a `open` si no queda ninguna respuesta vigente y el mensaje no está cerrado. Devuelve el mensaje con su hilo. Lo deshace `POST /replies/:id/restore`. 403 `not_reply_author` si quien pide no es el autor ni una persona del equipo; 404 si la respuesta no existe, ya está borrada o no es de ese mensaje; 400 `confirm_required` sin la confirmación. Deja la fila `reply.delete` en la bitácora.',
       params: replyParams,
       querystring: confirmQuery,
       response: { 200: messageDetail }
@@ -195,7 +195,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Editar una respuesta: su texto, sus adjuntos y sus menciones (sólo su autor)',
-      description: 'Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-279): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.',
+      description: 'Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-279): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco otra persona del equipo; 404 si la respuesta no existe, está borrada o no es de ese mensaje.',
       params: replyParams,
       body: replyPatchBody,
       response: { 200: messageDetail }
@@ -235,8 +235,8 @@ export function registerMessageRoutes (app, ctx) {
   app.post('/replies/:id/restore', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Restaurar una respuesta borrada (su autor o un Editor)',
-      description: 'Quita `deleted_at` de la respuesta, recalcula el estado de su mensaje (`open` pasa a `answered` si no está cerrado) y devuelve el mensaje con su hilo (UD-240). 409 `not_deleted` si no está borrada; 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si no existe o su mensaje está borrado. Deja la fila `reply.restore` en la bitácora.',
+      summary: 'Restaurar una respuesta borrada (su autor o una persona del equipo)',
+      description: 'Quita `deleted_at` de la respuesta, recalcula el estado de su mensaje (`open` pasa a `answered` si no está cerrado) y devuelve el mensaje con su hilo (UD-240). 409 `not_deleted` si no está borrada; 403 `not_reply_author` si quien pide no es el autor ni una persona del equipo; 404 si no existe o su mensaje está borrado. Deja la fila `reply.restore` en la bitácora.',
       params: idParams(),
       response: { 200: messageDetail }
     }
@@ -247,7 +247,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Editar un mensaje publicado (sólo su emisor): título, texto, campos, plantilla, área, destinatarios y adjuntos',
-      description: 'Actualización parcial (UD-017, UD-071). `version` es obligatoria: la que se leyó en el mensaje; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Cambiar el área exige `template_id` de esa área. `attachment_ids` reordena o quita adjuntos del envío del que nació el mensaje. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at`, deja una fila en `edits` (quién, cuándo y qué campos, sin valores) y avisa a los destinatarios nuevos. 403 `not_message_author` si no es el emisor, tampoco un editor; un valor inexistente o un campo desconocido es 400.',
+      description: 'Actualización parcial (UD-017, UD-071). `version` es obligatoria: la que se leyó en el mensaje; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Cambiar el área exige `template_id` de esa área. `attachment_ids` reordena o quita adjuntos del envío del que nació el mensaje. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at`, deja una fila en `edits` (quién, cuándo y qué campos, sin valores) y avisa a los destinatarios nuevos. 403 `not_message_author` si no es el emisor, tampoco otra persona del equipo; un valor inexistente o un campo desconocido es 400.',
       params: idParams(),
       body: messagePatchBody,
       response: { 200: messageDetail }
@@ -259,7 +259,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Agregar archivos o enlaces a un mensaje publicado (sólo su emisor)',
-      description: 'Multipart: `version` (la leída del mensaje), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs`. Los adjuntos nuevos quedan al final y su lectura se encola como la de cualquier adjunto. Cuenta como una edición: sube `version`, fija `edited_at` y deja una fila en `edits`. 403 `not_message_author` si no es el emisor (tampoco un Editor), 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada. Quitar o reordenar adjuntos va por `PATCH /messages/:id` (`attachment_ids`).',
+      description: 'Multipart: `version` (la leída del mensaje), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs`. Los adjuntos nuevos quedan al final y su lectura se encola como la de cualquier adjunto. Cuenta como una edición: sube `version`, fija `edited_at` y deja una fila en `edits`. 403 `not_message_author` si no es el emisor (tampoco otra persona del equipo), 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada. Quitar o reordenar adjuntos va por `PATCH /messages/:id` (`attachment_ids`).',
       params: idParams(),
       response: { 201: messageDetail }
     }

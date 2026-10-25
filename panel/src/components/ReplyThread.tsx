@@ -28,9 +28,9 @@ type ReplyItem = { kind: 'reply'; reply: Reply } | { kind: 'removed'; reply: Rep
 /**
  * Replies of a message: one under another in order, joined by a vertical line, with the last one set apart; past `THREAD_LIMIT` the first and
  * the last ones show and a control between them opens the hidden ones. The form stays at the foot, in view. The sender does not reply to their own message: they do not see the form.
- * The author of a reply or the Editor deletes it (UD-240): no dialog, the row says it was deleted and Deshacer brings it back.
+ * The author of a reply or any person of the team deletes it (UD-240, UD-287): no dialog, the row says it was deleted and Deshacer brings it back.
  * Only the author edits its text in place (UD-253), as the sender edits a message (UD-071): the text is the control, and each
- * save is an operation of the screen's undo stack. Nobody else, the Editor included, sees it editable.
+ * save is an operation of the screen's undo stack. Nobody else sees it editable.
  */
 export function ReplyThread({ message, focusForm }: { message: MessageDetail; focusForm?: boolean }) {
   const t = useT()
@@ -44,7 +44,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const canReply = canReplyTo(message, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
   /** The names of the members the reply mentions (a list of ids chosen in the form): their tokens are drawn highlighted. */
   const mentionNames = (r: Reply) => (r.mentions ?? []).map((id) => memberName(id)).filter(Boolean)
-  const canDelete = (r: Reply) => !!me && (me.id === r.author_id || me.role === 'editor')
+  const canDelete = (_r: Reply) => !!me
   const canEdit = (r: Reply) => !!me && me.id === r.author_id
   /** A reply with attachments may be left without text; one without them may not (the API answers 400 `reply_empty`). */
   const bodyRule = (r: Reply) => (v: string) => (v || (r.attachments ?? []).length > 0 ? null : t('common.required'))

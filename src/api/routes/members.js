@@ -1,9 +1,9 @@
-// Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own profile (UD-023), and the editor also edits the profile of an agent (UD-281); the editor
+// Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own profile (UD-023), and the Editor also edits the profile of an agent (UD-281, a configured text); any active person
 // creates and administers the rest. Changing the role or the password closes that person's sessions
-// (the session is regenerated on a privilege change, report 04 §2.2). The editor also deletes a member for good (UD-240).
+// (the session is regenerated on a privilege change, report 04 §2.2). Any active person also deletes a member for good (UD-240, UD-287).
 
 import { get, run, tx } from '../../db/index.js'
-import { badRequest, conflict, unauthenticated } from '../../domain/errors.js'
+import { badRequest, conflict, forbidden, unauthenticated } from '../../domain/errors.js'
 import { audit } from '../../domain/audit.js'
 import { LANGUAGES } from '../../domain/language.js'
 import { createMember, deleteMember, getMember, listMembers, updateMember } from '../../domain/members.js'
@@ -36,6 +36,11 @@ export function registerMemberRoutes (app, ctx) {
     audit(db, { memberId: actorId, action: 'member.password', entity: 'member', entityId: memberId })
   }
 
+  /** The profile is a configured text: writing it, in any route, is the Editor's one privilege (UD-287). */
+  const requireEditorForText = (request, profile) => {
+    if (profile !== undefined && request.member.role !== 'editor') throw forbidden('Cambiar los textos configurados corresponde a un editor.')
+  }
+
   app.get('/members', {
     onRequest: [requireRole('member')],
     schema: { summary: 'Team members', querystring: { type: 'object', additionalProperties: false, properties: pageQuerySchema(config) }, response: { 200: pageEnvelope(member) } }
@@ -45,11 +50,11 @@ export function registerMemberRoutes (app, ctx) {
     return pageResult(everyone.slice(p.offset, p.offset + p.limit), everyone.length, p)
   })
 
-  // Creation: only an editor does it; no identity mode creates members on its own (UD-007).
+  // Creation: any active person does it; no identity mode creates members on its own (UD-007, UD-287). Only the profile, a configured text, asks for an Editor.
   app.post('/members', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Add a member (editor)',
+      summary: 'Add a member. `profile` (configured text) asks for an Editor (UD-287)',
       description: '`kind: agent` crea un miembro que trabaja una sesión desatendida de Claude Code (UD-254): tiene perfil como cualquiera, nunca contraseña (400 `agent_has_no_password` si se envía), y la respuesta trae `agent_secret` una sola vez: con ese secreto firma `X-Team-User`, `X-Team-Ts` y `X-Team-Sig` (HMAC-SHA256 de `ts.MÉTODO.ruta.correo`).',
       body: {
         type: 'object', required: ['email', 'name'], additionalProperties: false,
@@ -63,6 +68,7 @@ export function registerMemberRoutes (app, ctx) {
     }
   }, async (request, reply) => {
     const { password, ...memberData } = request.body
+    requireEditorForText(request, memberData.profile)
     const agent = memberData.kind === 'agent'
     if (agent && password !== undefined) throw badRequest('Un miembro agente no tiene contraseña: entra por cabecera firmada.', 'agent_has_no_password')
     if (password !== undefined) {
@@ -108,9 +114,9 @@ export function registerMemberRoutes (app, ctx) {
   })
 
   app.patch('/members/:id', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil sólo se edita aquí si el miembro es un agente (UD-281); el de una persona lo edita ella con `PATCH /members/me` (UD-023)',
+      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active`. El perfil sólo se edita aquí si el miembro es un agente (UD-281) y sólo lo cambia un Editor (UD-287); el de una persona lo edita ella con `PATCH /members/me` (UD-023)',
       params: idParams(),
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
@@ -125,7 +131,8 @@ export function registerMemberRoutes (app, ctx) {
   }, async (request) => {
     const { password, ...edits } = request.body
     const id = request.params.id
-    // UD-281: the editor edits the profile of an agent, who does not use the screen; the profile of a person stays their own (UD-023).
+    requireEditorForText(request, edits.profile)
+    // UD-281: the Editor edits the profile of an agent, who does not use the screen; the profile of a person stays their own (UD-023).
     if (edits.profile !== undefined && get(db, 'SELECT kind FROM members WHERE id = ?', id)?.kind === 'person') throw badRequest('El perfil de una persona lo edita ella misma.', 'validation')
     // H-3720: the host declares this member's role on every entry; a local change would be undone on the next one.
     if (edits.role !== undefined && isRoleGoverned(db, id) && edits.role !== getMember(db, id).role) {
@@ -143,9 +150,9 @@ export function registerMemberRoutes (app, ctx) {
   // Deletion for good (UD-240). A member without history goes with their credentials, sessions and identity links; one
   // with history is a 409 `member_has_history` with the counts, and goes with everything of theirs under `purge=true`.
   app.delete('/members/:id', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Eliminar un miembro (editor; exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas',
+      summary: 'Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas',
       params: idParams(),
       querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, purge: { type: 'boolean' } } },
       response: {

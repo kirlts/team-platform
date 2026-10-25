@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { get, run } from '../db/index.js'
 import { updateMember } from '../domain/members.js'
-import { addMember, login, makeEnv, postInput, TEST_PASSWORD, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, postInput, TEST_PASSWORD, until } from '../testing/helpers.js'
 
 async function team (opts = {}) {
   const env = await makeEnv({ ...opts, config: { identity: { login: { ipMax: 1000 } } } })
@@ -54,9 +54,9 @@ test('a deactivated member keeps their history, and reactivating restores the lo
   await env.close()
 })
 
-test('only an Editor can change active (403 for a member), and an unknown member is 404', async () => {
+test('only a person can change active (403 for an agent, UD-287), and an unknown member is 404', async () => {
   const env = await team()
-  const denied = await env.api('PATCH', '/members/3', env.c.ana, { active: false })
+  const denied = await (await addAgent(env, env.c.ed))('PATCH', '/members/3', { active: false })
   assert.equal(denied.statusCode, 403)
   assert.equal(get(env.db, 'SELECT active FROM members WHERE id = 3').active, 1)
   assert.equal((await env.api('PATCH', '/members/me', env.c.ana, { active: false })).statusCode, 400) // not through the profile route

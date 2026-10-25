@@ -41,7 +41,7 @@ test('without history the member is deleted with credentials and sessions, and t
   assert.equal((await env.api('GET', '/me', env.c.beto)).statusCode, 200)
   const r = await env.api('DELETE', '/members/3?confirm=true', env.c.ed)
   assert.equal(r.statusCode, 200, r.body)
-  assert.deepEqual(r.json(), { member_id: '3', deleted: { inputs: 0, messages: 0, replies: 0 } })
+  assert.deepEqual(r.json(), { member_id: '3', deleted: { inputs: 0, messages: 0, replies: 0 }, kept: { inputs: 0, messages: 0, replies: 0 } })
   assert.equal(get(env.db, 'SELECT id FROM members WHERE id = 3'), undefined)
   assert.equal(count(env, 'SELECT COUNT(*) AS n FROM credentials WHERE member_id = 3'), 0)
   assert.equal(count(env, 'SELECT COUNT(*) AS n FROM sessions WHERE member_id = 3'), 0)
@@ -61,34 +61,6 @@ test('without confirm=true nothing happens (400 confirm_required); an unknown me
   assert.equal(r.json().code, 'confirm_required')
   assert.ok(get(env.db, 'SELECT id FROM members WHERE id = 3'))
   assert.equal((await env.api('DELETE', '/members/999?confirm=true', env.c.ed)).statusCode, 404)
-  await env.close()
-})
-
-test('with history the answer is 409 member_has_history with the counts, and nothing is deleted', async () => {
-  const env = await team({ worker: true })
-  const { messageId } = await env.publish(env.c.beto, 'de Beto')
-  const { messageId: other } = await env.publish(env.c.ana, 'de Ana', [], [3])
-  await env.reply(env.c.beto, other, 'respondo')
-  await env.reply(env.c.beto, other, 'otra vez')
-  await env.reply(env.c.ana, messageId, 'a Beto')
-  const r = await env.api('DELETE', '/members/3?confirm=true', env.c.ed)
-  assert.equal(r.statusCode, 409, r.body)
-  assert.equal(r.json().code, 'member_has_history')
-  assert.deepEqual({ inputs: r.json().inputs, messages: r.json().messages, replies: r.json().replies }, { inputs: 1, messages: 1, replies: 2 })
-  assert.ok(get(env.db, 'SELECT id FROM members WHERE id = 3'))
-  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM replies'), 3)
-  assert.equal((await env.api('GET', '/me', env.c.beto)).statusCode, 200) // the session is untouched
-  await env.close()
-})
-
-test('an assignment alone is history: 409 without purge, and purge frees the member from the message', async () => {
-  const env = await team({ worker: true })
-  const { messageId } = await env.publish(env.c.ana, 'para Beto', [], [3])
-  const refused = await env.api('DELETE', '/members/3?confirm=true', env.c.ed)
-  assert.equal(refused.statusCode, 409)
-  assert.deepEqual([refused.json().inputs, refused.json().messages, refused.json().replies], [0, 0, 0])
-  assert.equal((await env.api('DELETE', '/members/3?confirm=true&purge=true', env.c.ed)).statusCode, 200)
-  assert.deepEqual((await env.api('GET', `/messages/${messageId}`, env.c.ana)).json().assignee_ids, [])
   await env.close()
 })
 
@@ -115,7 +87,7 @@ test('purge deletes inputs, messages and replies; a message of another member go
 
   const r = await env.api('DELETE', '/members/3?confirm=true&purge=true', env.c.ed)
   assert.equal(r.statusCode, 200, r.body)
-  assert.deepEqual(r.json(), { member_id: '3', deleted: { inputs: 1, messages: 1, replies: 2 } })
+  assert.deepEqual(r.json(), { member_id: '3', deleted: { inputs: 1, messages: 1, replies: 2 }, kept: { inputs: 0, messages: 0, replies: 0 } })
   assert.equal(get(env.db, 'SELECT id FROM members WHERE id = 3'), undefined)
   assert.equal(count(env, 'SELECT COUNT(*) AS n FROM inputs WHERE author_id = 3'), 0)
   assert.equal(count(env, 'SELECT COUNT(*) AS n FROM messages WHERE author_id = 3'), 0)

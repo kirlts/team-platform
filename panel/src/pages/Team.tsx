@@ -34,7 +34,7 @@ export function Team() {
   const undo = useUndoStack()
   const [adding, setAdding] = useState(false)
   const editor = me?.role === 'editor'
-  const rows = useMemo(() => members.data ?? [], [members.data])
+  const rows = useMemo(() => (members.data ?? []).filter((m) => !m.removed), [members.data])
 
   return (
     <UndoProvider stack={undo}>
@@ -116,13 +116,13 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
       () => setProblem(null),
       (err) => setProblem(errorText(err)),
     )
-  /** «Eliminar» deletes at once with everything of theirs (UD-253): no step that confirms it; the notice says how much went with them. */
+  /** «Eliminar» deletes at once (UD-253, no step that confirms it): what the member published stays under «Miembro eliminado» (UD-292); the notice says how much stays. */
   const deleteMember = async () => {
     setProblem(null)
     try {
-      const r = await remove.mutateAsync({ id: member.id, purge: true })
-      const d = r.deleted ?? { inputs: 0, messages: 0, replies: 0 }
-      notices.show({ text: d.inputs || d.messages || d.replies ? t('team.deletedWithHistory', { name: member.name, ...d }) : t('team.deletedDone', { name: member.name }) })
+      const r = await remove.mutateAsync({ id: member.id })
+      const k = r.kept ?? { inputs: 0, messages: 0, replies: 0 }
+      notices.show({ text: k.messages || k.replies ? t('team.deletedWithHistory', { name: member.name, ...k }) : t('team.deletedDone', { name: member.name }) })
     } catch (err) {
       setProblem(errorText(err))
     }

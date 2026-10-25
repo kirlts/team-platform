@@ -36,7 +36,7 @@ export const member = {
   properties: {
     id, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string', enum: ['member', 'editor'] },
     kind: { type: 'string', enum: ['person', 'agent'], description: '«agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.' },
-    profile: { type: 'string' }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, created_at: { type: 'string' }
+    profile: { type: 'string' }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, removed: { type: 'boolean', description: 'Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige.' }, created_at: { type: 'string' }
   },
   required: ['id', 'email', 'name', 'role', 'language', 'active']
 }

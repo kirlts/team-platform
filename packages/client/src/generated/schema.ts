@@ -159,6 +159,8 @@ export interface paths {
                             /** @enum {string} */
                             language?: "es-419" | "en";
                             active?: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                             project_name?: string;
                             provider?: string;
@@ -4536,6 +4538,8 @@ export interface paths {
                                 /** @enum {string} */
                                 language: "es-419" | "en";
                                 active: boolean;
+                                /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                                removed?: boolean;
                                 created_at?: string;
                             }[];
                             page?: number;
@@ -4609,6 +4613,8 @@ export interface paths {
                             /** @enum {string} */
                             language: "es-419" | "en";
                             active: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                             /** @description Sólo al crear un agente; no se vuelve a mostrar. */
                             agent_secret?: string;
@@ -4692,6 +4698,8 @@ export interface paths {
                             /** @enum {string} */
                             language: "es-419" | "en";
                             active: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                         };
                     };
@@ -4724,7 +4732,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas */
+        /** Eliminar un miembro (exige ?confirm=true). Sus mensajes y respuestas publicados quedan con el autor «Miembro eliminado» y sus envíos sin publicar se retiran; con `purge=true` se borra todo lo suyo. Su correo queda retirado: el ingreso del anfitrión no lo crea de nuevo */
         delete: {
             parameters: {
                 query?: {
@@ -4747,6 +4755,12 @@ export interface paths {
                     content: {
                         "application/json": {
                             member_id: string;
+                            /** @description Lo suyo que se conserva con el autor «Miembro eliminado». */
+                            kept?: {
+                                inputs?: number;
+                                messages?: number;
+                                replies?: number;
+                            };
                             deleted: {
                                 inputs: number;
                                 messages: number;
@@ -4820,6 +4834,8 @@ export interface paths {
                             /** @enum {string} */
                             language: "es-419" | "en";
                             active: boolean;
+                            /** @description Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige. */
+                            removed?: boolean;
                             created_at?: string;
                         };
                     };

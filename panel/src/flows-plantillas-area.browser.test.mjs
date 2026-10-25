@@ -137,7 +137,7 @@ describe('the templates of an area as a list (UD-297)', () => {
 describe('the window of a template (UD-297)', () => {
   for (const [viewport, label] of [[DESKTOP, 'desktop'], [PHONE, 'phone']]) {
     for (const scheme of ['light', 'dark']) {
-      test(`${label} ${scheme}: the name opens the window with the whole description, the fields, the outputs and «Obligatorio» as a badge`, async () => {
+      test(`${label} ${scheme}: the name opens the window with the whole description, the fields, the outputs and «Obligatorio» as a check box`, async () => {
         const { page, context } = await session(viewport, scheme)
         try {
           await withFour(page)
@@ -151,10 +151,11 @@ describe('the window of a template (UD-297)', () => {
           const outputs = dialog.locator('section[aria-label="Salida"] li:not([data-output-fixed])')
           assert.equal(await outputs.count(), 1)
           await dialog.locator('section[aria-label="Avisos de progreso"]').waitFor()
-          const badges = dialog.getByText('Obligatorio', { exact: true })
-          assert.equal(await badges.count(), 5, 'one badge for each field and each output')
-          assert.deepEqual(await badges.evaluateAll((els) => els.map((e) => e.tagName + ':' + e.classList.contains('rounded-full'))), Array(5).fill('SPAN:true'))
-          assert.equal(await dialog.locator('span.bg-accent-soft', { hasText: 'Obligatorio' }).count(), 2, 'the required ones are filled')
+          const boxes = dialog.getByRole('checkbox', { name: 'Obligatorio' })
+          assert.equal(await boxes.count(), 5, 'one check box for each field and each output')
+          assert.deepEqual(await boxes.evaluateAll((els) => els.map((e) => e.getAttribute('aria-checked'))), ['true', 'false', 'false', 'false', 'true'])
+          assert.equal(await dialog.getByText('Obligatorio', { exact: true }).count(), 5, 'the word is drawn once for each control')
+          assert.equal(await dialog.locator('span.rounded-full', { hasText: 'Obligatorio' }).count(), 0, 'no badge while editing')
           const box = await dialog.boundingBox()
           assert.ok(box.x >= 0 && box.x + box.width <= viewport.width && box.y >= 0 && box.y + box.height <= viewport.height + 0.5, 'the window is inside the screen')
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no horizontal scroll')

@@ -97,7 +97,7 @@ describe('the templates of an area', () => {
     }
   })
 
-  it('opens the window of a template with its whole description, its fields and outputs, and «Obligatorio» as a badge', async () => {
+  it('opens the window of a template with its whole description, its fields and outputs, and «Obligatorio» as a check box', async () => {
     mount()
     const all = await rows()
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -107,10 +107,9 @@ describe('the templates of an area', () => {
     expect(within(dialog).getByRole('region', { name: L('templates.fields') })).toBeTruthy()
     expect(within(dialog).getByRole('region', { name: L('templates.output') })).toBeTruthy()
     expect(within(dialog).getByRole('region', { name: L('templates.progress') })).toBeTruthy()
-    // Three fields and two outputs: each shows «Obligatorio» as a badge, filled for the required one and outline for the rest.
-    const required = within(dialog).getAllByText(L('templates.required'))
-    expect(required).toHaveLength(5)
-    for (const word of required) expect(word.className).toContain('rounded-full')
-    expect(required.filter((w) => w.className.includes('bg-accent-soft'))).toHaveLength(2)
+    // Three fields and two outputs: each has one check box named «Obligatorio», checked for the required ones, and no badge while editing.
+    const boxes = within(dialog).getAllByRole('checkbox', { name: L('templates.required') })
+    expect(boxes.map((b) => b.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'true', 'false'])
+    expect(within(dialog).getAllByText(L('templates.required')).filter((w) => w.className.includes('rounded-full'))).toHaveLength(0)
   })
 })

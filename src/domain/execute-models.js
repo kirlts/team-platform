@@ -33,7 +33,10 @@ export function resolveExecuteModel (db, { messageId, fallback, light, limits, e
   const major = pick(row?.major, fallback)
   let estimates = null
   try { estimates = row?.estimates ? JSON.parse(row.estimates) : null } catch { /* a damaged cell reads as no estimates */ }
-  if (escalated) return { model: major, source: 'escalated', estimates }
-  if (!estimates || typeof estimates.understand_vs_create !== 'number') return { model: major, source: 'legacy', estimates } // UD-307: a message judged later only for the Guard of the idea has no level estimates
-  return modelFor(estimates, limits) === 'light' ? { model: pick(row?.lightModel, light), source: 'light', estimates } : { model: major, source: 'major', estimates }
+  // UD-307: the Guard of the idea may be saved in an assessment that has no level estimates (a message judged later only for it): `idea` always carries what is stored, `estimates` only a complete one.
+  const levels = estimates && typeof estimates.understand_vs_create === 'number' ? estimates : null
+  if (escalated) return { model: major, source: 'escalated', estimates: levels, idea: estimates }
+  if (!levels) return { model: major, source: 'legacy', estimates: null, idea: estimates }
+  return modelFor(levels, limits) === 'light' ? { model: pick(row?.lightModel, light), source: 'light', estimates: levels, idea: estimates } : { model: major, source: 'major', estimates: levels, idea: estimates }
 }
+

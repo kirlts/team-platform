@@ -27,7 +27,7 @@ process.stdin.on('end', async () => {
   if (stdin.startsWith('Eres el analizador de pedidos')) {
     if (process.env.FAKE_IDEA_GUARD === 'off') process.exit(1)
     const applies = process.env.FAKE_IDEA_GUARD === 'true'
-    process.stdout.write(`${JSON.stringify({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.002, structured_output: { idea: applies ? 0.9 : 0.1, idea_guard: applies, idea_reason: 'razón del juicio tardío' } })}\n`)
+    process.stdout.write(`${JSON.stringify({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0, structured_output: { idea: applies ? 0.9 : 0.1, idea_guard: applies, idea_reason: 'razón del juicio tardío' } })}\n`)
     process.exit(0)
   }
   if (stdin.startsWith('Eres un juez del IMK')) {

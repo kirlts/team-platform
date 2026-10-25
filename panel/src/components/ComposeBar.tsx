@@ -7,6 +7,7 @@ import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
 import { NativeSelect } from './NativeSelect'
+import { RecipientsEditor } from './RecipientsEditor'
 
 export interface SendDraft {
   text: string
@@ -14,6 +15,8 @@ export interface SendDraft {
   links: string[]
   /** «Enviar como» (UD-255): the member chosen; absent when it is the member of the session. */
   asMemberId?: string
+  /** Recipients (UD-291): the members it is addressed to, an agent among them; absent when the automatic routing assigns. */
+  recipientIds?: string[]
 }
 
 /**
@@ -55,6 +58,8 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   /** The member chosen in «Enviar como»; empty means the member of the session (the default, UD-255). */
   const [sendAs, setSendAs] = useState('')
   const author = sendAs || me?.id || ''
+  /** «Para» (UD-291): the members the send is addressed to. Empty means the automatic routing assigns, as it always did. */
+  const [recipients, setRecipients] = useState<string[]>([])
   const [dragging, setDragging] = useState(false)
   const textArea = useRef<HTMLTextAreaElement>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -99,10 +104,11 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
     if (empty || draft.recording) return
     const files = draft.locals.map((l) => l.file)
     const links = draft.links
-    onSubmit({ text, files, links, ...(me && author && author !== me.id ? { asMemberId: author } : {}) })
+    onSubmit({ text, files, links, ...(me && author && author !== me.id ? { asMemberId: author } : {}), ...(recipients.length > 0 ? { recipientIds: recipients } : {}) })
     // The files are handed over: only the previews are released, the Files themselves live on in the upload.
     draft.clear()
     setText('')
+    setRecipients([])
     textArea.current?.focus()
   }
 
@@ -157,6 +163,9 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
           <CaptureButtons draft={draft} labeled />
         </div>
         <div className="flex items-center gap-3 max-md:contents md:ml-auto">
+          <div className="min-w-0 max-md:order-2 max-md:w-full" data-testid="compose-to">
+            <RecipientsEditor ids={recipients} onChange={setRecipients} max={2} to={t('compose.to')} />
+          </div>
           {author && <SendAs value={author} onChange={setSendAs} />}
           <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center">
             <Send size={16} aria-hidden /> {t('compose.send')}

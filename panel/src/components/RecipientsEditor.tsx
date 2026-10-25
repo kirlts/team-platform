@@ -4,14 +4,14 @@ import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 import { MemberPicker } from './MemberPicker'
 
-/** Chips of recipients with their ×, always drawn (J2-A-21), and the picker. Past `max` the rest fold behind «+N», which opens the picker. */
-export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; onChange: (ids: string[]) => void; max?: number }) {
+/** Chips of recipients with their ×, always drawn (J2-A-21), and the picker. Past `max` the rest fold behind «+N», which opens the picker. With `to` the word names the whole control (the new message bar, UD-291). */
+export function RecipientsEditor({ ids, onChange, max = 3, to, testId }: { ids: string[]; onChange: (ids: string[]) => void; max?: number; to?: string; testId?: string }) {
   const t = useT()
   const { members, memberName } = useLookups()
   const shown = ids.slice(0, max)
   return (
-    <ul aria-label={t('recipients.label')} className="flex flex-wrap items-center gap-1.5 text-xs">
-      {ids.length > 0 && <li className="text-muted">{t('recipients.to')}</li>}
+    <ul aria-label={t('recipients.label')} data-testid={testId} className="flex flex-wrap items-center gap-1.5 text-xs">
+      {ids.length > 0 && <li className="text-muted">{to ?? t('recipients.to')}</li>}
       {shown.map((id) => (
         <li key={id} data-repeat-ok="person" className="group/chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-0.5 pr-0.5 leading-tight text-fg">
           <Avatar name={memberName(id) || '?'} size={18} />
@@ -22,7 +22,7 @@ export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; on
         </li>
       ))}
       <li>
-        <MemberPicker members={members.filter((m) => m.active !== false || ids.includes(m.id))} selected={ids} onChange={onChange} hiddenCount={Math.max(0, ids.length - max)} />
+        <MemberPicker members={members.filter((m) => m.active !== false || ids.includes(m.id))} selected={ids} onChange={onChange} hiddenCount={Math.max(0, ids.length - max)} {...(to ? { label: to, shortLabel: ids.length > 0 ? '' : to } : {})} />
       </li>
     </ul>
   )

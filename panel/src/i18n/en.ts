@@ -99,6 +99,7 @@ export const en: Record<MessageKey, Message> = {
   'compose.upload': 'Upload',
   'compose.sending': 'Send',
   'compose.sendFailed': 'Could not send: {reason}',
+  'compose.to': 'To',
   'compose.sendAs': 'Send as',
 
   'media.attach': 'Attach',
@@ -702,6 +703,7 @@ export const en: Record<MessageKey, Message> = {
   'error.storage_unavailable': 'Files cannot be saved now: retry in a few minutes',
   'error.input_empty': 'The submission is empty: text, a file or a link is missing',
   'error.send_as_invalid': '«Send as» is not an active member',
+  'error.recipient_invalid': 'A recipient is not an active member',
   'error.cannot_send_as_agent': 'An agent cannot be sent as',
   'error.invalid_status': 'Unknown status',
   'error.invalid_transition': 'The submission cannot move to that status',

@@ -99,6 +99,7 @@ export const es419 = {
   'compose.upload': 'Subida',
   'compose.sending': 'Envío',
   'compose.sendFailed': 'No se pudo enviar: {reason}',
+  'compose.to': 'Para',
   'compose.sendAs': 'Enviar como',
 
   'media.attach': 'Adjuntar',
@@ -697,6 +698,7 @@ export const es419 = {
   'error.storage_unavailable': 'No se pueden guardar archivos ahora: reintentar en unos minutos',
   'error.input_empty': 'El envío está vacío: falta texto, archivo o enlace',
   'error.send_as_invalid': '«Enviar como» no es un miembro activo',
+  'error.recipient_invalid': 'Un destinatario no es un miembro activo',
   'error.cannot_send_as_agent': 'No se envía en nombre de un agente',
   'error.invalid_status': 'Estado desconocido',
   'error.invalid_transition': 'El envío no puede pasar a ese estado',

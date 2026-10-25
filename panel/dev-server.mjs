@@ -427,6 +427,8 @@ function publishProposal(input, proposal) {
     const tpl = activeTemplate(pm.area_id, pm.template_id)
     const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: input.author_id, sent_by_id: input.sent_by_id ?? null, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
     created.push(msg.id)
+    // An agent among the assignees gets its `execute` job when the message is published (UD-254).
+    for (const to of msg.assignee_ids) if (members.find((x) => x.id === to)?.kind === 'agent') executeJobs.set(msg.id, { id: `j-${id()}`, message_id: msg.id, member_id: to, created_at: msg.created_at })
     for (const to of msg.assignee_ids) if (to !== input.author_id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: input.author_id, at: msg.created_at })
   }
   input.status = 'published'
@@ -434,6 +436,9 @@ function publishProposal(input, proposal) {
   input.message_ids = created
   return created
 }
+
+/** The `execute` job an agent assignee got for a published message, by message id. */
+const executeJobs = new Map()
 
 /** How many jobs were started, to stagger the ones that follow. */
 let running = 0
@@ -548,7 +553,8 @@ function analyze(input) {
         title: titleOf(u.text),
         body: `${u.text}\n\n${SIMULATED_NOTE}`,
         fields: Object.fromEntries(templateFields(template).map((f) => [f.name, f.required ? (FIELD_SAMPLES[f.name] ?? '') : ''])),
-        assignee_ids: [others[i % others.length].id],
+        // UD-291: the recipients the sender chose are the assignees; the routing keeps choosing area and template.
+        assignee_ids: input.recipient_ids?.length ? [...input.recipient_ids] : [others[i % others.length].id],
         attachment_ids: i === 0 ? input.attachment_ids : images,
         unit_ids: [u.id],
       }
@@ -752,7 +758,8 @@ function allJobs() {
   const own = [...inputs.values()].filter((i) => i.job_id).map((i) => ({ id: i.job_id, input_id: i.id, status: JOB_STATE_OF[i.status] ?? 'queued', attempts: i.status === 'failed' ? 3 : 1, created_at: i.created_at, finished_at: ['proposed', 'published', 'failed', 'cancelled'].includes(i.status) ? (i.updated_at ?? i.created_at) : null, last_error: i.status === 'failed' ? i.error : null }))
   // UD-263: with `deliver` the message running now is in its delivery, a job of its own with its own phase.
   const exec = execution ? [{ id: 'j-exec1', kind: execution.deliver ? 'deliver' : 'execute', input_id: null, message_id: execution.liveId, phase: execution.deliver ? 'deliverDeploy' : 'run', status: 'running', attempts: 1, created_at: ago(1), run_at: ago(1), finished_at: null, last_error: null }] : []
-  return [...exec, ...own, ...olderJobs].filter((j) => !purgedJobs.has(j.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const agentRuns = [...executeJobs.values()].map((j) => ({ id: j.id, kind: 'execute', input_id: null, message_id: j.message_id, phase: 'run', status: 'running', attempts: 1, created_at: j.created_at, run_at: j.created_at, finished_at: null, last_error: null }))
+  return [...exec, ...agentRuns, ...own, ...olderJobs].filter((j) => !purgedJobs.has(j.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 const jobRowOf = (j) => ({ id: j.id, kind: j.kind ?? 'analyze_input', message_id: j.message_id ?? null, phase: j.phase ?? null, input_id: j.input_id, status: j.status, priority: 0, attempts: j.attempts, max_attempts: 3, run_at: j.run_at ?? j.created_at, lease_until: null, worker_id: j.status === 'running' ? 'w-1' : null, last_error: j.last_error, created_at: j.created_at, finished_at: j.finished_at })
 
@@ -835,6 +842,7 @@ function control(path, query) {
   if (path === '/_control/reset') {
     reviews.clear()
     execution = null
+    executeJobs.clear()
     for (const t of jobs.values()) clearTimeout(t)
     jobs.clear()
     waiting.clear()
@@ -1089,6 +1097,14 @@ const server = createServer(async (req, res) => {
           phases: [], slowest: [], turns: [], tree: null, deliver: { job_id: 'j-exec1', job_status: 'running', phase: 'deliverDeploy', attempts: 1 },
         })
       }
+      const agentRun = executeJobs.get(timingMatch[1])
+      if (agentRun) {
+        return send(res, 200, {
+          message_id: timingMatch[1], job_id: agentRun.id, job_status: 'running', trace_id: null, phase: 'run', attempts: 1, elapsed_ms: 5_000,
+          first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null, total_ms: null, queue_wait_ms: null,
+          phases: [], slowest: [], turns: [], tree: null,
+        })
+      }
       if (!execution || timingMatch[1] !== execution.doneId) return fail(res, 404, 'El mensaje no tiene trabajo de ejecución.', 'not_found')
       const span = (name, ms, attributes = {}, children = [], status = 'ok') => ({ trace_id: 't-exec', span_id: `s-${name}-${ms}`, parent_id: null, name, kind: 'INTERNAL', status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
       const tool = (name, summary, ms, ok = true) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, 'team.tool.success': ok }, [], ok ? 'ok' : 'error')
@@ -1150,12 +1166,19 @@ const server = createServer(async (req, res) => {
       if (!author || author.active === false) return fail(res, 400, '«Enviar como» no es un miembro activo.', 'send_as_invalid')
       if (author.kind === 'agent') return fail(res, 400, 'No se envía en nombre de un miembro agente.', 'cannot_send_as_agent')
       const sentBy = author.id === me.id ? null : me.id
+      // Recipients (UD-291): each one an active member; an agent is one more, with no route of its own.
+      const recipientIds = []
+      for (const p of parts.filter((x) => x.name === 'recipient_ids' || x.name === 'recipient_ids[]')) {
+        const rid = p.data.toString('utf8').trim()
+        if (!members.some((x) => x.id === rid && x.active !== false)) return fail(res, 400, `El miembro ${rid} no existe o está desactivado.`, 'recipient_invalid')
+        if (!recipientIds.includes(rid)) recipientIds.push(rid)
+      }
       // Rejections before queueing, like the API's: a large file or a long video (the name triggers it).
       const huge = files.find((f) => /demasiado-grande/.test(f.filename))
       if (huge) return fail(res, 413, 'Un archivo supera el tamaño máximo permitido.', `${kindOf(huge.type ?? '')}_too_large`)
       const long = files.find((f) => /video-largo/.test(f.filename))
       if (long) return fail(res, 422, 'El video dura demasiado.', 'video_too_long')
-      const hash = createHash('sha256').update(author.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).digest('hex')
+      const hash = createHash('sha256').update(author.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).update(recipientIds.join()).digest('hex')
       const existing = [...inputs.values()].find((i) => i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')
       if (existing) return send(res, 200, { input_id: existing.id, job_id: existing.job_id })
       const inputId = `i-${id()}`
@@ -1171,7 +1194,7 @@ const server = createServer(async (req, res) => {
         attachments.set(a.id, a)
         attachmentIds.push(a.id)
       }
-      const input = { id: inputId, author_id: author.id, sent_by_id: sentBy, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(text), proposal: null, error: null }
+      const input = { id: inputId, author_id: author.id, sent_by_id: sentBy, recipient_ids: recipientIds, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(text), proposal: null, error: null }
       inputs.set(input.id, input)
       // The sample data had no input.create rows; only a send in someone else's name leaves one, the row the flows read.
       if (sentBy) record(me, 'input.create', 'input', input.id, { atts: attachmentIds.length, author_id: author.id, sent_by_id: me.id })

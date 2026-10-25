@@ -1,13 +1,14 @@
 // The multipart bodies of the API. A form is built with the same field names the server reads.
 import type { NewInput, NewReply } from './types.js'
 
-/** POST /inputs: `text`, `files`, `links` and, to send in the name of another member, `as_member_id` (UD-255). */
+/** POST /inputs: `text`, `files`, `links` and, to send in the name of another member, `as_member_id` (UD-255) and `recipient_ids`, one field per recipient (UD-291). */
 export function inputForm(input: NewInput): FormData {
   const form = new FormData()
   form.append('text', input.text)
   for (const file of input.files) form.append('files', file, file.name)
   for (const link of input.links) form.append('links', link)
   if (input.asMemberId) form.append('as_member_id', input.asMemberId)
+  for (const id of input.recipientIds ?? []) form.append('recipient_ids', id)
   return form
 }
 

@@ -50,9 +50,10 @@ export function transitionInput (db, id, to, { error = null, errorCode = null, n
  * each have their own proposal and their own responsibility as senders. Without it, the second one would receive
  * someone else's input. Normalization: NFC, \n line breaks and no spaces at the ends. It does not interpret the text.
  */
-export function contentHash ({ authorId, text, fileHashes, links }) {
+export function contentHash ({ authorId, text, fileHashes, links, recipientIds = [] }) {
   const normal = text.normalize('NFC').replaceAll('\r\n', '\n').trim()
-  const canon = JSON.stringify({ v: 1, author: authorId, text: normal, files: [...fileHashes].sort(), links: [...links].sort() })
+  // The recipients are part of what was sent (the same text to Claude and to Ana is two sends), but an input without them keeps the hash it always had.
+  const canon = JSON.stringify({ v: 1, author: authorId, text: normal, files: [...fileHashes].sort(), links: [...links].sort(), ...(recipientIds.length > 0 ? { to: [...recipientIds].sort((a, b) => a - b) } : {}) })
   return createHash('sha256').update(canon).digest('hex')
 }
 
@@ -75,14 +76,37 @@ export function resolveSendAs (db, sessionMemberId, asMemberId) {
 }
 
 /**
+ * Recipients of a send (UD-291): the members it is addressed to, chosen by the sender. Any active member, an agent among them: an agent is
+ * one recipient more, with no route of its own. Duplicates collapse; an id that is not a member or is deactivated is 400 `recipient_invalid`.
+ * Without recipients the automatic routing assigns, as it always did.
+ */
+export function resolveRecipients (db, raw) {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) throw badRequest('`recipient_ids` es una lista de ids de miembros.', 'recipient_invalid')
+  const ids = []
+  for (const value of raw) {
+    const text = String(value).trim()
+    const id = Number(text)
+    if (!/^[1-9]\d*$/.test(text) || !Number.isSafeInteger(id)) throw badRequest(`«${text.slice(0, 40)}» no es un miembro.`, 'recipient_invalid')
+    const row = get(db, 'SELECT active FROM members WHERE id = ?', id)
+    if (!row || row.active === 0) throw badRequest(`El miembro ${id} no existe o está desactivado.`, 'recipient_invalid')
+    if (!ids.includes(id)) ids.push(id)
+  }
+  return ids.sort((a, b) => a - b)
+}
+
+/** The recipients saved on an input (empty: the automatic routing decides). */
+export const recipientsOf = (input) => parseJson(input.recipient_ids_json, [])
+
+/**
  * Registers an input and enqueues its analysis. Idempotent by hash. `files` are already in the volume:
  * [{ kind, name, mime, size, sha256 }]; `links`, already-validated URLs.
  * Returns { input, jobId, created, restarted }.
  */
-export function submitInput ({ db, queue, events, now = Date.now }, { authorId, sentById = authorId, text, files, links, keepDraft = false }) {
+export function submitInput ({ db, queue, events, now = Date.now }, { authorId, sentById = authorId, text, files, links, keepDraft = false, recipientIds = [] }) {
   // «Enviar como» (UD-255): the author is the member chosen; `sent_by_member_id` keeps who had the session, only when different.
   const sentBy = sentById === authorId ? null : sentById
-  const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links })
+  const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links, recipientIds })
   return events.transaction(() => {
     const existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
     if (existing) {
@@ -98,7 +122,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       return { input: existing, jobId: jobRow?.id ?? null, created: false, restarted: false }
     }
     const t = now()
-    const r = run(db, 'INSERT INTO inputs (author_id, sent_by_member_id, text, content_hash, status, keep_draft, created_at, updated_at) VALUES (?, ?, ?, ?, \'queued\', ?, ?, ?)', authorId, sentBy, text, hash, keepDraft ? 1 : 0, t, t)
+    const r = run(db, 'INSERT INTO inputs (author_id, sent_by_member_id, text, content_hash, status, keep_draft, recipient_ids_json, created_at, updated_at) VALUES (?, ?, ?, ?, \'queued\', ?, ?, ?, ?)', authorId, sentBy, text, hash, keepDraft ? 1 : 0, JSON.stringify(recipientIds), t, t)
     const inputId = Number(r.lastInsertRowid)
     for (const f of files) {
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)', inputId, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256)
@@ -111,7 +135,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
     // The trace of the message starts here (UD-262): «envío» is its first span and the analysis job continues it.
     const traceparent = withSpan('input.submit', { 'team.input_id': String(inputId), 'team.member_id': String(sentById), 'team.attachments': files.length + links.length }, () => currentTraceparent())
     if (traceparent) run(db, 'UPDATE inputs SET trace_id = ?, traceparent = ? WHERE id = ?', traceIdOf(traceparent), traceparent, inputId)
-    audit(db, { memberId: sentById, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length, author_id: authorId, sent_by_id: sentById }, now })
+    audit(db, { memberId: sentById, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length, author_id: authorId, sent_by_id: sentById, ...(recipientIds.length > 0 ? { recipient_ids: recipientIds } : {}) }, now })
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
     return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', inputId), jobId, created: true, restarted: false }
@@ -158,6 +182,7 @@ export function buildInputView ({ db, queue, events }, input, { compact = false 
     id: input.id,
     author_id: input.author_id,
     sent_by_id: input.sent_by_member_id ?? null,
+    recipient_ids: recipientsOf(input),
     text: input.text,
     status: input.status,
     error: input.error,
@@ -315,7 +340,8 @@ export function editInputText ({ db, config, queue, events, now = Date.now }, in
     const hash = contentHash({
       authorId: memberId, text,
       fileHashes: atts.filter((a) => a.kind !== 'link').map((a) => a.sha256),
-      links: atts.filter((a) => a.kind === 'link').map((a) => a.path)
+      links: atts.filter((a) => a.kind === 'link').map((a) => a.path),
+      recipientIds: recipientsOf(input)
     })
     if (get(db, 'SELECT 1 AS e FROM inputs WHERE content_hash = ? AND id != ?', hash, inputId)) {
       throw conflict('Envío duplicado: la misma persona ya envió ese contenido.', 'duplicate_input')

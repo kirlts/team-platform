@@ -75,7 +75,7 @@ import { TeamClientProvider, useMessages, usePatchMessage } from '@team-platform
 |---|---|
 | Errores | Todo cuerpo no 2xx pasa a `TeamApiError { status, code, message, details }`. Sin cuerpo, `code` es `http_<estado>`. `status` 0 con código `network` es una falla antes de la respuesta. `REQUEST_ERROR_CODES` lista los códigos del servidor, generada de su código |
 | Versión al editar | `messages.patch`, `messages.addAttachments` y `replies.edit` envían la versión del caché (`Versioning.cached`); sin ella leen la actual. Ante 409 `edit_conflict` leen de nuevo, guardan lo leído (`Versioning.remember`) y reenvían una vez |
-| Multipart | `inputs.create`, `inputs.upload` (con progreso), `replies.create` con archivos o enlaces, `messages.addAttachments`, `project.save({ file })`. `asMemberId` envía en nombre de otro miembro (UD-255) |
+| Multipart | `inputs.create`, `inputs.upload` (con progreso), `replies.create` con archivos o enlaces, `messages.addAttachments`, `project.save({ file })`. `asMemberId` envía en nombre de otro miembro (UD-255); `recipientIds` dirige el envío a uno o varios miembros, un agente entre ellos (UD-291) |
 | Deshacer | `createUndoCore` con `deletion` y `edit`; el inverso de cada borrado es su `restore` |
 | Eventos | `team.events.connect(store)` alimenta un `EventsStore`; `watchEvents` además invalida los listados |
 | Archivos | `team.attachmentUrl(id)`, `replyAttachmentUrl(id)`, `transcriptUrl(id)` |

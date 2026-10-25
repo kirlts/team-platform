@@ -16,6 +16,7 @@ import { ProviderError } from '../providers/errors.js'
 import { DEFAULT_LANGUAGE } from './language.js'
 import { recentInputsFor, transitionInput } from './inputs.js'
 import { autoPublishProposal } from './proposals.js'
+import { recipientsOf } from './inputs.js'
 import { getAutoPublish, getFraming, getProject } from './settings.js'
 import { isStep, keyOf, phraseOf, step } from './progress-phrases.js'
 import { blobPath } from './storage.js'
@@ -248,6 +249,9 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         }
         const proposalObj = normalizeProposal(result.proposal)
         if (!proposalObj) throw permanent('El analizador devolvió una propuesta con forma inválida.', 'proposal_invalid')
+        // UD-291: the recipients the sender chose are the assignees of every message; the routing keeps choosing area and template, not people.
+        const recipients = recipientsOf(input)
+        if (recipients.length > 0) for (const m of proposalObj.messages) m.assignee_ids = [...recipients]
 
         return () => {
           // Inside the transaction that closes the job. Each message carries its area and template.

@@ -125,6 +125,19 @@ describe('sends, multipart and «enviar como»', () => {
     expect(err).toMatchObject({ status: 400, code: 'send_as_invalid' })
   })
 
+  it('recipients: the send is assigned to the recipient and a non-member id is 400 recipient_invalid', async () => {
+    const { input_id } = await ana.inputs.create({ text: 'para Beto', files: [], links: [], recipientIds: [server.ids.ed] })
+    const input = (await until(async () => {
+      const v = await ana.inputs.get(input_id)
+      return v.status === 'published' ? v : null
+    })) as InputRecord
+    expect(input.recipient_ids).toEqual([server.ids.ed])
+    const message = await ana.messages.get(String(input.message_ids?.[0] ?? input.messages?.[0]?.id))
+    expect(message.assignee_ids).toEqual([server.ids.ed])
+    const err = await failure(ana.inputs.create({ text: 'a nadie', files: [], links: [], recipientIds: ['99999'] }))
+    expect(err).toMatchObject({ status: 400, code: 'recipient_invalid' })
+  })
+
   it('reprocess of a published send is the Editor\'s: the member gets 403 and the Editor sets the messages aside', async () => {
     const { input_id } = await ana.inputs.create({ text: 'para reprocesar', files: [], links: [] })
     await until(async () => (await ana.inputs.get(input_id)).status === 'published')

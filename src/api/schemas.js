@@ -147,7 +147,7 @@ const progressVars = { type: 'object', additionalProperties: { type: 'number' } 
 export const inputView = {
   type: 'object',
   properties: {
-    id, author_id: id, sent_by_id: { ...nullableId, description: 'Who had the session when it was sent in the name of the author (UD-255); null when it is the author.' }, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
+    id, author_id: id, sent_by_id: { ...nullableId, description: 'Who had the session when it was sent in the name of the author (UD-255); null when it is the author.' }, recipient_ids: { type: 'array', items: id, description: 'The members the send is addressed to (UD-291); empty when the automatic routing assigned.' }, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
     created_at: { type: 'string' }, updated_at: { type: 'string' }, job_id: nullableId,
     percent: { type: ['integer', 'null'] }, phrase: nullableText, code: nullableText, vars: progressVars, proposed_count: { type: 'integer' }, // UD-025: the tray of in-flight inputs; H-3722: `code`
     attachments: {

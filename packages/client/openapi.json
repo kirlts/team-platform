@@ -383,11 +383,11 @@
     },
     "/api/inputs": {
       "post": {
-        "summary": "Submit an input (multipart: text, files[], links[], auto_publish, as_member_id; or JSON { text, links, auto_publish, as_member_id })",
+        "summary": "Submit an input (multipart: text, files[], links[], auto_publish, as_member_id, recipient_ids[]; or JSON { text, links, auto_publish, as_member_id, recipient_ids })",
         "tags": [
           "Inputs"
         ],
-        "description": "`as_member_id` (UD-255, «Enviar como») envía en nombre de otro miembro: el input y los mensajes que nazcan de él tienen ese `author_id`, y las reglas de «mío» (lista, editar, cancelar, borrar) siguen a ese autor. `sent_by_id` guarda al miembro de la sesión cuando es distinto del autor, y la auditoría `input.create` lo registra como quien actuó, con `detail.author_id` y `detail.sent_by_id`. Cualquier miembro envía como cualquier miembro activo de tipo persona; sin el campo, o con el propio id, el autor es el miembro de la sesión. Un miembro agente es 400 `cannot_send_as_agent`; uno inexistente o desactivado, 400 `send_as_invalid`. `auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).",
+        "description": "`as_member_id` (UD-255, «Enviar como») envía en nombre de otro miembro: el input y los mensajes que nazcan de él tienen ese `author_id`, y las reglas de «mío» (lista, editar, cancelar, borrar) siguen a ese autor. `sent_by_id` guarda al miembro de la sesión cuando es distinto del autor, y la auditoría `input.create` lo registra como quien actuó, con `detail.author_id` y `detail.sent_by_id`. Cualquier miembro envía como cualquier miembro activo de tipo persona; sin el campo, o con el propio id, el autor es el miembro de la sesión. Un miembro agente es 400 `cannot_send_as_agent`; uno inexistente o desactivado, 400 `send_as_invalid`. `auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. `recipient_ids` (UD-291) son los miembros a quienes va el envío, uno o varios, un agente como Claude entre ellos: pasan a ser los asignados de cada mensaje que nazca del envío y el enrutamiento automático no reasigna (sigue eligiendo área y plantilla); un agente entre ellos recibe su trabajo al publicarse el mensaje, sin otra confirmación (UD-286). Vacío o ausente, el enrutamiento automático asigna como siempre. Es la única puerta: no hay una ruta aparte para un agente. Un id que no es un miembro activo es 400 `recipient_invalid`; en multipart se repite el campo, uno por destinatario. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).",
         "requestBody": {
           "required": true,
           "content": {
@@ -617,6 +617,13 @@
                               "null"
                             ],
                             "description": "Who had the session when it was sent in the name of the author (UD-255); null when it is the author."
+                          },
+                          "recipient_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "The members the send is addressed to (UD-291); empty when the automatic routing assigned."
                           },
                           "text": {
                             "type": "string"
@@ -980,6 +987,13 @@
                       ],
                       "description": "Who had the session when it was sent in the name of the author (UD-255); null when it is the author."
                     },
+                    "recipient_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The members the send is addressed to (UD-291); empty when the automatic routing assigned."
+                    },
                     "text": {
                       "type": "string"
                     },
@@ -1341,6 +1355,13 @@
                         "null"
                       ],
                       "description": "Who had the session when it was sent in the name of the author (UD-255); null when it is the author."
+                    },
+                    "recipient_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The members the send is addressed to (UD-291); empty when the automatic routing assigned."
                     },
                     "text": {
                       "type": "string"

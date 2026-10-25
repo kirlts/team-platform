@@ -227,6 +227,12 @@ describe('transport', () => {
 describe('multipart forms', () => {
   const file = (name: string, type = 'text/plain') => new File(['x'], name, { type })
 
+  it('the input form repeats recipient_ids once per recipient', () => {
+    const form = inputForm({ text: 'hola', files: [], links: [], recipientIds: ['2', '5'] })
+    expect(form.getAll('recipient_ids')).toEqual(['2', '5'])
+    expect(inputForm({ text: 'hola', files: [], links: [] }).has('recipient_ids')).toBe(false)
+  })
+
   it('the input form carries text, files, links and as_member_id under the names the server reads', () => {
     const form = inputForm({ text: 'hola', files: [file('a.txt'), file('b.png', 'image/png')], links: ['https://x.org'], asMemberId: '3' })
     expect(form.get('text')).toBe('hola')

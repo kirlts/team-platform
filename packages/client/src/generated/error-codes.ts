@@ -80,6 +80,7 @@ export const REQUEST_ERROR_CODES = [
   'provider_no_key',
   'range_invalid',
   'reason_required',
+  'recipient_invalid',
   'reply_empty',
   'reply_kind_invalid',
   'role_managed_externally',

@@ -522,6 +522,8 @@ export interface NewInput {
   links: string[]
   /** «Enviar como» (UD-255): the member the input is sent in the name of; without it, the member of the session. */
   asMemberId?: string
+  /** Recipients (UD-291): the members the send is addressed to, an agent among them; without them the automatic routing assigns. */
+  recipientIds?: string[]
 }
 
 export interface CreatedInput {

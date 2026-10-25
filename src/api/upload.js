@@ -38,16 +38,16 @@ async function rejectLongVideo (tmp, filename) {
 export async function readInputUpload (request, config, db) {
   if (!request.isMultipart()) return readInputJson(request, config)
   const { text, links, files, extra } = await readUpload(request, config, db, {
-    textField: 'text', extraFields: ['auto_publish', 'as_member_id'], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
+    textField: 'text', extraFields: ['auto_publish', 'as_member_id', 'recipient_ids'], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
   })
-  return { text, links, files, keepDraft: extra.auto_publish === 'false', asMemberId: extra.as_member_id }
+  return { text, links, files, keepDraft: extra.auto_publish === 'false', asMemberId: extra.as_member_id, recipientIds: extra.recipient_ids }
 }
 
 /** A send with no files as JSON: { text, links?, auto_publish?, as_member_id? }. Same limits and the same errors as the multipart one. */
 function readInputJson (request, config) {
   const body = request.body
   if (body === null || typeof body !== 'object' || Array.isArray(body)) throw unsupported('Se esperaba un envío multipart/form-data o un JSON.')
-  const allowed = new Set(['text', 'links', 'auto_publish', 'as_member_id'])
+  const allowed = new Set(['text', 'links', 'auto_publish', 'as_member_id', 'recipient_ids'])
   const unknown = Object.keys(body).find((k) => !allowed.has(k))
   if (unknown) throw badRequest(`El campo «${unknown}» no existe.`, 'validation')
   const u = config.uploads
@@ -62,7 +62,7 @@ function readInputJson (request, config) {
   if (text.trim() === '' && links.length === 0) throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
   const as = body.as_member_id
   if (as !== undefined && as !== null && typeof as !== 'string' && typeof as !== 'number') throw badRequest('`as_member_id` es el id de un miembro.', 'send_as_invalid')
-  return { text, links, files: [], keepDraft: body.auto_publish === false, asMemberId: as === undefined || as === null ? undefined : String(as) }
+  return { text, links, files: [], keepDraft: body.auto_publish === false, asMemberId: as === undefined || as === null ? undefined : String(as), recipientIds: body.recipient_ids }
 }
 
 /** Reads the multipart body of a reply: body, kind, files[] and links[]. Same limits and storage as an input. */
@@ -103,6 +103,10 @@ async function readUpload (request, config, db, { textField, extraFields, emptyM
           // UD-278: one field per member picked in the list of the mention; each one is an id.
           if (!/^[0-9]{1,15}$/.test(String(part.value).trim())) throw badRequest('`mention_ids` lleva ids de miembros.', 'mention_invalid')
           ;(extra.mention_ids ??= []).push(Number(String(part.value).trim()))
+        }
+        else if ((part.fieldname === 'recipient_ids' || part.fieldname === 'recipient_ids[]') && extraFields.includes('recipient_ids')) {
+          // UD-291: one field per recipient; the domain checks each one is an active member.
+          ;(extra.recipient_ids ??= []).push(String(part.value))
         }
         else if (extraFields.includes(part.fieldname)) {
           if (part.fieldname === 'auto_publish' && !['true', 'false'].includes(String(part.value))) throw badRequest('`auto_publish` es «true» o «false».', 'auto_publish_invalid')

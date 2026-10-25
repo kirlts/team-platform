@@ -28,7 +28,7 @@ function withBreaks(email: string) {
   return email.split(/(?<=[.@_-])/).flatMap((part, i) => (i === 0 ? [part] : [<wbr key={i} />, part]))
 }
 
-/** Members with their responsibilities and domains. Each one edits their own; the Editor adds, and changes name, email and role of the others. */
+/** Members with their responsibilities and domains. Each one edits their own; any person adds, and changes name, email and role of the others; the Editor also writes the profile of an agent. */
 export function Team() {
   const t = useT()
   const me = useMe().data
@@ -49,7 +49,7 @@ export function Team() {
           aside={
             <div className="flex items-center gap-2">
               <UndoButtons stack={undo} />
-              {editor && (
+              {me && (
                 <Button variant="primary" size="lg" onClick={() => setAdding(true)}>
                   <UserPlus size={16} aria-hidden /> {t('team.add')}
                 </Button>
@@ -105,7 +105,6 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
   const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
-  const canEditPeople = viewerIsEditor
   /** Set when the menu item opens the password field: the menu must not take the focus back from it. */
   const openedPassword = useRef(false)
 
@@ -151,14 +150,14 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
         <Avatar name={member.name} size={30} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
-            <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold ${member.active ? '' : 'text-muted'}`} className="w-auto" />
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold ${member.active ? '' : 'text-muted'}`} className="w-auto" />
             {self && <Badge tone="accent">{t('team.me')}</Badge>}
           </div>
-          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="-mb-[5px] break-words pb-[5px] text-sm text-muted" render={withBreaks} />
+          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="-mb-[5px] break-words pb-[5px] text-sm text-muted" render={withBreaks} />
         </div>
       </div>
       <div className="flex min-w-0 flex-col items-start gap-1 max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:gap-x-3 max-lg:self-center">
-        {canEditPeople && !self ? (
+        {!self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={`${t('team.roleOf', { name: member.name })}: ${roleLabel[member.role]}. ${roleHint[member.role]}`} title={roleHint[member.role]} className="inline-flex rounded-full hover:bg-hover">
               <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'} className="gap-1">
@@ -191,7 +190,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       </div>
       {/* Below 1024 px the cell dissolves (the four columns need 39 rem and a tablet beside the side panel has 27): the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-lg:contents">
-        {canEditPeople && !self && (
+        {!self && (
           <div className="max-lg:col-start-2 max-lg:row-start-2 max-lg:self-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

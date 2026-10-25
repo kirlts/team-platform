@@ -1,5 +1,5 @@
 // Interface telemetry (UD-091, MASTER-SPEC §7.10 ter). The panel sends counts and durations of how it is used;
-// the Editor reads them back as a summary. No event carries text of a person (src/telemetry/ui-spec.js).
+// an active person reads them back as a summary. No event carries text of a person (src/telemetry/ui-spec.js).
 
 import Ajv from 'ajv'
 import { audit } from '../../domain/audit.js'
@@ -40,9 +40,9 @@ export function registerTelemetryRoutes (app, ctx) {
   })
 
   app.get('/telemetry/ui-summary', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Summary of how the interface is used (editor)',
+      summary: 'Summary of how the interface is used',
       description: 'Percentiles (p50, p75, p95, nearest rank) by task and by screen, error and abandonment rates, and the worst journeys by clicks to complete. The window is the last `days` days, at most the span retention.',
       querystring: { type: 'object', additionalProperties: false, properties: { days: { type: 'integer', minimum: 1, maximum: config.worker.retentionDays } } },
       response: { 200: { type: 'object', additionalProperties: true } }
@@ -55,9 +55,9 @@ export function registerTelemetryRoutes (app, ctx) {
   })
 
   app.patch('/settings/telemetry', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Turn interface telemetry on or off (editor)',
+      summary: 'Turn interface telemetry on or off',
       body: { type: 'object', required: ['ui_enabled'], additionalProperties: false, properties: { ui_enabled: { type: 'boolean' } } },
       response: { 200: { type: 'object', properties: { ui_enabled: { type: 'boolean' } } } }
     }

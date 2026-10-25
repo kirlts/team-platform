@@ -27,13 +27,13 @@ async function populated () {
 
 const blobs = (env) => existsSync(env.config.attachmentsDir) ? readdirSync(env.config.attachmentsDir) : []
 
-test('without confirm=true it is a 400 and nothing is deleted; a member receives 403; an unknown scope is a 400', async () => {
+test('without confirm=true it is a 400 and nothing is deleted; a member reaches it (UD-287); an unknown scope is a 400', async () => {
   const env = await populated()
   try {
     const without = await env.api('POST', '/ops/reset', env.c.ed, { scope: 'content' })
     assert.equal(without.statusCode, 400)
     assert.equal(without.json().code, 'confirm_required')
-    assert.equal((await env.api('POST', '/ops/reset?confirm=true', env.c.ana, { scope: 'content' })).statusCode, 403)
+    assert.equal((await env.api('POST', '/ops/reset', env.c.ana, { scope: 'content' })).json().code, 'confirm_required')
     assert.equal((await env.api('POST', '/ops/reset?confirm=true', env.c.ed, { scope: 'all' })).statusCode, 400)
     assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages').n, 1)
     assert.equal(blobs(env).length, 1)

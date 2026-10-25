@@ -57,7 +57,7 @@ test('the contract: events become ui.* spans, errors are marked, and the summary
     assert.equal((await send(env, env.c.ana, tasks.slice(0, 7), 'aaaaaaaaaaaaaaaa')).statusCode, 204)
     assert.equal((await send(env, env.c.ana, tasks.slice(7), 'bbbbbbbbbbbbbbbb')).statusCode, 204)
 
-    assert.equal((await env.api('GET', '/telemetry/ui-summary', env.c.ana)).statusCode, 403) // Editor only
+    assert.equal((await env.api('GET', '/telemetry/ui-summary', env.c.ana)).statusCode, 200) // any person of the team (UD-287)
     const sum = (await env.api('GET', '/telemetry/ui-summary', env.c.ed)).json()
     const sp = sum.tasks.send_publish
     assert.equal(sp.started, 1 + 10 + 2) // the first batch had one, plus ten completed, one abandoned and one failed
@@ -159,11 +159,11 @@ test('privacy: after using the system with names and texts, no span of the inter
   } finally { await env.close() }
 })
 
-test('the switch: with telemetry off the batch is answered and discarded, and only the Editor moves the switch', async () => {
+test('the switch: with telemetry off the batch is answered and discarded, and any person moves the switch (UD-287)', async () => {
   const env = await team({ telemetry: true })
   try {
     assert.equal((await env.api('GET', '/me', env.c.ana)).json().ui_telemetry.enabled, true)
-    assert.equal((await env.api('PATCH', '/settings/telemetry', env.c.ana, { ui_enabled: false })).statusCode, 403)
+    assert.equal((await env.api('PATCH', '/settings/telemetry', env.c.ana, { ui_enabled: true })).statusCode, 200)
     const off = await env.api('PATCH', '/settings/telemetry', env.c.ed, { ui_enabled: false })
     assert.deepEqual(off.json(), { ui_enabled: false })
     assert.equal((await env.api('GET', '/me', env.c.ana)).json().ui_telemetry.enabled, false)

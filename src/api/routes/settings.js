@@ -1,4 +1,4 @@
-// Provider settings (MASTER-SPEC §7.6). Editor only. The database stores the provider name, the
+// Provider settings (MASTER-SPEC §7.6). Any active person. The database stores the provider name, the
 // model and the base URL; the key lives in the environment and is neither read nor written here (MASTER-SPEC §4.6).
 // A patch is only saved if `createProviders` accepts the combination: that way a nonexistent name is rejected
 // when configured and not when the first job fails.
@@ -53,10 +53,10 @@ export function registerSettingsRoutes (app, ctx) {
 
   const responseSchema = { 200: { type: 'object', properties: { analyzer: { type: 'string', enum: ['api', 'harness'] }, items: { type: 'array', items: itemVista } } } }
 
-  app.get('/settings/providers', { onRequest: [requireRole('editor')], schema: { summary: 'Configured model providers (never the keys)', response: responseSchema } }, async () => view())
+  app.get('/settings/providers', { onRequest: [requireRole('person')], schema: { summary: 'Configured model providers (never the keys)', response: responseSchema } }, async () => view())
 
   app.patch('/settings/providers', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
       summary: 'Change the provider of a slot, or the analyzer',
       description: 'Body: { slot, provider, model, base_url? } or { analyzer }. Anything `createProviders` does not accept is rejected. A change of function is tested with one minimal call before it is saved: if the test fails nothing changes and the answer is 422 `provider_check_failed` with the cause (UD-120).',
@@ -84,7 +84,7 @@ export function registerSettingsRoutes (app, ctx) {
     return view()
   })
 
-  // Project description (UD-024): any member reads it, the editor writes it. Free Markdown, passed whole to the analyzer.
+  // Project description (UD-024): any member reads it, the Editor writes it (a configured text). Free Markdown, passed whole to the analyzer.
   const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, max_chars: { type: 'integer', description: 'Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador.' }, name_max_chars: { type: 'integer', description: 'Tope de caracteres del nombre (PROJECT_NAME_MAX_CHARS).' } }, required: ['name', 'description'] }
   const projectWithLimit = () => ({ ...getProject(db, config), max_chars: config.project.descriptionMaxChars, name_max_chars: config.project.nameMaxChars })
 
@@ -96,7 +96,7 @@ export function registerSettingsRoutes (app, ctx) {
   app.patch('/settings/project', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Cambiar el nombre o la descripción del proyecto (editor)',
+      summary: 'Cambiar el nombre o la descripción del proyecto (editor: texto configurado)',
       description: 'JSON `{ description?, name? }` o multipart con un archivo `file` (.md) o un campo `description`. La descripción reemplaza a la anterior y viaja entera al analizador; su tope es `PROJECT_DESCRIPTION_MAX_CHARS` caracteres (413 `too_large` si lo supera). `name` es el nombre que muestra la barra superior; vacío vuelve a `PROJECT_NAME` (H-3722), tope `PROJECT_NAME_MAX_CHARS`.',
       // Per content type: the multipart body is read by the handler, only the JSON body is validated by schema.
       body: {
@@ -125,7 +125,7 @@ export function registerSettingsRoutes (app, ctx) {
     return projectWithLimit()
   })
 
-  // Publication mode (UD-070): any member reads it, the editor writes it.
+  // Publication mode (UD-070): any member reads it, any active person writes it (UD-287).
   const publicationView = { type: 'object', properties: { auto_publish: { type: 'boolean' } }, required: ['auto_publish'] }
 
   app.get('/settings/publication', {
@@ -134,9 +134,9 @@ export function registerSettingsRoutes (app, ctx) {
   }, async () => ({ auto_publish: getAutoPublish(db) }))
 
   app.patch('/settings/publication', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Cambiar el modo de publicación (editor)',
+      summary: 'Cambiar el modo de publicación',
       description: 'Con `auto_publish: false` vuelve la revisión previa: la propuesta queda `proposed` hasta que su emisor la publique. Sólo afecta a los análisis que terminen después; lo ya publicado no se toca.',
       body: { type: 'object', required: ['auto_publish'], additionalProperties: false, properties: { auto_publish: { type: 'boolean' } } },
       response: { 200: publicationView }
@@ -147,7 +147,7 @@ export function registerSettingsRoutes (app, ctx) {
     return { auto_publish: getAutoPublish(db) }
   })
 
-  // Analysis framing (H-3722): the paragraph that opens every system prompt, one per language. Editor only, read and write.
+  // Analysis framing (H-3722): the paragraph that opens every system prompt, one per language. Any active person reads it; the Editor writes it (a configured text, UD-287).
   const framingItem = { type: 'object', properties: { value: { type: 'string' }, default: { type: 'string' }, custom: { type: 'boolean' } }, required: ['value', 'default', 'custom'] }
   const analysisView = {
     type: 'object',
@@ -160,14 +160,14 @@ export function registerSettingsRoutes (app, ctx) {
   const analysisWithLimit = () => ({ framing: getFramingView(db), max_chars: config.analysis.framingMaxChars })
 
   app.get('/settings/analysis', {
-    onRequest: [requireRole('editor')],
-    schema: { summary: 'Encuadre del análisis (editor)', description: 'Por idioma: el texto vigente, el de omisión y si el Editor lo cambió (H-3722).', response: { 200: analysisView } }
+    onRequest: [requireRole('person')],
+    schema: { summary: 'Encuadre del análisis', description: 'Por idioma: el texto vigente, el de omisión y si se cambió (H-3722).', response: { 200: analysisView } }
   }, async () => analysisWithLimit())
 
   app.patch('/settings/analysis', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Cambiar el encuadre del análisis (editor)',
+      summary: 'Cambiar el encuadre del análisis (editor: texto configurado)',
       description: '`{ framing: { "es-419"?: texto, en?: texto } }`. El texto abre las instrucciones de sistema del analizador en ese idioma; vacío vuelve al de omisión. Tope `ANALYSIS_FRAMING_MAX_CHARS` caracteres por idioma (413 `too_large`). Sólo afecta a los análisis que empiecen después.',
       body: {
         type: 'object', required: ['framing'], additionalProperties: false,

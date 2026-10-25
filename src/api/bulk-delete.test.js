@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
-import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
 async function team () {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } }, worker: true })
@@ -63,18 +63,19 @@ test('UD-253 · permissions are all or nothing: one message of someone else refu
   const ana = await publish(env, env.c.ana, 2, 'ana')
   const beto = await publish(env, env.c.beto, 1, 'beto')
 
-  const refused = await env.api('POST', '/messages/delete?confirm=true', env.c.beto, { ids: [...ana, ...beto] })
+  // UD-287: any person of the team deletes what is not theirs; an agent that sent none of them is refused with every id.
+  const refused = await (await addAgent(env, env.c.ed))('POST', '/messages/delete?confirm=true', { ids: [...ana, ...beto] })
   assert.equal(refused.statusCode, 403)
   assert.equal(refused.json().code, 'not_message_author')
-  assert.deepEqual(refused.json().ids.sort(), [...ana].sort())
+  assert.deepEqual(refused.json().ids.sort(), [...ana, ...beto].sort())
   assert.deepEqual(await listed(env, env.c.beto), [...ana, ...beto].sort(), 'nothing was deleted, not even Beto’s own')
   assert.deepEqual(auditOf(env, 'message.delete'), [])
 
-  // The Editor deletes messages of anyone; a member may not restore what is not theirs.
+  // The Editor deletes messages of anyone; an agent may not restore what is not its own (UD-287).
   assert.equal((await env.api('POST', '/messages/delete?confirm=true', env.c.ed, { ids: [...ana, ...beto] })).statusCode, 200)
-  const notHers = await env.api('POST', '/messages/restore', env.c.beto, { ids: [...ana, ...beto] })
+  const notHers = await (await addAgent(env, env.c.ed, 'otro@x.org'))('POST', '/messages/restore', { ids: [...ana, ...beto] })
   assert.equal(notHers.statusCode, 403)
-  assert.deepEqual(notHers.json().ids.sort(), [...ana].sort())
+  assert.deepEqual(notHers.json().ids.sort(), [...ana, ...beto].sort())
   assert.deepEqual(await listed(env, env.c.ed, '?deleted=1'), [...ana, ...beto].sort())
   assert.equal((await env.api('POST', '/messages/restore', env.c.ed, { ids: [...ana, ...beto] })).statusCode, 200)
 })

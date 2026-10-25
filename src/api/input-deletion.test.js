@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
 import { blobPath } from '../domain/storage.js'
-import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
 const PNG = (nameValue, content = 'PNG!') => ({ field: 'files', name: nameValue, type: 'image/png', content })
 
@@ -31,7 +31,7 @@ test('deletion: only the sender or an Editor, and only with confirm=true', async
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'mío' })).json()
   assert.equal((await env.api('DELETE', `/inputs/${id}`, env.c.ana)).statusCode, 400)
   assert.equal((await env.api('DELETE', `/inputs/${id}`, env.c.ana)).json().code, 'confirm_required')
-  assert.equal((await env.api('DELETE', DELETE(id), env.c.beto)).statusCode, 404) // someone else's input does not exist
+  assert.equal((await (await addAgent(env, env.c.ed))('DELETE', DELETE(id))).statusCode, 404) // an agent that did not send it: the input does not exist
   assert.ok(get(env.db, 'SELECT 1 AS x FROM inputs WHERE id = ?', id))
   const byEditor = await env.api('DELETE', DELETE(id), env.c.ed)
   assert.equal(byEditor.statusCode, 200, byEditor.body)

@@ -14,8 +14,9 @@ import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
 import { currentTraceparent, traceIdOf, withSpan } from '../telemetry/api.js'
 import { step } from './progress-phrases.js'
-import { badRequest, conflict, forbidden, notFound, tooLarge } from './errors.js'
+import { badRequest, conflict, notFound, tooLarge } from './errors.js'
 import { cancelAgentJobs } from '../execute/enqueue.js'
+import { isActivePerson } from './members.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -23,10 +24,10 @@ const TRANSITIONS = {
   queued: ['extracting', 'analyzing', 'failed', 'cancelled'],
   extracting: ['analyzing', 'queued', 'failed', 'cancelled'],
   analyzing: ['proposed', 'queued', 'failed', 'cancelled'],
-  proposed: ['published', 'cancelled', 'queued'], // queued: the editor reprocesses the analysis
+  proposed: ['published', 'cancelled', 'queued'], // queued: a person reprocesses the analysis
   failed: ['queued', 'cancelled'], // cancelled: the sender discards a failed analysis
   cancelled: ['queued', 'proposed', 'failed'], // proposed / failed: the sender undoes a discard (restoreInput)
-  published: ['queued'] // queued: the editor reprocesses a published input (UD-258); its messages go to the trash
+  published: ['queued'] // queued: a person reprocesses a published input (UD-258, UD-287); its messages go to the trash
 }
 
 export const isTerminalInput = (status) => ['proposed', 'published', 'failed', 'cancelled'].includes(status)
@@ -201,7 +202,7 @@ export function parseStatusFilter (raw) {
 export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc', everyone = false, compact = false }) {
   const { db } = ctx
   const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
-  // `everyone` (the editor's queue): no author condition, and every item carries the name of its sender.
+  // `everyone` (the team's queue): no author condition, and every item carries the name of its sender.
   const clauses = []
   const params = []
   // The sender sees what they sent on someone's behalf (`sent_by_id`, UD-255): with «Enviar como» the tray stayed empty while the input
@@ -249,10 +250,10 @@ export function recentInputsFor ({ db, config, now = Date.now }, input) {
 
 /**
  * Queues the analysis of an input again (useful when a template changed, or to retry a failed analysis). The
- * extractions are kept: the job only extracts what is missing. The editor can do it on any input; a member only on
- * their own (for anybody else an input of another person does not exist). Not on an in-flight input.
+ * extractions are kept: the job only extracts what is missing. An active person of the team can do it on any input; any
+ * other member only on their own (for anybody else an input of another person does not exist). Not on an in-flight input.
  *
- * A `published` input is reprocessed by the editor only (403 for its sender; UD-258): its live messages go to the trash
+ * A `published` input is reprocessed like any other (UD-258, UD-287): its live messages go to the trash
  * (soft delete, UD-240; their replies stay on them and come back with them), the proposal is dropped and the input is
  * `queued` again for the current model and areas. No confirmation (UD-253). A message somebody already closed or
  * answered goes to the trash too; the audit row `input.reprocess` counts the messages and the live replies set aside.
@@ -261,9 +262,8 @@ export function recentInputsFor ({ db, config, now = Date.now }, input) {
 export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actor) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || (actor.role !== 'editor' && input.author_id !== actor.id)) throw notFound('El input no existe.')
+    if (!input || (input.author_id !== actor.id && !isActivePerson(db, actor.id))) throw notFound('El input no existe.')
     const published = input.status === 'published'
-    if (published && actor.role !== 'editor') throw forbidden('Sólo un Editor reprocesa un envío publicado.', 'forbidden')
     if (!published && !['proposed', 'failed', 'cancelled'].includes(input.status)) {
       throw conflict(`El input está «${input.status}»; sólo se reprocesa uno publicado, con propuesta, fallido o cancelado.`, 'not_reprocessable')
     }
@@ -371,7 +371,7 @@ export function cancelInput ({ db, queue, events, now = Date.now }, inputId, mem
 
 /**
  * Deletes an input for real (UD-240): its attachments, jobs (the queued or running ones are cancelled first), events
- * and proposal. Its sender or an Editor; for anybody else it does not exist (404). The messages published from it stay
+ * and proposal. Its sender or an active person of the team; for anybody else it does not exist (404). The messages published from it stay
  * (`messages.input_id` becomes NULL) and keep their attachments: an attachment row some message references is not
  * deleted, it only loses its input (migration 0011). With `withMessages` those messages go too, with their replies.
  * Returns the counts and the sha256 of every file that may now be unreferenced; the caller frees the volume
@@ -380,7 +380,7 @@ export function cancelInput ({ db, queue, events, now = Date.now }, inputId, mem
 export function deleteInput ({ db, queue, events, now = Date.now }, inputId, actor, { withMessages = false } = {}) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || (actor.role !== 'editor' && input.author_id !== actor.id)) throw notFound('El input no existe.')
+    if (!input || (input.author_id !== actor.id && !isActivePerson(db, actor.id))) throw notFound('El input no existe.')
     const attachments = all(db, 'SELECT id, kind, sha256 FROM attachments WHERE input_id = ?', inputId)
     const messageIds = all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', inputId).map((m) => m.id)
     const jobs = get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE input_id = ?', inputId).n

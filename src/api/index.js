@@ -41,6 +41,7 @@ import { createVault, loadMasterKey } from '../domain/vault.js'
 import { buriedHandoffs } from '../domain/escalation.js'
 import { installAgentAuth } from '../execute/agent-auth.js'
 import { registerExecuteRoutes } from '../execute/routes.js'
+import { isActivePerson } from '../domain/members.js'
 
 
 const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', ops: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
@@ -246,10 +247,10 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     // UD-269 invariant: a message whose latest result from the agent asks for a person and that nobody holds. Zero when healthy; the probe turns `degraded`.
     const buried = buriedHandoffs(db)
     const basic = { status: buried.length === 0 ? 'ok' : 'degraded', version }
-    // The detail (database, queue, providers) is for the editor: an anonymous probe only sees whether the service is alive.
+    // The detail (database, queue, providers) is for an active person of the team: an anonymous probe only sees whether the service is alive.
     let caller = null
     try { caller = await identity.provider.identify(request) } catch { /* no identity: basic response */ }
-    if (caller?.role !== 'editor') return basic
+    if (!caller || !isActivePerson(db, caller.member_id)) return basic
     return {
       ...basic,
       db: { status: 'ok', schema_version: userVersion(db), journal_mode: db.prepare('PRAGMA journal_mode').get().journal_mode },
@@ -261,7 +262,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     }
   }
   const healthSchema = {
-    summary: 'Service status (the detail of database, queue and providers is for the editor only)',
+    summary: 'Service status (the detail of database, queue and providers is for a person of the team only)',
     response: {
       200: {
         type: 'object',

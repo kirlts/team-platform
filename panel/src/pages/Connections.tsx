@@ -4,7 +4,6 @@ import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { useT, type MessageKey } from '@/i18n'
 import { CONNECTIONS, isConnection } from '@/lib/connections'
-import { useMe } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -15,20 +14,8 @@ import { cn } from '@/lib/utils'
  */
 export function Connections() {
   const t = useT()
-  const me = useMe().data
   const { kind } = useParams()
   const chosen = isConnection(kind) ? kind : undefined
-
-  if (me && me.role !== 'editor') {
-    return (
-      <Page cols={12}>
-        <PageHeader title={t('nav.connections')} />
-        <p role="status" className="text-sm text-muted">
-          {t('connections.editorOnly')}
-        </p>
-      </Page>
-    )
-  }
 
   return (
     <Page cols={12}>

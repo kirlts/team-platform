@@ -65,8 +65,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   // Reply row: the author, the date, the media and the thumbnail are the reply's.
   const from = reply ?? message
   const main = mainAttachment(from.attachments)
-  // The sender or the Editor deletes from the row itself (UD-240): it is done and the strip carries Deshacer. Never on the row of a reply.
-  const canDelete = variant === 'message' && !!me && (isAuthor || me.role === 'editor')
+  // The sender or any person of the team deletes from the row itself (UD-240, UD-287): it is done and the strip carries Deshacer. Never on the row of a reply.
+  const canDelete = variant === 'message' && !!me
   const remove = async () => {
     await del.mutateAsync(message.id)
     notices.show({

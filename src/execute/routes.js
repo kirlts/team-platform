@@ -1,4 +1,4 @@
-// Routes of the `execute` job (UD-254, UD-255): an Editor enqueues it by hand, and the unattended session reports its
+// Routes of the `execute` job (UD-254, UD-255): a person enqueues it by hand, and the unattended session reports its
 // progress with `team progress`.
 
 import { all, get, run as runSql } from '../db/index.js'
@@ -17,9 +17,9 @@ export function registerExecuteRoutes (app, ctx) {
   watchBudget(db, config) // UD-282: with the day's cap spent the thread does not offer «Reintentar»
 
   app.post('/messages/:id/execute', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('person')],
     schema: {
-      summary: 'Encolar el trabajo `execute` de un mensaje (Editor)',
+      summary: 'Encolar el trabajo `execute` de un mensaje (cualquier persona activa, UD-287)',
       description: 'Una sesión desatendida de Claude Code trabaja el mensaje como el miembro agente indicado (UD-254). Sin `member_id`, un trabajo por cada agente activo entre sus destinatarios. Responde 202 con los trabajos creados. 409 `no_agent_assignee` si el mensaje no tiene un agente activo asignado, 409 `execute_busy` si cada agente ya tiene uno en cola o corriendo, 409 `message_closed` si está cerrado, 400 `not_an_agent` si `member_id` no es un agente.',
       params: idParams(),
       body: { type: ['object', 'null'], additionalProperties: false, properties: { member_id: idIn } },

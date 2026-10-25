@@ -8,7 +8,7 @@
 //
 // Messages and replies are soft-deleted (`deleted_at`, UD-240) and restored. Every read here ignores a deleted row:
 // lists, counts, the thread, the search, the last reply of a card and the access to attachments. A deleted message is a
-// 404 for everybody except an Editor who asks for it with `includeDeleted`.
+// 404 for everybody except a person of the team who asks for it with `includeDeleted`.
 
 import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
@@ -22,6 +22,7 @@ import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
 import { SPOKEN_KINDS, enqueueReplyExtract } from './reply-extract.js'
 import { retryableIds } from '../execute/retry.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
+import { isActivePerson } from './members.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification', 'forward']
@@ -140,14 +141,14 @@ const LIVE_REPLY = 'r.deleted_at IS NULL'
 /**
  * List of the team's messages (everyone sees everything, §6). Filters: `for` (me or a member id: assigned to),
  * `area`, `status`, `q` (substring in title or text) and `replies` (only with replies; with `for`, those
- * that involve that person as sender, assignee or author of a reply) and `deleted` (only the deleted ones: the viewer's own, all for an Editor).
+ * that involve that person as sender, assignee or author of a reply) and `deleted` (only the deleted ones: the viewer's own, all for a person of the team).
  * Returns { items, total }.
  */
-export function listMessages (db, { viewerId, viewerRole = 'member', forMember = null, involved = false, area = null, status = null, q = null, replies = false, deleted = false, limit, offset = 0 }) {
-  // `deleted`: only the deleted ones, to restore them (UD-250): the viewer's own, or every one for an Editor.
+export function listMessages (db, { viewerId, forMember = null, involved = false, area = null, status = null, q = null, replies = false, deleted = false, limit, offset = 0 }) {
+  // `deleted`: only the deleted ones, to restore them (UD-250): the viewer's own, or every one for a person of the team (UD-287).
   const scope = [deleted ? 'm.deleted_at IS NOT NULL' : 'm.deleted_at IS NULL']
   const params = []
-  if (deleted && viewerRole !== 'editor') { scope.push('m.author_id = ?'); params.push(viewerId) }
+  if (deleted && !isActivePerson(db, viewerId)) { scope.push('m.author_id = ?'); params.push(viewerId) }
   const memberRow = forMember === 'me' ? viewerId : forMember
   if (memberRow !== null && memberRow !== undefined) {
     if (replies) {
@@ -218,7 +219,7 @@ export function messageSummary (db, memberId) {
   return { mine, items, areas }
 }
 
-/** The message with its thread. A deleted one is a 404 unless `includeDeleted` (an Editor restoring it). */
+/** The message with its thread. A deleted one is a 404 unless `includeDeleted` (a person restoring it). */
 export function getMessage (db, id, { includeDeleted = false } = {}) {
   const dbRow = get(db, `${SELECT_MESSAGE} WHERE m.id = ?${includeDeleted ? '' : ' AND m.deleted_at IS NULL'}`, id)
   if (!dbRow) throw notFound('El mensaje no existe.')
@@ -236,7 +237,7 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
 /**
  * In-place edit of a published message by its author (UD-071, which narrows UD-017): title, body, fields,
  * assignees, area (a change of area needs a `template_id` of the new area), template and attachments (a subset or
- * reordering of the attachments of the input the message came from). ONLY the author edits: an Editor does not
+ * reordering of the attachments of the input the message came from). ONLY the author edits: nobody else does
  * (403 `not_message_author`); closing, reopening and replying stay open to everybody (§1.1). A message in any
  * status can be edited, closed ones included.
  *
@@ -490,9 +491,9 @@ function recomputeStatus (db, messageId) {
   if (target !== msgRow.status) run(db, 'UPDATE messages SET status = ? WHERE id = ?', target, messageId)
 }
 
-/** Who may delete and restore a message: its sender or an Editor (UD-240). */
-function assertMessageOwner (row, actor) {
-  if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo quien envió el mensaje o un Editor puede borrarlo.', 'not_message_author')
+/** Who may delete and restore a message: its sender or any active person of the team (UD-240, UD-287). */
+function assertMessageOwner (db, row, actor) {
+  if (row.author_id !== actor.id && !isActivePerson(db, actor.id)) throw forbidden('Sólo quien envió el mensaje o una persona del equipo puede borrarlo.', 'not_message_author')
 }
 
 /** Soft-deletes a message. 404 when it does not exist or is already deleted; 403 `not_message_author` for anyone else. */
@@ -500,7 +501,7 @@ export function deleteMessage ({ db, events, now = Date.now }, { messageId, acto
   events.transaction(() => {
     const row = get(db, 'SELECT id, author_id FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!row) throw notFound('El mensaje no existe.')
-    assertMessageOwner(row, actor)
+    assertMessageOwner(db, row, actor)
     run(db, 'UPDATE messages SET deleted_at = ? WHERE id = ?', now(), messageId)
     audit(db, { memberId: actor.id, action: 'message.delete', entity: 'message', entityId: messageId, now })
   })
@@ -511,7 +512,7 @@ export function restoreMessage ({ db, events, now = Date.now }, { messageId, act
   events.transaction(() => {
     const row = get(db, 'SELECT id, author_id, deleted_at FROM messages WHERE id = ?', messageId)
     if (!row) throw notFound('El mensaje no existe.')
-    assertMessageOwner(row, actor)
+    assertMessageOwner(db, row, actor)
     if (row.deleted_at === null) throw conflict('El mensaje no está borrado.', 'not_deleted')
     run(db, 'UPDATE messages SET deleted_at = NULL WHERE id = ?', messageId)
     audit(db, { memberId: actor.id, action: 'message.restore', entity: 'message', entityId: messageId, now })
@@ -526,8 +527,8 @@ export function restoreMessage ({ db, events, now = Date.now }, { messageId, act
 function bulkRows (db, ids, actor, { deleted }) {
   const unique = [...new Set(ids.map(Number))]
   const rows = unique.map((id) => get(db, 'SELECT id, author_id, deleted_at FROM messages WHERE id = ?', id) ?? { id, missing: true })
-  const refused = rows.filter((r) => !r.missing && r.author_id !== actor.id && actor.role !== 'editor').map((r) => String(r.id))
-  if (refused.length) throw new AppError(403, 'not_message_author', 'Sólo quien envió el mensaje o un Editor puede borrarlo.', { ids: refused })
+  const refused = rows.filter((r) => !r.missing && r.author_id !== actor.id && !isActivePerson(db, actor.id)).map((r) => String(r.id))
+  if (refused.length) throw new AppError(403, 'not_message_author', 'Sólo quien envió el mensaje o una persona del equipo puede borrarlo.', { ids: refused })
   const missing = rows.filter((r) => r.missing || (!deleted && r.deleted_at !== null)).map((r) => String(r.id))
   if (missing.length) throw new AppError(404, 'not_found', 'Algunos mensajes no existen.', { ids: missing })
   if (deleted) {
@@ -562,9 +563,9 @@ export function restoreMessages ({ db, events, now = Date.now }, { ids, actor })
   })
 }
 
-/** Who may delete and restore a reply: its author or an Editor (UD-240). */
-function assertReplyOwner (row, actor) {
-  if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo quien escribió la respuesta o un Editor puede borrarla.', 'not_reply_author')
+/** Who may delete and restore a reply: its author or any active person of the team (UD-240, UD-287). */
+function assertReplyOwner (db, row, actor) {
+  if (row.author_id !== actor.id && !isActivePerson(db, actor.id)) throw forbidden('Sólo quien escribió la respuesta o una persona del equipo puede borrarla.', 'not_reply_author')
 }
 
 /**
@@ -578,7 +579,7 @@ export function deleteReply ({ db, events, now = Date.now }, { messageId, replyI
       SELECT r.id, r.author_id FROM replies r JOIN messages m ON m.id = r.message_id
        WHERE r.id = ? AND r.message_id = ? AND r.deleted_at IS NULL AND m.deleted_at IS NULL`, replyId, messageId)
     if (!row) throw notFound('La respuesta no existe.')
-    assertReplyOwner(row, actor)
+    assertReplyOwner(db, row, actor)
     run(db, 'UPDATE replies SET deleted_at = ? WHERE id = ?', now(), replyId)
     recomputeStatus(db, messageId)
     audit(db, { memberId: actor.id, action: 'reply.delete', entity: 'reply', entityId: replyId, detail: { message_id: messageId }, now })
@@ -588,7 +589,7 @@ export function deleteReply ({ db, events, now = Date.now }, { messageId, replyI
 
 /**
  * In-place edit of the text of a reply by its author (UD-253, H-3714), modeled on `updateMessage`: ONLY the author
- * edits, not an Editor (403 `not_reply_author`). `version` is the version the client read; a stale one is a 409
+ * edits, nobody else (403 `not_reply_author`). `version` is the version the client read; a stale one is a 409
  * `edit_conflict` carrying the current `version`. The attachments stay as they are; a reply with attachments may be
  * left without text, one without them may not (400 `reply_empty`). The same text again changes nothing. A real edit
  * bumps `version`, sets `edited_at` and leaves a `reply.edit` audit row. 404 when the message or the reply does not
@@ -668,7 +669,7 @@ export function restoreReply ({ db, events, now = Date.now }, { replyId, actor }
       SELECT r.id, r.author_id, r.message_id, r.deleted_at FROM replies r JOIN messages m ON m.id = r.message_id
        WHERE r.id = ? AND m.deleted_at IS NULL`, replyId)
     if (!row) throw notFound('La respuesta no existe.')
-    assertReplyOwner(row, actor)
+    assertReplyOwner(db, row, actor)
     if (row.deleted_at === null) throw conflict('La respuesta no está borrada.', 'not_deleted')
     run(db, 'UPDATE replies SET deleted_at = NULL WHERE id = ?', replyId)
     recomputeStatus(db, row.message_id)

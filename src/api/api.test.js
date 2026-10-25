@@ -356,7 +356,7 @@ test('areas and templates: the editor manages them; the member only reads them w
   const templateList = (await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ed)).json()
   assert.equal(templateList.length, 1)
   assert.ok(templateList[0].body_markdown)
-  assert.equal((await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ana)).statusCode, 200) // reading is any person's (UD-287)
 
   // Invalid shapes: 422 with the reason, nothing saved.
   for (const [badCase, reasonText] of [
@@ -398,7 +398,7 @@ test('areas and templates: the editor manages them; the member only reads them w
   assert.equal((await env.api('DELETE', areaUrl, env.c.ed)).statusCode, 400)
   assert.equal((await env.api('DELETE', `${areaUrl}?confirm=true`, env.c.ed)).statusCode, 204)
   assert.ok(!(await env.api('GET', '/areas', env.c.ana)).json().some((a) => a.id === createdTemplate.json().id))
-  assert.equal((await env.api('GET', '/areas?include_deleted=true', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/areas?include_deleted=true', env.c.ana)).statusCode, 200) // any person of the team (UD-287)
   assert.ok((await env.api('GET', '/areas?include_deleted=true', env.c.ed)).json().some((a) => a.id === createdTemplate.json().id))
   // Its title is free while it is deleted, and restoring clashes if someone took it.
   assert.equal((await env.api('POST', '/areas', env.c.ed, { title: 'Soporte', description: 'nueva' })).statusCode, 201)
@@ -416,7 +416,7 @@ test('members: creation by the editor, unique email, and one editor always remai
   assert.equal((await env.api('POST', '/members', env.c.ed, { email: 'carla@x.org', name: 'Otra' })).statusCode, 409)
   assert.equal((await env.api('POST', '/members', env.c.ed, { email: 'sin-arroba', name: 'X' })).statusCode, 400)
   assert.equal((await env.api('POST', '/members', env.c.ed, { email: 'd@x.org', name: 'D', password: 'corta' })).statusCode, 400)
-  assert.equal((await env.api('POST', '/members', env.c.ana, { email: 'e@x.org', name: 'E' })).statusCode, 403)
+  assert.equal((await env.api('POST', '/members', env.c.ana, { email: 'e@x.org', name: 'E', profile: 'perfil' })).statusCode, 403) // the profile is a configured text (UD-287)
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM members WHERE email = 'd@x.org'").n, 0)
   // The editor edits others; the last editor cannot stop being one.
   // UD-023: nobody edits another person's profile, not even the editor; each one edits their own.
@@ -541,7 +541,7 @@ test('without a compiled panel the API starts anyway and the root answers a JSON
   await env.close()
 })
 
-test('HP-015: a member reads the areas without the template bodies and gets 403 on writing them, on reading a full template and on the providers', async () => {
+test('HP-015: a member reads the areas without the template bodies and gets 403 on writing them (configured texts, UD-287) and reads the full templates and the providers', async () => {
   const env = await team()
   const ana = env.c.ana
   const areas = (await env.api('GET', '/areas', ana)).json()
@@ -554,13 +554,10 @@ test('HP-015: a member reads the areas without the template bodies and gets 403 
     ['PATCH', `/areas/${area.id}`, { description: 'x' }],
     ['DELETE', `/areas/${area.id}`],
     ['POST', `/areas/${area.id}/restore`],
-    ['GET', `/areas/${area.id}/templates`],
     ['POST', `/areas/${area.id}/templates`, { body_markdown: '---\nname: X\ndescription: Y\n---\ncuerpo' }],
     ['PATCH', `/areas/${area.id}/templates/${template.id}`, { name: 'x' }],
     ['DELETE', `/areas/${area.id}/templates/${template.id}`],
-    ['POST', `/templates/${template.id}/restore`],
-    ['GET', '/settings/providers'],
-    ['PATCH', '/settings/providers', { analyzer: 'api' }]
+    ['POST', `/templates/${template.id}/restore`]
   ]
   for (const [method, url, payload] of forbidden) {
     const r = await env.api(method, url, ana, payload)
@@ -626,7 +623,7 @@ test('provider settings: the editor reads and changes them; an invalid provider 
     getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }),
     buildProviders: (o) => { attemptsList.push(o); if (o.text?.provider === 'inexistente') throw new Error('Unknown text provider «inexistente» in TEXT_PROVIDER'); return {} }
   } })
-  assert.equal((await env.api('GET', '/settings/providers', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/settings/providers', env.c.ana)).statusCode, 200) // any person of the team (UD-287)
   const initialVersion = (await env.api('GET', '/settings/providers', env.c.ed)).json()
   assert.equal(initialVersion.analyzer, 'api')
   assert.deepEqual(initialVersion.items.map((i) => i.slot), ['text', 'vision', 'speech'])

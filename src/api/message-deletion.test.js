@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
-import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
 async function team () {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } }, worker: true })
@@ -40,9 +40,10 @@ test('UD-240 · a message is deleted by its sender or an Editor, disappears from
   assert.equal((await env.api('POST', `/messages/${messageId}/replies`, env.c.beto, { body: 'una respuesta con cormorán' })).statusCode, 201)
   const attachmentId = (await env.api('GET', `/messages/${messageId}`, env.c.ana)).json().attachments[0]?.id
 
-  // Without confirmation nothing happens; another member is refused; the sender deletes.
+  // Without confirmation nothing happens; an agent is refused (a person of the team deletes, UD-287); the sender deletes.
   assert.equal((await env.api('DELETE', `/messages/${messageId}`, env.c.ana)).statusCode, 400)
-  const refused = await env.api('DELETE', `/messages/${messageId}?confirm=true`, env.c.beto)
+  const agent = await addAgent(env, env.c.ed)
+  const refused = await agent('DELETE', `/messages/${messageId}?confirm=true`)
   assert.equal(refused.statusCode, 403)
   assert.equal(refused.json().code, 'not_message_author')
   assert.equal((await env.api('DELETE', `/messages/${messageId}?confirm=true`, env.c.ana)).statusCode, 204)
@@ -74,14 +75,15 @@ test('UD-240 · a message is deleted by its sender or an Editor, disappears from
   assert.equal((await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { version: 1, title: 'x' })).statusCode, 404)
 
   // An Editor sees it with include_deleted; a member does not.
-  assert.equal((await env.api('GET', `/messages/${messageId}?include_deleted=true`, env.c.ana)).statusCode, 403)
+  assert.equal((await agent('GET', `/messages/${messageId}?include_deleted=true`)).statusCode, 403)
+  assert.equal((await env.api('GET', `/messages/${messageId}?include_deleted=true`, env.c.ana)).statusCode, 200) // any person of the team
   const seen = await env.api('GET', `/messages/${messageId}?include_deleted=true`, env.c.ed)
   assert.equal(seen.statusCode, 200)
   assert.ok(seen.json().deleted_at)
   assert.equal(seen.json().replies.length, 1, 'the thread is kept while deleted')
 
   // Restore: refused to another member, done by the sender, 409 when it is not deleted.
-  assert.equal((await env.api('POST', `/messages/${messageId}/restore`, env.c.beto)).statusCode, 403)
+  assert.equal((await agent('POST', `/messages/${messageId}/restore`)).statusCode, 403)
   const back = await env.api('POST', `/messages/${messageId}/restore`, env.c.ana)
   assert.equal(back.statusCode, 200, back.body)
   assert.equal(back.json().deleted_at, null)
@@ -112,7 +114,8 @@ test('UD-240 · a reply is deleted by its author or an Editor; the message goes 
 
   // Confirmation, permissions, wrong message.
   assert.equal((await env.api('DELETE', `/messages/${messageId}/replies/${first.id}`, env.c.beto)).statusCode, 400)
-  const refused = await env.api('DELETE', `/messages/${messageId}/replies/${first.id}?confirm=true`, env.c.ana)
+  const agent = await addAgent(env, env.c.ed)
+  const refused = await agent('DELETE', `/messages/${messageId}/replies/${first.id}?confirm=true`)
   assert.equal(refused.statusCode, 403)
   assert.equal(refused.json().code, 'not_reply_author')
   assert.equal((await env.api('DELETE', `/messages/${Number(messageId) + 50}/replies/${first.id}?confirm=true`, env.c.beto)).statusCode, 404)
@@ -141,7 +144,7 @@ test('UD-240 · a reply is deleted by its author or an Editor; the message goes 
   assert.equal(summary.mine.answered, 0)
 
   // Restore the first: refused to another member, done by its author, the message is answered again; 409 twice.
-  assert.equal((await env.api('POST', `/replies/${first.id}/restore`, env.c.ana)).statusCode, 403)
+  assert.equal((await agent('POST', `/replies/${first.id}/restore`)).statusCode, 403)
   const back = await env.api('POST', `/replies/${first.id}/restore`, env.c.beto)
   assert.equal(back.statusCode, 200, back.body)
   assert.equal(back.json().status, 'answered')

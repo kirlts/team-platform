@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
-import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
 async function team () {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } }, autoPublish: 'default', worker: true })
@@ -62,12 +62,11 @@ test('UD-258 · the Editor reprocesses a published input: messages to the trash 
   await env.close()
 })
 
-test('UD-258 · only an Editor reprocesses a published input; nothing moves for anybody else', async () => {
+test('UD-258 · any person reprocesses a published input; nothing moves for an agent (UD-287)', async () => {
   const env = await team()
   const { id } = await env.published('de Ana')
   const before = all(env.db, 'SELECT id, deleted_at FROM messages')
-  assert.equal((await env.api('POST', `/inputs/${id}/reprocess`, env.c.beto)).statusCode, 404, 'another member: the input does not exist')
-  assert.equal((await env.api('POST', `/inputs/${id}/reprocess`, env.c.ana)).statusCode, 403, 'its sender, not an Editor')
+  assert.equal((await (await addAgent(env, env.c.ed))('POST', `/inputs/${id}/reprocess`)).statusCode, 404, 'an agent: the input does not exist')
   assert.deepEqual(all(env.db, 'SELECT id, deleted_at FROM messages'), before)
   assert.equal(get(env.db, 'SELECT status FROM inputs WHERE id = ?', id).status, 'published')
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'input.reprocess'").n, 0)

@@ -6,6 +6,7 @@
 import { all, get, run } from '../db/index.js'
 import { audit } from './audit.js'
 import { addReply } from './messages.js'
+import { isActivePerson } from './members.js'
 
 /**
  * The outcomes of the structured result that hand the message to a person. `blocked` is one of them: a session that says it cannot go on has an answer
@@ -17,7 +18,6 @@ export const HANDOFF_OUTCOMES = ['needs_decision', 'not_mine', 'blocked']
 export const HANDOFF_REPLY_KIND = 'clarification'
 
 const firstEditor = (db) => get(db, "SELECT id FROM members WHERE role = 'editor' AND kind = 'person' AND active = 1 ORDER BY id LIMIT 1")?.id ?? null
-const isActivePerson = (db, id) => id !== null && id !== undefined && Boolean(get(db, "SELECT 1 AS ok FROM members WHERE id = ? AND kind = 'person' AND active = 1", id))
 
 /**
  * Who decides in the area: the member the area names while that member is an active person; else the first active Editor; else the

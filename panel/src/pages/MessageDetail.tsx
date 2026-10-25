@@ -104,8 +104,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   // Only the sender edits a published message, the Editor included (UD-071).
   const canEdit = !!me && me.id === m.author_id
   const canReply = canReplyTo(m, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
-  // The sender or the Editor deletes (UD-240). No dialog: it is done, the list this came from is shown again, and the strip carries Deshacer.
-  const canDelete = !!me && (me.id === m.author_id || me.role === 'editor')
+  // The sender or any person of the team deletes (UD-240, UD-287). No dialog: it is done, the list this came from is shown again, and the strip carries Deshacer.
+  const canDelete = !!me
   const remove = async () => {
     await del.mutateAsync(m.id)
     // Back to the list this was opened from; without a page behind (a pasted address), to Mensajes.

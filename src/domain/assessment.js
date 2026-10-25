@@ -1,7 +1,7 @@
 // What the analyzer says about each message beyond its text (UD-292), and what the system does with it.
 //
 // Kairós does not sort work into boxes. A request is a point in a space, described by continuous estimates with their reason, and only a Guard is boolean
-// (docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §1 and §2: Vector, Filo, Contrapeso and Cadenas describe the space; the Guard is the only wall). So the analyzer returns, as
+// (KAIROS-PARA-TEAM-PLATFORM.md of the host §1 and §2: Vector, Filo, Contrapeso and Cadenas describe the space; the Guard is the only wall). So the analyzer returns, as
 // structured parameters it interpreted (never a pattern over a person's words, invariant 11):
 //   expectation          what is expected of Claude, in natural words: investigate, change code, both, or something nobody foresaw
 //   guards_touched       ids of the Guards of the area that the request touches: the one boolean thing

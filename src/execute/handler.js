@@ -117,8 +117,8 @@ export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type
  */
 export function sessionSettings ({ light = false, assessed = false, stopCommand = '' } = {}) {
   const hooks = { ...LIVE_MENTION_SETTINGS.hooks }
-  // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
-  // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the light model gets only the paths it will probably touch; a larger model, when the analyzer assessed the message, the short map of the repository.
+  // KAIROS-PARA-TEAM-PLATFORM.md of the host §6: the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
+  // KAIROS-PARA-TEAM-PLATFORM.md of the host §6: the light model gets only the paths it will probably touch; a larger model, when the analyzer assessed the message, the short map of the repository.
   if (light) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook --brief' }] }]
   else if (assessed) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook' }] }]
   if (light) {

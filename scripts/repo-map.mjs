@@ -98,7 +98,7 @@ export async function buildRepoMap ({ cwd = process.cwd(), days = MAP_DAYS, top 
     hot.length ? `Más tocados en ${days} días: ${hot.slice(0, n).map(([f, c]) => `${f} (${c})`).join(', ')}` : null,
     source, '</repo_map>'
   ].filter(Boolean).join('\n')
-  // `brief` (the light model, docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6): only where things live and the paths most touched; no folder counts.
+  // `brief` (the light model, KAIROS-PARA-TEAM-PLATFORM.md of the host §6): only where things live and the paths most touched; no folder counts.
   let lines = brief ? structure.text.split('\n').slice(1) : structure.text.split('\n')
   let n = hot.length
   let text = build(n, lines)

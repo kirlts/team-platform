@@ -126,6 +126,8 @@ export interface InputUnit {
 export interface InputRecord {
   id: string
   author_id: string
+  /** Members the send is addressed to (UD-291); empty when the automatic routing assigned. */
+  recipient_ids?: string[]
   text: string
   status: InputStatus
   created_at: string

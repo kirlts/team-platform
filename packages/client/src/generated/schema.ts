@@ -6162,6 +6162,7 @@ export interface paths {
                                 error_code?: string | null;
                                 delivered?: boolean | null;
                                 transcript_ref?: string | null;
+                                transcript_error?: string | null;
                                 deliver_job_id?: string | null;
                                 delivery_ref?: string | null;
                                 delivery_held?: boolean | null;

@@ -13730,6 +13730,12 @@
                               "null"
                             ]
                           },
+                          "transcript_error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "deliver_job_id": {
                             "type": [
                               "string",

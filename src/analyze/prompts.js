@@ -66,7 +66,7 @@ export function classifyUser({ units, attachments, language, secondPass = false,
   return [...note, set.attachmentsBlock(attachments, units), '', ...(recentBlock ? [recentBlock, ''] : []), set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
 }
 
-/** UD-292: system prompt of the cut pass; stable, so it is cached across windows. */
+/** UD-293: system prompt of the cut pass; stable, so it is cached across windows. */
 export function cutSystem({ language, framing }) {
   return [promptSet(language).cutInstructions(framing)];
 }

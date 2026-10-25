@@ -14,7 +14,7 @@ const unitIdsIn = (request) => {
 
 function textScript (request) {
   const units = unitIdsIn(request)
-  // Cut pass (UD-292): nothing to cut.
+  // Cut pass (UD-293): nothing to cut.
   if (request.schema.properties.cuts) return { json: { cuts: [] } }
   const groups = request.schema.properties.groups
   if (groups) {

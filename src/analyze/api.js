@@ -38,7 +38,7 @@ import { buildClassificationSchema, buildCutSchema, buildDecompositionSchema, bu
 import { parseTemplate } from './templates.js';
 import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  anchorFrames, applyCuts, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, repairSplit, settleSplit, isCuttable, validateClassification, validateCuts, validateDecomposition, validateProposal, validateSplit,
+  anchorFrames, addOwnedAttachments, applyCuts, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, repairSplit, settleSplit, isCuttable, validateClassification, validateCuts, validateDecomposition, validateProposal, validateSplit,
 } from './validate.js';
 import { phraseOf, step } from '../domain/progress-phrases.js';
 
@@ -434,7 +434,7 @@ async function splitGroups(ctx, { groups, units, language, framing, frameIds }) 
 }
 
 /**
- * UD-292: the cut pass. A dictated paragraph with no full stop, or a sentence that says «a bug and, besides, an idea», is one unit that
+ * UD-293: the cut pass. A dictated paragraph with no full stop, or a sentence that says «a bug and, besides, an idea», is one unit that
  * holds several requests, and a unit is never shared between messages. Before the classification a short call per window reads the
  * written and spoken units and quotes the words where each request after the first starts; the system checks that the words are
  * in the unit exactly once, cuts there and numbers the units again. A call that does not come back valid leaves its window as it was:
@@ -494,7 +494,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const spoken = list.some((u) => u.kind !== 'frame' && !isEmptyUnit(u.text));
     return spoken && frames.size > 0 ? frames : null;
   };
-  // UD-292: a unit that holds several requests is cut before anything reads the units, so each request can be its own message.
+  // UD-293: a unit that holds several requests is cut before anything reads the units, so each request can be its own message.
   if (config.cutPass) {
     const cut = await cutUnitsPass(ctx, { units, language, framing, fixedTokens: estimateTokens(cutSystem({ language, framing }).join('\n'), config.charsPerToken) });
     if (cut.cut > 0) {
@@ -757,6 +757,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }
   const { messages, discarded } = normalizeDecomposition(merged);
+  addOwnedAttachments(messages, units);
   // A message born only from images or frames is marked as inferred from the image (UD-021): the sender sees it and can discard
   // it. It is decided by the kind of the units (H-3730), never by the prose nor by the model.
   const seenOnly = new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id));

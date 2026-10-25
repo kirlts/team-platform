@@ -182,12 +182,12 @@ const DEFS = [
     text: [
       t('r1', 'El mapa del panel no carga las calles de la zona norte.'),
       t('r2', 'Quiero poder ordenar la lista de repartidores por nombre.'),
-      t('r3', 'El botón Cerrar jornada está pegado a Cancelar ruta y me equivoqué dos veces.'),
+      t('r3', 'El botón Cerrar jornada de la barra inferior no responde cuando lo toco.'),
     ],
     attachments: [
       { id: 1, kind: 'image', name: 'mapa.png', segments: [t('r1', 'Mapa del panel con la zona norte en blanco y un aviso Sin datos de calles.')] },
       { id: 2, kind: 'image', name: 'lista.png', segments: [t('r2', 'Tabla de repartidores con la cabecera Nombre sin flecha de orden.')] },
-      { id: 3, kind: 'image', name: 'botones.png', segments: [t('r3', 'Barra inferior con los botones Cerrar jornada y Cancelar ruta sin separación.')] },
+      { id: 3, kind: 'image', name: 'botones.png', segments: [t('r3', 'Barra inferior con el botón Cerrar jornada y un círculo de carga que no termina.')] },
     ],
     requests: { r1: { area: ERROR }, r2: { area: FEATURE }, r3: { area: ERROR } },
   },

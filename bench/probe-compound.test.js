@@ -12,7 +12,7 @@ test('coverage: one message that names both points covers them; one that names a
   assert.equal(coverage({ messages: [] }, ['menú']).all, false);
 });
 
-test('case 09: its compound sentences are cut where the reference says (UD-292) and the sentences of the probe are in its text', () => {
+test('case 09: its compound sentences are cut where the reference says (UD-293) and the sentences of the probe are in its text', () => {
   const c = loadCases().find((x) => x.id === '09-oracion-compuesta');
   assert.ok(c, 'case 09 exists');
   assert.equal(c.expected.cuts.length, 2, 'the two compound sentences are cut');

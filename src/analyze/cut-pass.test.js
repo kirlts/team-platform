@@ -1,4 +1,4 @@
-// UD-292: a unit that holds several requests (a dictated paragraph with no full stop, a sentence that says «a bug and, besides, an idea»)
+// UD-293: a unit that holds several requests (a dictated paragraph with no full stop, a sentence that says «a bug and, besides, an idea»)
 // is cut where the model quotes the start of each later request, so each request can be its own message. The model says where; the
 // system checks that the words are in the unit exactly once and never reads what they mean.
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ import { cutBlock, cutInstructions } from './prompts-en.js';
 import { cutBlock as cutBlockEs, cutInstructions as cutInstructionsEs } from './prompts-es.js';
 import { bugMessage, makeBundle, unitIdsIn } from './testing/fixtures.js';
 import { numberUnits } from './units.js';
-import { applyCuts, validateCuts } from './validate.js';
+import { addOwnedAttachments, applyCuts, validateCuts } from './validate.js';
 
 const RUN_ON = 'the stops repeat on the route screen and another thing how many routes does the server hold because I need it for the quote and I think we could group deliveries by building';
 const units = numberUnits({ text: `Hello team.\n\n${RUN_ON}`, attachments: [] });
@@ -141,5 +141,26 @@ describe('the knobs and the prompts of the cut pass', () => {
     assert.match(es, /En la duda, no cortes/);
     assert.match(cutBlock(units), /\[u2\]/);
     assert.match(cutBlockEs(units), /\[u2\]/);
+  });
+});
+
+describe('a message carries the attachments its units come from (UD-293)', () => {
+  const audio = numberUnits({ attachments: [{ id: 4, kind: 'audio', extracted: '[00:00-00:05] Voz: one\n[00:05-00:10] Voz: two' }, { id: 5, kind: 'image', extracted: 'A screen' }] });
+
+  it('the attachment of each unit is added; what the model added as context stays; the ids are sorted and unique', () => {
+    const out = addOwnedAttachments([{ unit_ids: [1], attachment_ids: [9] }, { unit_ids: [2, 3], attachment_ids: [4] }], audio);
+    assert.deepEqual(out.map((m) => m.attachment_ids), [[4, 9], [4, 5]]);
+  });
+
+  it('the analysis returns it even when the decomposition left attachment_ids empty', async () => {
+    const fake = createFakeProviders({
+      text: (req) => {
+        if (isClassify(req)) return { split_at: [], groups: [{ unit_ids: [1], area_id: 2, template_id: 2, requests: ['a'], recap_unit_ids: [] }, { unit_ids: [2], area_id: 2, template_id: 2, requests: ['b'], recap_unit_ids: [] }], discarded: [] };
+        return { messages: [bugMessage(unitIdsIn(req), `Handle ${unitIdsIn(req).join('-')}`)] };
+      },
+    });
+    const result = await analyze(await makeBundle({ text: '', attachments: [{ id: 4, kind: 'audio', extracted: '[00:00-00:05] Voz: one\n[00:05-00:10] Voz: two' }] }), { providers: fake, config: { coveragePasses: 0, splitPass: false, cutPass: false } });
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.proposal.messages.map((m) => m.attachment_ids), [[4], [4]]);
   });
 });

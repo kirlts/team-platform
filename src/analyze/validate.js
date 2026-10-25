@@ -314,7 +314,7 @@ export function applySplits(units, splits) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Cut pass (UD-292): a unit that holds several requests is cut where the model says each later one starts.
+// Cut pass (UD-293): a unit that holds several requests is cut where the model says each later one starts.
 // ---------------------------------------------------------------------------------------------
 
 /** True for a unit the cut pass may read: what a person wrote or said. A frame description, a table row and a unit with no content are never cut. */
@@ -394,6 +394,21 @@ export function applyCuts(units, cuts) {
     added += pieces.length - 1;
   }
   return { units: out.map((u, i) => ({ ...u, id: i + 1 })), cut, parts: added };
+}
+
+/**
+ * UD-293: a message carries the attachments its own units come from (the voice note that states the request, the screenshot whose
+ * description it cites), even when the model left them out of `attachment_ids`; what the model added as context stays. Ids only.
+ * @param {{unit_ids: number[], attachment_ids: number[]}[]} messages
+ * @param {{id: number, source: {type: string, attachment_id?: number}}[]} units
+ */
+export function addOwnedAttachments(messages, units) {
+  const owner = new Map(units.filter((u) => u.source?.type === 'attachment').map((u) => [u.id, u.source.attachment_id]));
+  for (const m of messages) {
+    const own = m.unit_ids.map((id) => owner.get(id)).filter((id) => id !== undefined);
+    m.attachment_ids = [...new Set([...m.attachment_ids, ...own])].sort((a, b) => a - b);
+  }
+  return messages;
 }
 
 /**

@@ -17,7 +17,7 @@ function unitIdsIn (request) {
 function textScript (request) {
   fakeState.calls.push('text')
   const units = unitIdsIn(request)
-  // Cut pass (UD-292): nothing to cut.
+  // Cut pass (UD-293): nothing to cut.
   if (request.schema.properties.cuts) return { json: { cuts: [] } }
   if (request.schema.properties.groups) {
     return { json: { groups: [{ unit_ids: units, area_id: fakeState.areaId, template_id: fakeState.templateId }], discarded: [] } }

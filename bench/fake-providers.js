@@ -65,7 +65,7 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
 
   const script = async (req) => {
     await sleep(latencyMs);
-    // Cut pass (UD-292): a perfect reader cuts exactly where the reference says (`expected.cuts`), in the units it was shown.
+    // Cut pass (UD-293): a perfect reader cuts exactly where the reference says (`expected.cuts`), in the units it was shown.
     if (req.schema.properties.cuts) {
       const scope = new Set(unitIdsIn(req));
       return respond({ cuts: (expected.cuts ?? []).filter((c) => scope.has(c.unit_id)) }, req);

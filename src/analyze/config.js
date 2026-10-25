@@ -113,9 +113,9 @@ export const KNOBS = Object.freeze({
   // H-3745: the cut pass. Before the classification a short call reads the written and spoken units and says where a unit holds
   // more than one request (a dictated paragraph with no full stop, a sentence that says «a bug and, besides, an idea»); the system
   // checks the words it quotes and cuts there, so each request can be its own message. Same task size as the split check.
-  cutPass: { value: true, source: 'UD-292; measurement 2026-10-25-un-envio-varios-mensajes' },
-  cutPassEffort: { value: 'low', source: 'UD-292; same task as the split check (H-3737)' },
-  cutPassThinking: { value: 'disabled', source: 'UD-292; same task as the split check (H-3737)' },
+  cutPass: { value: true, source: 'UD-293; measurement 2026-10-25-un-envio-varios-mensajes' },
+  cutPassEffort: { value: 'low', source: 'UD-293; same task as the split check (H-3737)' },
+  cutPassThinking: { value: 'disabled', source: 'UD-293; same task as the split check (H-3737)' },
 
   // Extra environment variables for the harness process.
   harnessEnv: { value: Object.freeze({}), source: 'UD-008' },

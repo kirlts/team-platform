@@ -52,7 +52,7 @@ export function buildBundle(input, fixtures, { language } = {}) {
 /** Units the analyzer numbers for a case: the numbering of expected.json. */
 export const unitsOf = (input, expected) => {
   const units = numberUnits({ text: input.text, attachments: input.attachments });
-  // A reference that declares `cuts` cites the units after the cut pass (UD-292), numbered again from 1.
+  // A reference that declares `cuts` cites the units after the cut pass (UD-293), numbered again from 1.
   return expected?.cuts?.length ? applyCuts(units, expected.cuts).units : units;
 };
 

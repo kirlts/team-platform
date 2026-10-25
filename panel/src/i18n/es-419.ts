@@ -947,7 +947,7 @@ export const es419 = {
   'error.mention_loop': 'Un agente no menciona a otro agente',
   'error.mention_invalid': 'La mención no es un miembro válido',
   'error.execute_busy': 'El agente ya trabaja en este mensaje',
-  'error.retry_stale': 'Ya hay un intento posterior',
+  'error.retry_stale': 'Hay un intento posterior',
   'error.not_a_failure': 'Ese aviso ya no se puede reintentar',
   'error.job_not_running': 'La tarea no está en curso',
   'error.member_kind_invalid': 'Tipo de miembro desconocido',

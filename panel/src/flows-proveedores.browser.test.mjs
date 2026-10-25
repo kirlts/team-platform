@@ -40,7 +40,7 @@ async function session(who = 'ana', viewport = DESKTOP, scheme = 'light') {
 const row = (page, name) => page.locator(`li[data-connection="${name}"]`)
 
 describe('Providers section of Configuración (UD-120)', () => {
-  test('the Editor sees the functions and the providers with status and last four characters; a Member does not see the section', async () => {
+  test('any person of the team sees the functions and the providers with status and last four characters (UD-287)', async () => {
     const { page, context } = await session()
     try {
       const section = page.locator('[data-providers]')
@@ -54,7 +54,8 @@ describe('Providers section of Configuración (UD-120)', () => {
     }
     const member = await session('bruno')
     try {
-      assert.equal(await member.page.locator('[data-providers]').count(), 0)
+      await member.page.locator('[data-providers]').waitFor()
+      assert.equal(await member.page.locator('[data-providers]').count(), 1)
     } finally {
       await member.context.close()
     }

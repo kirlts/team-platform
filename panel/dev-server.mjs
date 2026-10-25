@@ -929,13 +929,11 @@ const server = createServer(async (req, res) => {
       return send(res, 204, undefined)
     }
     if (path === '/telemetry/ui-summary' && method === 'GET') {
-      if (needEditor()) return
       const days = Number(url.searchParams.get('days') ?? uiConfig.worker.retentionDays)
       const now = Date.now()
       return send(res, 200, { ...uiSummary(uiDb, { sinceMs: now - days * 86_400_000, untilMs: now + 1 }), days })
     }
     if (path === '/settings/telemetry' && method === 'PATCH') {
-      if (needEditor()) return
       const body = await readJson(req)
       if (typeof body?.ui_enabled !== 'boolean') return fail(res, 400, 'Datos inválidos.', 'validation')
       uiState.enabled = body.ui_enabled
@@ -946,7 +944,6 @@ const server = createServer(async (req, res) => {
     // Publication (UD-070): everyone reads it, the Editor changes it.
     // --- data reset (UD-240): the double empties its sample state the way POST /api/ops/reset does
     if (path === '/ops/reset' && method === 'POST') {
-      if (needEditor()) return
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
       const body = await readJson(req)
       if (!['content', 'everything'].includes(body?.scope)) return fail(res, 400, 'Alcance inválido', 'validation')
@@ -975,7 +972,6 @@ const server = createServer(async (req, res) => {
     }
     // --- sample set (UD-252): one input per example of ejemplos/, like POST /api/ops/seed
     if (path === '/ops/seed' && method === 'POST') {
-      if (needEditor()) return
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación exige confirm=true en la dirección.', 'confirm_required')
       const { readExamples } = await import('../src/domain/seed-examples.js')
       let created = 0
@@ -999,14 +995,12 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/settings/publication' && method === 'GET') return send(res, 200, { auto_publish: autoPublish })
     if (path === '/settings/publication' && method === 'PATCH') {
-      if (needEditor()) return
       const body = await readJson(req)
       if (!body || typeof body.auto_publish !== 'boolean') return fail(res, 400, 'auto_publish es verdadero o falso', 'validation')
       autoPublish = body.auto_publish
       return send(res, 200, { auto_publish: autoPublish })
     }
     if (path === '/settings/analysis' && method === 'GET') {
-      if (needEditor()) return
       return send(res, 200, framingView())
     }
     if (path === '/settings/analysis' && method === 'PATCH') {
@@ -1073,12 +1067,10 @@ const server = createServer(async (req, res) => {
       return { items: list.slice((page - 1) * limit, page * limit), page, limit, total: list.length }
     }
     if (path === '/jobs' && method === 'GET') {
-      if (needEditor()) return
       const state = url.searchParams.get('state')
       return send(res, 200, pageOf(allJobs().filter((j) => !state || j.status === state).map(jobRowOf)))
     }
     if (path === '/jobs' && method === 'DELETE') {
-      if (needEditor()) return
       const state = url.searchParams.get('state')
       if (!['done', 'failed', 'cancelled'].includes(state ?? '')) return fail(res, 400, 'Estado inválido', 'validation')
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
@@ -1113,7 +1105,6 @@ const server = createServer(async (req, res) => {
       })
     }
     if (path === '/ops/execute-runs/summary' && method === 'GET') {
-      if (needEditor()) return
       // UD-262: the same figures the API computes from `execute_runs`, for a period with five runs (one failed).
       const stat = (n, avg, p50, p95) => ({ n, avg, p50, p95 })
       const none = stat(0, null, null, null)
@@ -1134,13 +1125,11 @@ const server = createServer(async (req, res) => {
     }
     const traceMatch = /^\/jobs\/([^/]+)\/trace$/.exec(path)
     if (traceMatch && method === 'GET') {
-      if (needEditor()) return
       const job = allJobs().find((j) => j.id === traceMatch[1])
       const trace = job ? traceOf(job) : null
       return trace ? send(res, 200, trace) : fail(res, 404, 'El trabajo no dejó spans.', 'not_found')
     }
     if (path === '/audit' && method === 'GET') {
-      if (needEditor()) return
       const action = url.searchParams.get('action')
       return send(res, 200, pageOf(auditLog.filter((a) => !action || a.action === action)))
     }
@@ -1195,7 +1184,6 @@ const server = createServer(async (req, res) => {
       const wanted = (url.searchParams.get('status') ?? '').split(',').filter(Boolean)
       // `all=1` (UD-251): the Editor's queue, the sends of everybody with the name of the sender, paginated; a member gets 403.
       if (url.searchParams.get('all')) {
-        if (needEditor()) return
         const everyone = [...inputs.values()].filter((i) => !wanted.length || wanted.includes(i.status)).sort((a, b) => b.created_at.localeCompare(a.created_at))
         return send(res, 200, pageOf(everyone.map((i) => ({ ...inputView(i), author_name: members.find((x) => x.id === i.author_id)?.name ?? null }))))
       }
@@ -1209,7 +1197,7 @@ const server = createServer(async (req, res) => {
     // Deletion for real (UD-240): the sender or the Editor; with `with_messages=true` the published messages go too.
     if (m && !m[2] && method === 'DELETE') {
       const input = inputs.get(m[1])
-      if (!input || (input.author_id !== me.id && !isEditor)) return fail(res, 404, 'No existe')
+      if (!input) return fail(res, 404, 'No existe')
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
       const withMessages = url.searchParams.get('with_messages') === 'true'
       clearTimeout(jobs.get(input.job_id))
@@ -1240,7 +1228,7 @@ const server = createServer(async (req, res) => {
     }
     if (m) {
       const input = inputs.get(m[1])
-      if (!input || (input.author_id !== me.id && !(isEditor && m[2] === 'reprocess'))) return fail(res, 404, 'No existe')
+      if (!input || (input.author_id !== me.id && m[2] !== 'reprocess')) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') {
         return send(res, 200, inputView(input))
       }
@@ -1278,7 +1266,6 @@ const server = createServer(async (req, res) => {
       }
       if (m[2] === 'reprocess' && method === 'POST') {
         const wasPublished = input.status === 'published'
-        if (wasPublished && !isEditor) return fail(res, 403, 'Sólo un Editor reprocesa un envío publicado.', 'forbidden')
         if (!wasPublished && !['proposed', 'failed', 'cancelled'].includes(input.status)) return fail(res, 409, 'Sólo se reprocesa un input publicado, con propuesta, fallido o cancelado', 'not_reprocessable')
         // UD-258: a published send sets its live messages aside (the trash, with their replies) and is analyzed again.
         let setAside = null
@@ -1323,7 +1310,7 @@ const server = createServer(async (req, res) => {
       // `involved=me`: the rule of the summary (UD-028), assigned to me or sent by me once answered or closed.
       const involved = (x) => q.get('involved') !== 'me' || x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status !== 'open')
       // `deleted=1` (UD-250): only the deleted ones, the viewer's own, or every one for an Editor.
-      const source = q.get('deleted') === '1' ? messages.filter((x) => x.deleted_at && (me.role === 'editor' || x.author_id === me.id)) : liveMessages()
+      const source = q.get('deleted') === '1' ? messages.filter((x) => x.deleted_at && true) : liveMessages()
       let list = source.filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || x.id === needle.replace(/^#/, '') || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
       if (q.get('replies') === '1') list = list.filter((x) => liveReplies(x).length > 0)
       const stamp = (x) => (q.get('replies') === '1' ? liveReplies(x).at(-1)?.created_at : x.created_at)
@@ -1356,7 +1343,7 @@ const server = createServer(async (req, res) => {
       if (!body || !Array.isArray(body.ids) || !body.ids.length || body.ids.length > 100) return fail(res, 400, 'El campo «ids» no es válido.', 'validation')
       const ids = [...new Set(body.ids.map(String))]
       const found = ids.map((id) => messages.find((x) => x.id === id))
-      const refused = found.filter((x) => x && x.author_id !== me.id && me.role !== 'editor').map((x) => x.id)
+      const refused = found.filter((x) => x && false).map((x) => x.id)
       if (refused.length) return send(res, 403, { code: 'not_message_author', message: 'Sólo quien envió el mensaje o un Editor puede borrarlo.', ids: refused })
       const missing = ids.filter((id, i) => !found[i] || (!restoring && found[i].deleted_at))
       if (missing.length) return send(res, 404, { code: 'not_found', message: 'Algunos mensajes no existen.', ids: missing })
@@ -1375,8 +1362,7 @@ const server = createServer(async (req, res) => {
       const msg = messages.find((x) => x.id === m[1] && !x.deleted_at)
       const reply = msg && (replies.get(msg.id) ?? []).find((r) => r.id === m[2] && !r.deleted_at)
       if (!reply) return fail(res, 404, 'No existe')
-      if (reply.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien escribió la respuesta la borra', 'not_reply_author')
-      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
+            if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
       reply.deleted_at = new Date().toISOString()
       syncStatus(msg)
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
@@ -1439,8 +1425,7 @@ const server = createServer(async (req, res) => {
       const msg = messages.find((x) => !x.deleted_at && (replies.get(x.id) ?? []).some((r) => r.id === m[1]))
       const reply = msg && replies.get(msg.id).find((r) => r.id === m[1])
       if (!reply) return fail(res, 404, 'No existe')
-      if (reply.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien escribió la respuesta la borra', 'not_reply_author')
-      if (!reply.deleted_at) return fail(res, 409, 'La respuesta no está borrada.', 'not_deleted')
+            if (!reply.deleted_at) return fail(res, 409, 'La respuesta no está borrada.', 'not_deleted')
       reply.deleted_at = null
       syncStatus(msg)
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
@@ -1450,16 +1435,14 @@ const server = createServer(async (req, res) => {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
       if (m[2] === 'restore' && method === 'POST') {
-        if (msg.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien envió el mensaje lo borra', 'not_message_author')
         if (!msg.deleted_at) return fail(res, 409, 'El mensaje no está borrado.', 'not_deleted')
         msg.deleted_at = null
         return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }
       if (msg.deleted_at) {
-        if (!(!m[2] && method === 'GET' && url.searchParams.get('include_deleted') === 'true' && me.role === 'editor')) return fail(res, 404, 'No existe')
+        if (!(!m[2] && method === 'GET' && url.searchParams.get('include_deleted') === 'true' && !!me)) return fail(res, 404, 'No existe')
       }
       if (!m[2] && method === 'DELETE') {
-        if (msg.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien envió el mensaje lo borra', 'not_message_author')
         if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
         msg.deleted_at = new Date().toISOString()
         res.writeHead(204)
@@ -1645,7 +1628,6 @@ const server = createServer(async (req, res) => {
     // --- areas and templates
     if (path === '/areas' && method === 'GET') {
       const withDeleted = url.searchParams.get('include_deleted') === 'true'
-      if (withDeleted && me.role !== 'editor') return fail(res, 403, 'Ver lo borrado corresponde a un editor.', 'forbidden')
       return send(res, 200, envelope(areas.filter((a) => withDeleted || !a.deleted_at).map((a) => ({ ...areaView(a), open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
     if (path === '/areas' && method === 'POST') {
@@ -1750,7 +1732,6 @@ const server = createServer(async (req, res) => {
     if (path === '/members' && method === 'GET') return send(res, 200, envelope(members))
     // Adding a member: Editor only.
     if (path === '/members' && method === 'POST') {
-      if (needEditor()) return
       const body = await readJson(req)
       const email = String(body?.email ?? '').trim().toLowerCase()
       if (!email.includes('@') || !String(body?.name ?? '').trim()) return fail(res, 400, 'El correo y el nombre son obligatorios.', 'validation')
@@ -1764,11 +1745,10 @@ const server = createServer(async (req, res) => {
     if (m && method === 'PATCH') {
       const target = m[1] === 'me' ? me : members.find((x) => x.id === m[1])
       if (!target) return fail(res, 404, 'No existe')
-      if (target.id !== me.id && needEditor()) return
       const body = await readJson(req)
       if (!body) return fail(res, 400, 'JSON inválido', 'bad_request')
       if (body.profile !== undefined) {
-        if (target.id !== me.id) return fail(res, 403, 'El perfil lo escribe su dueño', 'forbidden')
+        if (target.kind === 'agent' ? !isEditor : target.id !== me.id) return fail(res, 403, target.kind === 'agent' ? 'Requiere rol Editor' : 'El perfil lo escribe su dueño', 'forbidden')
         if (String(body.profile).length > 4000) return fail(res, 400, 'El perfil admite hasta 4.000 caracteres.', 'validation')
         target.profile = String(body.profile)
       }
@@ -1778,7 +1758,6 @@ const server = createServer(async (req, res) => {
         target.language = body.language
       }
       if (body.name !== undefined || body.email !== undefined) {
-        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
         if (body.name !== undefined) {
           if (!String(body.name).trim()) return fail(res, 400, 'El nombre no puede quedar vacío.', 'validation')
           target.name = String(body.name).trim()
@@ -1790,7 +1769,6 @@ const server = createServer(async (req, res) => {
         }
       }
       if (body.password !== undefined) {
-        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
         if (String(body.password).length < 15) return fail(res, 400, 'La contraseña es demasiado corta.', 'password_too_short')
       }
       if ((body.current_password === undefined) !== (body.new_password === undefined)) return fail(res, 400, 'Para cambiar la contraseña se envían la actual y la nueva.', 'password_pair_required')
@@ -1800,13 +1778,11 @@ const server = createServer(async (req, res) => {
         if (String(body.new_password).length < 15) return fail(res, 400, 'La contraseña nueva es demasiado corta.', 'password_too_short')
       }
       if (body.active !== undefined) {
-        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
         if (!body.active && target.id === me.id) return fail(res, 409, 'No se puede desactivar la propia cuenta.', 'cannot_deactivate_self')
         if (!body.active && target.role === 'editor' && members.filter((x) => x.role === 'editor' && x.active && x.id !== target.id).length === 0) return fail(res, 409, 'El equipo conserva siempre un Editor activo.', 'last_editor')
         target.active = !!body.active
       }
       if (body.role !== undefined) {
-        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
         if (!['member', 'editor'].includes(body.role)) return fail(res, 422, 'Rol inválido', 'validation')
         target.role = body.role
       }
@@ -1814,7 +1790,6 @@ const server = createServer(async (req, res) => {
     }
     // Deleting a member for good (UD-240): without history it goes; with history, 409 with the counts unless purge=true.
     if (m && method === 'DELETE') {
-      if (needEditor()) return
       const target = members.find((x) => x.id === m[1])
       if (!target) return fail(res, 404, 'No existe')
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
@@ -1841,11 +1816,9 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { member_id: target.id, deleted })
     }
     if (path === '/settings/providers' && method === 'GET') {
-      if (needEditor()) return
       return send(res, 200, providersView())
     }
     if (path === '/settings/providers' && method === 'PATCH') {
-      if (needEditor()) return
       const body = await readJson(req)
       const slot = providers.find((p) => p.slot === body?.slot)
       if (!slot) return fail(res, 422, 'Función inexistente', 'validation')
@@ -1863,7 +1836,6 @@ const server = createServer(async (req, res) => {
     }
     m = /^\/settings\/providers\/(text|vision|speech)\/check$/.exec(path)
     if (m && method === 'POST') {
-      if (needEditor()) return
       const slot = providers.find((p) => p.slot === m[1])
       const conn = connections.get(slot.provider)
       const check = simulateCheck({ hasKey: !!conn?.key.source, model: slot.model })
@@ -1871,11 +1843,9 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { check, slot: slot.slot, provider: slot.provider, model: slot.model })
     }
     if (path === '/settings/connections' && method === 'GET') {
-      if (needEditor()) return
       return send(res, 200, { items: [...connections.values()].filter(listed).map(connectionView), presets: [...PRESETS, { name: 'other', label: 'Otro', kind: 'openai-compatible', base_url: null, suggested_model: null, structured: 'json_schema' }].map((p) => ({ ...p })) })
     }
     if (path === '/settings/connections' && method === 'POST') {
-      if (needEditor()) return
       const body = await readJson(req)
       if (!body || typeof body.api_key !== 'string' || !body.api_key.trim()) return fail(res, 422, 'Falta la clave', 'validation')
       const preset = body.preset && body.preset !== 'other' ? PRESETS.find((p) => p.name === body.preset) : null
@@ -1898,7 +1868,6 @@ const server = createServer(async (req, res) => {
     }
     m = /^\/settings\/connections\/([^/]+)(\/key|\/check)?$/.exec(path)
     if (m) {
-      if (needEditor()) return
       const conn = connections.get(decodeURIComponent(m[1]))
       if (!conn || !listed(conn)) return fail(res, 404, 'Conexión inexistente', 'not_found')
       if (m[2] === '/key' && method === 'PUT') {

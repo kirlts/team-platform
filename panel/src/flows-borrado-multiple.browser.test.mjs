@@ -145,7 +145,7 @@ describe('mark several and delete them at once (UD-253)', () => {
     }
   })
 
-  test('a member has a check box only on the messages they sent', async () => {
+  test('a member has a check box on every message, theirs or not (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {
       await page.goto(`${origin}/messages`)
@@ -159,8 +159,9 @@ describe('mark several and delete them at once (UD-253)', () => {
         checks: rows.filter((r) => r.querySelector('[data-testid="row-check"]')).length,
         both: rows.filter((r) => !!r.querySelector('[data-testid="row-check"]') === !!r.querySelector('[data-testid="card-delete"]')).length,
       }))
-      assert.ok(counts.checks > 0 && counts.checks < counts.rows, `some rows are Bruno's and some are not: ${JSON.stringify(counts)}`)
-      assert.equal(counts.both, counts.rows, 'a row has a check box exactly when its sender may delete it')
+      assert.ok(counts.rows > 1, `the search finds Bruno's and others' messages: ${JSON.stringify(counts)}`)
+      assert.equal(counts.checks, counts.rows, 'every row has a check box')
+      assert.equal(counts.both, counts.rows, 'a row has a check box exactly when it has the delete button')
       await settled(page)
     } finally {
       await context.close()

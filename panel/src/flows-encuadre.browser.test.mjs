@@ -94,14 +94,17 @@ describe('Configuración: project name and analysis framing', () => {
     }
   })
 
-  test('a member sees neither the project name nor the framing settings, and the API refuses them the framing', async () => {
+  test('a member sees neither the project name nor the framing settings, and the API lets them read the framing but refuses to change it (UD-287)', async () => {
     const { page, context } = await settings('bruno')
     try {
       assert.equal(await page.getByRole('heading', { name: 'Nombre del proyecto' }).count(), 0)
       assert.equal(await page.getByRole('heading', { name: 'Encuadre del análisis' }).count(), 0)
       assert.equal(await page.locator('[data-setting-field]').count(), 0)
+      // UD-287: reading the framing is for any person of the team; changing it is a configured text and stays with the Editor.
       const status = await page.evaluate(async () => (await fetch('/api/settings/analysis', { headers: { 'x-team-request': 'panel' } })).status)
-      assert.equal(status, 403)
+      assert.equal(status, 200)
+      const patch = await page.evaluate(async () => (await fetch('/api/settings/analysis', { method: 'PATCH', headers: { 'x-team-request': 'panel', 'content-type': 'application/json' }, body: JSON.stringify({ framing: { 'es-419': 'x' } }) })).status)
+      assert.equal(patch, 403)
     } finally {
       await context.close()
     }

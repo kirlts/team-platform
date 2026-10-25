@@ -66,10 +66,11 @@ async function shot(page, name) {
 }
 
 describe('Team: password of another member', () => {
-  test('a member sees no «Cambiar contraseña» entry and the Editor sees it on the others and not on their own row', async () => {
+  test('any person of the team sees the «Cambiar contraseña» entry on the others and not on their own row (UD-287)', async () => {
     const other = await session('bruno', '/team', teamReady)
     try {
-      assert.equal(await other.page.getByRole('button', { name: /^Acciones de/ }).count(), 0)
+      assert.equal(await rowOf(other.page, 'bruno@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row has no menu')
+      assert.ok((await other.page.getByRole('button', { name: /^Acciones de/ }).count()) > 0, 'a member has the menu on the others')
     } finally {
       await other.context.close()
     }
@@ -123,10 +124,10 @@ describe('Team: password of another member', () => {
 describe('Settings: seed examples', () => {
   const settingsReady = (page) => page.locator('[data-data-reset]')
 
-  test('a member does not see the button', async () => {
+  test('a member sees the button too (UD-287)', async () => {
     const { page, context } = await session('bruno', '/settings', (p) => p.getByRole('heading', { name: 'Cuenta' }))
     try {
-      assert.equal(await page.getByRole('button', { name: 'Sembrar ejemplos' }).count(), 0)
+      assert.equal(await page.getByRole('button', { name: 'Sembrar ejemplos' }).count(), 1)
     } finally {
       await context.close()
     }

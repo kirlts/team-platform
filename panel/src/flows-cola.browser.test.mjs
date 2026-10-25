@@ -60,20 +60,20 @@ const analysed = (page) =>
 const row = (section, name) => section.locator('[data-queue-row]').filter({ hasText: name })
 
 describe('Configuración, Cola y Auditoría (UD-251)', () => {
-  test('a member does not see the sections nor the list of everybody', async () => {
+  test('a member sees the sections and the list of everybody (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {
-      assert.equal(await page.locator('[data-queue]').count(), 0)
-      assert.equal(await page.locator('[data-audit]').count(), 0)
-      assert.equal(await page.getByRole('heading', { name: 'Cola' }).count(), 0)
+      await page.locator('[data-queue]').waitFor()
+      assert.equal(await page.locator('[data-queue]').count(), 1)
+      assert.equal(await page.locator('[data-audit]').count(), 1)
       const status = await page.evaluate(async () => (await fetch('/api/inputs?all=1')).status)
-      assert.equal(status, 403)
+      assert.equal(status, 200)
     } finally {
       await context.close()
     }
   })
 
-  test('the Editor sees the sends of others with sender, state and counts', async () => {
+  test('any person sees the sends of others with sender, state and counts', async () => {
     await sendAs('carla', ['Primer envío de Carla'])
     await sendAs('diego', ['Envío de Diego [simular falla]'])
     const { page, context } = await session('ana')
@@ -82,7 +82,6 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       await page.reload()
       const queue = page.locator('[data-queue]')
       await queue.waitFor()
-      await queue.getByText('Envíos de todos, estado de los trabajos y traza del análisis').waitFor()
       await row(queue, 'Carla Prueba').waitFor()
       assert.match(await row(queue, 'Carla Prueba').locator('[data-queue-state]').innerText(), /Para revisar/)
       assert.match(await row(queue, 'Diego Prueba').locator('[data-queue-state]').innerText(), /Fallido/)

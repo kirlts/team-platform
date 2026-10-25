@@ -70,7 +70,7 @@ export function retryingIds (db, rows) {
  * 404 when the reply is not in the message; 409 `not_a_failure`, `not_retryable`, `budget_spent`, `retry_stale`, `message_closed`, `not_an_agent`, and `execute_busy` when the agent already has a
  * job queued or running for the message (or a delivery of it), so a second click enqueues nothing. With the day's cap spent it is refused (409 `budget_spent`), and the thread does not offer it.
  */
-export function retryExecute ({ db, config, events, now = Date.now }, { messageId, replyId, actor }) {
+export function retryExecute ({ db, config, events, now = Date.now }, { messageId, replyId, actor, source = null }) {
   return events.transaction(() => {
     const reply = get(db, 'SELECT id, message_id, failed_job_id, failed_code, deleted_at FROM replies WHERE id = ? AND message_id = ?', replyId, messageId)
     if (!reply) throw notFound('La respuesta no existe.')
@@ -80,12 +80,13 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     if (failed.kind === 'deliver') { // UD-289
       const deliverJobId = approveDelivery({ db, config, events }, { messageId, requestedBy: actor.id })
       run(db, 'UPDATE replies SET replaced_by_job_id = ? WHERE id = ?', deliverJobId, replyId)
-      audit(db, { memberId: actor.id, action: 'message.deliver_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: deliverJobId }, now })
+      audit(db, { memberId: actor.id, action: 'message.deliver_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: deliverJobId, ...(source ? { source } : {}) }, now })
       return deliverJobId
     }
     const payload = parseJson(failed.payload_json, {})
     const extra = Object.fromEntries(Object.entries(payload).filter(([k]) => !NOT_ORIGIN.includes(k)))
     extra.retry_after_reply_id = reply.id
+    if (source) extra.auto_resumed = true // the system relaunched it (see resume.js): a later event does not relaunch it again
     // UD-295: a session that failed on the lighter model of the area is not tried on it again: the retry runs with the area's model.
     const failedModel = get(db, 'SELECT model FROM jobs WHERE id = ?', reply.failed_job_id)?.model ?? null
     if (failedModel && failedModel !== resolveExecuteModel(db, { messageId, fallback: config.execute.model, escalated: true }).model) extra.escalated = true
@@ -95,7 +96,7 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     // A failed run handed the message to a person: the agent works it again as a mention does, so it is among the assignees.
     run(db, 'INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, payload.member_id)
     run(db, 'UPDATE replies SET replaced_by_job_id = ? WHERE id = ?', jobId, replyId) // UD-290: the notice stays, marked as replaced by this job
-    audit(db, { memberId: actor.id, action: 'message.execute_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: jobId }, now })
+    audit(db, { memberId: actor.id, action: 'message.execute_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: jobId, ...(source ? { source } : {}) }, now })
     return jobId
   })
 }

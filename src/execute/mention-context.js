@@ -104,6 +104,7 @@ export function mentionBlock (mention, plan, review = null, acknowledged = false
     acknowledged
       ? '- The system already posted a one-line acknowledgement in this thread in your name when the session started: do not send another «Recibido» with `team reply`. Your final `summary` is the answer; send a reply earlier only when you have a question or something the person needs before the end. `summary` is addressed to the person named in `mentioned by`.'
       : '- You always answer in this thread. Your first reply (`team reply`) or your final `summary` is that answer; with more to say you may send the first one early and the rest at the end. `summary` is addressed to the person named in `mentioned by`.',
+    '- Set `approved` to true, with `approved_reply`, when the person who mentioned you already asked in this thread, in any words, for the change to be implemented and published (an earlier «yes» or «go ahead» to your proposal, or this reply itself saying so). The system then delivers what you finish without holding it for a second approval, and your `summary` must not ask them to approve again. Leave it false when they asked to see or review it before it goes out, or when nobody asked for the change to be implemented.',
     '- Do not set `close` in this run: a mention is a request inside a conversation, and the people in it decide when it ends.',
     '- The files of the thread are in `$TEAM_THREAD_DIR`: open the images and the documents with your file tools. A link is listed with its address.',
     ...(review ? reviewLines(review) : []),
@@ -124,7 +125,7 @@ function reviewLines (review) {
     `- branch: ${review.branch}; why it was held: ${review.reason || '(no reason given)'}. The summary, the screenshots labeled «Propuesta» and the walkthrough video you left are in the thread below.`,
     `- the person who mentioned you ${review.byPerson ? 'can approve and discard' : 'is not a person of the team, so they cannot approve or discard'}.`,
     '- Read what the person wrote as their answer to that review, and say in `review` of your final output what they asked, whatever the words:',
-    '  `approve`: they want it delivered to production as it is. Change nothing; the system delivers it, only if they are an Editor.',
+    '  `approve`: they want it delivered to production as it is. Change nothing; the system delivers it, for any active person of the team.',
     '  `discard`: they want it dropped. Change nothing and write `review_reason`: the reason they gave, in one line.',
     '  `iterate`: they want something changed, or something else done on the same branch. Work on the branch `' + review.branch + '` as in any run: when you finish, leave the review material again (a summary, screenshots with the «Propuesta» label and the walkthrough video by steps).',
     '  `none`: they ask a question, ask for another view, or say something that settles nothing. Answer it, change nothing, deliver nothing; the review stays as it is.',

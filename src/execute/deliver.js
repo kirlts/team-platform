@@ -5,7 +5,7 @@
 //   placeholders  {message_id} {job_id} {branch} {workdir}   (shell-quoted; {workdir} is an empty directory removed afterwards)
 //   exit 0        it is in production; the last stdout line is the reference (a commit, a URL or a label)
 //   exit 75       it cannot be delivered now (EX_TEMPFAIL): the job waits EXECUTE_CAPACITY_WAIT_MS and tries again without spending its attempt
-//   TEAM_REVIEWED_BY  the member who launched this delivery by hand (an Editor, after reviewing a held one, UD-275); empty otherwise. A host that holds by zone must not
+//   TEAM_REVIEWED_BY  the member who launched this delivery by hand (any active person who approved: by hand, by reply, or in advance through `approved`, UD-275, UD-286); empty otherwise. A host that holds by zone must not
 //                 hold again when it is set: a person already approved it, and exit 76 then counts as a failure of the command.
 //   exit 76       it is not delivered by itself: it waits for the review of a person (UD-266). The last stdout line is the reason in plain
 //                 words. No retry and no second pass: the job ends done with `delivered = 0` and `delivery_held = 1`, and ONE reply with
@@ -57,9 +57,9 @@ const TEXTS = {
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
     held: (reason) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción. Cómo queda, en «Propuesta».`,
     heldReason: 'el cambio necesita esa revisión',
-    verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
-    timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
-    system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
+    verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
+    timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
+    system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     environment: (branch, reason) => `La entrega falló dos veces por la máquina de entrega o por el plazo (${reason}), no por el cambio, y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`,
     interrupted: (branch) => `La entrega se interrumpió dos veces seguidas (el servicio se reinició o se cortó la conexión con la máquina de entrega) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`
   },
@@ -68,9 +68,9 @@ const TEXTS = {
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
     held: (reason) => `Change ready for review: ${reason}. It is not in production yet. How it looks, in «Proposal».`,
     heldReason: 'the change needs that review',
-    verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
-    timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
-    system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
+    verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
+    timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
+    system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     environment: (branch, reason) => `The delivery failed twice because of the delivery machine or the time limit (${reason}), not because of the change, and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`,
     interrupted: (branch) => `The delivery was interrupted twice in a row (the service restarted or the connection to the delivery machine dropped) and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`
   }
@@ -200,7 +200,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const env = {
           ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir, TEAM_BEFORE_CAPTURES: JSON.stringify(before),
           TEAM_DELIVER_ROUND: String(payload.round ?? 0), TEAM_DELIVER_ATTEMPT: String(job.attempts),
-          TEAM_OUTPUT_JSON: outputJson(payload.output), TEAM_CAPTURES_VIDEO: (payload.captures ?? []).some((c) => c.kind === 'video') ? '1' : '0', TEAM_REVIEWED_BY: payload.requested_by ? String(payload.requested_by) : ''
+          TEAM_OUTPUT_JSON: outputJson(payload.output), TEAM_CAPTURES_VIDEO: (payload.captures ?? []).some((c) => c.kind === 'video') ? '1' : '0', TEAM_REVIEWED_BY: (payload.requested_by ?? payload.approved_by) ? String(payload.requested_by ?? payload.approved_by) : ''
         }
         const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, onData, timeoutMs: x.deliverTimeoutMs, graceMs: x.killGraceMs, signal: ctx.signal })
         if (phaseSpan) { endManualSpan(phaseSpan, r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD ? { error: new Error(r.timedOut ? 'timeout' : `exit ${r.code}`) } : {}); phaseSpan = null }

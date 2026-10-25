@@ -58,6 +58,8 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
   const forwarding = forwarded || validation
     ? {
         mode: { type: 'string', enum: FORWARD_MODES, description: '`resolve` when the sender wants the work carried out; `investigate` when they want to understand or decide first: then no code is changed and nothing is delivered or closed.' },
+        approved: { type: 'boolean', description: 'true only when the person who mentioned you already asked, in their own words and in this thread, for the change to be implemented and published (a «yes», «go ahead», «do it all» answering your proposal counts; a request to look at it first does not). The system then delivers what you finish without holding it again. false or omitted otherwise (UD-286).' },
+        approved_reply: { type: 'string', description: 'With `approved` true: the id of the reply, or its words in one line, where the person asked for it. Omit otherwise.' },
         attachments: {
           type: 'array',
           description: 'Documents for the closing reply, only when the reason asks for one: PDF files written inside $TEAM_ATTACHMENTS_DIR. Omit otherwise.',

@@ -66,7 +66,7 @@ Si una de las cuatro primeras contesta, es una restricción que se cumple. Si co
 
 Límites que detienen el trabajo: si el arreglo exige tocar más de 8 archivos de código, una pantalla nueva o una tabla nueva, el pedido era mayor de lo marcado; devuelve la rama con lo hecho y termina en «investigated» o «needs_decision».
 
-«Zona tocada» registra la zona más delicada que el cambio toca. Con cualquier valor distinto de «ninguna», la rama espera la revisión de una persona antes de fusionarse; con «ninguna», sigue el flujo normal. Un cambio de pagos, de datos de personas, de migración de datos, de un servicio externo o de permisos nunca se fusiona sin esa revisión.
+«Zona tocada» registra la zona más delicada que el cambio toca, como dato para quien lea la ficha. No retiene la entrega: ninguna zona espera la revisión de una persona (UD-286).
 
 Responde dos veces: al empezar y al terminar, la segunda en dos párrafos sin jerga dirigidos a quien lo pidió. Con «not_mine» responde una sola vez, de una línea.
 «decision_check» (sólo con «needs_decision») lleva las fuentes revisadas con su ruta, por qué no cubren el caso, una recomendación, qué pasa si la respuesta es la equivocada en cada sentido y la pregunta en una línea. Causa: la que se midió, con el archivo o el dato que la muestra. Arreglo y Rama: sólo si hubo cambio. Verificación: el comando corrido y su resultado.

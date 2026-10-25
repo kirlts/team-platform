@@ -274,7 +274,7 @@ describe('deliver job', () => {
       return messageId
     }
 
-    it('the message view exposes the review, the held reply attaches the «Propuesta» screenshots and the video, and only an Editor delivers', async () => {
+    it('the message view exposes the review, the held reply attaches the «Propuesta» screenshots and the video, and any person delivers', async () => {
       const log = path('review-log')
       const messageId = await held('Subir fotos a la ficha del paciente.', log)
       const rows = env.db.prepare('SELECT ra.name, ra.kind, ra.mime FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId)
@@ -284,7 +284,6 @@ describe('deliver job', () => {
       const [exec] = jobsOf(messageId, 'execute')
       assert.deepEqual(await pendingOf(messageId), { branch: `tp/${messageId}`, held_reason: 'toca datos de personas', job_id: String(exec.id), agent_id: String(agentId), delivering_job_id: null })
       assert.deepEqual(await pendingOf(messageId, author), await pendingOf(messageId), 'any member sees the review')
-      assert.equal((await post(`/api/messages/${messageId}/deliver`, author)).statusCode, 403, 'only an Editor delivers')
       const delivered = await post(`/api/messages/${messageId}/deliver`, editor)
       assert.equal(delivered.statusCode, 202, delivered.body)
       await worker.stop()
@@ -295,9 +294,8 @@ describe('deliver job', () => {
       assert.match(readFileSync(log, 'utf8'), /reviewed=\n[\s\S]*reviewed=\d+\n$/, 'the first delivery was held; the approved one carried the reviewer')
     })
 
-    it('discarding needs an Editor and a reason, leaves the notice in the thread, keeps the message open and never delivers', async () => {
+    it('discarding needs a reason, leaves the notice in the thread, keeps the message open and never delivers', async () => {
       const messageId = await held('Subir fotos a otra ficha.', path('discard-log'))
-      assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, author, { reason: 'No' })).statusCode, 403)
       assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, editor, { reason: '   ' })).statusCode, 400)
       assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, editor, {})).statusCode, 400)
       const done = await post(`/api/messages/${messageId}/discard-delivery`, editor, { reason: 'Las fotos no pueden ir a la ficha.' })
@@ -365,7 +363,7 @@ describe('deliver job', () => {
     assert.deepEqual(jobsOf(messageId, 'deliver').map((j) => j.status), ['failed', 'failed'])
     const mine = replies(messageId)
     assert.equal(mine.length, 2, 'the first reply and the notice')
-    assert.match(mine[1], /^El cambio no pasó la verificación y todavía no está en producción\. Lo que se hizo queda guardado en la rama tp\/\d+\.\n\nUn Editor puede volver a lanzar la entrega\.$/)
+    assert.match(mine[1], /^El cambio no pasó la verificación y todavía no está en producción\. Lo que se hizo queda guardado en la rama tp\/\d+\.\n\nCualquier persona del equipo puede volver a lanzar la entrega\.$/)
     assert.doesNotMatch(mine[1], /Ya está en producción/)
     assert.doesNotMatch(mine[1], /boom/, 'the output is for Claude and the Editor, not for the author')
     assert.equal(eventsOf(jobsOf(messageId, 'deliver')[1].id).at(-1).kind, 'done')
@@ -538,12 +536,11 @@ describe('deliver job', () => {
   describe('POST /messages/:id/deliver', () => {
     const post = (messageId, cookie = editor) => env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/deliver`, headers: cookieHeaders(cookie) })
 
-    it('is for the Editor, needs the command and refuses while the message is being worked', async () => {
+    it('needs the command and refuses while the message is being worked', async () => {
       startWorker({ deliverCommand: '' })
       const messageId = await publishedMessage('Una entrega a mano.')
       await settle(messageId)
       await worker.stop() // from here the queue only holds what the test puts in it
-      assert.equal((await post(messageId, author)).statusCode, 403)
       const queued = (await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]
       assert.equal((await post(messageId)).json().code, 'execute_busy')
       env.queue.cancel(Number(queued))

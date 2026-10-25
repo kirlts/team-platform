@@ -58,6 +58,11 @@ describe('attachments from the detail (H-3707)', () => {
       await page.locator('[data-gallery-count]').waitFor()
       await settled(page)
       assert.equal((await stored(page, 'Corregir el contraste')).length, 2, 'the file is saved')
+      // The «+» is the last square of the strip and as large as a thumbnail; the old «Adjunto» button is gone.
+      const tile = await page.locator('[data-gallery-add]').boundingBox()
+      const thumb = await page.locator('[data-gallery-thumb] button').first().boundingBox()
+      assert.ok(Math.abs(tile.width - thumb.width) <= 6 && Math.abs(tile.height - thumb.height) <= 6, `same size: ${JSON.stringify(tile)} vs ${JSON.stringify(thumb)}`)
+      assert.equal(await page.getByRole('button', { name: 'Adjunto', exact: true }).count(), 0)
       // The new file is the last one: go to it and remove it.
       await page.getByRole('button', { name: /^Archivo 2 de 2|2 de 2/ }).first().click()
       await page.getByRole('button', { name: 'Quitar nota.txt' }).and(page.getByTestId('detach-attachment')).click()

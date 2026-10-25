@@ -1,10 +1,9 @@
 import { ArrowLeft, MessageSquare, Trash2, X } from '@/components/icons'
 import { useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
-import { AttachmentPicker } from '@/components/AttachmentPicker'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AreaChip } from '@/components/AreaChip'
 import { AreaPicker } from '@/components/AreaPicker'
-import { MediaGallery } from '@/components/MediaGallery'
+import { AddTile, MediaGallery } from '@/components/MediaGallery'
 import { Details } from '@/components/Details'
 import { Badge } from '@/components/ui/badge'
 import { toGalleryItems } from '@/lib/gallery'
@@ -265,6 +264,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             {m.attachments.length > 0 && (
               <MediaGallery
                 items={toGalleryItems(m.attachments)}
+                onAdd={canEdit ? () => picker.current?.click() : undefined}
+                adding={addFiles.isPending}
                 renderAction={
                   canEdit
                     ? (item) => (
@@ -286,7 +287,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             )}
             {canEdit && (
               <>
-                <AttachmentPicker all={[]} selected={[]} onChange={() => {}} onUpload={() => picker.current?.click()} uploading={addFiles.isPending} />
+                {m.attachments.length === 0 && <AddTile onAdd={() => picker.current?.click()} busy={addFiles.isPending} />}
                 <input
                   ref={picker}
                   type="file"

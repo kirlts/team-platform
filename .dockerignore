@@ -14,6 +14,7 @@ scripts
 !scripts/check-ffmpeg.sh
 !scripts/team.mjs
 !scripts/walkthrough.mjs
+!scripts/repo-map.mjs
 !scripts/tiempos.mjs
 data
 backups

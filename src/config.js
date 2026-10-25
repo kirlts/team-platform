@@ -42,7 +42,7 @@ function textValue (env, nameValue, fallback = '') {
  * environment variable name and may not start with TEAM_ (those carry the agent secret). Values cannot hold spaces.
  */
 // UD-292: the limits of the light model, in the dimensions the analyzer estimates, derived from the measurement of what it can and cannot close
-// (docs/camino-a-produccion/mediciones/2026-10-25-los-limites-de-haiku.md): above `create` or `irreversibility`, or below `certainty`, the area's larger model takes the message.
+// (the measurement of the light model's limits, bench/model-limits.mjs, UD-292): above `create` or `irreversibility`, or below `certainty`, the area's larger model takes the message.
 export const LIGHT_LIMITS = 'create=1 irreversibility=1 certainty=0'
 
 /** `create=0.6 irreversibility=0.5 certainty=0.4` as numbers; a pair that is not a number in 0..1 is a configuration error. */
@@ -400,7 +400,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       autoClose: ['on', '1'].includes(choiceVar(env, 'EXECUTE_AUTO_CLOSE', ['on', 'off', '1', '0'], 'on')),
       sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
       // UD-292: what a direct fix on the area's own light model adds. The host's minimal rules (a file, instead of EXECUTE_HOST_INSTRUCTIONS), the limits of the
-      // session as KEY=VALUE pairs (defaults from the measurement docs/investigaciones/mediciones/2026-10-25-arranque-del-arreglo-directo.md) and the command
+      // session as KEY=VALUE pairs (none by default: UD-292) and the command
       // of its Stop hook (the checks that must pass before it finishes; see `sessionSettings`).
       directHostInstructions: textValue(env, 'EXECUTE_DIRECT_HOST_INSTRUCTIONS', ''),
       directSessionEnv: otelPairs(env.EXECUTE_DIRECT_SESSION_ENV, 'EXECUTE_DIRECT_SESSION_ENV'), // what a light session needs set in its environment; no default: the economy of the context is what loads at the start, not a limit that cuts the session

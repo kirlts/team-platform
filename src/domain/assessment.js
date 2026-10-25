@@ -48,7 +48,7 @@ export function touchesPerson (db, areaId, { guards = [], estimates = null } = {
 
 /**
  * Which model the estimates call for: the light one unless a dimension passes its limit, then the area's larger one. The limits come from the measurement of the light model
- * (docs/camino-a-produccion/mediciones/2026-10-25-los-limites-de-haiku.md), not from a hand-picked number; without estimates (a message from before they existed) it is the larger one.
+ * (the measurement of bench/model-limits.mjs, UD-292), not from a hand-picked number; without estimates (a message from before they existed) it is the larger one.
  * `limits`: { create, irreversibility, certainty }: above the first two, or below the third, the light model does not take it.
  */
 export function modelFor (estimates, limits) {

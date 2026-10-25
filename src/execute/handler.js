@@ -176,6 +176,7 @@ const ACK_TEXTS = {
 // What the people read when a job fails. Plain words, never the internal code; `config` carries the reason of a refusal to start (it is already a plain sentence).
 const FAILURE_TEXTS = {
   'es-419': {
+    ready: 'Lista para ver. No está en producción: queda esperando el visto de una persona del mensaje, que la publica con «Publicar».',
     saved: 'Todavía no está en producción. Lo que alcancé a hacer queda guardado en la rama del mensaje.',
     again: 'Quien reciba este mensaje puede volver a lanzarlo desde la ficha.',
     editor: 'Cualquier persona del equipo puede volver a lanzarlo desde la ficha del mensaje.',
@@ -196,6 +197,7 @@ const FAILURE_TEXTS = {
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
+    ready: 'Ready to see. It is not in production: it waits for the approval of a person on the message, who publishes it with «Publish».',
     saved: 'It is not in production yet. What I got done is saved on the branch of the message.',
     again: 'Whoever receives this message can launch it again from its page.',
     editor: 'Anyone on the team can launch it again from the page of the message.',
@@ -416,10 +418,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
+    // UD-307: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      compact: light, assessment: assessmentText(message, db), escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
+      compact: light, assessment: assessmentText(message, db), exploration: estimates?.idea_guard === true ? { idea: estimates.idea, reason: estimates.idea_reason ?? '' } : null, escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -635,6 +638,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       if (judgment?.cost) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', judgment.cost, job.id) // it counts in the day's cap with the job
     }
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
+    // UD-307: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that
+    // a person already approved (in advance, or the pass that fixes its failure) is not held again.
+    const showOnly = estimates?.idea_guard === true && deliverFailure === null
     // UD-286: the person already asked, in their own words, to implement and publish. The model says it in `approved`; the system reads the field, never the words, and the delivery goes out without a second review.
     const preApprovedBy = approved === true && !investigate && mentionAuthor && byPerson ? mentionAuthor.id : null
     rec.reviewAnswered = untouched // the run changed nothing: the review keeps pointing at the run that held the branch
@@ -682,6 +688,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
             body = error.message // a conflict is already a plain sentence for people (the review is gone, a delivery is running)
           }
         }
+      }
+      if (hands && !edited && showOnly && preApprovedBy === null) {
+        // UD-307: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the reply
+        // carries what «Publicar» needs, so a person's approval runs the normal delivery (UD-298) with the summary of this session.
+        const t = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
+        const seen = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language, label: 'proposal' })
+        const { replyId } = handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, source: 'execute', body: [t.ready, body, ...seen.lines, ...documentLines].join('\n\n'), files: [...seen.files, ...documentFiles(documents.stored)] })
+        runSql(db, 'UPDATE replies SET publish_json = ? WHERE id = ?', JSON.stringify({ job_id: job.id, attempt: job.attempts, output }), replyId)
+        rec.deliveryHeld = true
+        audit(db, { memberId: agent.id, action: 'message.idea_shown', entity: 'message', entityId: messageId, detail: { job_id: job.id, reply_id: replyId, reason: String(estimates.idea_reason ?? '').slice(0, 300) || null }, now })
+        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
+        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true, session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null } })
+        return
       }
       if (hands && !edited) {
         // The delivery is the next job: it posts the closing reply when it ends (UD-263). A delivery already queued or running for the message
@@ -848,6 +867,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       return () => {
         finalize()
         try {
+          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1 }) // UD-307: shown, not delivered: the review of UD-275 waits for a person
           if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs })
           else if (rec.deliverJobId) updateExecuteRun(db, job.id, job.attempts, { deliver_job_id: rec.deliverJobId }) // the delivery fills the rest when it ends
         } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }

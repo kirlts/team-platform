@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 /**
  * Columns of the 12-column board a view occupies (6 rem each, 72 rem in all). Every view starts at
  * the same left edge and ends on a column edge: 12 for dashboards and tables, 10 for lists and
- * 8 for reading and forms. `fill` takes the whole width of the region: the detail of a message, where the text is the protagonist (UD-307). See «Grilla» in panel/DISENO.md.
+ * 8 for reading and forms. `fill` takes the whole width of the region: the detail of a message, where the text is the protagonist (UD-308). See «Grilla» in panel/DISENO.md.
  */
 const COLUMNS = { fill: 'max-w-none', inicio: 'mx-auto max-w-inicio', 12: 'max-w-[72rem]', 10: 'max-w-[60rem]', 8: 'max-w-[48rem]' } as const
 

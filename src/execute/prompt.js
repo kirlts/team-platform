@@ -144,7 +144,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null, exploration = null }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   const stable = compact ? compactStable({ agent, project, deliver, autoClose, template, hostInstructions, forwardedOrMentioned: forward !== null || mention !== null }) : [
@@ -185,6 +185,14 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
     // UD-295: what the analyzer says is expected of this session, in its own words, and the walls of the area this message touches (the mechanism that holds each is the system's).
     ...(assessment ? [block('expectation', assessment)] : []),
+    // UD-307: the analyzer read this message as an idea to explore. Nothing the session builds is published until a person sees it; what the session does with that is its own judgement.
+    ...(exploration ? [block('exploration', [
+      `This message is mostly an idea to explore${typeof exploration.idea === 'number' ? ` (${exploration.idea.toFixed(2)} of 1)` : ''}${exploration.reason ? `: ${exploration.reason}` : '.'}`,
+      'Nothing you build goes to production on its own: the system keeps the branch until a person of the message sees it and publishes it. So work to show, not to ship: build what makes the idea tangible on your branch and leave the screenshots and the walkthrough video of the result.',
+      'If the rules of the host describe a preview of a branch, publish one and give its address in the summary; without one, the captures and the video are the preview.',
+      'Offer the alternatives that really differ when there are some, and end the summary with the question about what truly is missing and only the person has (for example which content they want). Do not ask what you can decide yourself.',
+      'Do not write that it is published or when it will be: it is ready to see.'
+    ].join('\n'))] : []),
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     ...(mention ? [block('mentioned', mention)] : []), // UD-278: who called the agent and the whole thread (src/execute/mention-context.js)
     block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(escalation ? [`pass: continues the work of ${escalation.from}, a lighter model that could not close it. Its work is on the branch: fetch it, read \`git log\` and the diff, and continue from there, do not start over. Its note: ${escalation.note || '(none)'}. Your first reply was already sent: send no other one.`] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),

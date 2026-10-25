@@ -7,7 +7,7 @@ import { buildDecompositionSchema, buildProposalSchema } from './schema.js'
 import { normalizeDecomposition } from './validate.js'
 import { readEstimates } from '../domain/assessment.js'
 
-const FIELDS = ['expectation', 'guards_touched', 'understand_vs_create', 'irreversibility', 'value_holder', 'certainty', 'estimate_reason']
+const FIELDS = ['expectation', 'guards_touched', 'understand_vs_create', 'irreversibility', 'value_holder', 'certainty', 'estimate_reason', 'idea', 'idea_guard', 'idea_reason']
 
 describe('assessment of a message', () => {
   const grammar = buildDecompositionSchema([], { withDiscarded: false }).properties.messages.items
@@ -49,5 +49,18 @@ describe('assessment of a message', () => {
     assert.deepEqual([out.messages[0].expectation, out.messages[0].guards_touched, out.messages[0].estimate_reason], ['investigar', [1, 2], 'ok'])
     assert.equal(out.messages[1].certainty, undefined)
     assert.equal(readEstimates({ ...good, value_holder: 'x' }), null)
+  })
+
+  it('UD-307: the Guard of the idea is a boolean the model returns with its reason; the number is context, and an old message reads as no idea', () => {
+    assert.equal(grammar.properties.idea_guard.type, 'boolean')
+    assert.equal(grammar.properties.idea.enum, undefined)
+    const base = { unit_ids: [1], title: 't', body: 'b', fields: {}, assignee_ids: [], attachment_ids: [], understand_vs_create: 0.8, irreversibility: 0.1, value_holder: 'person', certainty: 0.8, estimate_reason: 'r' }
+    const idea = normalizeDecomposition({ messages: [{ ...base, idea: 0.9, idea_guard: true, idea_reason: ' lo dijo como posibilidad ' }], discarded: [] }).messages[0]
+    assert.deepEqual([idea.idea, idea.idea_guard, idea.idea_reason], [0.9, true, 'lo dijo como posibilidad'])
+    const decided = readEstimates({ ...base, idea: 0.1, idea_guard: false, idea_reason: 'falla concreta' })
+    assert.deepEqual([decided.idea, decided.idea_guard], [0.1, false])
+    const old = readEstimates(base)
+    assert.deepEqual([old.idea, old.idea_guard], [null, false])
+    assert.equal(readEstimates({ ...base, idea: 3, idea_guard: 'true' }).idea_guard, false, 'only a boolean true holds')
   })
 })

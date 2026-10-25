@@ -44,6 +44,19 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
   }
 
   /**
+   * The member a host source points to, without entering her (UD-301): no member is created, no role is applied, no session of our own is issued.
+   * Only a host credential counts (header or the host's cookie); our own session cookie does not. `null`: no credential. An unknown email is
+   * 404 `member_not_registered` and a deactivated member 403 `account_inactive`, both thrown by `resolveMember`.
+   */
+  async function identifyExisting (request) {
+    for (const source of delegatedSources) {
+      const found = await source.identify(request, { existingOnly: true })
+      if (found) return { ...found, source: source.name }
+    }
+    return null
+  }
+
+  /**
    * After validating the host: a session of our own for a browser (it sends Sec-Fetch-Site; curl or an agent do not, so
    * they do not leave a session per request). The same session is renewed while the host's token stays valid.
    */
@@ -69,6 +82,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
     name: sourceNames.map((x) => (x === 'local' ? 'local' : `delegated:${x}`)).join(','),
     sources: sourceNames,
     identify,
+    identifyExisting,
     login: local?.login,
     routes (app) {
       local?.routes(app)

@@ -526,6 +526,18 @@ describe('execute job', () => {
       assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
     })
 
+    it('a host that refuses with 75 and says its quota leaves the thread a row with the quota in words (UD-303)', async () => {
+      const flag = join(env.dir, `quota-${Date.now()}`)
+      startWorker(machine({ machineCreate: `if [ -e ${flag} ]; then echo create {job_id} >> ${log}; echo vm-{job_id}; else touch ${flag}; echo '##team quota machines=2' >&2; exit 75; fi`, capacityWaitMs: 300 }))
+      const id = await enqueue()
+      await until(() => env.db.prepare("SELECT body FROM progress_notes WHERE job_id = ? AND json_extract(data_json, '$.event') IN ('waiting', 'waited')").get(id), { timeoutMs: 10000 })
+      assert.equal((await waitJob(id)).status, 'done')
+      const rows = env.db.prepare("SELECT body, data_json FROM progress_notes WHERE job_id = ? ORDER BY id").all(id)
+      assert.deepEqual(JSON.parse(rows[0].data_json).reason, { code: 'capacity', quota_machines: 2 })
+      assert.equal(JSON.parse(rows[0].data_json).event, 'waited', 'it closed when the session started')
+      assert.equal(rows[1].body, 'Claude empezó a trabajar')
+    })
+
     it('a restart in the middle of the session leaves the machine alone and the next worker runs the same machine command again, destroying only at the end', async () => {
       process.env.FAKE_EXECUTE_MODE = 'hang'
       startWorker(machine())

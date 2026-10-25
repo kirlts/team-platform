@@ -92,8 +92,8 @@ describe('Equipo', () => {
       const group = page.getByRole('menu').getByRole('group', { name: /^Rol de Bruno/ })
       await group.waitFor()
       for (const item of await group.getByRole('menuitemradio').all()) {
-        assert.match(await item.getAttribute('title'), /Envía mensajes|Administra/)
-        assert.match(await item.getAttribute('aria-label'), /\. (Envía mensajes|Administra)/)
+        assert.match(await item.getAttribute('title'), /Envía mensajes|Cambia los textos/)
+        assert.match(await item.getAttribute('aria-label'), /\. (Envía mensajes|Cambia los textos)/)
       }
       await page.keyboard.press('Escape')
       assert.equal(await page.getByText('Envía mensajes y responde').count(), 0, 'the explanation is not drawn')
@@ -237,7 +237,9 @@ describe('the drawer of Inicio', () => {
       assert.ok(original.height < 150, `the original takes ${original.height} px`)
       // UD-255: «Enviar como» stacks over the compose bar on a phone and pushes the result down by its row (36 px measured).
       // The bar now carries a 48 px send and 44 px touch targets in its stack, so the count starts lower; its first message row must still be in view.
-      assert.ok(top < 844 * 0.85, `the result starts at ${top} px of an 844 px screen`)
+      const cardTop = (await card.boundingBox()).y
+      assert.ok(cardTop < 844, `the first message of the result starts at ${cardTop} px of an 844 px screen: it is not in the first screen`)
+      assert.ok(top < cardTop, `the count (${top} px) opens the result, above its first message (${cardTop} px)`)
       await drawer.getByRole('button', { name: 'Ver más' }).click()
       await drawer.getByText('Pregunta: ¿el audio máximo sigue en 25 MB?').first().waitFor()
     } finally {

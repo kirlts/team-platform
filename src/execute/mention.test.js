@@ -14,7 +14,7 @@ import { createWorker } from '../worker.js'
 import { createExecuteHandler } from './handler.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8646
+let PORT = 0 // the port the server got when it listened on an ephemeral one: the sessions call it back (`team reply`)
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('imagen-de-prueba')])
 
 describe('a reply that mentions an agent (UD-278)', () => {
@@ -34,6 +34,9 @@ describe('a reply that mentions an agent (UD-278)', () => {
     worker.start()
   }
   const calls = () => readFileSync(join(state, 'calls.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  // The sessions of the messages of every case write to the same file, and a session of an earlier case may still start when the next one
+  // begins (its worker was stopped and the job returned to the queue): the last call of the file is not the last call of this message.
+  const callsOf = (messageId) => calls().filter((c) => c.team.TEAM_MESSAGE_ID === String(messageId))
   const settle = (messageId, n = 1) => until(() => {
     const jobs = env.db.prepare("SELECT status FROM jobs WHERE message_id = ? AND kind = 'execute'").all(messageId)
     return jobs.length >= n && jobs.every((j) => ['done', 'failed', 'cancelled'].includes(j.status))
@@ -68,7 +71,8 @@ describe('a reply that mentions an agent (UD-278)', () => {
     anaCookie = await login(env, 'ana@x.org')
     const created = await api('POST', '/api/members', editor, { email: 'claude@x.org', name: 'Claude', kind: 'agent', profile: 'Perfil del agente.' })
     agentId = Number(created.json().id)
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 })
+    PORT = env.app.server.address().port
   })
   beforeEach(() => { process.env.FAKE_EXECUTE_MODE = 'ok'; process.env.FAKE_EXECUTE_REPLY = '1'; delete process.env.FAKE_EXECUTE_EXTRA; delete process.env.FAKE_EXECUTE_SLEEP_MS; delete process.env.FAKE_EXECUTE_FAIL_FIRST })
   after(async () => { await worker?.stop(); await env.close() })
@@ -82,7 +86,7 @@ describe('a reply that mentions an agent (UD-278)', () => {
     await settle(id, 0) // the message is assigned to Ed, not to the agent: nothing runs
     const replyId = await mention(id, editor, '@Claude mira la foto y dime qué recomiendas', [{ name: 'foto.png', content: PNG, type: 'image/png' }, { name: 'datos.pdf', content: Buffer.from('%PDF-1.7 x'), type: 'application/pdf' }])
     await settle(id)
-    const call = calls().at(-1)
+    const call = callsOf(id).at(-1)
     const block = /<mentioned>\n([\s\S]*?)\n<\/mentioned>/.exec(call.stdin)[1]
     assert.match(block, /mentioned by: Ed\nreply: \d+/)
     assert.ok(block.indexOf('Message ') < block.indexOf('Primera respuesta de Ed.') && block.indexOf('Primera respuesta de Ed.') < block.indexOf('mira la foto'), 'the thread is in order')
@@ -103,6 +107,7 @@ describe('a reply that mentions an agent (UD-278)', () => {
     const { mkdtempSync } = await import('node:fs')
     const id = await publishedMessage([{ name: 'captura.png', content: PNG, type: 'image/png' }])
     await mention(id, editor, '@Claude', [{ name: 'foto.png', content: PNG, type: 'image/png' }])
+    await settle(id) // the mention starts a session in the worker of the first case: it ends before the next case stops that worker
     const cfg = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent' })
     const plan = planThread(env.db, { messageId: id })
     const workdir = mkdtempSync(join(env.dir, 'stage-'))
@@ -117,7 +122,7 @@ describe('a reply that mentions an agent (UD-278)', () => {
     const id = await publishedMessage()
     const replyId = await mention(id, editor, '', [{ name: 'nota.webm', content: Buffer.from('audio-de-prueba'), type: 'audio/webm' }, { name: 'foto.png', content: PNG, type: 'image/png' }])
     await settle(id)
-    const stdin = calls().at(-1).stdin
+    const stdin = callsOf(id).at(-1).stdin
     assert.ok(stdin.includes('transcript of nota.webm:\nextraído de audio'), 'the speech is in the thread as text')
     assert.match(stdin, new RegExp(`foto\\.png .*\\$TEAM_THREAD_DIR/reply-${replyId}/foto\\.png`))
     assert.ok(stdin.indexOf('transcript of nota.webm') > stdin.indexOf(`id ${replyId})`), 'under the reply that carries it')
@@ -138,7 +143,7 @@ describe('a reply that mentions an agent (UD-278)', () => {
     assert.equal(JSON.parse(jobs[1].payload_json).mention.reply_id, second)
     assert.ok(jobs.every((j) => j.status === 'done'))
     assert.ok(first < second)
-    assert.ok(calls().at(-1).stdin.includes('y además esto'), 'the second run saw the second mention')
+    assert.ok(callsOf(id).at(-1).stdin.includes('y además esto'), 'the second run saw the second mention')
   })
 
   it('a session that fails leaves a reply of the agent in the thread that says it could not and why', async () => {
@@ -168,6 +173,6 @@ describe('a reply that mentions an agent (UD-278)', () => {
     const mine = agentReplies(id).filter((r) => r.id > replyId)
     assert.match(mine[0].body, /^Recibido\./)
     assert.equal(mine.filter((r) => /^Recibido\./.test(r.body)).length, 1, 'one acknowledgement, not one per attempt')
-    assert.match(calls().at(-1).stdin, /already posted a one-line acknowledgement/)
+    assert.match(callsOf(id).at(-1).stdin, /already posted a one-line acknowledgement/)
   })
 })

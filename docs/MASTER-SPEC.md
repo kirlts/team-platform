@@ -35,7 +35,7 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 | **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
 | **Área** | Categoría de un mensaje. Las áreas son mutuamente excluyentes y colectivamente exhaustivas para toda comunicación interna que busque respuesta. | Título y descripción. Las gestiona el Editor (texto configurado, UD-287). Juego inicial: idea, error, nueva funcionalidad, retroalimentación, pregunta. |
 | **Plantilla** | Archivo markdown que describe cómo analizar un input de su área y qué forma tiene cada mensaje de salida. | N plantillas por área, cada plantilla de una sola área. Nombre y descripción. Las gestiona el Editor (texto configurado, UD-287). |
-| **Miembro** | Persona del equipo, con nombre y un perfil: un par de párrafos en primera persona sobre qué hace, qué sabe, qué decide y cómo prefiere recibir las cosas (UD-023). | Edita su propio perfil; el Editor también edita el de un agente (UD-281). Rol `member` o `editor` (UD-007): el único privilegio del Editor es cambiar los textos configurados (UD-287); cualquier persona activa del equipo hace todo lo demás. |
+| **Miembro** | Persona del equipo, con nombre y un perfil: un par de párrafos en primera persona sobre qué hace, qué sabe, qué decide y cómo prefiere recibir las cosas (UD-023). | Edita su propio perfil; el Editor edita el de cualquier miembro, persona o agente (UD-288), porque es un texto configurado (UD-287). Rol `member` o `editor` (UD-007): el único privilegio del Editor es cambiar los textos configurados (UD-287); cualquier persona activa del equipo hace todo lo demás. |
 | **Trabajo** | Unidad de la cola: extraer un adjunto, analizar un input. | Sobrevive al navegador y al reinicio del proceso (UD-003, UD-010). |
 
 ### 1.2 El modelo lee y propone; el sistema valida y decide
@@ -325,7 +325,7 @@ DELETE /api/areas/:id/templates/:templateId?confirm=true · POST /api/templates/
 GET    /api/members
 POST   /api/members               alta de un miembro; `profile` sólo con rol Editor (UD-287)
 PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile`: texto, tope en `members.profileMaxLength`)
-PATCH  /api/members/:id            nombre, correo, rol, contraseña y `active`; `profile` sólo si el miembro es un agente (UD-281); el de una persona responde 400 `validation` (UD-023); `profile` sólo lo escribe un Editor (UD-287)
+PATCH  /api/members/:id            nombre, correo, rol, contraseña y `active`; `profile` de cualquier miembro, persona o agente, y sólo lo escribe un Editor (UD-287, UD-288); cada persona edita el suyo con `PATCH /members/me` (UD-023)
 DELETE /api/members/:id?confirm=true[&purge=true]   elimina de verdad (UD-240): sin historial, la fila con credenciales, sesiones e identidades; con historial 409 `member_has_history` con `{ inputs, messages, replies }`, y con `purge=true` también sus envíos, mensajes (con las respuestas de otros), respuestas (el mensaje ajeno vuelve a `open` si no quedan y no está cerrado), ediciones y asignaciones, y libera los archivos sin referencia → 200 `{ member_id, deleted }`; 409 `cannot_delete_self`, 409 `last_editor`; bitácora `member.delete`   (Editor)
 
 GET    /api/settings/providers · PATCH /api/settings/providers                (cualquier persona; nunca devuelve una llave; PATCH prueba antes de guardar, 422 `provider_check_failed`; UD-120)

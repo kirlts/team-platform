@@ -44,56 +44,123 @@ describe('Equipo', () => {
     }
   })
 
-  test('«Ver más» appears exactly where text is folded, and opening it shows text that was hidden', async () => {
+  /** Height of every member row on the screen, keyed by address. */
+  const heights = (page) =>
+    page.locator('main [data-member-row]').evaluateAll((rows) => rows.map((r) => [r.textContent, r.clientHeight]))
+
+  test('every row is as tall as the others and the profile reads as one line with an ellipsis (UD-241)', async () => {
+    for (const viewport of [PHONE, DESKTOP]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        await page.goto(`${origin}/team`)
+        await page.locator('main [data-member-row]').nth(4).waitFor()
+        const hs = (await heights(page)).map(([, h]) => h)
+        assert.ok(Math.max(...hs) - Math.min(...hs) <= 1, `${viewport.width}: rows of ${Math.min(...hs)} to ${Math.max(...hs)} px`)
+        const lines = await page.locator('main [data-profile-extract] span').evaluateAll((els) => els.map((e) => ({ h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight) })))
+        for (const l of lines) assert.ok(l.h <= l.lh + 1, `${viewport.width}: an extract takes ${l.h} px for a line of ${l.lh}`)
+        assert.equal(await page.getByRole('button', { name: 'Ver más' }).count(), 0, 'a fold that grows the row is back')
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('a click on a row, its name or its profile neither resizes the rows nor navigates; the whole profile opens in a window', async () => {
+    for (const viewport of [PHONE, DESKTOP]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        await page.goto(`${origin}/team`)
+        const row = page.locator('main [data-member-row]').filter({ hasText: 'maria.de.los' }).first()
+        await row.waitFor()
+        const url = page.url()
+        let navigations = 0
+        page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations++ })
+        const before = await heights(page)
+        const range = await page.getByText(/^\d+–\d+ de \d+$/).allInnerTexts()
+        // A click on the empty part of the row, then on the name (the Editor edits it in place) and away.
+        await row.click({ position: { x: 4, y: 4 } })
+        await row.getByRole('button', { name: /^Nombre:/ }).click()
+        await row.getByRole('textbox', { name: 'Nombre' }).waitFor()
+        assert.deepEqual(await heights(page), before, `${viewport.width}: editing the name changed the height of a row`)
+        await page.keyboard.press('Escape')
+        // The profile opens whole in a window, over a list that does not move.
+        const full = await page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()).find((m) => m.email.startsWith('maria.de.los')).profile)
+        await row.getByRole('button', { name: /^Perfil de María/ }).click()
+        const dialog = page.getByRole('dialog')
+        await dialog.waitFor()
+        const last = full.trim().split(/\s+/).slice(-3).join(' ')
+        assert.ok((await dialog.innerText()).replace(/\s+/g, ' ').includes(last), `${viewport.width}: the window does not show the end of the profile`)
+        assert.deepEqual(await heights(page), before, `${viewport.width}: opening the profile changed the height of a row`)
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'detached' })
+        assert.deepEqual(await heights(page), before, `${viewport.width}: closing the profile changed the height of a row`)
+        assert.deepEqual(await page.getByText(/^\d+–\d+ de \d+$/).allInnerTexts(), range, 'the list changed page')
+        assert.equal(page.url(), url)
+        assert.equal(navigations, 0, 'the page navigated')
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('the Editor writes the profile of an agent and of another person in place, inside the window (UD-281, UD-288)', async () => {
+    await panel.control.execution()
     const { page, context } = await session('ana', DESKTOP)
     try {
       await page.goto(`${origin}/team`)
-      await page.getByRole('button', { name: 'Ver más' }).first().waitFor()
-      const members = await page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()).map((m) => ({ email: m.email, paragraphs: (m.profile ?? '').split(/\n\s*\n/).filter((x) => x.trim()).length })))
-      const report = []
-      for (const m of members) {
-        const row = page.locator('main div.border-b').filter({ hasText: m.email }).first()
-        // The list shows the rows that fit the window; the others are on the next page.
-        if ((await row.count()) === 0) continue
-        const more = (await row.getByRole('button', { name: 'Ver más' }).count()) > 0
-        assert.equal(more, m.paragraphs > 1, `${m.email}: «Ver más» ${more} with ${m.paragraphs} paragraphs`)
-        report.push({ email: m.email, more })
-      }
-      // UD-252: the actions column holds three buttons, so fewer rows fit the frame than before; five still cover both cases of the profile.
-      assert.ok(report.length >= 5, `${report.length} rows on screen`)
-      assert.ok(report.some((x) => x.more), 'no row has a folded profile')
-      // Each link, once opened, makes its row taller: it was hiding something.
-      for (const { email } of report.filter((x) => x.more)) {
-        const row = page.locator('main div.border-b').filter({ hasText: email }).first()
-        const before = (await row.boundingBox()).height
-        await row.getByRole('button', { name: 'Ver más' }).click()
-        await row.getByRole('button', { name: 'Ver menos' }).waitFor()
-        assert.ok((await row.boundingBox()).height > before, `${email}: the row did not grow when opened`)
-        await row.getByRole('button', { name: 'Ver menos' }).click()
-      }
+      await page.locator('main [data-member-row]').first().waitFor()
+      const row = page.locator('main [data-member-row]').filter({ hasText: 'claude@dev.invalid' }).first()
+      while ((await row.count()) === 0) await page.getByRole('button', { name: 'Página siguiente' }).click()
+      await row.getByRole('button', { name: 'Perfil de Claude' }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByRole('button', { name: /^Perfil de Claude:/ }).click()
+      const field = dialog.getByRole('textbox', { name: 'Perfil de Claude' })
+      await field.fill('Sesión desatendida. Trabaja los mensajes asignados.')
+      await field.press('Enter')
+      await field.waitFor({ state: 'detached' })
+      await page.keyboard.press('Escape')
+      await row.locator('[data-profile-extract]', { hasText: 'Sesión desatendida. Trabaja' }).waitFor()
+      // UD-288: the profile of another person too.
+      while ((await page.locator('main [data-member-row]').filter({ hasText: 'bruno@dev.invalid' }).count()) === 0) await page.getByRole('button', { name: 'Página anterior' }).click()
+      await page.getByRole('button', { name: 'Perfil de Bruno Prueba' }).click()
+      await page.getByRole('dialog').getByRole('button', { name: /^Perfil de Bruno Prueba:/ }).click()
+      await page.getByRole('dialog').getByRole('textbox', { name: 'Perfil de Bruno Prueba' }).waitFor()
     } finally {
       await context.close()
     }
   })
 
-  test('on a phone «Acciones» shares the row of the role, on the right edge of the content, and adds no row', async () => {
+  test('no width from 360 to 1440 scrolls sideways, and on a phone each member is one card', async () => {
+    for (const width of [360, 390, 430, 768, 1440]) {
+      const { page, context } = await session('ana', { width, height: 844 })
+      try {
+        await page.goto(`${origin}/team`)
+        await page.locator('main [data-member-row]').first().waitFor()
+        const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+        assert.ok(over <= 0, `${width}: ${over} px of sideways scroll`)
+        const out = await page.locator('main [data-member-row]').evaluateAll((rows) => rows.filter((r) => [...r.querySelectorAll('*')].some((e) => e.getBoundingClientRect().right > r.getBoundingClientRect().right + 1)).length)
+        assert.equal(out, 0, `${width}: something leaves a row`)
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('on a phone «Acciones» shares the line of the name, on the right edge of the card, and the profile line sits under the name', async () => {
     const { page, context } = await session('ana', PHONE)
     try {
       await page.goto(`${origin}/team`)
       const off = page.getByRole('button', { name: /^Acciones de Bruno/ })
       await off.waitFor()
-      const row = page.locator('main div.border-b').filter({ hasText: 'bruno@dev.invalid' }).first()
-      const badge = row.getByText('Miembro', { exact: true }).first()
-      const [b, o, r] = [await badge.boundingBox(), await off.boundingBox(), await row.boundingBox()]
-      const [b1, o1] = [b.y + b.height / 2, o.y + o.height / 2]
-      assert.ok(Math.abs(b1 - o1) <= 2, `the action is ${Math.abs(b1 - o1)} px off the center of the role`)
-      assert.ok(r.x + r.width - (o.x + o.width) <= 16 + 1, `the action ends ${r.x + r.width - (o.x + o.width)} px from the edge of the card`)
+      const row = page.locator('main [data-member-row]').filter({ hasText: 'bruno@dev.invalid' }).first()
+      const name = row.getByRole('button', { name: /^Nombre:/ })
+      const extract = row.locator('[data-profile-extract] span')
+      const [n, o, r, e] = [await name.boundingBox(), await off.boundingBox(), await row.boundingBox(), await extract.boundingBox()]
+      assert.ok(o.y < n.y + n.height + 24 && o.y + o.height > n.y, 'the action is not on the line of the name')
       assert.ok(Math.abs(o.x + o.width - (r.x + r.width - 16)) <= 1, 'the action ends on the right padding of the card')
-      const below = await row.evaluate((el) => {
-        const last = [...el.querySelectorAll('button')].filter((x) => x.textContent === 'Ver más' || x.textContent === 'Ver menos').pop()
-        return el.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom
-      })
-      assert.ok(below <= 16 + 8, `${below} px of empty height under the profile`)
+      assert.ok(Math.abs(e.x - (n.x + 6)) <= 2, `the profile starts ${e.x - n.x} px off the name`)
+      assert.ok(r.y + r.height - (e.y + e.height) <= 16 + 4, 'empty height under the profile')
+      assert.equal(await row.getByText('Miembro', { exact: true }).count(), 0, 'a chip repeats the plain role')
     } finally {
       await context.close()
     }

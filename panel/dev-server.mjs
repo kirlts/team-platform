@@ -1748,7 +1748,8 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req)
       if (!body) return fail(res, 400, 'JSON inválido', 'bad_request')
       if (body.profile !== undefined) {
-        if (target.kind === 'agent' ? !isEditor : target.id !== me.id) return fail(res, 403, target.kind === 'agent' ? 'Requiere rol Editor' : 'El perfil lo escribe su dueño', 'forbidden')
+        // UD-288 and UD-287, as the API: the profile is a configured text, so only the Editor writes the profile of another member.
+        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
         if (String(body.profile).length > 4000) return fail(res, 400, 'El perfil admite hasta 4.000 caracteres.', 'validation')
         target.profile = String(body.profile)
       }

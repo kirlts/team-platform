@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
-import { FoldedText } from '@/components/FoldedText'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { FormDialog } from '@/components/FormDialog'
 import { LoadState } from '@/components/LoadState'
 import { Page } from '@/components/Page'
@@ -12,7 +12,7 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useErrorText, useT } from '@/i18n'
 import { useNotices } from '@/lib/notices'
 import type { Member, Role } from '@team-platform/client'
@@ -21,12 +21,9 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
-const COLUMNS = 'lg:grid-cols-[15rem_7rem_minmax(0,1fr)_7.5rem]'
-
-/** An address that may only break after a separator, never in the middle of a word (J1-A-39). */
-function withBreaks(email: string) {
-  return email.split(/(?<=[.@_-])/).flatMap((part, i) => (i === 0 ? [part] : [<wbr key={i} />, part]))
-}
+/** Identity, profile extract, actions: every cell is one line high, so every row is as tall as the others (UD-241). */
+const COLUMNS = 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_7.5rem]'
+const ONE_LINE = 'truncate whitespace-nowrap' // justified: UD-241 amends UD-016 for the name, address and profile extract of a row of a list; the whole text is in the title and the window
 
 /** Members with their responsibilities and domains. Each one edits their own; any person adds, and changes name, email and role of the others; the Editor also writes the profile of an agent. */
 export function Team() {
@@ -36,8 +33,6 @@ export function Team() {
   const create = useCreateMember()
   const undo = useUndoStack()
   const [adding, setAdding] = useState(false)
-  /** The member whose profile is open: the list keeps that row on the visible page, since opening it makes it taller and fewer rows fit. */
-  const [opened, setOpened] = useState<string | undefined>()
   const editor = me?.role === 'editor'
   const rows = useMemo(() => members.data ?? [], [members.data])
 
@@ -61,16 +56,14 @@ export function Team() {
           rows={rows}
           rowKey={(m) => m.id}
           label={t('nav.team')}
-          reveal={opened}
           header={
             <div className={`rotulo hidden h-8 items-center gap-4 border-b border-line px-4 lg:grid ${COLUMNS}`}>
               <span>{t('team.member')}</span>
-              <span>{t('team.role')}</span>
               <span>{t('team.profile')}</span>
               <span />
             </div>
           }
-          renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} profileOpen={opened === m.id} onProfileOpen={(open) => setOpened(open ? m.id : undefined)} />}
+          renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} />}
           empty={<LoadState query={members} />}
         />
         <FormDialog
@@ -90,7 +83,7 @@ export function Team() {
   )
 }
 
-function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }: { member: Member; self: boolean; viewerIsEditor: boolean; profileOpen: boolean; onProfileOpen: (open: boolean) => void }) {
+function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boolean; viewerIsEditor: boolean }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveMember()
@@ -102,6 +95,8 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   const [password, setPasswordValue] = useState<string | null>(null)
   const local = !useMe().data?.provider?.startsWith('delegated')
   const [problem, setProblem] = useState<string | null>(null)
+  /** The whole profile, open in a window over the list: the row keeps its height and the list its page. */
+  const [profileOpen, setProfileOpen] = useState(false)
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
   const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
@@ -144,111 +139,35 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
     }
   }
 
+  const canEditProfile = self || viewerIsEditor // UD-288, UD-287: the Editor writes the profile of any member
+  const profile = member.profile ?? ''
+  const extract = profile.replace(/\s+/g, ' ').trim()
+
   return (
-    <div className={`grid min-h-12 shrink-0 items-start gap-x-4 max-lg:gap-x-2 gap-y-2 max-lg:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS}`}>
-      <div className="flex min-w-0 items-start gap-2.5 max-lg:col-span-2">
-        <Avatar name={member.name} size={30} />
+    <div data-member-row className={`grid shrink-0 items-center gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 max-lg:grid-cols-[minmax(0,1fr)_auto] ${COLUMNS}`}>
+      <div className="flex min-w-0 items-center gap-3">
+        <Avatar name={member.name} size={32} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2">
-            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold ${member.active ? '' : 'text-muted'}`} className="w-auto" />
-            {self && <Badge tone="accent">{t('team.me')}</Badge>}
+          <div className="flex h-6 min-w-0 items-center gap-2">
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`${ONE_LINE} text-[15px] font-semibold leading-snug ${member.active ? '' : 'text-muted'}`} className="block min-w-0 shrink" />
+            {member.role === 'editor' && (
+              <Badge tone="accent" className="shrink-0" title={roleHint.editor}>
+                {roleLabel.editor}
+              </Badge>
+            )}
+            {self && <Badge className="shrink-0">{t('team.me')}</Badge>}
+            {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
+            {!member.active && <Badge tone="outline" className="shrink-0">{t('team.inactive')}</Badge>}
           </div>
-          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="-mb-[5px] break-words pb-[5px] text-sm text-muted" render={withBreaks} />
+          {/* Each line has a fixed height: editing the name or the address in place does not move the row by a pixel. */}
+          <div className="h-5">
+            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName={`${ONE_LINE} text-[13px] leading-snug text-muted`} className="block" />
+          </div>
         </div>
       </div>
-      <div className="flex min-w-0 flex-col items-start gap-1 max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:gap-x-3 max-lg:self-center">
-        {!self ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger aria-label={`${t('team.roleOf', { name: member.name })}: ${roleLabel[member.role]}. ${roleHint[member.role]}`} title={roleHint[member.role]} className="inline-flex rounded-full hover:bg-hover">
-              <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'} className="gap-1">
-                {roleLabel[member.role]}
-                <ChevronDown size={12} aria-hidden />
-              </Badge>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-32">
-              <DropdownMenuRadioGroup value={member.role} onValueChange={(role) => void change('role', role as Role)}>
-                <DropdownMenuRadioItem value="member" title={roleHint.member}>
-                  {roleLabel.member}
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="editor" title={roleHint.editor}>
-                  {roleLabel.editor}
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'} title={roleHint[member.role]}>
-            {roleLabel[member.role]}
-          </Badge>
-        )}
-        {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
-        {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
-      </div>
-      <div className="min-w-0 text-sm max-lg:col-span-2">
-        {/* The profile is read in its first paragraph and the rest is one click away, whole and not cut (J3-A-42, UD-016). */}
-        <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self || (viewerIsEditor && member.kind === 'agent')} open={profileOpen} onOpenChange={onProfileOpen} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
-      </div>
-      {/* Below 1024 px the cell dissolves (the four columns need 39 rem and a tablet beside the side panel has 27): the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
-      <div className="flex min-w-0 flex-col items-end gap-1 max-lg:contents">
-        {!self && (
-          <div className="max-lg:col-start-2 max-lg:row-start-2 max-lg:self-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" disabled={busy} aria-label={t('team.actionsOf', { name: member.name })}>
-                  {t('team.actions')}
-                  <ChevronDown size={16} aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                onCloseAutoFocus={(e) => {
-                  if (openedPassword.current) {
-                    openedPassword.current = false
-                    e.preventDefault()
-                  }
-                }}
-              >
-                {local && password === null && (
-                  <DropdownMenuItem
-                    aria-label={t('team.passwordChangeOf', { name: member.name })}
-                    onSelect={() => {
-                      openedPassword.current = true
-                      setProblem(null)
-                      setPasswordValue('')
-                    }}
-                  >
-                    {t('team.passwordChange')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })} onSelect={() => void toggleActive()}>
-                  {member.active ? t('team.deactivate') : t('team.reactivate')}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger"
-                  aria-label={t('team.deleteOf', { name: member.name })}
-                  title={t('team.deleteHint')}
-                  onSelect={() => void deleteMember()}
-                >
-                  {t('team.delete')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-        {problem && (
-          <span role="alert" className="text-right text-sm text-danger max-lg:col-span-2 max-lg:text-left">
-            {problem}
-          </span>
-        )}
-      </div>
-      {password !== null && (
-        <form
-          data-password-form
-          className="flex flex-wrap items-center justify-end gap-2 col-span-full"
-          onSubmit={(e) => { e.preventDefault(); void savePassword() }}
-        >
-          <Input type="password" autoComplete="new-password" spellCheck={false} autoFocus value={password} onChange={(e) => setPasswordValue(e.target.value)} aria-label={t('team.passwordNew')} placeholder={t('team.passwordNew')} className="w-56" />
+      {password !== null ? (
+        <form data-password-form className="flex min-w-0 items-center gap-2 max-lg:col-span-2 max-lg:row-start-2" onSubmit={(e) => { e.preventDefault(); void savePassword() }}>
+          <Input type="password" autoComplete="new-password" spellCheck={false} autoFocus value={password} onChange={(e) => setPasswordValue(e.target.value)} aria-label={t('team.passwordNew')} placeholder={t('team.passwordNew')} aria-invalid={problem ? true : undefined} className="h-8 min-w-0 flex-1 lg:max-w-64" />
           <Button variant="primary" size="sm" type="submit" disabled={!password || setPassword.isPending}>
             {t('common.save')}
           </Button>
@@ -256,7 +175,99 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
             {t('common.cancel')}
           </Button>
         </form>
+      ) : (
+        /* The profile reads as one line with an ellipsis, so every row is as tall as the others (UD-241); the whole text opens in a window over the list, which does not move (Martín, 2026-10-24). */
+        <button
+          type="button"
+          data-profile-extract
+          aria-haspopup="dialog"
+          aria-label={t('team.profileOf', { name: member.name })}
+          title={extract || undefined}
+          onClick={() => setProfileOpen(true)}
+          className="-mx-1.5 min-w-0 rounded-md px-1.5 py-1 text-left text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent max-lg:col-span-2 max-lg:row-start-2 max-lg:ml-[38px]"
+        >
+          <span data-ellipsis-ok="UD-241" className={`${ONE_LINE} block ${extract ? 'text-fg' : 'text-faint'}`}>
+            {extract || t('team.noProfile')}
+          </span>
+        </button>
       )}
+      <div className="flex h-11 min-w-0 items-center justify-end max-lg:col-start-2 max-lg:row-start-1">
+        {!self && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" disabled={busy} aria-label={t('team.actionsOf', { name: member.name })}>
+                {t('team.actions')}
+                <ChevronDown size={16} aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-48"
+              onCloseAutoFocus={(e) => {
+                if (openedPassword.current) {
+                  openedPassword.current = false
+                  e.preventDefault()
+                }
+              }}
+            >
+              {/* The role changes here: the row only marks the Editor, the exception (Martín, 2026-10-24). */}
+              <DropdownMenuLabel>{t('team.role')}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup aria-label={t('team.roleOf', { name: member.name })} value={member.role} onValueChange={(role) => void change('role', role as Role)}>
+                <DropdownMenuRadioItem value="member" title={roleHint.member} aria-label={`${roleLabel.member}. ${roleHint.member}`}>
+                  {roleLabel.member}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="editor" title={roleHint.editor} aria-label={`${roleLabel.editor}. ${roleHint.editor}`}>
+                  {roleLabel.editor}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              {local && password === null && (
+                <DropdownMenuItem
+                  aria-label={t('team.passwordChangeOf', { name: member.name })}
+                  onSelect={() => {
+                    openedPassword.current = true
+                    setProblem(null)
+                    setPasswordValue('')
+                  }}
+                >
+                  {t('team.passwordChange')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })} onSelect={() => void toggleActive()}>
+                {member.active ? t('team.deactivate') : t('team.reactivate')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger"
+                aria-label={t('team.deleteOf', { name: member.name })}
+                title={t('team.deleteHint')}
+                onSelect={() => void deleteMember()}
+              >
+                {t('team.delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      {problem && (
+        <span role="alert" className="col-span-full text-sm text-danger">
+          {problem}
+        </span>
+      )}
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+        <DialogContent title={t('team.profileOf', { name: member.name })} className="max-w-xl">
+          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-5 py-4">
+            <div className="flex items-center gap-3">
+              <Avatar name={member.name} size={36} />
+              <div className="min-w-0">
+                <p className="text-[15px] font-semibold leading-snug break-words">{member.name}</p>
+                <p className="text-[13px] leading-snug text-muted break-words">{member.email}</p>
+              </div>
+            </div>
+            <EditableText value={profile} label={t('team.profileOf', { name: member.name })} canEdit={canEditProfile} multiline prose placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} displayClassName="text-sm" />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

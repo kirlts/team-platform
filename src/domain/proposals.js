@@ -86,7 +86,7 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
         ...(proposal.messages[i].source === 'frame' ? { source: 'frame' } : {}),
         ...(e.expectation ? { expectation: e.expectation } : {}),
         ...(e.guards.length ? { guards_touched: e.guards } : {}),
-        ...(e.estimates ? { understand_vs_create: e.estimates.understand_vs_create, irreversibility: e.estimates.irreversibility, value_holder: e.estimates.value_holder, certainty: e.estimates.certainty, estimate_reason: e.estimates.reason, ...(e.estimates.idea === null ? {} : { idea: e.estimates.idea, idea_guard: e.estimates.idea_guard, idea_reason: e.estimates.idea_reason }) } : {}),
+        ...(e.estimates ? { understand_vs_create: e.estimates.understand_vs_create, irreversibility: e.estimates.irreversibility, value_holder: e.estimates.value_holder, certainty: e.estimates.certainty, estimate_reason: e.estimates.reason, ...(e.estimates.idea === null ? {} : { idea: e.estimates.idea, idea_reason: e.estimates.idea_reason }), ...(e.estimates.idea_guard === null ? {} : { idea_guard: e.estimates.idea_guard }) } : {}),
         ...(e.observed.length ? { observed: e.observed } : {})
       })),
       discarded: (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number), reason: d.reason ?? '' }))

@@ -754,7 +754,7 @@ export function normalizeDecomposition(output) {
     attachment_ids: sortedUnique(m.attachment_ids),
     ...(readExpectation(m) ? { expectation: readExpectation(m) } : {}),
     ...(Array.isArray(m.guards_touched) && m.guards_touched.length ? { guards_touched: sortedUnique(m.guards_touched) } : {}),
-    ...(readEstimates(m) ? { understand_vs_create: m.understand_vs_create, irreversibility: m.irreversibility, value_holder: m.value_holder, certainty: m.certainty, estimate_reason: readEstimates(m).reason, ...(readEstimates(m).idea === null ? {} : { idea: readEstimates(m).idea, idea_guard: readEstimates(m).idea_guard, idea_reason: readEstimates(m).idea_reason }) } : {}),
+    ...(readEstimates(m) ? { understand_vs_create: m.understand_vs_create, irreversibility: m.irreversibility, value_holder: m.value_holder, certainty: m.certainty, estimate_reason: readEstimates(m).reason, ...(readEstimates(m).idea === null ? {} : { idea: readEstimates(m).idea, idea_reason: readEstimates(m).idea_reason }), ...(readEstimates(m).idea_guard === null ? {} : { idea_guard: readEstimates(m).idea_guard }) } : {}),
     ...(m.source === 'frame' ? { source: 'frame' } : {}),
     ...(observedOf(m).length > 0 ? { observed: observedOf(m) } : {}),
   }));

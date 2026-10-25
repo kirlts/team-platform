@@ -216,7 +216,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_clamp(20rem,28%,28rem)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_clamp(26rem,28%,28rem)]">
         {/* The column is the lane (UD-299): from 768 px the screen keeps its height and the whole column scrolls, so the text of the message is never the block that shrinks to a line. */}
         <div data-lane="message-column" className="scroll-thin flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-1 [&>*]:shrink-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">

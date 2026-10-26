@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Screenshots of the messages zone (Inicio, Nuevo mensaje, Mensajes with filters, message view and its thread with
-// Claude's notices) at 1440x900 and 390x844, light and dark, against the double server.
-//   node scripts/capturas-mensajes.mjs [--sin-build] [--salida <dir>]
+// Screenshots of the messages zone (home, composer with attachments and recipients, list with a filter, the message sheet and a thread
+// with Claude's notices) at 1440x900 and 390x844, light and dark, against the double server.
+// Flags: --sin-build skips the build, --salida <dir> picks the output folder, --solo <prefix> shoots one view.
 import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { login, settled, startPanel } from '../src/browser-support.mjs'

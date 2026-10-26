@@ -11,10 +11,10 @@ JOB="${1:?usage: destroy.sh <job_id> <workdir> <machine>}"
 MACHINE="${3:-$(tp_machine_name "$JOB")}"
 tp_valid_machine "$MACHINE" || tp_fail "not a machine of this driver: $MACHINE"
 command -v docker >/dev/null 2>&1 || tp_fail "docker is not in the PATH"
-if ! OUT="$(docker inspect -f '{{index .Config.Labels "team-platform.driver"}}' "$MACHINE" 2>&1)"; then
-  case "$OUT" in *"No such"*) echo "destroy.sh: $MACHINE does not exist" >&2; exit 0 ;; esac
-  echo "destroy.sh: $OUT" >&2; exit 1
-fi
+# Absent is asked of `docker ps`, not read from an error message: the wording of the daemon's errors changes between versions.
+FOUND="$(docker ps -a -q --no-trunc --filter "name=^/${MACHINE}\$")" || { echo "destroy.sh: docker did not answer" >&2; exit 1; }
+[ -n "$FOUND" ] || { echo "destroy.sh: $MACHINE does not exist" >&2; exit 0; }
+OUT="$(docker inspect -f '{{index .Config.Labels "team-platform.driver"}}' "$MACHINE")" || { echo "destroy.sh: $MACHINE could not be inspected" >&2; exit 1; }
 [ "$OUT" = "docker-local" ] || tp_fail "the container $MACHINE is not a machine of this driver"
 docker rm -f -v "$MACHINE" >&2 || { docker inspect "$MACHINE" >/dev/null 2>&1 && tp_fail "$MACHINE could not be removed"; }
 exit 0

@@ -14,6 +14,10 @@
 #   TP_DOCKER_STATE           directory of the driver's own state: the creation lock and the transcripts
 #                             (default ${XDG_STATE_HOME:-$HOME/.local/state}/team-platform-docker)
 
+# A `docker` shell function exported by the caller (a wrapper that allocates a terminal, for instance) would be inherited by these scripts and
+# would merge stderr into stdout, which is the NDJSON of the session. The real executable is the one the contract needs.
+unset -f docker 2>/dev/null || true
+
 TP_DOCKER_IMAGE="${TP_DOCKER_IMAGE:-team-platform-agent:local}"
 TP_DOCKER_NETWORK="${TP_DOCKER_NETWORK:-bridge}"
 TP_DOCKER_PASS_ENV="${TP_DOCKER_PASS_ENV-ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN}"

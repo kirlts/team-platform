@@ -24,10 +24,12 @@ after(async () => {
 const DESKTOP = { width: 1440, height: 900 }
 const PHONE = { width: 390, height: 844 }
 
-async function session(viewport = DESKTOP) {
+// `clock: true` gives the page a clock the test advances (`page.clock.runFor`): the life of a notice (5 s, 8 s) is checked by moving that clock, not by waiting it.
+async function session(viewport = DESKTOP, { clock = false } = {}) {
   const phone = viewport.width < 768
   const context = await panel.browser.newContext({ viewport, locale: 'es-CL', isMobile: phone, hasTouch: phone })
   const page = await context.newPage()
+  if (clock) await page.clock.install()
   await login(page, origin, 'ana')
   await page.locator('main#main').waitFor()
   await page.goto(`${origin}/team`)
@@ -51,31 +53,17 @@ async function plainNotice(page, name) {
   await page.getByRole('button', { name: 'Guardar' }).click()
   await notice(page).getByText(`Contraseña de ${name} cambiada`, { exact: true }).waitFor()
 }
-/** How long the notice stays from now, in ms, measured in the page. */
-const lifetime = (page) =>
-  page.evaluate(
-    () =>
-      new Promise((resolve) => {
-        const start = performance.now()
-        const watch = new MutationObserver(() => {
-          if (!document.querySelector('[data-notice]')) {
-            watch.disconnect()
-            resolve(performance.now() - start)
-          }
-        })
-        watch.observe(document.body, { childList: true, subtree: true })
-      }),
-  )
-
 describe('the notice of the screen (UD-253)', () => {
   test('a notice with nothing to click leaves by itself after 5 s, and has no close button', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session(DESKTOP, { clock: true })
     try {
       await plainNotice(page, 'Carla Prueba')
       assert.equal(await notice(page).getAttribute('data-notice-ms'), '5000')
       assert.equal(await notice(page).getByRole('button').count(), 0, 'the notice carries a button')
-      const ms = await lifetime(page)
-      assert.ok(ms > 4000 && ms < 5800, `it stayed ${Math.round(ms)} ms`)
+      await page.clock.runFor(4000)
+      assert.equal(await notice(page).count(), 1, 'it left before 4 s')
+      await page.clock.runFor(1800)
+      assert.equal(await notice(page).count(), 0, 'it stayed more than 5.8 s')
     } finally {
       await context.close()
     }
@@ -97,29 +85,31 @@ describe('the notice of the screen (UD-253)', () => {
   })
 
   test('the count stops while the pointer is on the notice and resumes when it leaves', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session(DESKTOP, { clock: true })
     try {
       await plainNotice(page, 'Carla Prueba')
       await notice(page).hover()
       assert.equal(await notice(page).getAttribute('data-paused'), 'true')
-      await page.waitForTimeout(6500)
+      await page.clock.runFor(6500)
       assert.equal(await notice(page).count(), 1, 'the notice left with the pointer on it')
       await page.mouse.move(5, 890)
-      const ms = await lifetime(page)
-      assert.ok(ms > 3000 && ms < 5800, `after the pointer left it stayed ${Math.round(ms)} ms`)
+      await page.clock.runFor(3000)
+      assert.equal(await notice(page).count(), 1, 'after the pointer left it stayed less than 3 s')
+      await page.clock.runFor(2800)
+      assert.equal(await notice(page).count(), 0, 'after the pointer left it stayed more than 5.8 s')
     } finally {
       await context.close()
     }
   })
 
   test('the count stops while the focus is on Deshacer, and Escape closes it', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session(DESKTOP, { clock: true })
     try {
       await deactivate(page, 'Carla Prueba')
       await notice(page).getByRole('button', { name: 'Deshacer' }).focus()
       await page.mouse.move(5, 890)
       assert.equal(await notice(page).getAttribute('data-paused'), 'true')
-      await page.waitForTimeout(8800)
+      await page.clock.runFor(8800)
       assert.equal(await notice(page).count(), 1, 'the notice left with the focus on it')
       await page.keyboard.press('Escape')
       await notice(page).waitFor({ state: 'detached', timeout: 1000 })

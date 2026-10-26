@@ -357,7 +357,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       runSql(db, 'UPDATE jobs SET payload_json = ? WHERE id = ?', JSON.stringify({ ...fresh, defer_streak: { key, n: streak } }), job.id)
       throw new Deferred(x.capacityWaitMs, step('deliverWait'))
     }
-    if (result.code === DELIVER_HELD && !payload.requested_by) {
+    if (result.code === DELIVER_HELD && !(payload.requested_by ?? payload.approved_by)) {
       const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
       return () => {
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language, label: 'proposal' }) // UD-275: what the branch looks like, for the person who reviews

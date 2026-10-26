@@ -261,6 +261,26 @@ describe('deliver job', () => {
     assert.ok(view.delivery.held >= 1, 'the summary counts «en espera de revisión» apart')
   })
 
+  it('exit 76 after a person approved in advance counts as a failure: the approval is not asked again (UD-269, UD-286)', async () => {
+    startWorker({ deliverCommand: 'true', autoClose: false })
+    const messageId = await publishedMessage('Un cobro aprobado de antemano.')
+    await settle(messageId)
+    await worker.stop()
+    const [exec] = jobsOf(messageId, 'execute')
+    const editorId = env.db.prepare("SELECT id FROM members WHERE email = 'ed@x.org'").get().id
+    const output = { outcome: 'done', summary: 'Arreglé el cobro.', zone: 'pagos' }
+    const jobId = enqueueDeliver(env.db, { messageId, payload: { member_id: agentId, branch: `tp/${messageId}`, round: 0, output, execute_job_id: exec.id, execute_attempt: 1, requested_by: null, approved_by: editorId } })
+    startWorker({ deliverCommand: 'echo "reviewed=$TEAM_REVIEWED_BY" >&2; echo \'el cambio toca pagos\'; exit 76', deliverRetries: 0 })
+    const job = await waitJob(jobId)
+    assert.equal(job.status, 'failed', 'a host that holds again after an approval broke the contract')
+    assert.match(job.last_error, /código 76/)
+    assert.match(job.last_error, new RegExp(`reviewed=${editorId}`), 'the command saw who approved')
+    const run = env.db.prepare('SELECT delivery_held FROM execute_runs WHERE job_id = ?').get(exec.id)
+    assert.notEqual(run.delivery_held, 1, 'not held')
+    assert.doesNotMatch(replies(messageId).at(-1), /Cambio listo para revisar/, 'the approval is not asked again')
+    assert.match(replies(messageId).at(-1), /^No quedó en producción/, 'the person who approved learns it failed (UD-289)')
+  })
+
   describe('the review of a held delivery (UD-275)', () => {
     const shot = (path, alt) => ({ path, alt, masked: true, place: 'Fichas > Paciente', as: 'Clínica Sur, recepción' })
     const holdUnlessReviewed = (log) => `echo "reviewed=$TEAM_REVIEWED_BY" >> ${log}; if [ -n "$TEAM_REVIEWED_BY" ]; then echo ref-reviewed; exit 0; fi; echo 'toca datos de personas'; exit 76`

@@ -315,4 +315,3 @@ Se comparó este documento con MASTER-SPEC §7.5 (`docs/MASTER-SPEC.md`), `.env.
 | MASTER-SPEC, fila de `EXECUTE_DELIVER_CHECK_COMMAND` | No dice el plazo ni el entorno | 60 s y `TEAM_JOB_ID`, `TEAM_MESSAGE_ID`, `TEAM_BRANCH` (`src/execute/deliver.js:63,193`) |
 | MASTER-SPEC, `EXECUTE_MACHINE_CREATE` | Sólo describe el 0 y el 75 | Cualquier otro código es falla de infraestructura con un segundo intento (`src/execute/handler.js:598`, `src/queue/index.js:22`) |
 | `src/config.js:385` (comentario) | `EXECUTE_MACHINE_COLLECT` recibe `{machine}` y `{job_id}` | También recibe `{workdir}` (`src/execute/runners.js:178`) |
-| `src/execute/deliver.js:8-9` (comentario) | Con `TEAM_REVIEWED_BY` lleno, el 76 cuenta como falla | El código sólo mira `requested_by` (`src/execute/deliver.js:360`). Con una aprobación anticipada de la sesión (`approved_by`), `TEAM_REVIEWED_BY` llega lleno y un 76 retiene de todos modos |

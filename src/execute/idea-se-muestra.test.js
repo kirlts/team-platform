@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, it } from 'node:test'
 import { loadConfig } from '../config.js'
+import { createFakeProviders } from '../providers/fake.js'
 import { createPipeline } from '../domain/pipeline.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { all, get } from '../db/index.js'
@@ -21,10 +22,18 @@ const PORT = 8645 // the range given to this work (8640 to 8649)
 
 describe('an idea is shown, not delivered (UD-307)', () => {
   let env, state, worker, author, editor, vault, estimates
+  // The late judgement goes through the text provider, as in production (the worker has no `claude`). FAKE_IDEA_GUARD: `off` fails the call, `true` says the Guard applies, otherwise it does not.
+  const asked = []
+  const getProviders = () => createFakeProviders({ text: (req) => {
+    asked.push(req)
+    if (process.env.FAKE_IDEA_GUARD === 'off') return new Error('anthropic: sin clave')
+    const applies = process.env.FAKE_IDEA_GUARD === 'true'
+    return { json: { idea: applies ? 0.9 : 0.1, idea_guard: applies, idea_reason: 'razón del proveedor' } }
+  } })
   const panel = (cookie) => ({ cookie, 'x-team-request': 'panel' })
   const start = () => {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, deliverCommand: 'echo abc1234' } })
-    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }), deliver: createDeliverHandler({ db: env.db, config, queue: env.queue, events: env.events }) }
+    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders }), deliver: createDeliverHandler({ db: env.db, config, queue: env.queue, events: env.events }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
     worker.start()
   }
@@ -144,7 +153,7 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await settled(id, 'execute', 1)
     await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: a delivery wrongly queued would start in less than this
     const stored = JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json)
-    assert.deepEqual([stored.idea_guard, stored.idea, stored.idea_reason, stored.certainty], [true, 0.9, 'razón del juicio tardío', 0.9], 'saved next to what was there')
+    assert.deepEqual([stored.idea_guard, stored.idea, stored.idea_reason, stored.certainty], [true, 0.9, 'razón del proveedor', 0.9], 'saved next to what was there')
     assert.equal(jobs(id, 'deliver').length, 0, 'no delivery to production')
     assert.equal((await thread(id)).pending_delivery.state, 'held')
   })
@@ -162,6 +171,10 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     const failing = await publish('otro pedido analizado antes de la Guardia y sin juicio posible')
     await until(() => jobs(failing, 'execute').length > 0 && env.db.prepare("SELECT attempts FROM jobs WHERE kind = 'execute' AND message_id = ?").get(failing).attempts >= 1, { timeoutMs: 15000 })
     await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: same as above
+    const waiting = get(env.db, "SELECT status, attempts, run_at FROM jobs WHERE kind = 'execute' AND message_id = ?", failing)
+    assert.equal(waiting.status, 'queued', 'the job waits, it does not fail')
+    assert.equal(waiting.attempts, 1, 'one attempt burned, not both within milliseconds')
+    assert.ok(waiting.run_at - Date.now() > 5000, 'the next try is a wait away, not immediate')
     assert.equal(jobs(failing, 'deliver').length, 0, 'an idea is never delivered without the judgement')
     assert.notEqual(typeof JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', failing).estimates_json).idea_guard, 'boolean')
   })

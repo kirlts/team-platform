@@ -286,7 +286,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 export async function buildWorker ({ db, config, events, queue = null, env = process.env, logger = createLogger(config), pollDataVersionMs = null }) {
   const outbox = queue ?? createQueue({ db, config, events })
   const modules = await loadModules(config, { db, env, log: (m) => logger.warn(m) })
-  const handlers = { ...createPipeline({ db, config, queue: outbox, events, modules }), execute: createExecuteHandler({ db, config, queue: outbox, events, vault: modules.vault, logger }), deliver: createDeliverHandler({ db, config, queue: outbox, events, logger }) }
+  const handlers = { ...createPipeline({ db, config, queue: outbox, events, modules }), execute: createExecuteHandler({ db, config, queue: outbox, events, vault: modules.vault, getProviders: modules.getProviders, logger }), deliver: createDeliverHandler({ db, config, queue: outbox, events, logger }) }
   const worker = createWorker({
     db, queue: outbox, events, config, handlers, logger, pollDataVersionMs,
     onSweep: () => sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000),

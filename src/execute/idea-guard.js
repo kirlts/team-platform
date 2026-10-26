@@ -4,8 +4,7 @@
 // decides. The model reads the spirit of the message and of who wrote it; the system reads the boolean it returns (invariant 11 of the host: no pattern over the words).
 import { get, run as runSql } from '../db/index.js'
 import { infra } from '../domain/errors.js'
-import { spawnStreaming } from './runners.js'
-import { costOfResult } from '../telemetry/pricing.js'
+import { estimateCostUsd } from '../telemetry/pricing.js'
 
 /** Whether the stored assessment of the message lacks the judgement: a boolean `idea_guard` is the only thing that says it was made. */
 export function ideaGuardMissing (db, messageId) {
@@ -40,28 +39,31 @@ export function ideaGuardPrompt ({ author, message, areaTitle, areaDescription }
 
 /**
  * Makes the judgement when the message lacks it and saves it in `estimates_json` next to what is there (nothing else of the assessment changes). Returns the cost of the call, or 0
- * when nothing was needed. A judgement that cannot be made fails the job as a service failure (it is tried again): delivering an idea without it is what this exists to prevent.
+ * when nothing was needed. It goes through the text provider, the same path as the analyzer that produces `idea_guard` for new messages: the worker has no `claude` executable of its own
+ * (the session runs on a machine), so spawning it here failed in milliseconds in production and burned the attempts of the job (2026-10-26, jobs 205 and 206).
+ * A judgement that cannot be made fails the job as a service failure and waits `retryAfterMs` before the next try: delivering an idea without it is what this exists to prevent.
  */
-export async function ensureIdeaGuard ({ db, config, signal, messageId, run = (opts) => spawnStreaming(opts.bin, opts.args, { env: process.env, stdin: opts.prompt, keepStdout: true, timeoutMs: opts.timeoutMs, graceMs: opts.graceMs, signal: opts.signal }) }) {
+export async function ensureIdeaGuard ({ db, signal, messageId, providers, retryAfterMs = 0 }) {
   if (!ideaGuardMissing(db, messageId)) return 0
-  const x = config.execute
+  const unavailable = (why) => infra(`No se pudo juzgar si el pedido es una idea${why ? ` (${why})` : ''}; se reintenta.`, 'idea_guard_unavailable', { retryAfterMs })
   const row = get(db, `SELECT m.title, m.body, m.fields_json, m.estimates_json, a.title AS area_title, a.description AS area_description, u.name AS author_name, u.profile AS author_profile
                          FROM messages m JOIN areas a ON a.id = m.area_id JOIN members u ON u.id = m.author_id WHERE m.id = ?`, messageId)
   let fields = {}
   try { fields = JSON.parse(row.fields_json || '{}') } catch { /* no fields */ }
   const prompt = ideaGuardPrompt({ author: { name: row.author_name, profile: row.author_profile }, message: { title: row.title, body: row.body, fields }, areaTitle: row.area_title, areaDescription: row.area_description })
-  const args = ['-p', '--model', x.judgeModel, '--output-format', 'json', '--json-schema', JSON.stringify(ideaGuardSchema()), '--tools', '', '--max-budget-usd', String(Math.min(1, x.maxBudgetUsd))]
+  const text = providers?.text
+  if (typeof text?.complete !== 'function') throw unavailable('el proveedor de texto no está configurado')
+  if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : unavailable('trabajo cancelado')
   let out = null
   let cost = 0
   try {
-    const r = await run({ bin: x.bin, args, prompt, timeoutMs: Math.min(x.timeoutMs, 300_000), graceMs: x.killGraceMs, signal }) // the same cheap model and bounds as the IMK judge
-    if (r.code === 0 && !r.spawnError) {
-      const result = JSON.parse(r.stdout ?? '')
-      out = result.structured_output
-      cost = costOfResult(result) ?? 0
-    }
-  } catch { out = null }
-  if (!out || typeof out.idea_guard !== 'boolean') throw infra('No se pudo juzgar si el pedido es una idea; se reintenta.', 'idea_guard_unavailable')
+    const r = await text.complete({ messages: [{ role: 'user', content: prompt }], schema: ideaGuardSchema(), effort: 'low', maxTokens: 1000 })
+    out = r.json
+    cost = estimateCostUsd({ provider: r.provider ?? text.name, model: r.model ?? text.model, usage: r.usage }) ?? 0
+  } catch (error) {
+    throw unavailable(String(error?.message ?? error).slice(0, 200))
+  }
+  if (!out || typeof out.idea_guard !== 'boolean') throw unavailable('respuesta sin el juicio')
   let stored = {}
   try { stored = JSON.parse(row.estimates_json ?? 'null') ?? {} } catch { stored = {} }
   const idea = typeof out.idea === 'number' && out.idea >= 0 && out.idea <= 1 ? out.idea : null

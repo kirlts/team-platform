@@ -2,7 +2,7 @@
 // Screenshots of the management zone (team, areas and templates, settings, connections, sign-in and sign-out,
 // with their empty and error states) at 1440x900 and 390x844, light and dark, against the example server.
 //
-//   node scripts/capturas-gestion.mjs [--solo desktop|mobile] [--tema light|dark] [--sin-build]
+//   `node scripts/capturas-gestion.mjs [--solo desktop|mobile] [--tema light|dark] [--sin-build]`
 //
 // Writes PNGs to capturas/gestion/. Each viewport and theme runs in parallel (independent contexts).
 import { mkdirSync } from 'node:fs'

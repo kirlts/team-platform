@@ -118,10 +118,9 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-nowrap items-center gap-x-3 text-xs text-muted [&_.guard-mark]:py-0 [&_.guard-mark]:leading-4">
         <StateMark status={message.status} plain className="min-h-0 shrink-0 px-0" />
         {/* One line in every card (V9): on a phone a long area name ends in «…» before the row grows. */}
-        {/* A short area keeps its whole name («Error» was cut to «E…» next to a Guard mark); a long one stops at 55% of the line and ends in «…». */}
-        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="max-w-[55%] shrink-0 truncate" />} {/* justified: UD-241, one line per card */}
-        {/* The marks give way first (they shrink three times faster than the area), each one cut with «…» and whole in its tooltip. */}
-        {variant === 'message' && !gone && <AssessmentMarks message={message} oneLine className="shrink-[3] overflow-hidden" />}
+        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="max-w-[55%] shrink-0" />} {/* justified: UD-241, one line per card */}
+        {/* The chip keeps its name up to 55% of the line and the marks give way first, one line each with the whole text as the tooltip: on a phone a Guard mark wrapped into a three-line box and cut «Error» to «Erro». */}
+        {variant === 'message' && !gone && <AssessmentMarks message={message} oneLine className="shrink-[4]" />}
         {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}
         <span data-testid="card-number" className="ml-auto shrink-0 tabular-nums">#{message.id}</span>
       </div>
@@ -144,9 +143,9 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         )}
       </div>
 
-      {/* The last line: who it is for on the left (kept, even empty, so every row has the line), the actions pinned to the right; in the wide layout the actions leave for their own column.
-          Below 28rem (a phone) the actions take a line of their own under the recipients: beside three buttons «para Ana Prueba, Bruno Prueba y 6 más» was squeezed into a column of four lines. */}
-      <div data-testid="card-foot" className="col-span-2 row-start-4 grid min-h-7 grid-cols-1 items-start gap-x-3 gap-y-1 @md:grid-cols-[minmax(0,1fr)_auto] @2xl:contents">
+      {/* The last line: who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
+      {/* Below 28rem of row (a phone) the actions take a line of their own under who it is for: side by side they left the names a column a word wide (three lines for one name). */}
+      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-col items-stretch gap-x-3 gap-y-1 @md:grid @md:grid-cols-[minmax(0,1fr)_auto] @md:items-start @2xl:contents">
         <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[1lh] @2xl:content-normal" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {gone && (

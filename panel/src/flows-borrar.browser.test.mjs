@@ -151,7 +151,10 @@ describe('deleting a reply (H-3701)', () => {
     const other = await session('carla')
     try {
       await openFromList(other.page, 'Arreglar el error')
-      assert.equal(await other.page.locator('section[aria-label="Respuestas"]').getByRole('button', { name: 'Borrar respuesta' }).count(), 1, 'Carla did not write it and still deletes it')
+      // The thread arrives after the title: count once its first reply is drawn, not in the frame the page opened (it read 0 under load).
+      const otherThread = other.page.locator('section[aria-label="Respuestas"]')
+      await otherThread.locator('article').first().waitFor()
+      assert.equal(await otherThread.getByRole('button', { name: 'Borrar respuesta' }).count(), 1, 'Carla did not write it and still deletes it')
     } finally {
       await other.context.close()
     }

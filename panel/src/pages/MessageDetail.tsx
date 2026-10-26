@@ -200,7 +200,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
           </h1>
           {/* The count of the thread, next to the title: the thread itself is the narrow column on the right. */}
-          <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted">
+          {/* On a phone the counter takes its own line: beside the title it left the title a column of three words (six lines for one title). */}
+          <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted max-md:basis-full">
             <span>{t('replies.title')}</span>
             <Badge tone="neutral" className="tabular-nums">
               {m.replies.length}

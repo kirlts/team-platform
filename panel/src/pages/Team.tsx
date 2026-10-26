@@ -1,4 +1,4 @@
-import { ChevronDown, UserPlus } from '@/components/icons'
+import { ChevronDown, UserPlus, MoreVertical } from '@/components/icons'
 import { useMemo, useRef, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
 import { EditableText } from '@/components/EditableText'
@@ -195,9 +195,11 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         {!self && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" disabled={busy} aria-label={t('team.actionsOf', { name: member.name })}>
-                {t('team.actions')}
-                <ChevronDown size={16} aria-hidden />
+              {/* On a phone the button is the three dots (its name stays for screen readers): the word took half the row and cut every name. */}
+              <Button size="sm" disabled={busy} aria-label={t('team.actionsOf', { name: member.name })} title={t('team.actions')} className="max-sm:w-11 max-sm:px-0">
+                <MoreVertical size={18} aria-hidden className="sm:hidden" />
+                <span className="max-sm:hidden">{t('team.actions')}</span>
+                <ChevronDown size={16} aria-hidden className="max-sm:hidden" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent

@@ -40,7 +40,6 @@ if (own) {
 }
 const started = Date.now()
 const failed = []
-const rerun = []
 let next = 0
 
 function run(job) {
@@ -54,7 +53,6 @@ function run(job) {
       const label = `${job.file}${job.shard ? ` [${job.shard}]` : ''}`
       console.log(`${code === 0 ? 'ok  ' : 'FAIL'} ${((Date.now() - t0) / 1000).toFixed(1).padStart(6)} s  ${label}`)
       if (code !== 0) {
-        rerun.push(job)
         failed.push(label)
         console.log(out.split('\n').filter((l) => /not ok|Error|expected|actual|\+ |\- /.test(l)).slice(0, 40).join('\n'))
       }
@@ -68,16 +66,6 @@ async function worker() {
 }
 try {
   await Promise.all(Array.from({ length: width }, worker))
-  // A file that failed with the pool at full width is run again alone, once and only that file: the machine of the run is shared with image builds
-  // and the pool saturates its cores (2026-10-26: on 4 cores a different file failed in each run and every one passed alone). A file that fails
-  // alone too is a real failure and stays in the list. PANEL_BROWSER_RETRY=0 turns this off to tell a failure of the file from one of the load.
-  if (rerun.length && process.env.PANEL_BROWSER_RETRY !== '0') {
-    const again = rerun.splice(0)
-    failed.length = 0
-    console.log(`reintento a solas de ${again.length} archivo(s) que cayeron con el pool lleno`)
-    for (const job of again) await run(job)
-    for (const label of failed.splice(0)) failed.push(label)
-  }
 } finally {
   if (own) rmSync(own, { recursive: true, force: true })
 }

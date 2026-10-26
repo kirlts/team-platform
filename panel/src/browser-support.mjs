@@ -252,3 +252,21 @@ export async function openTemplates(page) {
   await fold.waitFor()
   if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click()
 }
+
+/**
+ * The built panel for a test that serves it with the real server (PANEL_DIR): the build of the runner (PANEL_DEV_DIST), else panel/dist when
+ * it exists, else one built here into a folder of its own, which `drop()` removes. A worktree has no panel/dist, so a file run alone served a blank page.
+ */
+export function builtPanelDir() {
+  const shared = process.env.PANEL_DEV_DIST
+  if (shared && existsSync(join(shared, 'index.html'))) return { dir: shared, drop: () => {} }
+  if (existsSync(join(ROOT, 'dist', 'index.html'))) return { dir: join(ROOT, 'dist'), drop: () => {} }
+  const dir = mkdtempSync(join(tmpdir(), 'panel-dist-'))
+  try {
+    execFileSync('npx', ['vite', 'build', '--outDir', dir, '--emptyOutDir', '--logLevel', 'error'], { cwd: ROOT, stdio: 'ignore', timeout: BUILD_TIMEOUT_MS })
+  } catch (error) {
+    rmSync(dir, { recursive: true, force: true })
+    throw error
+  }
+  return { dir, drop: () => rmSync(dir, { recursive: true, force: true }) }
+}

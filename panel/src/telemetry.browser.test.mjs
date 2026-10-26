@@ -17,7 +17,7 @@ import path from 'node:path'
 import { after, describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { login, ROOT, settled, startPanel } from './browser-support.mjs'
+import { builtPanelDir, login, ROOT, settled, startPanel } from './browser-support.mjs'
 
 const SENTINEL = 'SENTINELA-texto-privado-4471'
 const REPLY_SENTINEL = 'SENTINELA-respuesta-privada-8820'
@@ -179,7 +179,9 @@ describe('interface telemetry in a browser', () => {
     const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'team-telemetry-'))
     const password = 'una clave larga de prueba 1'
     const root = path.resolve(ROOT, '..')
-    const env = { ...process.env, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', PROJECT_NAME: 'Humo', ADMIN_EMAIL: 'ana@humo.test', ADMIN_PASSWORD: password,
+    const built = builtPanelDir()
+    cleanups.push(async () => built.drop())
+    const env = { ...process.env, PANEL_DIR: built.dir, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', PROJECT_NAME: 'Humo', ADMIN_EMAIL: 'ana@humo.test', ADMIN_PASSWORD: password,
       ANALYZE_MODULE: path.join(root, 'src/testing/demo-modules.js'), EXTRACT_MODULE: path.join(root, 'src/testing/demo-modules.js') }
     const server = spawn(process.execPath, ['src/server.js'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
     let out = ''

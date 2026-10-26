@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 // Screenshots of the messages zone (home, composer with attachments and recipients, list with a filter, the message sheet and a thread
 // with Claude's notices) at 1440x900 and 390x844, light and dark, against the double server.
-// Flags: --sin-build skips the build, --salida <dir> picks the output folder, --solo <prefix> shoots one view.
+// Flags: --no-build skips the build, --out <dir> picks the output folder, --only <prefix> shoots one view.
 import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { login, settled, startPanel } from '../src/browser-support.mjs'
 
 const arg = (n) => (process.argv.includes(n) ? process.argv[process.argv.indexOf(n) + 1] : null)
-const out = arg('--salida') ?? fileURLToPath(new URL('../capturas/mensajes/', import.meta.url))
+const out = arg('--out') ?? fileURLToPath(new URL('../capturas/mensajes/', import.meta.url))
 mkdirSync(out, { recursive: true })
-const only = arg('--solo')
-const panel = await startPanel(Number(process.env.PANEL_CAPTURE_PORT ?? 8871), { build: !process.argv.includes('--sin-build') })
+const only = arg('--only')
+const panel = await startPanel(Number(process.env.PANEL_CAPTURE_PORT ?? 8871), { build: !process.argv.includes('--no-build') })
 const origin = panel.origin
 const problems = []
 const VPS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } }

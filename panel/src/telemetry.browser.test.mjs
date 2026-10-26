@@ -148,10 +148,18 @@ describe('interface telemetry in a browser', () => {
     assert.equal(off.status(), 200)
     await page.goto(panel.origin)
     await page.getByTestId('compose-text').last().fill(`${SENTINEL}\n\nSegundo punto del mismo texto.`)
+    // The analysis is held, so the progress stays on the page until this test moves it: with the server's clock moving it every 80 ms, a page that paints
+    // late under load never showed the progress to a `waitFor` (2026-10-26: the run timed out waiting for it with the machine busy).
+    await panel.control.hold()
     await page.getByTestId('compose-send').first().click()
     // The marks are on the page for the person to see: the progress first, then the analysis.
     await page.locator('[data-ui-stage="progress"]').first().waitFor({ timeout: 30000 })
+    // The analysis stage is measured from the painted progress, and the check below asks for at least one step of the double server (80 ms): the
+    // painted progress is kept for that long before the step. It is the duration being measured, not a wait for something to happen.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await panel.control.step({ finish: true }) // all the way to the proposal, which is what paints the analysis
     await page.locator('[data-ui-stage="analysis"]').first().waitFor({ timeout: 30000 })
+    await panel.control.release()
     const publish = page.getByTestId('proposal-send')
     await page.waitForFunction((el) => !el.disabled, await publish.elementHandle()) // a required field is filled by the demo analysis
     await publish.click()

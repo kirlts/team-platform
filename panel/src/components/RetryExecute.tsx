@@ -23,7 +23,7 @@ export function RetryExecute({ messageId, reply, children }: { messageId: string
       {reply.retryable && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="secondary" data-testid="retry-execute" onClick={() => retry.mutate(reply.id)}>
-            <RotateCw size={14} aria-hidden /> {t('replies.retry')}
+            <RotateCw size={14} aria-hidden /> {t(reply.retry_action === 'publish' ? 'replies.retryPublish' : 'replies.retry')}
           </Button>
           {retry.isError && (
             <span role="alert" className="min-w-0 break-words text-sm text-danger">

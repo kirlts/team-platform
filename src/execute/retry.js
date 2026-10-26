@@ -84,6 +84,16 @@ export function retryBlock (db, reply) {
   return null
 }
 
+/**
+ * What «Reintentar» will do for the notice `reply`, by the same rule as `retryExecute`: `publish` (the delivery of the branch that already exists, no session) or `work`
+ * (a new session of Claude, which is paid). The panel names the button with it; nothing is decided in the browser.
+ */
+export function retryAction (db, reply) {
+  const job = get(db, "SELECT id, kind FROM jobs WHERE id = ? AND kind IN ('execute', 'deliver')", reply.failed_job_id)
+  if (!job) return null
+  return job.kind === 'deliver' || deliversBranchInstead(db, reply, job) ? 'publish' : 'work'
+}
+
 /** The ids of `replies` (rows with `failed_job_id`) that can be retried now: what the panel draws as «Reintentar». */
 export function retryableIds (db, rows) {
   return new Set(rows.filter((r) => r.failed_job_id !== null && r.failed_job_id !== undefined && retryBlock(db, r) === null).map((r) => r.id))

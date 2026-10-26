@@ -11,18 +11,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { all, get, run } from '../db/index.js'
 import { addResumeNote } from '../domain/progress-notes.js'
-import { retryBlock, retryExecute, watchBudget } from './retry.js'
+import { INFRA, retryBlock, retryExecute, watchBudget } from './retry.js'
 
 // Failure code of a notice → cause of the environment. A code that is not here is not an infrastructure failure: the verification of a change that failed
 // (`deliver_failed`) goes back to Claude by its own rule (UD-298), and the limits of one session (steps, spend) are not fixed by trying again at start.
-const INFRA = {
-  machine_create_failed: 'machine', execute_no_result: 'machine', execute_api_error: 'machine', capacity: 'machine',
-  execute_timeout: 'timeout', deliver_timeout: 'timeout',
-  deliver_env: 'deliver', lease_expired: 'interrupted', system: 'system',
-  // The Guard of the idea could not be judged (the model service did not answer): the `infra` error of `idea-guard.js`. The failure of #125 on 2026-10-26 (jobs 204 to 220)
-  // ended with this code and was not here, so no start picked it up. `resume.test.js` makes every code thrown with `infra(...)` appear in this table.
-  idea_guard_unavailable: 'service'
-}
 // What comes back with capacity: the failures of getting a machine. The rest waits for the next start.
 const CAPACITY = new Set(['machine_create_failed', 'capacity', 'execute_no_result'])
 

@@ -145,7 +145,7 @@ describe('failures of the environment are relaunched by event', () => {
     const NOT_FIXED_BY_TRYING_AGAIN = new Set(['execute_flag_rejected']) // retry.js: the host's flags; another try fails the same way
     for (const code of codes) {
       if (NOT_FIXED_BY_TRYING_AGAIN.has(code)) continue
-      const table = readFileSync(path.join(src, 'execute', 'resume.js'), 'utf8')
+      const table = readFileSync(path.join(src, 'execute', 'retry.js'), 'utf8')
       assert.match(table, new RegExp(`\\b${code}\\b`), `${code} is thrown as infra and the start does not relaunch it`)
     }
   })

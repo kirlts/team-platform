@@ -431,6 +431,8 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
       assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'the development data has open and answered messages for Ana')
       const bar = page.getByTestId('status-bar')
+      // The marks are drawn when the summary reaches the page: waited for as an element, not counted at the first instant after the shell opened.
+      await bar.locator('[data-testid="state-button"][data-status="closed"]').waitFor()
       assert.equal(await bar.locator('[data-testid="state-button"][data-status="closed"]').count(), 1, 'the closed state has its mark too')
       for (const [status, n] of [['open', summary.mine.open], ['answered', summary.mine.answered]]) {
         const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)

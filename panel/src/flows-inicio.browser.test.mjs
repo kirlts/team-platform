@@ -135,13 +135,15 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await page.getByTestId('published-message').first().waitFor({ timeout: 20000 })
       await send(page, 'Segundo envío de la ráfaga: agregar la exportación a CSV.')
       const switcher = page.getByTestId('send-switcher')
-      await switcher.waitFor()
+      // Each send has its own option: both are waited for as events of the page. The selector is redrawn while the second send goes from «going up» to
+      // «the server has it», so its option count is not a fact to read at one instant (2026-10-26: 1 of 2 runs with the machine busy).
+      const first = switcher.getByRole('option').filter({ hasText: /Primer envío/ }).first()
+      await first.waitFor()
+      await switcher.getByRole('option').filter({ hasText: /Segundo envío/ }).first().waitFor()
       const before = await page.getByTestId('send-drawer').boundingBox()
-      assert.ok((await switcher.getByRole('option').count()) >= 2, 'each submission has its own option')
       // «N para revisar» that obliges another click does not exist: everything is in the drawer.
       assert.equal(await page.getByText(/para revisar/).count(), 0)
       // Opening another send changes the content in place, not the place of the drawer.
-      const first = switcher.getByRole('option').filter({ hasText: /Primer envío/ }).first()
       await first.click()
       await page.getByTestId('original-box').getByText('Primer envío de la ráfaga').waitFor()
       const after = await page.getByTestId('send-drawer').boundingBox()
@@ -161,7 +163,9 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const switcher = page.getByTestId('send-switcher')
       await switcher.waitFor()
       const options = switcher.getByRole('option')
-      await options.nth(1).waitFor()
+      // While the second send goes from «going up» to «the server has it» the selector draws it twice for a moment: the count of two is an event the
+      // page reaches, waited for in the page, and not a number read at the first instant there are two options.
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="send-switcher"] [role="option"]').length === 2)
       assert.equal(await options.count(), 2)
       const row = await switcher.boundingBox()
       const labels = []

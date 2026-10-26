@@ -236,7 +236,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
             </span>
           ),
         )}
-        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline">
+        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline">
           <span className="tabular-nums">{templateCount}</span>
           <span className="sm:sr-only"> {t('areas.templateCount', { n: templateCount }).replace(/^\S+\s*/, '')}</span>
         </Link>

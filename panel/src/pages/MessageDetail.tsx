@@ -190,15 +190,16 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2">
+        <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2 max-md:flex-wrap">
           {/* The number of the message, as a tracker shows it next to the title (#115): the team refers to messages by it. */}
           <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted md:text-base">#{m.id}</span>
           {/* The title takes the whole row while its field is open (CSS, in the same frame: no jump); otherwise the reply counter sits right after its last word. */}
-          <h1 className="min-w-0 has-[textarea]:flex-1">
+          <h1 className="min-w-0 has-[textarea]:flex-1 max-md:flex-1">
             <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
           </h1>
           {/* The count of the thread, next to the title: the thread itself is the narrow column on the right. */}
-          <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted">
+          {/* On a phone the counter takes its own line: beside the title it left the title a column of three words (six lines for one title). */}
+          <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted max-md:basis-full">
             <span>{t('replies.title')}</span>
             <Badge tone="neutral" className="tabular-nums">
               {m.replies.length}

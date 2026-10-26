@@ -1465,6 +1465,7 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 
 Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, como en la opinión de arriba.
 **Consecuencias:** Migración `0034`. `src/domain/assessment.js`, `src/domain/execute-models.js`, `src/execute/judge.js`, `scripts/repo-map.mjs`, `bench/model-limits.mjs`. `team map` y `team guard`. `PUT /api/messages/:id/assessment`. `GET /areas` trae `execute_model`, `execute_model_light` y `guards`; `GET /messages/:id/timing` trae `model`, `cost_usd` y `judgment`. Variables `EXECUTE_LIGHT_MODEL`, `EXECUTE_LIGHT_LIMITS`, `EXECUTE_JUDGE_MODEL`, `EXECUTE_DIRECT_HOST_INSTRUCTIONS`, `EXECUTE_DIRECT_SESSION_ENV`, `EXECUTE_DIRECT_STOP_COMMAND` y `EXECUTE_DIRECT_TOOLS`. Pruebas: `src/execute/area-model.test.js`, `src/execute/light-session.test.js`, `src/analyze/assessment.test.js`, `scripts/repo-map.test.mjs`, `panel/src/flows-modelo-por-area.browser.test.mjs`. MASTER-SPEC §7.5.
+**Enmienda 2026-10-26:** el juez IMK va por el proveedor de texto, el mismo del analizador, y no por un `claude -p` lanzado en el trabajador: la imagen del trabajador no trae ese ejecutable y ningún trabajo quedó juzgado. Su modelo es el del proveedor de texto (`TEXT_MODEL`); `EXECUTE_JUDGE_MODEL` se retira. El resto de la decisión no cambia.
 **Condiciones de reversión:** Las fija Martín.
 
 ## [UD-296] El hilo muestra todas las respuestas, una entrega fallida lo dice cada vez y una rama ya entregada cuenta como entregada

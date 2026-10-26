@@ -520,6 +520,8 @@ Si el input supera el umbral de partición, se parte sólo por fronteras estruct
 
 #### Ejecución (`src/execute/`)
 
+El contrato completo con el anfitrión (variables, las cinco órdenes, marcadores, códigos de salida y versión) vive en `docs/CONTRATO-DE-ANFITRION.md`, y ese documento manda sobre lo que sigue.
+
 El trabajo `execute` (UD-254, UD-255, H-3724) corre una sesión desatendida de Claude Code que trabaja un mensaje asignado a un miembro agente. `EXECUTE_RUNNER` elige dónde corre:
 
 | Valor | Dónde corre |

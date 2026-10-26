@@ -82,6 +82,7 @@ const shell = (command, opts) => spawnStreaming('/bin/sh', ['-c', command], opts
 /** Local runner: `claude` with the arguments, the prompt on stdin. */
 export async function runLocal ({ config, args, prompt, cwd, env, onData, signal }) {
   const x = config.execute
+  // fuera-de-la-imagen: claude — the local runner is the host's own machine; the worker image has no claude and production runs the session in `machine` (EXECUTE_RUNNER=machine)
   return spawnStreaming(x.bin, args, { cwd, env, stdin: prompt, onData, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs, signal })
 }
 

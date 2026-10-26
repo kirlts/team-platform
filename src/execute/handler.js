@@ -262,6 +262,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         worktree = join(workdir, 'repo')
         await releaseBranch(root, `tp/${messageId}`)
         // A second pass after a failed delivery continues from the branch the first one left; a first pass starts it from HEAD.
+        // fuera-de-la-imagen: git — only with EXECUTE_RUNNER=local, which runs on the host's own machine where the repository is; production uses `machine`
         await run('git', ['-C', x.repoDir, 'worktree', 'add', ...(resume ? [worktree, `tp/${messageId}`] : ['-B', `tp/${messageId}`, worktree])])
         cwd = worktree
       }
@@ -279,20 +280,24 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
    */
   async function releaseBranch (root, branch) {
     try {
+      // fuera-de-la-imagen: git — only with EXECUTE_RUNNER=local, which runs on the host's own machine where the repository is; production uses `machine`
       const { stdout } = await run('git', ['-C', x.repoDir, 'worktree', 'list', '--porcelain'])
       for (const entry of stdout.split('\n\n')) {
         const path = /^worktree (.+)$/m.exec(entry)?.[1]
         if (!path || !entry.includes(`branch refs/heads/${branch}`)) continue
         if (!path.startsWith(`${root}/execute-`) || !path.endsWith('/repo')) continue
+        // fuera-de-la-imagen: git — only with EXECUTE_RUNNER=local, which runs on the host's own machine where the repository is; production uses `machine`
         await run('git', ['-C', x.repoDir, 'worktree', 'remove', '--force', path]).catch(() => {})
         await rm(join(path, '..'), { recursive: true, force: true })
       }
+      // fuera-de-la-imagen: git — only with EXECUTE_RUNNER=local, which runs on the host's own machine where the repository is; production uses `machine`
       await run('git', ['-C', x.repoDir, 'worktree', 'prune'])
     } catch (e) { logger?.warn({ err: e }, 'could not release the branch of the message from an old worktree') }
   }
 
   async function cleanup ({ workdir, worktree }) {
     // The branch stays for a person to deliver (UD-254 point 6); only the worktree and the job dir go.
+    // fuera-de-la-imagen: git — only with EXECUTE_RUNNER=local, which runs on the host's own machine where the repository is; production uses `machine`
     if (worktree) await run('git', ['-C', x.repoDir, 'worktree', 'remove', '--force', worktree]).catch((e) => logger?.warn({ err: e }, 'could not remove the execute worktree'))
     await rm(workdir, { recursive: true, force: true })
   }
@@ -303,6 +308,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
    */
   async function branchExists (branch) {
     if (!x.repoDir) return true
+    // fuera-de-la-imagen: git — only with EXECUTE_RUNNER=local, which runs on the host's own machine where the repository is; production uses `machine`
     const git = (...args) => run('git', ['-C', x.repoDir, ...args], { timeout: x.deliverTimeoutMs })
     try { await git('rev-parse', '--verify', '--quiet', `refs/heads/${branch}`); return true } catch { /* not a local branch */ }
     try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }

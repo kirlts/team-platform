@@ -12,12 +12,13 @@ export function UiSummaryLine({ enabled }: { enabled: boolean }) {
   const abandoned = tasks.reduce((n, x) => n + (x.abandoned ?? 0), 0)
   const errors = summary.errors?.total ?? 0
   if (visits + started + errors === 0) return <p data-ui-summary className="text-sm text-muted">{t('summary.empty')}</p>
+  // The period goes first: as the last item it wrapped alone onto a second line, away from the figures it qualifies.
   const figures: [string, string][] = [
+    [t('summary.days', { n: summary.days }), ''],
     [t('summary.visits'), String(visits)],
     [t('summary.tasks'), String(started)],
     [t('summary.errors'), String(errors)],
     [t('summary.abandon'), started === 0 ? '—' : `${Math.round((abandoned / started) * 100)} %`],
-    [t('summary.days', { n: summary.days }), ''],
   ]
   return (
     <dl data-ui-summary aria-label={t('summary.label')} className="flex flex-wrap gap-x-5 gap-y-0.5 text-sm">

@@ -8,7 +8,7 @@ let panel
 let origin = ''
 
 before(async () => {
-  panel = await startPanel(Number(process.env.PANEL_FLOWS_PORT ?? 8806), { stepMs: 80 })
+  panel = await startPanel(Number(process.env.PANEL_FLOWS_PORT ?? 9202), { stepMs: 80 })
   origin = panel.origin
 })
 beforeEach(async () => {

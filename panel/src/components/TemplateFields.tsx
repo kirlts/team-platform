@@ -62,7 +62,7 @@ export function TemplateFields({
                     // The same list when there is nothing to remove: this runs on every render and a new array each time would never settle.
                     if (!editing) setAdding((a) => (a.includes(f.name) ? a.filter((n) => n !== f.name) : a))
                   }}
-                  placeholder={closed ? t('fields.optional') : t('fields.fill')}
+                  placeholder={closed ? t('fields.optional') : ''}
                   displayClassName={boxed ? 'border-line' : undefined}
                   emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
                   validate={f.required && !closed ? (v) => (v ? null : t('fields.requiredError')) : undefined}

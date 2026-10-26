@@ -242,7 +242,7 @@ export function failureBody (error, language, { timeoutMs = 0, mentionAgent = nu
 
 const fingerprint = (m) => JSON.stringify([m.title, m.body, m.fields_json, m.area_id, m.template_id])
 
-export function createExecuteHandler ({ db, config, queue, events, vault, getProviders = () => null, logger = null, now = Date.now, progressUnitMs = 60_000 /* calendar constant: one minute; a test shortens it */ }) {
+export function createExecuteHandler ({ db, config, queue, events, vault, getProviders = () => null, logger = null, now = Date.now, progressUnitMs = 60_000 /* calendar constant: one minute */, progressClock = null /* a test's injected clock for the progress notices */ }) {
   const x = config.execute
   const ajv = new Ajv({ allErrors: true, strict: false })
 
@@ -489,7 +489,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       if (name === 'run') {
         session = createSessionTracer({ model })
         // UD-293: from here until the session ends, a notice in the thread every `progress_interval_min` of the template.
-        notices = startProgressNotices({ db, events, now, logger, jobId: job.id, messageId, authorId: memberId, language: author?.language, intervalMin: templateRow?.progress_interval_min ?? DEFAULT_PROGRESS_INTERVAL_MIN, unitMs: progressUnitMs, reader })
+        notices = startProgressNotices({ db, events, now, clock: progressClock, logger, jobId: job.id, messageId, authorId: memberId, language: author?.language, intervalMin: templateRow?.progress_interval_min ?? DEFAULT_PROGRESS_INTERVAL_MIN, unitMs: progressUnitMs, reader })
         // UD-303: the session really starts here (the machine exists): the thread says so, and a waiting row of this job closes.
         try {
           const row = { db, events, now }

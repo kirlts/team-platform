@@ -1,0 +1,62 @@
+# `main` sólo avanza a un commit que ya está en `desarrollo`. El repositorio es privado en el plan gratuito y la protección de rama
+# no existe (`gh api repos/kirlts/team-platform/branches/main/protection` responde 403 «Upgrade to GitHub Pro»), así que del lado del
+# servidor esto mide en cada empujón a `main` y, si el commit nuevo no es `desarrollo` ni ancestro suyo (o reescribe `main`), abre un
+# issue con la etiqueta `alerta` y devuelve `main` al último commit válido con --force-with-lease. Corre en `ubuntu-latest`
+# (gratis en repositorios privados dentro de la cuota; este repositorio no declara ningún ejecutor propio).
+# Los empujones con `github.token` no disparan flujos: la devolución no vuelve a correr este.
+name: main solo desde desarrollo
+on:
+  push:
+    branches: [main]
+concurrency:
+  group: main-solo-desde-desarrollo
+  cancel-in-progress: false
+permissions:
+  contents: write
+  issues: write
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: ¿El commit nuevo de main está en desarrollo?
+        id: medir
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUEVO: ${{ github.sha }}
+          ANTES: ${{ github.event.before }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -u
+          git fetch -q origin desarrollo
+          DES=$(git rev-parse origin/desarrollo)
+          if VALIDO=$(bash scripts/main-solo-desde-desarrollo.sh "$NUEVO" "$DES" "$ANTES"); then
+            echo "fallo=0" >> "$GITHUB_OUTPUT"
+            echo "main ($NUEVO) está en desarrollo ($DES)."
+          else
+            echo "fallo=1" >> "$GITHUB_OUTPUT"
+            echo "valido=$VALIDO" >> "$GITHUB_OUTPUT"
+            echo "main ($NUEVO) no está en desarrollo ($DES); último válido: ${VALIDO:-ninguno}"
+          fi
+      - name: Devolver main al último commit válido
+        if: steps.medir.outputs.fallo == '1' && steps.medir.outputs.valido != ''
+        env:
+          NUEVO: ${{ github.sha }}
+          VALIDO: ${{ steps.medir.outputs.valido }}
+        run: git push --force-with-lease="refs/heads/main:$NUEVO" origin "$VALIDO:refs/heads/main"
+      - name: Avisar
+        if: steps.medir.outputs.fallo == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUEVO: ${{ github.sha }}
+          VALIDO: ${{ steps.medir.outputs.valido }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          gh label create alerta --color B60205 --description "Aviso para Claude Code" 2>/dev/null || true
+          gh issue create --label alerta --title "Algo llegó a main sin pasar por desarrollo" --body "main recibió \`$NUEVO\` (empujó $ACTOR), que no es desarrollo ni ancestro suyo, o reescribió main. Se devolvió main a \`${VALIDO:-nada: sin commit válido}\`. Todo se fusiona a desarrollo; main lo mueve el despliegue."
+          exit 1

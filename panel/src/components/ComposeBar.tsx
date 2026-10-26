@@ -161,6 +161,8 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
           />
         )}
       </div>
+      {/* The files sit with the text they go with, before the controls: the same order as the reply form. Under the action they read as something sent apart. */}
+      <MediaDraftList draft={draft} />
       {/* The controls sit under the field, grouped by function: what adds content on the left, who sends and the one action on the right. On a phone the tools go first, then the author, and the action takes the row. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 pb-3 pt-2">
         <div className="flex flex-wrap items-center gap-1 max-md:order-1 max-md:gap-0">
@@ -177,9 +179,6 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
           </Button>
         </div>
       </div>
-
-      <MediaDraftList draft={draft} />
-
     </div>
     </div>
   )

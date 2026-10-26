@@ -1,0 +1,23 @@
+#!/bin/sh
+# `main` sólo avanza al commit de `desarrollo` que el despliegue puso en producción. Todo trabajo se fusiona a `desarrollo`.
+# Un empujón a `main` sale únicamente si el despliegue lo declara (DEPLOY_PUBLISHES_MAIN=<el mismo sha que se empuja>,
+# la marca que exporta sólo el guion de despliegue del repositorio que despliega) y el sha es `desarrollo` o un
+# ancestro suyo, por avance rápido. Borrar `main` o reescribirla no sale nunca. Se activa con `git config core.hooksPath .githooks`.
+# Lo mismo lo mide, del lado del servidor, .github/workflows/main-solo-desde-desarrollo.yml (el repositorio es privado en el
+# plan gratuito: la protección de rama devuelve 403 «Upgrade to GitHub Pro»).
+CERO=0000000000000000000000000000000000000000
+MAIN=""; MAIN_REMOTO=""
+while read -r _local local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] && { MAIN="$local_sha"; MAIN_REMOTO="$remote_sha"; }
+done
+[ -n "$MAIN" ] || exit 0
+no() { echo "  «main» no se empuja: $1" >&2; echo "  Todo se fusiona a «desarrollo»; «main» lo mueve el despliegue." >&2; exit 1; }
+[ "$MAIN" != "$CERO" ] || no "no se borra."
+[ "${DEPLOY_PUBLISHES_MAIN:-}" = "$MAIN" ] || no "sólo lo empuja el despliegue, con la marca de ese sha."
+DESTINO="${2:-origin}"
+DES=$(git ls-remote "$DESTINO" refs/heads/desarrollo 2>/dev/null | cut -f1)
+[ -n "$DES" ] || no "no pude leer «desarrollo» del remoto."
+git cat-file -e "$DES^{commit}" 2>/dev/null || git fetch -q "$DESTINO" refs/heads/desarrollo 2>/dev/null
+RAIZ=$(git rev-parse --show-toplevel)
+if bash "$RAIZ/scripts/main-solo-desde-desarrollo.sh" "$MAIN" "$DES" "$MAIN_REMOTO" >/dev/null 2>&1; then exit 0; fi
+no "$MAIN no es «desarrollo» ($DES) ni un ancestro suyo, o reescribe «main»."

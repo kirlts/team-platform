@@ -27,7 +27,7 @@ export function AreaGuards({ area, canEdit }: { area: Area; canEdit: boolean }) 
   const required = (v: string) => (v.trim() === '' ? t('common.required') : null)
   return (
     <>
-      <Button type="button" variant="secondary" size="sm" className="px-3 text-xs" data-testid="area-guards-open" onClick={() => setOpen(true)}>
+      <Button type="button" variant="secondary" size="sm" className="h-10 px-3" data-testid="area-guards-open" onClick={() => setOpen(true)}>
         {t('areas.guards')}{guards.length > 0 && <span className="ml-1.5 tabular-nums text-muted">{guards.length}</span>}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>

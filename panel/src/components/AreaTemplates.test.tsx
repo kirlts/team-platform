@@ -92,7 +92,7 @@ describe('the templates of an area', () => {
     mount()
     const all = await rows()
     for (const row of all) {
-      expect(within(row).getAllByRole('button').map((b) => b.getAttribute('data-testid') ?? b.textContent?.trim())).toEqual(['template-open', L('areas.deleteShort')])
+      expect(within(row).getAllByRole('button').map((b) => b.getAttribute('data-testid') ?? b.textContent?.trim())).toEqual(['template-open', L('bulk.delete')])
       expect(within(row).getAllByRole('checkbox')).toHaveLength(1)
     }
   })

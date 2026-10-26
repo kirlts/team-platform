@@ -402,6 +402,7 @@ for (const [width, height] of SIZES) {
           () =>
             new Promise((resolve) => {
               const start = performance.now()
+              // wall-clock-ok: a window of observation to prove that nothing happens (no repeated request, no video mounted); a slow machine only makes it quieter, it cannot make it fail
               const tick = () => (performance.now() - start >= 5000 ? resolve(undefined) : requestAnimationFrame(tick))
               requestAnimationFrame(tick)
             }),
@@ -449,6 +450,7 @@ for (const [width, height] of SIZES) {
           () =>
             new Promise((resolve) => {
               const start = performance.now()
+              // wall-clock-ok: a window of observation to prove that nothing happens (no repeated request, no video mounted); a slow machine only makes it quieter, it cannot make it fail
               const tick = () => (performance.now() - start >= 5000 ? resolve(undefined) : requestAnimationFrame(tick))
               requestAnimationFrame(tick)
             }),

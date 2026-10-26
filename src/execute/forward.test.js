@@ -15,7 +15,7 @@ import { createDeliverHandler } from './deliver.js'
 import { createExecuteHandler } from './handler.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8645 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: two suites shared 8645 and collided with EADDRINUSE when run in parallel
 const REASON = 'Investiga por qué falla la agenda y dime qué recomiendas, en un PDF.'
 const ASK = { close: true, close_reason: 'Ya no queda nada para quien lo envió.' }
 
@@ -80,7 +80,7 @@ describe('a message forwarded to an agent (UD-272)', () => {
     env.ana = await login(env, 'ana@x.org')
     const created = await api('POST', '/api/members', editor, { email: 'claude@x.org', name: 'Claude', kind: 'agent', profile: 'Perfil del agente.' })
     agentId = Number(created.json().id)
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(() => { process.env.FAKE_EXECUTE_MODE = 'ok'; process.env.FAKE_EXECUTE_REPLY = '1' })
   after(async () => { await worker?.stop(); await env.close() })

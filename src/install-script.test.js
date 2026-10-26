@@ -52,7 +52,9 @@ function install ({ clone, bin }, env = {}, args = []) {
   })
 }
 
-const gitConfig = (clone) => spawnSync('git', ['config', 'core.hooksPath'], { cwd: clone, encoding: 'utf8' }).stdout.trim()
+// Only the config of the clone: a machine that sets core.hooksPath for its own user (the deployment machine does: 2026-10-26, «'.githooks' !== ''»)
+// must not make the clone look as if install.sh had already run.
+const gitConfig = (clone) => spawnSync('git', ['config', '--local', 'core.hooksPath'], { cwd: clone, encoding: 'utf8' }).stdout.trim()
 
 test('H-42: install.sh activates the pre-commit hook of the clone, also with --no-start', () => {
   const env = makeClone('hooks')

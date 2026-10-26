@@ -21,7 +21,7 @@ const SESSION_BIN = fileURLToPath(new URL('./sesion.sh', import.meta.url))
 chmodSync(SESSION_BIN, 0o755)
 process.env.FAKE_CLAUDE = FAKE_CLAUDE
 process.env.FAKE_JUDGE = 'off' // the judgement of the work has its own test; it is not part of this contract
-const FAKE_ENV = ['FAKE_EXECUTE_MODE', 'FAKE_EXECUTE_REPLY', 'FAKE_EXECUTE_EXTRA', 'FAKE_EXECUTE_CAPTURE_FILES', 'FAKE_EXECUTE_ATTACHMENT_FILES', 'FAKE_EXECUTE_START_CAPTURES', 'FAKE_EXECUTE_START_ZONE', 'FAKE_EXECUTE_SLEEP_MS', 'FAKE_EXECUTE_GIT', 'FAKE_EXECUTE_FAIL_FIRST', 'FAKE_EXECUTE_FAIL_MODE', 'FAKE_EXECUTE_MULTI']
+const FAKE_ENV = ['FAKE_EXECUTE_MODE', 'FAKE_EXECUTE_REPLY', 'FAKE_EXECUTE_EXTRA', 'FAKE_EXECUTE_CAPTURE_FILES', 'FAKE_EXECUTE_ATTACHMENT_FILES', 'FAKE_EXECUTE_START_CAPTURES', 'FAKE_EXECUTE_START_ZONE', 'FAKE_EXECUTE_SLEEP_MS', 'FAKE_EXECUTE_GIT', 'FAKE_EXECUTE_FAIL_FIRST', 'FAKE_EXECUTE_FAIL_MODE', 'FAKE_EXECUTE_MULTI', 'FAKE_EXECUTE_GATE']
 
 /** The sessions of the suite run as the first reply and the final output of a normal job unless a test says otherwise. */
 export function resetSession () {
@@ -82,14 +82,14 @@ export async function iniciarCiclo ({ execute = {}, estimates = null, martinProf
     /** Who the fake analyzer assigns the next messages to: `Claude` (omission) or the name of a person (`Ed`). */
     set asignado (name) { assignee = name },
     /** Starts a worker (a new «deploy» of the service). `over` overrides the EXECUTE_* of this start. */
-    iniciar (over = {}, { unitMs = progressUnitMs } = {}) {
+    iniciar (over = {}, { unitMs = progressUnitMs, progressClock = null } = {}) {
       // One configuration for the API and the worker (`POST /messages/:id/deliver` needs the order declared): the EXECUTE_* of the instance are rewritten in place, from its defaults.
       lastConfig = env.config
       for (const key of Object.keys(lastConfig.execute)) delete lastConfig.execute[key]
       Object.assign(lastConfig.execute, structuredClone(baseExecute), { bin: SESSION_BIN, machineBin: SESSION_BIN, teamUrl, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 50, capacityWaitMs: 300 }, execute, over)
       const handlers = {
         ...createPipeline({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, modules: env.modules }),
-        execute: createExecuteHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, vault, progressUnitMs: unitMs }),
+        execute: createExecuteHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, vault, progressUnitMs: unitMs, progressClock }),
         deliver: createDeliverHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events })
       }
       worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config: lastConfig, handlers, resume: (trigger) => resumeInfraFailures({ db: env.db, config: lastConfig, events: env.events }, { trigger }) })

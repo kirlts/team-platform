@@ -7244,6 +7244,10 @@ export interface paths {
                                 slowest_tools?: {
                                     [key: string]: unknown;
                                 }[];
+                                /** @description Tokens and cost by model, subagents included. */
+                                model_usage?: {
+                                    [key: string]: unknown;
+                                }[] | null;
                             }[];
                             page?: number;
                             limit?: number;

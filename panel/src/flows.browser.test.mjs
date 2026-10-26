@@ -431,6 +431,8 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
       assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'the development data has open and answered messages for Ana')
       const bar = page.getByTestId('status-bar')
+      // The marks are drawn when the summary reaches the page: waited for as an element, not counted at the first instant after the shell opened.
+      await bar.locator('[data-testid="state-button"][data-status="closed"]').waitFor()
       assert.equal(await bar.locator('[data-testid="state-button"][data-status="closed"]').count(), 1, 'the closed state has its mark too')
       for (const [status, n] of [['open', summary.mine.open], ['answered', summary.mine.answered]]) {
         const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
@@ -860,8 +862,13 @@ describe('publishing flow (round 1, judge B)', () => {
     try {
       await sendInput(page, 'Un punto para analizar dos veces.')
       await openFirst(page, 20000)
+      // The analysis is held while it re-runs and released once the page shows it running: the proposal comes back folded only for a page that saw the analysis.
+      // Left free, a loaded machine finished it before the page asked again, the open proposal was never replaced and «Abrir el mensaje 1» never appeared.
+      await panel.control.hold()
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
       assert.equal(await page.getByRole('dialog', { name: 'Volver a analizar' }).count(), 0, 'with no changes there is no need to confirm')
+      await page.getByText('En espera').first().waitFor()
+      await panel.control.release()
       await openFirst(page, 20000)
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Cambio que se perdería')

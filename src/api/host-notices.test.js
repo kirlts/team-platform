@@ -11,19 +11,19 @@ import { addMember, makeEnv } from '../testing/helpers.js'
 
 const ISSUER = 'https://anfitrion.example'
 const AUDIENCE = 'team-platform'
-const JWKS_PORT = 8610
+let JWKS_PORT = 0 // ephemeral, set after listen: two suites shared 8610 and collided with EADDRINUSE when run in parallel
 const keys = generateKeyPairSync('rsa', { modulusLength: 2048 })
 let jwksServer
 
 before(async () => {
   const jwk = { ...(await exportJWK(keys.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' }
   jwksServer = createServer((req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ keys: [jwk] })) })
-  await new Promise((r) => jwksServer.listen(JWKS_PORT, '127.0.0.1', r))
+  await new Promise((r) => jwksServer.listen(0, '127.0.0.1', r)); JWKS_PORT = jwksServer.address().port
 })
 after(() => new Promise((r) => jwksServer.close(r)))
 
 // The configuration of the host site: provisioning on, which is exactly what could create an account by asking.
-const hostConfig = {
+const hostConfig = () => ({
   config: {
     identity: {
       provider: 'jwt',
@@ -31,7 +31,7 @@ const hostConfig = {
       delegated: { mode: 'jwt', secrets: ['secreto-agente'], jwt: { jwksUrl: `http://127.0.0.1:${JWKS_PORT}/jwks.json`, jwksCooldownMs: 0, issuer: ISSUER, audience: AUDIENCE } }
     }
   }
-}
+})
 const bearer = async (claims) => ({ authorization: `Bearer ${await new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuer(ISSUER).setAudience(AUDIENCE).setIssuedAt().setExpirationTime('5m').sign(keys.privateKey)}` })
 const notices = async (env, claims, query = '') => env.app.inject({ url: `/api/host/notices${query}`, headers: await bearer(claims) })
 
@@ -51,7 +51,7 @@ function seedMessages (env, ids) {
 }
 
 test('UD-301 · a member of the host token gets her own counts and her latest notices, open before answered, each with its path', async () => {
-  const env = await makeEnv(hostConfig)
+  const env = await makeEnv(hostConfig())
   const ids = { ana: await addMember(env, { email: 'ana@x.org', name: 'Ana' }), beto: await addMember(env, { email: 'beto@x.org', name: 'Beto' }) }
   const m = seedMessages(env, ids)
   const r = await notices(env, { email: 'ana@x.org', name: 'Ana' })
@@ -75,7 +75,7 @@ test('UD-301 · a member of the host token gets her own counts and her latest no
 })
 
 test('UD-301 · an email that is not a member is 404 and nothing is created, although the host provisions on entry', async () => {
-  const env = await makeEnv(hostConfig)
+  const env = await makeEnv(hostConfig())
   await addMember(env, { email: 'ana@x.org' })
   const before = all(env.db, 'SELECT id FROM members').length
   const r = await notices(env, { email: 'nadie@x.org', name: 'Nadie', team_role: 'editor' })
@@ -87,7 +87,7 @@ test('UD-301 · an email that is not a member is 404 and nothing is created, alt
 })
 
 test('UD-301 · asking applies no role and issues no session of our own', async () => {
-  const env = await makeEnv(hostConfig)
+  const env = await makeEnv(hostConfig())
   await addMember(env, { email: 'ana@x.org', role: 'member' })
   const r = await env.app.inject({ url: '/api/host/notices', headers: { ...(await bearer({ email: 'ana@x.org', role: 'editor' })), 'sec-fetch-site': 'same-origin' } })
   assert.equal(r.statusCode, 200)
@@ -99,7 +99,7 @@ test('UD-301 · asking applies no role and issues no session of our own', async 
 })
 
 test('UD-301 · no token, a token with the wrong audience and a deactivated member are refused', async () => {
-  const env = await makeEnv(hostConfig)
+  const env = await makeEnv(hostConfig())
   const ana = await addMember(env, { email: 'ana@x.org' })
   assert.equal((await env.app.inject({ url: '/api/host/notices' })).statusCode, 401)
   const wrong = await new SignJWT({ email: 'ana@x.org' }).setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuer(ISSUER).setAudience('otro-servicio').setIssuedAt().setExpirationTime('5m').sign(keys.privateKey)

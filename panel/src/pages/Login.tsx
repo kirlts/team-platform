@@ -44,7 +44,7 @@ export function Login() {
     <main data-screen="login" className="relative flex min-h-dvh items-center justify-center px-5">
       <Atmosphere />
       <form
-        className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-4 p-7"
+        className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-3 p-7"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()

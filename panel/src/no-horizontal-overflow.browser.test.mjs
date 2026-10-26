@@ -15,7 +15,7 @@ process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
 process.env.PANEL_DEV_MEDIA = '1'
 process.env.PANEL_DEV_OVERFLOW = '1'
 
-const PORT = Number(process.env.PANEL_OVERFLOW_PORT ?? 8797)
+const PORT = Number(process.env.PANEL_OVERFLOW_PORT ?? 9207)
 const WIDTHS = [360, 390, 430]
 const BREAK = process.env.OVERFLOW_BREAK === '1'
 let panel

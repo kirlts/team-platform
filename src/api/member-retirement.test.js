@@ -95,13 +95,13 @@ test('the removed email is retired: adding the member by hand takes it out of th
 // The host ingress: a removed identity does not renew itself with a valid token from the host (the host signs a token on every entry).
 const ISSUER = 'https://anfitrion.example'
 const AUDIENCE = 'team-platform'
-const JWKS_PORT = 8610
+let JWKS_PORT = 0 // ephemeral, set after listen: two suites shared 8610 and collided with EADDRINUSE when run in parallel
 const keys = generateKeyPairSync('rsa', { modulusLength: 2048 })
 let jwksServer
 before(async () => {
   const jwk = { ...(await exportJWK(keys.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' }
   jwksServer = createServer((req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ keys: [jwk] })) })
-  await new Promise((r) => jwksServer.listen(JWKS_PORT, '127.0.0.1', r))
+  await new Promise((r) => jwksServer.listen(0, '127.0.0.1', r)); JWKS_PORT = jwksServer.address().port
 })
 after(() => new Promise((r) => jwksServer.close(r)))
 const bearer = async (claims) => ({

@@ -30,6 +30,10 @@ node scripts/llave.mjs DEEPSEEK_API_KEY # proveedor de respaldo, opcional
 
 El script imprime dónde se crea cada llave, no muestra lo que se pega y no guarda nada si el proveedor la rechaza. Para usarlas en una terminal: `set -a; . ~/.config/team-platform/env; set +a`. Los nombres de todas las variables están en [.env.example](.env.example).
 
+## Ramas
+
+Dos ramas permanentes. Todo trabajo se fusiona a `desarrollo`. `main` es lo que sirve producción: sólo avanza al commit de `desarrollo` que el despliegue puso en producción, por avance rápido, y lo empuja el despliegue (el guion de despliegue del repositorio que despliega). Activar el gancho: `git config core.hooksPath .githooks`. El gancho `pre-push` rechaza cualquier otro empujón a `main`; `.github/workflows/main-solo-desde-desarrollo.yml` lo mide en el servidor y, si algo entra por otro camino, abre un issue con la etiqueta `alerta` y devuelve `main` al último commit válido. Prueba: `bash scripts/main-solo-desde-desarrollo.test.sh`.
+
 ## Pruebas y banco de referencia
 
 Con Node 24.15 o superior:

@@ -45,7 +45,11 @@ const CONTROL = process.env.PANEL_DEV_CONTROL === '1'
 const THEME_CSS = process.env.THEME_CSS ?? ''
 
 const id = () => randomUUID().slice(0, 8)
-const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
+// Every sample date hangs from ONE instant, the birth of the server. With `Date.now()` at each call, two messages seeded «40 minutes ago» a few
+// lines apart got dates a millisecond apart on a loaded machine and swapped places in the newest-first list (2026-10-26: Mensajes showed
+// four rows with media instead of three and one without, in a different one of the pool's files each run).
+const BORN = Date.now()
+const ago = (minutes) => new Date(BORN - minutes * 60_000).toISOString()
 
 // ---------------------------------------------------------------- sample data
 
@@ -2052,6 +2056,9 @@ if (process.env.PANEL_DEV_EXIT_WITH_PARENT === '1') {
   process.stdin.on('close', () => process.exit(0))
 }
 
+// No idle timeout on keep-alive connections: Node closes them after 5 s, and a client that reuses a connection at that very moment gets
+// ECONNRESET («socket hang up»). Playwright's `route.fetch` keeps connections alive, and under load the fit test hit it on a different view each run.
+server.keepAliveTimeout = 0
 server.listen(PORT, '127.0.0.1', () => {
   // PANEL_DEV_PORT=0 asks the system for a free port; the line below says which one it got.
   console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${server.address().port}${BASE}api${STATIC ? ' (also serves panel/dist)' : ''}`)

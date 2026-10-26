@@ -5,7 +5,6 @@ import { Templates, descriptionRule, nameRule } from '@/components/AreaTemplates
 import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { AreaGuards } from '@/components/AreaGuards'
 import { EditableText } from '@/components/EditableText'
-import { EmptyState } from '@/components/EmptyState'
 import { Fold } from '@/components/Fold'
 import { FoldedText } from '@/components/FoldedText'
 import { LoadState } from '@/components/LoadState'
@@ -154,11 +153,15 @@ export function AreaNotFound({ loading, query }: { loading: boolean; query: Para
   const t = useT()
   return (
     <Page cols={12}>
-      <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline">
-        <ChevronLeft size={16} aria-hidden />
-        {t('areas.back')}
-      </Link>
-      {loading ? <LoadState query={query} /> : <EmptyState>{t('areas.notFound')}</EmptyState>}
+      {/* A missing area says so where its name would be, as the screen's title; loading or failing, the list's state speaks. */}
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3">
+        <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline">
+          <ChevronLeft size={16} aria-hidden />
+          {t('areas.back')}
+        </Link>
+        {!loading && <h1 className="min-w-0 break-words text-muted">{t('areas.notFound')}</h1>}
+      </header>
+      {loading && <LoadState query={query} />}
     </Page>
   )
 }
@@ -177,7 +180,7 @@ function AreaOwner({ area, canEdit, onChange, children }: { area: Area; canEdit:
   const handoffs = area.handoffs ?? []
   const total = handoffs.reduce((n, h) => n + h.count, 0)
   return (
-    <div className="flex flex-wrap items-end gap-x-8 gap-y-4 text-sm" data-testid="area-owner">
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-4 text-sm" data-testid="area-owner">
       <label className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-auto">
         <span className="rotulo">{t('areas.decider')}</span>
         {canEdit ? (
@@ -193,7 +196,7 @@ function AreaOwner({ area, canEdit, onChange, children }: { area: Area; canEdit:
       </label>
       <dl className="flex min-w-0 flex-col gap-2" data-testid="area-handoffs">
         <dt className="rotulo">{t('areas.handoffs')}</dt>
-        <dd className="flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1">
+        <dd className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-5 gap-y-1">
           <span className="text-lg font-semibold tabular-nums">{total}</span>
           {handoffs.map((h) => (
             <span key={h.member_id} className="flex items-baseline gap-1.5">

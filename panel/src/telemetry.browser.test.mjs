@@ -17,7 +17,7 @@ import path from 'node:path'
 import { after, describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { login, ROOT, settled, startPanel } from './browser-support.mjs'
+import { builtPanelDir, login, ROOT, settled, startPanel } from './browser-support.mjs'
 
 const SENTINEL = 'SENTINELA-texto-privado-4471'
 const REPLY_SENTINEL = 'SENTINELA-respuesta-privada-8820'
@@ -148,10 +148,18 @@ describe('interface telemetry in a browser', () => {
     assert.equal(off.status(), 200)
     await page.goto(panel.origin)
     await page.getByTestId('compose-text').last().fill(`${SENTINEL}\n\nSegundo punto del mismo texto.`)
+    // The analysis is held, so the progress stays on the page until this test moves it: with the server's clock moving it every 80 ms, a page that paints
+    // late under load never showed the progress to a `waitFor` (2026-10-26: the run timed out waiting for it with the machine busy).
+    await panel.control.hold()
     await page.getByTestId('compose-send').first().click()
     // The marks are on the page for the person to see: the progress first, then the analysis.
     await page.locator('[data-ui-stage="progress"]').first().waitFor({ timeout: 30000 })
+    // The analysis stage is measured from the painted progress, and the check below asks for at least one step of the double server (80 ms): the
+    // painted progress is kept for that long before the step. It is the duration being measured, not a wait for something to happen.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await panel.control.step({ finish: true }) // all the way to the proposal, which is what paints the analysis
     await page.locator('[data-ui-stage="analysis"]').first().waitFor({ timeout: 30000 })
+    await panel.control.release()
     const publish = page.getByTestId('proposal-send')
     await page.waitForFunction((el) => !el.disabled, await publish.elementHandle()) // a required field is filled by the demo analysis
     await publish.click()
@@ -171,7 +179,9 @@ describe('interface telemetry in a browser', () => {
     const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'team-telemetry-'))
     const password = 'una clave larga de prueba 1'
     const root = path.resolve(ROOT, '..')
-    const env = { ...process.env, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', PROJECT_NAME: 'Humo', ADMIN_EMAIL: 'ana@humo.test', ADMIN_PASSWORD: password,
+    const built = builtPanelDir()
+    cleanups.push(async () => built.drop())
+    const env = { ...process.env, PANEL_DIR: built.dir, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', PROJECT_NAME: 'Humo', ADMIN_EMAIL: 'ana@humo.test', ADMIN_PASSWORD: password,
       ANALYZE_MODULE: path.join(root, 'src/testing/demo-modules.js'), EXTRACT_MODULE: path.join(root, 'src/testing/demo-modules.js') }
     const server = spawn(process.execPath, ['src/server.js'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
     let out = ''

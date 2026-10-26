@@ -94,8 +94,8 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
       await page.goto(`${origin}/areas/a-error`)
       const region = page.getByRole('region', { name: 'Plantillas' })
       await region.waitFor()
-      await region.getByRole('button', { name: /^Eliminar/ }).first().click()
-      await region.getByText('eliminada').first().waitFor()
+      await region.getByRole('button', { name: /^Borrar/ }).first().click()
+      await region.getByText('borrada').first().waitFor()
       await page.reload()
       await region.waitFor()
       // «Borradas» is an option of the «Más» menu in the header of the fold, on the same line as «Plantillas».
@@ -112,7 +112,7 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
       await deleted.first().getByRole('button', { name: 'Restaurar' }).click()
       await region.locator('[data-deleted="true"]').waitFor({ state: 'detached' })
       // It is a live row again, on whichever page the list puts it.
-      const back = region.getByRole('button', { name: `Eliminar ${restoredName}`, exact: true })
+      const back = region.getByRole('button', { name: `Borrar ${restoredName}`, exact: true })
       if (!(await back.isVisible())) await region.getByRole('button', { name: 'Página anterior' }).click()
       await back.waitFor()
       await settled(page)

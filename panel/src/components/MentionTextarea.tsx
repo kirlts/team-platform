@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/input'
@@ -29,6 +29,14 @@ export function MentionTextarea({ value, onChange, candidates, picked, onPick, o
   const [caret, setCaret] = useState(0)
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState<string | null>(null)
+  const pendingCaret = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    if (pendingCaret.current === null) return
+    const at = pendingCaret.current
+    pendingCaret.current = null
+    field.current?.focus()
+    field.current?.setSelectionRange(at, at)
+  })
   const typing = mentionQuery(value, caret)
   const shown = typing ? matchMembers(candidates, typing.query) : []
   const open = typing !== null && dismissed !== `${typing.start}:${typing.query}` && (shown.length > 0 || candidates.length > 0)
@@ -41,10 +49,9 @@ export function MentionTextarea({ value, onChange, candidates, picked, onPick, o
     if (!picked.some((p) => p.id === m.id)) onPick([...picked, m])
     setActive(0)
     setCaret(next.caret)
-    requestAnimationFrame(() => {
-      field.current?.focus()
-      field.current?.setSelectionRange(next.caret, next.caret)
-    })
+    // The caret goes where the mention ended in the same commit that paints the new text, before the next key can arrive: a frame later, a person (or a
+    // test) typing right after the pick had its first letters land at the end and the rest behind the mention (2026-10-26: «trégalo, se ve bienen»).
+    pendingCaret.current = next.caret
   }
 
   return (

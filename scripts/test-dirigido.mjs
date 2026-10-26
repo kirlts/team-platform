@@ -60,6 +60,12 @@ const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)
 if (touchesPanel) console.error('The panel or the client package changed: its unit tests and browser tests run here; also `npm run test:panel` for tsc and `npm run test:client`.')
 if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
+// A selection with browser tests needs the browser of this Playwright version: it is asked once, before anything starts, and a machine
+// without it fails here in a second with the browser named (2026-10-25: the deploy server hung 20 minutes in the first browser test).
+if (browserFiles.length) {
+  const { assertBrowserInstalled } = await import(path.join(root, 'panel/src/browser-support.mjs'))
+  try { assertBrowserInstalled() } catch (error) { console.error(`browser tests are selected and ${error.message}`); process.exit(1) }
+}
 // The browser files go to the pool of the panel (panel/scripts/browser-tests.mjs): one build for all of them, one process per file at a time with
 // the width the cores allow. The rest run with one process per core.
 let status = 0

@@ -104,7 +104,7 @@ export function failedCheck (output, language) {
 const ENVIRONMENT_EXIT_CODES = new Set([255, 137, 143])
 // What a shell answers when the command did not run (126 not executable, 127 not found), when `timeout` cut it (124) or when a signal killed it (128 + n): none is the change's.
 const isUnstartedOrKilled = (code) => code === 124 || code === 126 || code === 127 || (code >= 129 && code <= 159)
-const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main|lo servido \(\w+\) no es un antecesor de este árbol/i
+const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main|lo servido \(\w+\) no es un antecesor de este árbol|sin ensayo verde de esta combinaci[oó]n|es (?:de la infraestructura|del entorno|del dep[oó]sito|de la cola) y no del cambio/i
 export function isEnvironmentFailure ({ code, timedOut = false, signal = null }, output = '') {
   if (timedOut || signal) return true
   if (code === 0 || code === DELIVER_LATER || code === DELIVER_HELD) return false

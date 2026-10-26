@@ -654,6 +654,17 @@ describe('deliver job', () => {
     assert.equal(replies(messageId).filter((b) => /falló dos veces/.test(b)).length, 0)
   })
 
+  it('the rehearsal gate answering 1 is the infrastructure: it is retried and nothing goes back to Claude (jobs 219 and 220, 2026-10-26)', async () => {
+    const flag = path('gate')
+    startWorker({ deliverCommand: `if [ -e ${flag} ]; then echo ref-gate; else touch ${flag}; echo 'sin ensayo verde de esta combinación (ab12): ninguna pasada sale sin ensayar antes la misma combinación' >&2; exit 1; fi` })
+    const messageId = await publishedMessage('Una compuerta de ensayo.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.deepEqual([delivery.status, delivery.attempts], ['done', 2])
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'a good change was not sent back to Claude')
+    assert.equal(replies(messageId).filter((b) => /No pasó la verificación/.test(b)).length, 0)
+  })
+
   it('a second failure of the machine goes to a person with the reason; a failed verification still goes back to Claude, not to the retry', async () => {
     startWorker({ deliverCommand: "echo 'no se puede entrar por SSH a la máquina de producción' >&2; exit 1" })
     const messageId = await publishedMessage('Una máquina que no entra.')
@@ -683,6 +694,11 @@ describe('deliver job', () => {
     assert.equal(isEnvironmentFailure({ code: 1 }, '→ fallaron 2 archivos'), false, 'a failed test is the change')
     assert.equal(isEnvironmentFailure({ code: 5 }, 'No se instala: lo servido (cede6f154109cd99185ce1ec731a42a231155ca6) no es un antecesor de este árbol (69c17123af5b).'), true, 'production moved during the verification')
     assert.equal(isEnvironmentFailure({ code: 75 }, 'Connection reset'), false)
+    // An older delivery host that still answers 1 for what is not the change's (2026-10-26, jobs 219 and 220: the rehearsal gate sent a good change back to Claude).
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'sin ensayo verde de esta combinación (ab12): ninguna pasada sale sin ensayar antes la misma combinación'), true, 'the rehearsal gate is the infrastructure')
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'la máquina no se pudo crear: es de la infraestructura y no del cambio, se reintenta'), true)
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'no se pudo anotar la aprobación de wt-a: es del depósito y no del cambio'), true)
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'una rama no pasó su prueba: no entra a la cola'), false, 'a rejected change stays the change')
   })
 
   it('no machine is alive while the delivery runs', async () => {

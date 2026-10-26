@@ -16,7 +16,7 @@ let panel
 let origin = ''
 
 before(async () => {
-  panel = await startPanel(Number(process.env.PANEL_FLOWS_3B_PORT ?? 8798), { stepMs: 450 })
+  panel = await startPanel(Number(process.env.PANEL_FLOWS_3B_PORT ?? 8798), { stepMs: 80 })
   origin = panel.origin
 })
 

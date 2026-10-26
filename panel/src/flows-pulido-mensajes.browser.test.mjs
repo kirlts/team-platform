@@ -31,7 +31,7 @@ async function idOf(page, title) {
   return (await (await page.request.get(`${origin}/api/messages?q=${encodeURIComponent(title)}`)).json()).items[0].id
 }
 
-/** Every chip of a row either fits or ends in a painted «…»: an inline-flex chip clipped its name mid-letter with no ellipsis. */
+/** Every chip of a row either fits or ends in a painted «…» (an inline-flex chip clipped its name mid-letter), and a short area name always fits. */
 function clippedChips() {
   const out = []
   for (const el of document.querySelectorAll('[data-testid="area-chip"], .guard-mark')) {
@@ -41,6 +41,8 @@ function clippedChips() {
     const over = el.scrollWidth > el.clientWidth + 1
     const ellipsisPaints = cs.textOverflow === 'ellipsis' && !cs.display.includes('flex')
     if (over && !ellipsisPaints) out.push(`${el.textContent} (${cs.display}, ${el.scrollWidth}>${el.clientWidth})`)
+    // A short area name is never the one cut: «Error» ended as «E…» next to a Guard mark.
+    if (over && el.matches('[data-testid="area-chip"]') && el.textContent.trim().length <= 12) out.push(`short area cut: ${el.textContent}`)
   }
   return out
 }

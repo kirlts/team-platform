@@ -118,7 +118,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-nowrap items-center gap-x-3 text-xs text-muted [&_.guard-mark]:py-0 [&_.guard-mark]:leading-4">
         <StateMark status={message.status} plain className="min-h-0 shrink-0 px-0" />
         {/* One line in every card (V9): on a phone a long area name ends in «…» before the row grows. */}
-        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="min-w-0 truncate" />} {/* justified: UD-241, one line per card */}
+        {/* A short area keeps its whole name («Error» was cut to «E…» next to a Guard mark); a long one stops at 55% of the line and ends in «…». */}
+        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="max-w-[55%] shrink-0 truncate" />} {/* justified: UD-241, one line per card */}
         {/* The marks give way first (they shrink three times faster than the area), each one cut with «…» and whole in its tooltip. */}
         {variant === 'message' && !gone && <AssessmentMarks message={message} oneLine className="shrink-[3] overflow-hidden" />}
         {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}

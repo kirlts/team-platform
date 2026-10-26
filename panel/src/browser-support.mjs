@@ -105,6 +105,7 @@ export async function startPanel(requestedPort, { build = !process.env.FIT_SIN_B
   try {
     listening = await new Promise((resolve, reject) => {
       let said = ''
+      // wall-clock-ok: the courtesy cut-off of a start that never comes (SERVER_START_TIMEOUT_MS), not a wait: the success path is the server's own line.
       const timer = setTimeout(() => reject(new Error(`el servidor de ejemplo no escuchó en el puerto ${port} en ${SERVER_START_TIMEOUT_MS} ms`)), SERVER_START_TIMEOUT_MS)
       server.stdout.on('data', (chunk) => {
         said += chunk
@@ -221,6 +222,7 @@ export function watchRequests(page, { quietMs = 500 } = {}) {
     /** Frames are the clock of the wait, so a slow machine waits longer instead of giving up on a guess. */
     async idle({ timeout = 30000 } = {}) {
       const deadline = Date.now() + timeout
+      // wall-clock-ok: the quiet period that Playwright's own `networkidle` defines (500 ms without a request), used only by the Firefox login.
       while (inFlight.size > 0 || Date.now() - lastChange < quietMs) {
         if (Date.now() > deadline) throw new Error(`Timeout ${timeout}ms exceeded with ${inFlight.size} requests in flight: ${[...inFlight].map((r) => r.url().replace(/^https?:\/\/[^/]+/, '')).slice(0, 6).join(', ')}`)
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))

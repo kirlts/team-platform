@@ -402,14 +402,14 @@ describe('media that production holds (messages 117 and 123)', () => {
       await openMessage(page, 'Fotos mezcladas con un video')
       await thumbs(page).nth(1).click()
       await until(page, 2, 4)
-      const state = await page.evaluate(
-        () =>
-          new Promise((resolve) => {
-            const v = document.querySelector('[data-gallery-viewer] video')
-            v.muted = true
-            v.play().then(() => setTimeout(() => resolve({ time: v.currentTime, error: v.error?.code ?? null, width: v.videoWidth }), 800), (e) => resolve({ rejected: String(e) }))
-          }),
-      )
+      // Played until it has moved 0.2 s of ITS OWN clock (the video's), not until 800 ms of the wall clock have passed: a starved core decodes fewer frames per second.
+      const rejected = await page.evaluate(() => {
+        const v = document.querySelector('[data-gallery-viewer] video')
+        v.muted = true
+        return v.play().then(() => null, (e) => String(e))
+      })
+      if (!rejected) await page.waitForFunction(() => { const v = document.querySelector('[data-gallery-viewer] video'); return v.currentTime > 0.2 || v.error !== null }, null, { polling: 'raf', timeout: 30_000 })
+      const state = rejected ? { rejected } : await page.evaluate(() => { const v = document.querySelector('[data-gallery-viewer] video'); return { time: v.currentTime, error: v.error?.code ?? null, width: v.videoWidth } })
       assert.ok(state.time > 0.2 && state.error === null && state.width > 0, JSON.stringify(state))
       await openMessage(page, 'Informe en PDF y una foto dañada')
       const open = gallery(page).getByRole('link', { name: /^Abrir/ }).first()

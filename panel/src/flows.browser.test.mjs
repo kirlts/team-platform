@@ -860,8 +860,13 @@ describe('publishing flow (round 1, judge B)', () => {
     try {
       await sendInput(page, 'Un punto para analizar dos veces.')
       await openFirst(page, 20000)
+      // The analysis is held while it re-runs and released once the page shows it running: the proposal comes back folded only for a page that saw the analysis.
+      // Left free, a loaded machine finished it before the page asked again, the open proposal was never replaced and «Abrir el mensaje 1» never appeared.
+      await panel.control.hold()
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
       assert.equal(await page.getByRole('dialog', { name: 'Volver a analizar' }).count(), 0, 'with no changes there is no need to confirm')
+      await page.getByText('En espera').first().waitFor()
+      await panel.control.release()
       await openFirst(page, 20000)
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Cambio que se perdería')

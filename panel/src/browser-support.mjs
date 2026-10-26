@@ -104,15 +104,26 @@ export async function startPanel(requestedPort, { build = !process.env.FIT_SIN_B
   }
 }
 
-/** Logs in as one of the dev members (ana is the Editor). */
-export async function login(page, origin, who = 'ana') {
+/**
+ * Logs in as one of the dev members (ana is the Editor). The session is opened by the API of the context (the cookie goes in the jar the page
+ * uses), so the page loads once, already inside, instead of loading the sign-in page, filling its form and loading the shell after it:
+ * measured 2026-10-25: the CPU of the whole browser suite went from 247 s to 201 s. `{ form: true }` goes through the sign-in form, for the
+ * tests whose subject is the form (login-support, the entry page).
+ */
+export async function login(page, origin, who = 'ana', { form = false } = {}) {
   // The requests are watched from the first navigation, so that what the shell asks for while it opens is known when it is open.
   const requests = watchRequests(page)
   try {
-    await page.goto(origin)
-    await page.getByLabel('Correo').fill(`${who}@dev.invalid`)
-    await page.getByLabel('Contraseña').fill(PASSWORD)
-    await page.getByRole('button', { name: 'Entrar' }).click()
+    if (form) {
+      await page.goto(origin)
+      await page.getByLabel('Correo').fill(`${who}@dev.invalid`)
+      await page.getByLabel('Contraseña').fill(PASSWORD)
+      await page.getByRole('button', { name: 'Entrar' }).click()
+    } else {
+      const res = await page.context().request.post(`${origin}/api/auth/login`, { data: { email: `${who}@dev.invalid`, password: PASSWORD }, headers: { 'x-team-request': 'panel' } })
+      if (!res.ok()) throw new Error(`login de ${who}: ${res.status()}`)
+      await page.goto(origin)
+    }
     // The sign-in page is also a <main>: waiting for any <main> returned while the person was still signing in (H-901). Only the signed-in shell has #main.
     await page.locator('main#main').waitFor()
     // Firefox never fires `load` for a page opened over a document of the same address that still has a video thumbnail loading (measured: 9 of 10

@@ -119,7 +119,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         <StateMark status={message.status} plain className="min-h-0 shrink-0 px-0" />
         {/* One line in every card (V9): on a phone a long area name ends in «…» before the row grows. */}
         {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="min-w-0 truncate" />} {/* justified: UD-241, one line per card */}
-        {variant === 'message' && !gone && <AssessmentMarks message={message} />}
+        {/* The marks give way first (they shrink three times faster than the area), each one cut with «…» and whole in its tooltip. */}
+        {variant === 'message' && !gone && <AssessmentMarks message={message} oneLine className="shrink-[3] overflow-hidden" />}
         {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}
         <span data-testid="card-number" className="ml-auto shrink-0 tabular-nums">#{message.id}</span>
       </div>
@@ -142,8 +143,9 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         )}
       </div>
 
-      {/* The last line: who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
-      <div data-testid="card-foot" className="col-span-2 row-start-4 grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 @2xl:contents">
+      {/* The last line: who it is for on the left (kept, even empty, so every row has the line), the actions pinned to the right; in the wide layout the actions leave for their own column.
+          Below 28rem (a phone) the actions take a line of their own under the recipients: beside three buttons «para Ana Prueba, Bruno Prueba y 6 más» was squeezed into a column of four lines. */}
+      <div data-testid="card-foot" className="col-span-2 row-start-4 grid min-h-7 grid-cols-1 items-start gap-x-3 gap-y-1 @md:grid-cols-[minmax(0,1fr)_auto] @2xl:contents">
         <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[1lh] @2xl:content-normal" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {gone && (

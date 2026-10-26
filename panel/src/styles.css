@@ -641,6 +641,13 @@
     color: var(--color-muted);
     overflow-wrap: anywhere;
   }
+  /* A chip cut to one line (`truncate`) is an inline block: text-overflow paints «…» only on a block's own text, and an inline-flex chip
+     clipped its name mid-letter with no ellipsis («Accesibilidad y exp», «Erro»). The whole name stays in its tooltip. */
+  .area-chip.truncate,
+  .guard-mark.truncate {
+    display: inline-block;
+    vertical-align: middle;
+  }
   .guard-mark[data-person] { border-color: var(--color-line-strong); color: var(--color-fg); }
 
   /* The box of the analysis of one message: the secondary color of its area as background and the ink of that hue. Inside it, the muted

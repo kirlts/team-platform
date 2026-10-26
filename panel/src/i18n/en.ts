@@ -710,7 +710,6 @@ export const en: Record<MessageKey, Message> = {
   'replies.textEdited': 'Reply edit',
   'replies.edited': 'Edited {when}',
   'error.not_reply_author': 'Only the author deletes this reply',
-  'fields.fill': 'Fill in',
   'notFound.title': 'Page not found',
   'notFound.text': 'This address does not exist',
   'notFound.home': 'Go to Home',

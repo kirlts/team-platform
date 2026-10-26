@@ -190,11 +190,13 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2">
+        {/* Below 768 px the block dissolves into the row (display: contents): the number and the title share the first line and the count drops
+            to the line of Reenviar and Borrar. Beside the count, a long title was squeezed into a column of seven lines on a phone. */}
+        <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2 max-md:contents">
           {/* The number of the message, as a tracker shows it next to the title (#115): the team refers to messages by it. */}
-          <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted md:text-base">#{m.id}</span>
+          <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted max-md:self-start max-md:pt-1.5 md:text-base">#{m.id}</span>
           {/* The title takes the whole row while its field is open (CSS, in the same frame: no jump); otherwise the reply counter sits right after its last word. */}
-          <h1 className="min-w-0 has-[textarea]:flex-1">
+          <h1 className="min-w-0 has-[textarea]:flex-1 max-md:flex-1 max-md:basis-[calc(100%-4rem)]">
             <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
           </h1>
           {/* The count of the thread, next to the title: the thread itself is the narrow column on the right. */}
@@ -287,7 +289,6 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             )}
             {canEdit && (
               <>
-                {m.attachments.length === 0 && <AddTile onAdd={() => picker.current?.click()} busy={addFiles.isPending} />}
                 <input
                   ref={picker}
                   type="file"
@@ -300,7 +301,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                     add(files)
                   }}
                 />
-                <div className="flex items-center gap-1 px-1.5">
+                {/* The «+» square and the microphone are one row of ways to add: apart, the square stood alone over a button indented by another rule. */}
+                <div data-testid="detail-add-row" className="flex items-center gap-2">
+                  {m.attachments.length === 0 && <AddTile onAdd={() => picker.current?.click()} busy={addFiles.isPending} />}
                   <RecordAudioButton disabled={addFiles.isPending} onRecorded={(file) => add([file])} onProblem={(p) => notices.show({ text: t(p === 'microphone' ? 'media.noMicrophone' : 'media.recordFailed') })} />
                 </div>
               </>

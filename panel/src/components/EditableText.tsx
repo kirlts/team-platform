@@ -169,7 +169,8 @@ export function EditableText({
             !value && 'border-dashed !border-line-strong text-faint',
           )}
         >
-          {value ? (render ? render(value) : value) : shown}
+          {/* An empty placeholder keeps the line's height: the dashed box is the whole sign that it can be filled. */}
+          {value ? (render ? render(value) : value) : shown || '\u00a0'}
         </span>
       </span>
     )

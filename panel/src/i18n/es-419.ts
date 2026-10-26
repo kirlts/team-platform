@@ -710,7 +710,6 @@ export const es419 = {
   'replies.textEdited': 'Edición de respuesta',
   'replies.edited': 'Editada {when}',
   'error.not_reply_author': 'Sólo quien escribió la respuesta la borra',
-  'fields.fill': 'Completar',
   'notFound.title': 'Página no encontrada',
   'notFound.text': 'La dirección no existe',
   'notFound.home': 'Ir a Inicio',

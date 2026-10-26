@@ -1,14 +1,10 @@
 // Hunt for the failures of the path of a send (2026-10-24), part of the pipeline: what an extraction failure looks like to the queue and to the person who sent.
 // Each case was reproduced before it was fixed. A transient failure is retried, a permanent one fails at once, and the reason is one its sender can read.
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
 import { describe, it } from 'node:test'
 import { get } from '../db/index.js'
 import { createAudioBudget, estimateAudioSeconds, extract } from '../extract/index.js'
 import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
-
-// A test that needs a binary says so and skips when it is missing: the deployment machine does not carry ffmpeg (the image of Team Platform does).
-const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0
 
 const fast = { identity: { login: { ipMax: 1000 } }, worker: { retryBaseMs: 5, retryMaxMs: 20 } }
 const textFile = (name = 'a.txt', content = 'contenido') => ({ field: 'files', name, type: 'text/plain', content })
@@ -26,7 +22,7 @@ async function setup (opts = {}) {
 
 
 describe('the extraction jobs classify what fails', () => {
-  it('H-3800: an audio that cannot be read fails at once, with its name, instead of being retried by the measurement of its length', { skip: hasFfmpeg ? false : 'ffmpeg is not installed on this machine' }, async () => {
+  it('H-3800: an audio that cannot be read fails at once, with its name, instead of being retried by the measurement of its length', async () => {
     const env = await setup({
       worker: true,
       modules: { extract, estimateAudioSeconds, audioBudget: createAudioBudget(), getProviders: () => ({ speech: { transcribe: async () => ({ text: 'x', segments: [] }) } }) }

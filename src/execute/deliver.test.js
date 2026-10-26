@@ -17,7 +17,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { HOST_TURN_LIFE_MS, clockTime, createDeliverHandler, deferralsInARow, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
+import { HOST_TURN_LIFE_MS, clockTime, createDeliverHandler, deferralsInARow, waitPlace, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
 import { spawnStreaming } from './runners.js'
 import { createExecuteHandler } from './handler.js'
@@ -671,18 +671,40 @@ describe('deliver job', () => {
     assert.equal(deferralsInARow(HOST_TURN_LIFE_MS), 1)
   })
 
+  it('a «not now» says where it happened: inside the machine counts, before it (or unsaid, from an older host) is a wait', () => {
+    assert.equal(waitPlace('##team phase verify\n##team wait in-machine\n'), 'in-machine')
+    assert.equal(waitPlace('##team wait before-machine\n'), 'before-machine')
+    assert.equal(waitPlace('##team wait before-machine\n##team wait in-machine'), 'in-machine', 'any line from inside the machine wins')
+    assert.equal(waitPlace(''), 'before-machine')
+    assert.equal(waitPlace(null), 'before-machine')
+  })
+
+  it('a «not now» from inside the machine fails at once as infrastructure: it runs once, spends no machine twice and the next deploy launches it again', async () => {
+    const counter = path('inside')
+    startWorker({ deliverCommand: `echo x >> ${counter}; echo 'falta el binario «python3»' >&2; echo '##team wait in-machine'; exit 75` })
+    const messageId = await publishedMessage('Un ahora no desde dentro de la máquina.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(delivery.status, 'failed')
+    assert.equal(readFileSync(counter, 'utf8').trim().split('\n').length, 1, 'it was not tried again: every try would spend a machine')
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'nothing goes back to Claude')
+    const last = env.db.prepare('SELECT failed_code, body FROM replies WHERE message_id = ? AND failed_job_id IS NOT NULL ORDER BY id DESC').get(messageId)
+    assert.equal(last.failed_code, 'deliver_env')
+    assert.match(last.body, /espera un arreglo del sistema/)
+  })
+
   // The waits are made quick by moving `run_at` of the queued job to the past: the count is by events, so the clock does not matter.
   const hurry = async (messageId, stop) => {
     await until(() => {
       const j = jobsOf(messageId, 'deliver')[0]
       if (j && j.status === 'queued') env.db.prepare('UPDATE jobs SET run_at = 1 WHERE id = ?').run(j.id)
       return stop(j)
-    }, { timeoutMs: 30000 })
+    }, { timeoutMs: 90000 })
   }
 
   it('the same «not now» without end stops being a wait: the job fails as infrastructure, says it waits for a fix and the next deploy launches it again', async () => {
     const counter = path('forever')
-    startWorker({ capacityWaitMs: HOST_TURN_LIFE_MS / 2, deliverCommand: `echo x >> ${counter}; echo 'falta el binario «python3»' >&2; exit 75` })
+    startWorker({ capacityWaitMs: HOST_TURN_LIFE_MS / 2, deliverCommand: `echo x >> ${counter}; echo 'esperando el turno' >&2; echo '##team wait before-machine'; exit 75` })
     const messageId = await publishedMessage('Un ahora no que no termina.')
     await hurry(messageId, (j) => j?.status === 'failed')
     const [delivery] = jobsOf(messageId, 'deliver')

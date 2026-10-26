@@ -54,6 +54,8 @@ export const DELIVER_HELD = 76 // the next code after EX_TEMPFAIL, outside sysex
 // infra/techo-de-gasto.json `vida_max_min`), and each wait is EXECUTE_CAPACITY_WAIT_MS. Past that the same output is not a wait but a fault that only a change of the
 // system fixes (a missing binary, a broken host script), and every extra turn can create a machine and spend money (rule 12 of the repository, counted by events, not by clock).
 export const HOST_TURN_LIFE_MS = 64 * 60_000
+/** Where the host says a «not now» (exit 75) happened: `in-machine` if any line says so, `before-machine` otherwise (the turn, the quota, the stock, the spending cap). */
+export const waitPlace = (stdout) => (/^##team wait in-machine\s*$/m.test(String(stdout ?? '')) ? 'in-machine' : 'before-machine')
 export const deferralsInARow = (capacityWaitMs) => Math.ceil(HOST_TURN_LIFE_MS / capacityWaitMs)
 const REASON_CHARS = 300 // declared courtesy: the reason is one plain sentence for the author
 const PHASE_LINE = /^##team phase (verify|deploy)\s*$/
@@ -336,6 +338,13 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
     // Exit 75: the host cannot deliver now. The job waits and tries again; the attempt is not spent and nothing is recorded yet.
     if (result.code === DELIVER_LATER) {
+      // The host says where the «not now» happened (`##team wait before-machine|in-machine` on stdout). Inside the machine it is born from the same image with the same
+      // inputs, so trying again reproduces the same fault and each try spends a machine: it fails at once as infrastructure and the resume by worker version launches it
+      // again when there is a fix. A host that does not say (an older one) only answered «not now» for waits, so it counts as before the machine.
+      if (waitPlace(result.stdout) === 'in-machine') {
+        saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
+        throw Object.assign(new Error(`La orden de entrega respondió «ahora no» desde dentro de la máquina: ${tail(output, 600) || 'sin salida'}`), { code: 'deliver_env', output, stuck: true, retryable: false })
+      }
       // The same «not now» too many times in a row is a fault of the system, not a wait: the job fails as infrastructure (`deliver_env`), a person is told in one line
       // and the resume by worker version launches it again with the next deploy.
       const key = createHash('sha1').update(tail(output, 400)).digest('hex').slice(0, 16)

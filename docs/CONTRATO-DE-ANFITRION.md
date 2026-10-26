@@ -302,8 +302,6 @@ Se comparó este documento con MASTER-SPEC §7.5 (`docs/MASTER-SPEC.md`), `.env.
 
 | Documento y línea | Dice | El código hace |
 |---|---|---|
-| `.env.example:138` y `:167` | Documenta `EXECUTE_MAX_MACHINES` y `EXECUTE_CONCURRENCY` | `src/config.js` no las lee. UD-304 las quitó (`docs/USER-DECISIONS.md:1540`) |
-| `.env.example:144` | La omisión de `EXECUTE_CAPTURES_OPEN_ZONE` es la zona que usa la plantilla `error-directo` | La omisión es `ninguna` (`src/config.js:400`) |
 | Plan canónico 2026, §1 | 46 variables `EXECUTE_*` en `src/config.js` | Son 45 nombres distintos (`src/config.js:352-421`). Con `EXECUTE_CONTRACT_VERSION` son 46 |
 | MASTER-SPEC `:548-569` | La tabla de variables omite nueve | `EXECUTE_DELIVER_CONCURRENCY`, `EXECUTE_DIRECT_HOST_INSTRUCTIONS`, `EXECUTE_DIRECT_SESSION_ENV`, `EXECUTE_MACHINE_CLAUDE_BIN`, `EXECUTE_MAX_ATTEMPTS`, `EXECUTE_OTEL_ENV`, `EXECUTE_SESSION_ENV`, `EXECUTE_TEAM_URL` y `EXECUTE_WORK_ROOT` están en `src/config.js:351-421` |
 | `.env.example` y MASTER-SPEC | No mencionan `TEAM_WORKER_VERSION` | `src/execute/resume.js:29` la lee para decidir cuándo se vuelve a lanzar un trabajo que falló por infraestructura |

@@ -23,7 +23,8 @@ export function AreaChip({ areaId, title, className }: { areaId: string; title?:
   const name = title ?? areaTitle(areaId)
   return (
     <span data-testid="area-chip" data-repeat-ok="category" data-area-id={areaId} style={style} className={cn('area-tint area-chip', className)}>
-      {name || t('area.none')}
+      {/* The text lives in its own box: an ellipsis is drawn only on a block, so a chip squeezed by its line cut the name mid-letter without one. */}
+      <span data-ellipsis-ok="UD-241" className="min-w-0 truncate">{name || t('area.none')}</span>
     </span>
   )
 }

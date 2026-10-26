@@ -1,10 +1,12 @@
 # Plan 2026 del Team Platform canónico
 
-Fecha: 2026-10-26, 23:40 (Chile). Lo pidió Martín: «Quiero que todo lo que hemos hecho en Team Platform tratemos
+Fecha: 2026-10-26, 23:40 (Chile); consolidado a las 00:50 del 27. Lo pidió Martín: «Quiero que todo lo que hemos hecho en Team Platform tratemos
 de integrarlo en la versión canónica de Team Platform, que es el repositorio Team Platform, porque siempre fue
 conceptualizado como un sistema open source». Y fijó el límite del plan: «quiero que todo lo que tú recomendaste sea
-lo que implementemos, excepto esta cuestión de la identidad que te acabo de corregir»: la identidad visual nueva es
-la del panel canónico; una implementación puede no usar ese panel y poner el suyo, y eso está bien.
+lo que implementemos, excepto esta cuestión de la identidad que te acabo de corregir». Y a las 00:45 del 27 cerró
+el punto de la identidad: «no perdamos tiempo en esto. Solo me importa que lo que vaya integrándose al canónico lo
+haga siguiendo su estética actual sin estropearla». No hay rediseño: `panel/DISENO.md` es el referente, y toda
+pantalla que entre se juzga contra él. Una implementación puede no usar el panel canónico y poner el suyo.
 
 La tesis que ordena el plan: **el canónico es el producto; un anfitrión lo instala, le conecta un driver y, si
 quiere, le pone su piel. Todo lo que no nombra a un anfitrión vive en el canónico, con su prueba; lo que sí lo
@@ -33,7 +35,7 @@ reloj («una semana sin fallas»): cada criterio es un evento o un conteo.
 | Cómo avanza `main` | sólo con `DEPLOY_PUBLISHES_MAIN=<sha>`, marca que exporta el guion de despliegue del anfitrión; espejo en un flujo de GitHub Actions sobre `ubuntu-latest` | `.githooks/pre-push`, `.github/workflows/main-solo-desde-desarrollo.yml` |
 | Filas abiertas en `docs/HALLAZGOS.md` | 0 contra `main` al 21-10 | cabecera del documento |
 | Puntos sin marcar en `docs/TODO.md` | 14; 9 esperan hardware, dominio, llave o a Martín | `grep -c '^- \[ \]'` |
-| Identidad visual | tokens Y2K en `panel/DISENO.md` y `panel/src/styles.css` (Orbitron, Source Sans 3, OKLCH, vidrio, cromo, gel, luces de estado); el encargo de Martín de hoy no está escrito como fuente | lectura; auditoría con capturas en la rama `wt-identidad` |
+| Estética del panel | tokens en `panel/DISENO.md` y `panel/src/styles.css` (Orbitron, Source Sans 3, OKLCH, vidrio, cromo, gel, luces de estado). La auditoría de hoy midió dos derivas respecto de DISENO.md: Orbitron salió de los títulos el 21-10 (`cd001a46`) y las luces de estado pasaron a contador de contorno (`56a49550`, `99e34df1`); ninguno de los 59 commits posteriores de `styles.css` cita la estética como motivo | rama `wt-identidad` (`b32ad0fe`), `AUDITORIA.md` con 52 capturas |
 | Worktrees vivos en el repositorio canónico | 140 | `ls .claude/worktrees` |
 | Vocabulario de la interfaz | Kairós en documentos; rótulos del panel en castellano estándar | `docs/KAIROS.md`, `panel/src` |
 
@@ -46,7 +48,7 @@ reloj («una semana sin fallas»): cada criterio es un evento o un conteo.
 | **Publicación de `main` atada a un anfitrión** | `DEPLOY_PUBLISHES_MAIN` la emite el despliegue del primer anfitrión; sin él, el canónico no publica | Puerta propia del canónico: el sello lo emite `scripts/publish-main.sh` tras la batería y la conformidad; el anfitrión fija su versión por sha o digest, no por `main` |
 | **Instalación no reproducible** | EPIC-007 sin servidor limpio; `compose.override.example.yml` sin instalación que lo pruebe | La instalación se prueba en el segundo anfitrión y queda como guion repetible |
 | **Capacidades maduradas bajo presión, sin lista** | reintentar, retomar por versión, Guardia de la idea, entrega aparte, revisión por persona, medios en la respuesta: cada una con prueba, ninguna en una lista que diga qué es 1.0 | `docs/CAPACIDADES-1.0.md`: una fila por capacidad, su prueba desde el envío hasta la respuesta y su veredicto de juez |
-| **Identidad sin fuente escrita** | DISENO.md cita referencias de 2026-10 pero no el encargo de hoy | El encargo entra textual a DISENO.md; una dirección elegida; jueces contra el encargo |
+| **Estética que deriva sin que nadie lo mida** | dos derivas medidas respecto de DISENO.md, en 59 commits que no la nombran | Toda pantalla que entra se juzga contra DISENO.md antes de fusionarse; las dos derivas se reponen como restauración |
 | **Higiene** | 140 worktrees; ramas de pasadas del anfitrión en el canónico | Guion de limpieza con condición declarada; las ramas de pasada se borran al fusionarse |
 
 Las siete son la misma deriva: una verdad del producto que vive fuera del repositorio del producto.
@@ -60,7 +62,7 @@ Las siete son la misma deriva: una verdad del producto que vive fuera del reposi
 | Drivers conformes | 0 | 3: local de referencia, máquinas efímeras del primer anfitrión, máquinas bajo demanda del segundo | `host-conformance.mjs --driver <ruta>` |
 | Cómo avanza `main` | marca del anfitrión | sello de la puerta del canónico | `.githooks/pre-push`, `scripts/publish-main.sh` |
 | Capacidades 1.0 con prueba e2e y juez | sin lista | todas las de la lista | `docs/CAPACIDADES-1.0.md` |
-| Identidad | tokens sin encargo escrito | dirección elegida por Martín, implementada, con nota de jueces contra el encargo | `panel/DISENO.md`, `docs/investigaciones/identidad-2026-10-26/` |
+| Pantallas fusionadas sin veredicto contra DISENO.md | sin medir | 0 | columna «juez» de `docs/CAPACIDADES-1.0.md` |
 | Worktrees | 140 | sólo los de agentes vivos | `scripts/clean-worktrees.sh --list` |
 
 ## 4. Principios que no ceden
@@ -72,13 +74,13 @@ Las siete son la misma deriva: una verdad del producto que vive fuera del reposi
 5. **Ningún número gobierna sin declaración.** Plazos, topes y concurrencias llevan su medición o su perilla. Lo que no puede medirse espera por evento.
 6. **Un error nunca es ausencia.** Permiso, red o credencial que fallan detienen con 75 y su marca; nunca deciden «no hay máquina», «no hay rama» ni «sin tope».
 7. **Lo que se retira deja escrita su condición de regreso.** Un archivo del anfitrión se borra cuando su canario pasa con la pieza canónica. `DEPLOY_PUBLISHES_MAIN` se retira cuando `publish-main.sh` publicó una vez.
-8. **Toda pantalla se juzga abierta,** con capturas programáticas y jueces que no la escribieron, contra el encargo escrito.
+8. **Toda pantalla se juzga abierta,** con capturas programáticas y jueces que no la escribieron, contra `panel/DISENO.md`. La estética actual no se rediseña ni se «mejora»: lo que entra la sigue.
 
 ## 5. Arquitectura objetivo
 
 | Capa | Qué posee | Dónde vive |
 |---|---|---|
-| **Núcleo** | API, cola, extractores, analizador, trabajo `execute`, trabajo `deliver`, retoma, reintento, Guardia de la idea, canario, capturador, guardias del arnés, panel canónico con su identidad | este repositorio |
+| **Núcleo** | API, cola, extractores, analizador, trabajo `execute`, trabajo `deliver`, retoma, reintento, Guardia de la idea, canario, capturador, guardias del arnés, panel canónico con su estética actual | este repositorio |
 | **Contrato de anfitrión** | variables `EXECUTE_*`; las cinco órdenes con marcadores, entorno y códigos; `EXECUTE_HOST_INSTRUCTIONS`; `THEME_CSS`; identidad delegada; `contract_version` | `docs/CONTRATO-DE-ANFITRION.md`, `src/config.js`, `/health` |
 | **Drivers** | la implementación de las cinco órdenes para un lugar donde correr: contenedor local, máquina efímera en una nube, máquina bajo demanda en una plataforma de aplicaciones | `drivers/<nombre>/` en el canónico cuando no nombran a nadie; en el anfitrión cuando sí |
 | **Anfitrión** | su repositorio, sus credenciales, su camino a producción, su piel opcional, sus instrucciones al agente | el repositorio del anfitrión |
@@ -141,16 +143,16 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | D4 Cierre del TODO | Lo que exige dominio o servidor limpio se cierra en el segundo anfitrión; lo que exige un aparato o una llave queda como límite externo con dueño y comando | por hacer |
 | D5 `scripts/clean-worktrees.sh` | Lista y retira worktrees sin agente vivo; corre al abrir sesión | por hacer |
 
-### E. Identidad visual del panel canónico
+### E. La estética del panel canónico se conserva
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| E1 El encargo, textual, en `panel/DISENO.md` | «Mezcla entre un foro de los años 2000 con un programa para operadores de call center… look optimista, futurista y reflectivo… como de una compañía telefónica» (Martín, 2026-10-26). Es la fuente contra la que se juzga | por hacer |
-| E2 Auditoría y propuesta | Capturas de las vistas actuales, auditoría contra el encargo, tres direcciones con maqueta HTML | en rama `wt-identidad` (`b32ad0fe`): 52 capturas, auditoría, tres direcciones con bocetos y contraste medido |
-| E3 Dirección elegida | La única decisión que cruza a Martín en este plan: una de las tres, con recomendación y lo que pierde cada otra | por hacer |
-| E4 Tokens y componentes | La dirección elegida entra a `panel/src/styles.css` y a los componentes; contraste medido como hoy en DISENO.md; `prefers-reduced-motion` | por hacer |
-| E5 Jueces contra el encargo | Los mismos de D3, con el encargo de E1 como referente | por hacer |
-| E6 La piel del anfitrión no cambia | `THEME_CSS` sigue; un anfitrión con panel propio no nota E4 | hecho por diseño; se prueba con el primer anfitrión |
+| E1 `panel/DISENO.md` es el referente | Una línea al inicio lo dice, con la decisión de Martín del 27-10 textual. Un cambio de tokens o materiales que no esté en DISENO.md no entra; si hace falta, primero se cambia DISENO.md con su medición | por hacer |
+| E2 Juez contra DISENO.md en cada pantalla | Todo cambio de `panel/` que llegue a `desarrollo` lleva veredicto de un agente distinto, con capturas sin cabeza en escritorio y teléfono, claro y oscuro, que compara contra DISENO.md y contra la captura anterior de la misma vista | por hacer; las capturas de hoy en `wt-identidad` son la línea base |
+| E3 Reponer las dos derivas medidas | Orbitron en los títulos según DISENO.md (o DISENO.md actualizado si el cambio del 21-10 fue a propósito: se lee `cd001a46` antes de tocar) y las luces de estado con brillo y palabra en vez del contador de contorno | por hacer |
+| E4 La piel del anfitrión no cambia | `THEME_CSS` sigue; un anfitrión con panel propio no nota nada | hecho por diseño |
+
+La auditoría y las tres direcciones de `wt-identidad` quedan como medición (`docs/investigaciones/identidad-2026-10-26/`); no se implementa ninguna.
 
 ### F. Documentación
 
@@ -170,7 +172,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | 2 Segundo anfitrión | A4, F1, F2, D4 | `scripts/canary.mjs` sale 0 contra el segundo anfitrión, con `drivers/fly-machines`, instalado siguiendo `INSTALACION.md` sin un paso a mano fuera del documento |
 | 3 Publicación propia | C1 a C5 | `main` avanza una vez por `publish-main.sh`; el gancho rechaza la marca vieja; el primer anfitrión fija versión por sha |
 | 4 Capacidades 1.0 | D1, D2, D3, D5 | Cada fila de `CAPACIDADES-1.0.md` con prueba verde y veredicto |
-| 5 Identidad | E1 a E6 | Dirección elegida implementada; jueces con nota contra el encargo; `THEME_CSS` del primer anfitrión intacto |
+| 5 Estética conservada | E1 a E4 | Las dos derivas repuestas con veredicto; el juez de E2 corre en la primera pantalla que la fase 1 o 4 fusione; `THEME_CSS` del primer anfitrión intacto |
 
 Dependencias reales: 1, 2 y 5 arrancan apenas termina 0 y corren en paralelo, con agentes distintos. 3 depende de
 1 (la conformidad que corre la puerta usa el canario canónico). 4 corre en paralelo con todo desde el inicio para
@@ -201,7 +203,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | Decisión | Fuente |
 |---|---|
 | El canónico es open source bajo MIT; toda dependencia nueva compatible | UD-004 |
-| La identidad nueva es del panel canónico; un anfitrión puede usar su propio panel | Martín, 2026-10-26 |
+| No hay rediseño: lo que entra sigue la estética actual sin estropearla; un anfitrión puede usar su propio panel | Martín, 2026-10-26 y 00:45 del 27 |
 | Todo lo recomendado se implementa, salvo esa corrección | Martín, 2026-10-26: «quiero que todo lo que tú recomendaste sea lo que implementemos» |
 | Ningún archivo versionado nombra otros proyectos, clientes ni personas | Regla 10, 2026-10-20 |
 | Nada depende de tener presupuesto en GitHub | Martín, 2026-10-26 |
@@ -213,7 +215,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | Sin tope de máquinas ni sesiones simultáneas; el tope es el gasto del día | UD-304 |
 | Lo caído se relanza al arrancar; nunca lo relanza una persona | decisión del 2026-10-25 |
 | Nivel ligero a un modelo chico hasta su límite medido, con escalada | decisión del 2026-10-25 |
-| La única pregunta abierta: qué dirección de identidad | se lleva con recomendación cuando E2 termine |
+| Ninguna pregunta queda abierta | las tres direcciones de identidad se descartaron el 27-10 |
 
 ## 11. Falsación del plan
 
@@ -222,7 +224,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | «Un driver de máquinas bajo demanda antes de 1.0 es alcance extra» | Sin un segundo anfitrión la generalidad del contrato no se mide; la única evidencia hoy es un anfitrión que copió 54 archivos | Se mantiene, y se adelanta: la fase 2 arranca con la 1 |
 | «El capturador mete un navegador en el núcleo» | El panel ya depende de un navegador para 115 pruebas; el capturador es opcional por capacidad del contrato | Entra como módulo opcional, sin dependencia nueva en `src/` |
 | «Publicar `main` sin GitHub debilita la protección» | La protección de rama del plan gratuito devuelve 403; el flujo sólo mide, no impide | La verificación corre donde se publica; el flujo sigue como espejo |
-| «La identidad antes que la madurez funcional distrae» | Son agentes distintos; la identidad no toca `src/` | Corre en paralelo; no bloquea ninguna fase |
+| «Un juez de estética por pantalla frena las fusiones» | El panel ya exige capturas por cambio (regla 13, UD-268); el juez lee esas mismas capturas | Es un paso más sobre lo que ya se produce; sin él la estética derivó dos veces en 59 commits |
 | «Chocar con la estabilización del primer anfitrión» | Esa sesión consolida su cadena y sube una imagen por versión del canónico | Regla 8.1: contrato aditivo hasta su publicación; `contract_version` para lo demás |
 | «Traer piezas rompe al anfitrión que hoy funciona» | Su canario mide el camino real | Cada pieza se retira del anfitrión sólo con el canario verde con la canónica |
 | «Las capacidades 1.0 ya están probadas» | 177 pruebas de unidad e integración, pero sin lista que diga qué promete 1.0 ni veredicto de juez por vista | La lista es el contrato con quien instale; sin ella no hay 1.0 |
@@ -238,6 +240,6 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | `panel/DISENO.md`, `panel/src/styles.css` | Tokens y referencias de la identidad actual |
 | `docs/TODO.md`, `docs/HALLAZGOS.md`, `docs/TECHNICAL-DEBT.md` | Lo abierto |
 | `docs/investigaciones/10` | Método de jueces de interfaz |
-| Ramas `wt-driver-local` y `wt-identidad` | Driver de referencia, canario, capturas de la identidad |
+| Ramas `wt-driver-local` y `wt-identidad` | Driver de referencia, canario, auditoría de la estética con 52 capturas |
 | Directorio de integración de Team Platform en la rama de despliegue del primer anfitrión | Las 54 piezas que vuelven |
 | Fly, «Machines API», documentación vigente al 2026-10 | CREATE con `auto_destroy`, `exec`, destrucción |

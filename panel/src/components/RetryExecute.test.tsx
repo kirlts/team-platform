@@ -65,10 +65,10 @@ describe('Reintentar under the notice of a failed session (UD-282)', () => {
   })
   it('names what it does, as the server says: «Reintentar publicación» for the existing branch, «Reintentar trabajo» for a new session', async () => {
     render(<Mount><ReplyThread message={thread(true, 'open', 'publish')} /></Mount>)
-    expect((await screen.findByTestId('retry-execute')).textContent).toBe('Reintentar publicación')
+    expect((await screen.findByTestId('retry-execute')).textContent?.trim()).toBe('Reintentar publicación')
     cleanup()
     render(<Mount><ReplyThread message={thread(true, 'open', 'work')} /></Mount>)
-    expect((await screen.findByTestId('retry-execute')).textContent).toBe('Reintentar trabajo')
+    expect((await screen.findByTestId('retry-execute')).textContent?.trim()).toBe('Reintentar trabajo')
   })
   it('shows only when the server says the reply is retryable', async () => {
     render(<Mount><ReplyThread message={thread(true)} /></Mount>)

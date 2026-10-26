@@ -4,7 +4,8 @@
 # CLAUDE_PACKAGE empty builds the image without Claude Code: the test of the driver does that and puts a fake `claude` in the job directory.
 FROM node:24-bookworm-slim
 ARG CLAUDE_PACKAGE=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=latest
+# Latest published on the npm registry when this was pinned (npm view @anthropic-ai/claude-code version, 2026-10-26). Raise it on purpose.
+ARG CLAUDE_VERSION=2.1.311
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/* \

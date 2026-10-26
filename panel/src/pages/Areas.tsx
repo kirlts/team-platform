@@ -213,7 +213,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
 
   return (
     <section data-marked={selection.isMarked(area.id) || undefined} className={`relative grid min-h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-line py-2 pl-10 pr-4 last:border-b-0 data-[marked]:bg-selected ${GRID}`}>
-      <RowCheck id={area.id} title={area.title} selection={selection} />
+      <RowCheck id={area.id} title={area.title} selection={selection} align="row" />
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
       <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="py-1 text-sm font-semibold hover:text-accent-deep hover:underline">
@@ -236,7 +236,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
             </span>
           ),
         )}
-        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline">
+        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1.5 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline">
           <span className="tabular-nums">{templateCount}</span>
           <span className="sm:sr-only"> {t('areas.templateCount', { n: templateCount }).replace(/^\S+\s*/, '')}</span>
         </Link>

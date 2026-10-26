@@ -136,9 +136,9 @@ describe('mark several and delete them at once (UD-253)', () => {
       await bar.getByRole('button', { name: 'Borrar' }).click()
       await page.getByText('2 plantillas borradas').first().waitFor()
       await noDialog(page)
-      await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n - 2}`) || document.querySelectorAll('section[aria-label="Plantillas"] button[aria-label^="Eliminar "]').length === n - 2, live)
+      await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n - 2}`) || document.querySelectorAll('section[aria-label="Plantillas"] button[aria-label^="Borrar "]').length === n - 2, live)
       await page.getByRole('button', { name: 'Deshacer' }).first().click()
-      await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n}`) || document.querySelectorAll('section[aria-label="Plantillas"] button[aria-label^="Eliminar "]').length === n, live)
+      await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n}`) || document.querySelectorAll('section[aria-label="Plantillas"] button[aria-label^="Borrar "]').length === n, live)
       await settled(page)
     } finally {
       await context.close()

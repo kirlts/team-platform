@@ -10,7 +10,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { TelemetryBridge } from '@/components/TelemetryBridge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { invalidateRoots, TeamApiError } from '@team-platform/client'
+import { TeamApiError } from '@team-platform/client'
 import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/client/react'
 import { ROUTER_BASENAME } from '@/lib/base'
 import { NoticeProvider } from '@/lib/notices'
@@ -43,7 +43,9 @@ function Shell() {
     try {
       hostLogout = (await signOut.mutateAsync())?.logout_url
     } finally {
-      queryClient.clear()
+      // `clear()` dropped the session query from under the root's observer, which kept the old account and left the shell on screen
+      // with no session: the other queries go, and the session query is reset so its observer asks again, gets 401 and draws the entry.
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
       try {
         localStorage.removeItem('team-active-input')
       } catch {
@@ -51,7 +53,7 @@ function Shell() {
       }
       // The host has its own sign-out (LOGOUT_URL, H-3720): it is the one that leaves the person outside.
       if (hostLogout) window.location.assign(hostLogout)
-      else await invalidateRoots(queryClient, ['me'])
+      else await queryClient.resetQueries({ queryKey: ['me'] })
     }
   }
 

@@ -261,7 +261,7 @@ async function run(vp) {
   await page.getByRole('button', { name: 'Crear' }).click()
   await shot(page, vp, 'areas-nueva-plantilla-error')
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Eliminar Error visual' }).click()
+  await page.getByRole('button', { name: 'Borrar Error visual' }).click()
   await shot(page, vp, 'areas-eliminar-plantilla')
   await page.keyboard.press('Escape')
 

@@ -34,7 +34,8 @@ export function SelectionBar({ selection, onAll, onDelete, busy }: { selection: 
  * The check box of a row: in the gutter left of the row, at the height of its first line, above the link that covers the row. Its edge is
  * drawn at rest (a field with no edge is not found against the row) and, on a touch screen, an invisible frame brings the target to 44 px.
  */
-export function RowCheck({ id, title, selection }: { id: string; title: string; selection: Selection }) {
+/** `align="row"`: a row of a table, whose cells are centered from 640 px: the box is centered with them; a card keeps it at its first line. */
+export function RowCheck({ id, title, selection, align = 'top' }: { id: string; title: string; selection: Selection; align?: 'top' | 'row' }) {
   const t = useT()
   return (
     <Checkbox
@@ -42,7 +43,7 @@ export function RowCheck({ id, title, selection }: { id: string; title: string; 
       checked={selection.isMarked(id)}
       aria-label={t('bulk.markOf', { title })}
       onCheckedChange={(on) => selection.toggle(id, on === true)}
-      className="absolute left-3 top-3 z-10 rounded-sm border-edge [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-3"
+      className={`absolute left-3 top-3 z-10 ${align === 'row' ? 'sm:top-1/2 sm:-translate-y-1/2' : ''} rounded-sm border-edge [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-3`}
     />
   )
 }

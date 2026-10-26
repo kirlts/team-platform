@@ -740,10 +740,10 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
       assert.equal(await card.locator('summary, li').count(), 0, 'a fold or tags inside the row')
       assert.equal(await card.getByText('Formato de salida').count(), 0, 'the instructions are not drawn in the row')
       // Deleting is a quiet button that says its name, at the right of the row.
-      const del = card.getByRole('button', { name: /^Eliminar/ })
+      const del = card.getByRole('button', { name: /^Borrar/ })
       const title = card.getByTestId('template-open')
-      assert.equal((await del.innerText()).trim(), 'Eliminar', '«Eliminar» says its name: an icon alone is for closing, searching and going back')
-      assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, '«Eliminar» sits at the right, away from the name')
+      assert.equal((await del.innerText()).trim(), 'Borrar', '«Borrar» says its name: an icon alone is for closing, searching and going back')
+      assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, '«Borrar» sits at the right, away from the name')
       const dialog = await openTemplate(page)
       for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await dialog.getByText(field, { exact: false }).first().waitFor()
     } finally {

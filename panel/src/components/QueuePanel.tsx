@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { LoadState } from '@/components/LoadState'
 import { DeleteSend } from '@/components/DeleteSend'
 import { ExecutionRuns } from '@/components/ExecutionRuns'
 import { RotateCw } from '@/components/icons'
@@ -36,7 +37,10 @@ export function QueuePanel() {
       <RunningExecutions />
       <ExecutionRuns />
       <div className="flex flex-col gap-2">
-        {rows.length === 0 ? (
+        {/* «Sin envíos» only when the queue answered empty: a failed or pending read draws its own state. */}
+        {!list.data ? (
+          <LoadState query={list} />
+        ) : rows.length === 0 ? (
           <p className="text-sm text-muted">{t('queue.empty')}</p>
         ) : (
           <>

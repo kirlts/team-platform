@@ -84,7 +84,7 @@ describe('the templates of an area as a list (UD-297)', () => {
             const check = await row.getByTestId('row-check').boundingBox()
             const whole = await row.boundingBox()
             const figures = await row.locator('[data-figure] > span:last-child').evaluateAll((els) => els.map((e) => { const b = e.getBoundingClientRect(); return { x: b.x, right: b.right, text: e.textContent } }))
-            const del = await row.getByRole('button', { name: /^Eliminar / }).boundingBox()
+            const del = await row.getByRole('button', { name: /^Borrar / }).boundingBox()
             boxes.push({ name, check, whole, figures, del })
             assert.ok(whole.height > 0 && whole.x >= 0 && whole.x + whole.width <= viewport.width + 0.5, `row ${i} is inside the window`)
             // The check box is at the height of the first line of the name.
@@ -189,12 +189,12 @@ describe('the window of a template (UD-297)', () => {
     }
   })
 
-  test('desktop: deleting a row leaves «eliminada» with Deshacer in its place and the three others stay drawn', async () => {
+  test('desktop: deleting a row leaves «borrada» with Deshacer in its place and the three others stay drawn', async () => {
     const { page, context } = await session()
     try {
       await withFour(page)
-      await rowsOf(page).nth(1).getByRole('button', { name: /^Eliminar / }).click()
-      const gone = list(page).getByRole('status').filter({ hasText: 'eliminada' })
+      await rowsOf(page).nth(1).getByRole('button', { name: /^Borrar / }).click()
+      const gone = list(page).getByRole('status').filter({ hasText: 'borrada' })
       await gone.waitFor()
       await page.waitForFunction(() => document.querySelectorAll('section[aria-label="Plantillas"] [data-template-row]').length === 3)
       await gone.getByRole('button', { name: 'Deshacer' }).click()

@@ -168,10 +168,10 @@ describe('Templates in view', () => {
         assert.equal(await fold.getAttribute('aria-expanded'), 'true')
         const section = page.locator('section[aria-label="Plantillas"]')
         await section.waitFor()
-        await section.getByRole('button', { name: 'Eliminar Reporte de error' }).waitFor()
+        await section.getByRole('button', { name: 'Borrar Reporte de error' }).waitFor()
         await shot(page, `area-${viewport.width}-${colorScheme}`)
-        await section.getByRole('button', { name: 'Eliminar Reporte de error' }).click()
-        await section.getByRole('status').filter({ hasText: 'eliminada' }).waitFor()
+        await section.getByRole('button', { name: 'Borrar Reporte de error' }).click()
+        await section.getByRole('status').filter({ hasText: 'borrada' }).waitFor()
       } finally {
         await context.close()
       }

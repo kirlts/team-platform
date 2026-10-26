@@ -344,15 +344,15 @@ describe('areas, templates and settings', () => {
       await page.goto(`${origin}/areas/a-error`)
       await openTemplates(page)
       const templates = page.getByRole('region', { name: 'Plantillas' })
-      await templates.getByRole('button', { name: /^Eliminar / }).first().click()
-      const row = templates.getByRole('status').filter({ hasText: 'eliminada' })
+      await templates.getByRole('button', { name: /^Borrar / }).first().click()
+      const row = templates.getByRole('status').filter({ hasText: 'borrada' })
       await row.waitFor()
       const rowBox = await row.boundingBox()
       const header = await page.locator('#plantillas').getByRole('heading', { name: /Plantillas/ }).boundingBox()
       assert.ok(rowBox.y - header.y < 120, `the notice is ${rowBox.y - header.y} px from the action`)
       await row.getByRole('button', { name: 'Deshacer' }).click()
       await row.waitFor({ state: 'detached' })
-      await templates.getByRole('button', { name: /^Eliminar / }).first().waitFor()
+      await templates.getByRole('button', { name: /^Borrar / }).first().waitFor()
     } finally {
       await context.close()
     }

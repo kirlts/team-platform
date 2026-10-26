@@ -191,7 +191,9 @@ export function MediaGallery({
           aria-label={name}
           data-gallery-viewer
           className={cn(
-            'frame scroll-thin flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden rounded-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            // No padding (`p-0` over the 2 px of `.frame`): in a scroller each slide is as wide as the content box, so the padding left 2 px of the next
+            // slide in view, a dark line at the right edge when it was a video, and stepping by clientWidth drifted 4 px per slide.
+            'frame scroll-thin flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden rounded-md p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             zoomed && 'overflow-x-hidden',
           )}
         >

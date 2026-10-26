@@ -125,6 +125,19 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
     })
   }
 
+  test('a slide of the gallery is exactly as wide as its viewer: no edge of the next one shows', async () => {
+    const { page, context } = await session(DESKTOP)
+    try {
+      await page.goto(`${origin}/messages/${await idOf(page, 'Revisar la lectura')}`)
+      await page.locator('[data-gallery-viewer]').waitFor()
+      await settled(page)
+      const { client, slide } = await page.locator('[data-gallery-viewer]').evaluate((v) => ({ client: v.clientWidth, slide: v.firstElementChild.getBoundingClientRect().width }))
+      assert.ok(Math.abs(client - slide) <= 1, `the viewer shows ${client}px and a slide is ${slide}px wide`)
+    } finally {
+      await context.close()
+    }
+  })
+
   test('the author sees an empty required field as a dashed box with no «Completar», and the «+» square shares its row with the microphone', async () => {
     const { page, context } = await session(DESKTOP)
     try {

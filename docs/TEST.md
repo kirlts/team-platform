@@ -96,7 +96,7 @@ Hallazgos del 2026-10-20 al escribir el criterio: 25 literales sin fuente recono
 
 ## Pruebas de borrado, restauración y operación del Editor
 
-Archivos nuevos del 2026-10-21 por UD-240 a UD-252. Los del servidor corren con `npm test`; los de navegador están en `test:flows` de `panel/package.json` y corren contra `panel/dev-server.mjs`.
+Archivos nuevos del 2026-10-21 por UD-240 a UD-252. Los del servidor corren con `npm test`; los de navegador están en `test:flows` de `panel/package.json` y corren contra `panel/dev-server.mjs`, en paralelo y con un solo build por `panel/scripts/browser-tests.mjs` (medición en `docs/investigaciones/mediciones/2026-10-25-pruebas-en-paralelo.md`).
 
 | Archivo | Qué cubre |
 |---|---|

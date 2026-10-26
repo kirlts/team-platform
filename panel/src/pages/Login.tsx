@@ -44,7 +44,7 @@ export function Login() {
     <main data-screen="login" className="relative flex min-h-dvh items-center justify-center px-5">
       <Atmosphere />
       <form
-        className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-4 p-7"
+        className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-3 p-7"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
@@ -59,7 +59,7 @@ export function Login() {
           </label>
           <Input id="login-email" type="email" autoComplete="username" autoFocus aria-invalid={errors.email !== undefined ? true : undefined} aria-describedby={errors.email ? 'login-email-error' : undefined} className={fieldClass('email')} value={email} onChange={(e) => setEmail(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
-          <div className="-mt-1 min-h-6">
+          <div className="-mt-1 min-h-5">
             {errors.email && (
               <p id="login-email-error" role="alert" className="text-sm text-danger">
                 {errors.email}
@@ -73,7 +73,7 @@ export function Login() {
           </label>
           <Input id="login-password" type="password" autoComplete="current-password" aria-invalid={errors.password !== undefined ? true : undefined} aria-describedby={errors.password ? 'login-password-error' : undefined} className={fieldClass('password')} value={password} onChange={(e) => setPassword(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
-          <div className="-mt-1 min-h-6">
+          <div className="-mt-1 min-h-5">
             {errors.password && (
               <p id="login-password-error" role="alert" className="text-sm text-danger">
                 {errors.password}

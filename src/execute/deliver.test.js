@@ -17,7 +17,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { clockTime, createDeliverHandler, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
+import { HOST_TURN_LIFE_MS, clockTime, createDeliverHandler, deferralsInARow, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
 import { spawnStreaming } from './runners.js'
 import { createExecuteHandler } from './handler.js'
@@ -663,6 +663,44 @@ describe('deliver job', () => {
     assert.deepEqual([delivery.status, delivery.attempts], ['done', 2])
     assert.equal(jobsOf(messageId, 'execute').length, 1, 'a good change was not sent back to Claude')
     assert.equal(replies(messageId).filter((b) => /No pasó la verificación/.test(b)).length, 0)
+  })
+
+  it('the number of «not now» answers in a row comes from the turn of the host, not from a chosen figure', () => {
+    assert.equal(HOST_TURN_LIFE_MS, 64 * 60_000, 'a turn of the host lives 64 min (measured 2026-10-26)')
+    assert.equal(deferralsInARow(30_000), 128)
+    assert.equal(deferralsInARow(HOST_TURN_LIFE_MS), 1)
+  })
+
+  // The waits are made quick by moving `run_at` of the queued job to the past: the count is by events, so the clock does not matter.
+  const hurry = async (messageId, stop) => {
+    await until(() => {
+      const j = jobsOf(messageId, 'deliver')[0]
+      if (j && j.status === 'queued') env.db.prepare('UPDATE jobs SET run_at = 1 WHERE id = ?').run(j.id)
+      return stop(j)
+    }, { timeoutMs: 30000 })
+  }
+
+  it('the same «not now» without end stops being a wait: the job fails as infrastructure, says it waits for a fix and the next deploy launches it again', async () => {
+    const counter = path('forever')
+    startWorker({ capacityWaitMs: HOST_TURN_LIFE_MS / 2, deliverCommand: `echo x >> ${counter}; echo 'falta el binario «python3»' >&2; exit 75` })
+    const messageId = await publishedMessage('Un ahora no que no termina.')
+    await hurry(messageId, (j) => j?.status === 'failed')
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(readFileSync(counter, 'utf8').trim().split('\n').length, 2, 'it ran exactly the declared number of times and no more')
+    assert.equal(delivery.attempts, 1, 'the waits did not spend attempts: only the last run, the one that failed, counts')
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'nothing goes back to Claude')
+    const last = env.db.prepare('SELECT failed_code, body FROM replies WHERE message_id = ? AND failed_job_id IS NOT NULL ORDER BY id DESC').get(messageId)
+    assert.equal(last.failed_code, 'deliver_env', 'infrastructure: the resume by worker version launches it again')
+    assert.match(last.body, /espera un arreglo del sistema/)
+  })
+
+  it('a «not now» that changes its reason does not add up: it is a wait, not a stuck fault', async () => {
+    const counter = path('changes')
+    startWorker({ capacityWaitMs: HOST_TURN_LIFE_MS / 2, deliverCommand: `echo x >> ${counter}; n=$(wc -l < ${counter}); if [ "$n" -ge 4 ]; then echo ref-ok; exit 0; fi; echo "motivo $n" >&2; exit 75` })
+    const messageId = await publishedMessage('Un ahora no que cambia.')
+    await hurry(messageId, (j) => j?.status === 'done')
+    assert.equal(jobsOf(messageId, 'deliver')[0].status, 'done')
+    assert.equal(readFileSync(counter, 'utf8').trim().split('\n').length, 4)
   })
 
   it('a second failure of the machine goes to a person with the reason; a failed verification still goes back to Claude, not to the retry', async () => {

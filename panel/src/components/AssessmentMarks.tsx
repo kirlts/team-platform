@@ -17,11 +17,11 @@ export function AssessmentMarks({ message, className, oneLine = false }: { messa
   return (
     <span data-testid="assessment-marks" className={cn('inline-flex min-w-0 items-center gap-x-2 gap-y-1', oneLine ? 'flex-nowrap' : 'flex-wrap', className)}>
       {touched.map((g) => (
-        <span key={g.id} data-testid="guard-mark" data-person={g.person ? '' : undefined} title={g.mechanism ? `${g.text} · ${g.mechanism}` : g.text} data-ellipsis-ok={oneLine ? 'UD-241' : undefined} className={cn('guard-mark', oneLine && 'truncate')}>
+        <span key={g.id} data-testid="guard-mark" data-person={g.person ? '' : undefined} title={g.mechanism ? `${g.text} · ${g.mechanism}` : g.text} data-ellipsis-ok={oneLine ? 'UD-241' : undefined} className={cn('guard-mark', oneLine && 'truncate' /* justified: UD-241, a row of a list keeps one line */)}>
           {g.text}
         </span>
       ))}
-      {person && <span data-testid="person-mark" title={t('assessment.person')} data-ellipsis-ok={oneLine ? 'UD-241' : undefined} className={cn('guard-mark', oneLine && 'truncate')} data-person="">{t('assessment.person')}</span>}
+      {person && <span data-testid="person-mark" title={t('assessment.person')} data-ellipsis-ok={oneLine ? 'UD-241' : undefined} className={cn('guard-mark', oneLine && 'truncate' /* justified: UD-241, a row of a list keeps one line */)} data-person="">{t('assessment.person')}</span>}
     </span>
   )
 }

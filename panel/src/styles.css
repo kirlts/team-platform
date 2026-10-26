@@ -641,8 +641,8 @@
     color: var(--color-muted);
     overflow-wrap: anywhere;
   }
-  /* A chip cut to one line (`truncate`) is an inline block: text-overflow paints «…» only on a block's own text, and an inline-flex chip
-     clipped its name mid-letter with no ellipsis («Accesibilidad y exp», «Erro»). The whole name stays in its tooltip. */
+  /* justified: UD-241. A chip cut to one line (`truncate`) is an inline block: text-overflow paints «…» only on a block's own text,
+     and an inline-flex chip clipped its name mid-letter with no ellipsis («Accesibilidad y exp», «Erro»). The full name is its tooltip. */
   .area-chip.truncate,
   .guard-mark.truncate {
     display: inline-block;

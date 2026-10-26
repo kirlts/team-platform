@@ -11,7 +11,7 @@ let origin = ''
 const SHOTS = process.env.MODELO_SHOTS ?? ''
 
 before(async () => {
-  panel = await startPanel(Number(process.env.PANEL_FLOWS_MODELO_PORT ?? process.env.PANEL_FLOWS_PORT ?? 8967), { stepMs: 80 })
+  panel = await startPanel(Number(process.env.PANEL_FLOWS_MODELO_PORT ?? process.env.PANEL_FLOWS_PORT ?? 9208), { stepMs: 80 })
   origin = panel.origin
   if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 })

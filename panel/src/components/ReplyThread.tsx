@@ -199,7 +199,9 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                 <li key={key} className="relative flex gap-3" data-last={last || undefined}>
                   <Avatar name={memberName(r.author_id) || '?'} size={32} className="relative z-10 ring-4 ring-bg" />
                   <article className={cn('reply-card flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-3 py-2.5', last ? 'glass reply-card-last' : 'reply-card-quiet')}>
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
+                    {/* Two columns: who and when wrap on the left, and the delete button stays at the right of the first line however long the name («María de los Ángeles Fernández-Larraín» pushed it to a line of its own). */}
+                    <div data-testid="reply-head" className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-muted">
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
                       <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(r.author_id)}</span>
                       <time dateTime={r.created_at} className="tabular-nums">
                         {format.stamp(r.created_at)}
@@ -209,8 +211,9 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                           {t('replies.edited', { when: format.stamp(r.edited_at) })}
                         </time>
                       )}
+                      </div>
                       {canDelete(r) && (
-                        <Button size="icon-sm" variant="ghost" className="-my-1.5 ml-auto shrink-0 text-muted hover:text-danger" aria-label={t('replies.delete')} title={t('replies.delete')} disabled={del.isPending} onClick={() => void remove(r)}>
+                        <Button size="icon-sm" variant="ghost" className="-my-1 shrink-0 text-muted hover:text-danger" aria-label={t('replies.delete')} title={t('replies.delete')} disabled={del.isPending} onClick={() => void remove(r)}>
                           <Trash2 size={14} aria-hidden />
                         </Button>
                       )}

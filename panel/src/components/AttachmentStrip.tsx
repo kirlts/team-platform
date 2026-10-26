@@ -23,7 +23,7 @@ export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, na
   const hidden = gallery.length - shown.length
   return (
     <>
-      <ul aria-label={t('media.attachments')} className={cn(named ? 'grid grid-cols-1 items-start gap-x-3 gap-y-1.5 lg:grid-cols-2' : 'flex flex-wrap items-center gap-2', className)}>
+      <ul aria-label={t('media.attachments')} className={cn(named ? 'grid grid-cols-1 items-start gap-x-3 gap-y-1.5 @lg:grid-cols-2' : 'flex flex-wrap items-center gap-2', className)}>
         {shown.map((g, i) => (
           <li key={g.id} className={cn('min-w-0', named && 'flex items-center gap-1')}>
             {named && g.mime === 'application/pdf' && g.src ? (

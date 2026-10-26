@@ -27,6 +27,7 @@
 
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { SpanStatusCode, context, trace } from '@opentelemetry/api'
 import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
@@ -48,6 +49,14 @@ import { fillCommand, spawnStreaming } from './runners.js'
 
 export const DELIVER_LATER = 75 // EX_TEMPFAIL (sysexits.h): the host cannot deliver now
 export const DELIVER_HELD = 76 // the next code after EX_TEMPFAIL, outside sysexits (64 to 78 have no use for it here): a person reviews before it is delivered
+// How many «not now» answers (exit 75) in a row, with the same output, the job waits through before it stops being a wait. It is not chosen: a legitimate wait
+// (the turn of another delivery, a quota, no stock) lasts at most one turn of the host, 64 min measured 2026-10-26 (a turn of 64 min detained six branches 30 min;
+// infra/techo-de-gasto.json `vida_max_min`), and each wait is EXECUTE_CAPACITY_WAIT_MS. Past that the same output is not a wait but a fault that only a change of the
+// system fixes (a missing binary, a broken host script), and every extra turn can create a machine and spend money (rule 12 of the repository, counted by events, not by clock).
+export const HOST_TURN_LIFE_MS = 64 * 60_000
+/** Where the host says a «not now» (exit 75) happened: `in-machine` if any line says so, `before-machine` otherwise (the turn, the quota, the stock, the spending cap). */
+export const waitPlace = (stdout) => (/^##team wait in-machine\s*$/m.test(String(stdout ?? '')) ? 'in-machine' : 'before-machine')
+export const deferralsInARow = (capacityWaitMs) => Math.ceil(HOST_TURN_LIFE_MS / capacityWaitMs)
 const REASON_CHARS = 300 // declared courtesy: the reason is one plain sentence for the author
 const PHASE_LINE = /^##team phase (verify|deploy)\s*$/
 const PHASES = { verify: { code: 'deliverVerify', percent: 0 }, deploy: { code: 'deliverDeploy', percent: 50 } } // percent = finished phases over the two that exist
@@ -65,6 +74,7 @@ const TEXTS = {
     alreadyThere: 'El cambio ya estaba en producción: llegó por otro camino y no hizo falta entregarlo de nuevo.',
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
+    stuck: (branch) => `La entrega espera un arreglo del sistema: el anfitrión respondió «ahora no» una y otra vez con el mismo motivo. Lo hecho queda en la rama ${branch}; se vuelve a lanzar sola con la próxima versión.`,
     environment: (branch, reason) => `La entrega falló dos veces por la máquina de entrega o por el plazo (${reason}), no por el cambio, y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`,
     interrupted: (branch) => `La entrega se interrumpió dos veces seguidas (el servicio se reinició o se cortó la conexión con la máquina de entrega) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`
   },
@@ -78,6 +88,7 @@ const TEXTS = {
     alreadyThere: 'The change was already in production: it arrived another way and did not need to be delivered again.',
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
+    stuck: (branch) => `The delivery waits for a fix of the system: the host answered «not now» again and again with the same reason. The work is saved on the branch ${branch}; it launches again by itself with the next version.`,
     environment: (branch, reason) => `The delivery failed twice because of the delivery machine or the time limit (${reason}), not because of the change, and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`,
     interrupted: (branch) => `The delivery was interrupted twice in a row (the service restarted or the connection to the delivery machine dropped) and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`
   }
@@ -104,7 +115,7 @@ export function failedCheck (output, language) {
 const ENVIRONMENT_EXIT_CODES = new Set([255, 137, 143])
 // What a shell answers when the command did not run (126 not executable, 127 not found), when `timeout` cut it (124) or when a signal killed it (128 + n): none is the change's.
 const isUnstartedOrKilled = (code) => code === 124 || code === 126 || code === 127 || (code >= 129 && code <= 159)
-const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main|lo servido \(\w+\) no es un antecesor de este árbol/i
+const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main|lo servido \(\w+\) no es un antecesor de este árbol|sin ensayo verde de esta combinaci[oó]n|es (?:de la infraestructura|del entorno|del dep[oó]sito|de la cola) y no del cambio/i
 export function isEnvironmentFailure ({ code, timedOut = false, signal = null }, output = '') {
   if (timedOut || signal) return true
   if (code === 0 || code === DELIVER_LATER || code === DELIVER_HELD) return false
@@ -326,7 +337,26 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       throw timeoutError
     }
     // Exit 75: the host cannot deliver now. The job waits and tries again; the attempt is not spent and nothing is recorded yet.
-    if (result.code === DELIVER_LATER) throw new Deferred(x.capacityWaitMs, step('deliverWait'))
+    if (result.code === DELIVER_LATER) {
+      // The host says where the «not now» happened (`##team wait before-machine|in-machine` on stdout). Inside the machine it is born from the same image with the same
+      // inputs, so trying again reproduces the same fault and each try spends a machine: it fails at once as infrastructure and the resume by worker version launches it
+      // again when there is a fix. A host that does not say (an older one) only answered «not now» for waits, so it counts as before the machine.
+      if (waitPlace(result.stdout) === 'in-machine') {
+        saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
+        throw Object.assign(new Error(`La orden de entrega respondió «ahora no» desde dentro de la máquina: ${tail(output, 600) || 'sin salida'}`), { code: 'deliver_env', output, stuck: true, retryable: false })
+      }
+      // The same «not now» too many times in a row is a fault of the system, not a wait: the job fails as infrastructure (`deliver_env`), a person is told in one line
+      // and the resume by worker version launches it again with the next deploy.
+      const key = createHash('sha1').update(tail(output, 400)).digest('hex').slice(0, 16)
+      const fresh = parseJson(get(db, 'SELECT payload_json FROM jobs WHERE id = ?', job.id)?.payload_json, payload)
+      const streak = fresh.defer_streak?.key === key ? fresh.defer_streak.n + 1 : 1
+      if (streak >= deferralsInARow(x.capacityWaitMs)) {
+        saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
+        throw Object.assign(new Error(`La orden de entrega respondió «ahora no» ${streak} veces seguidas con el mismo motivo: ${tail(output, 600) || 'sin salida'}`), { code: 'deliver_env', output, stuck: true, retryable: false })
+      }
+      runSql(db, 'UPDATE jobs SET payload_json = ? WHERE id = ?', JSON.stringify({ ...fresh, defer_streak: { key, n: streak } }), job.id)
+      throw new Deferred(x.capacityWaitMs, step('deliverWait'))
+    }
     if (result.code === DELIVER_HELD && !payload.requested_by) {
       const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
       return () => {
@@ -361,6 +391,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     const author = get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)
     const t = textsOf(author?.language)
     if (error?.code === 'lease_expired') return t.interrupted(branch)
+    if (error?.stuck) return t.stuck(branch)
     if (error?.code === 'deliver_timeout' || error?.code === 'deliver_env') {
       const reason = error.code === 'deliver_timeout' ? `${Math.max(1, Math.round(x.deliverTimeoutMs / 60000))} min` : tail(String(error.output ?? ''), 160).replace(/\s+/g, ' ').trim() || 'sin salida'
       return t.environment(branch, reason)

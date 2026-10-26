@@ -17,7 +17,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { clockTime, createDeliverHandler, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
+import { HOST_TURN_LIFE_MS, clockTime, createDeliverHandler, deferralsInARow, waitPlace, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
 import { spawnStreaming } from './runners.js'
 import { createExecuteHandler } from './handler.js'
@@ -654,6 +654,77 @@ describe('deliver job', () => {
     assert.equal(replies(messageId).filter((b) => /falló dos veces/.test(b)).length, 0)
   })
 
+  it('the rehearsal gate answering 1 is the infrastructure: it is retried and nothing goes back to Claude (jobs 219 and 220, 2026-10-26)', async () => {
+    const flag = path('gate')
+    startWorker({ deliverCommand: `if [ -e ${flag} ]; then echo ref-gate; else touch ${flag}; echo 'sin ensayo verde de esta combinación (ab12): ninguna pasada sale sin ensayar antes la misma combinación' >&2; exit 1; fi` })
+    const messageId = await publishedMessage('Una compuerta de ensayo.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.deepEqual([delivery.status, delivery.attempts], ['done', 2])
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'a good change was not sent back to Claude')
+    assert.equal(replies(messageId).filter((b) => /No pasó la verificación/.test(b)).length, 0)
+  })
+
+  it('the number of «not now» answers in a row comes from the turn of the host, not from a chosen figure', () => {
+    assert.equal(HOST_TURN_LIFE_MS, 64 * 60_000, 'a turn of the host lives 64 min (measured 2026-10-26)')
+    assert.equal(deferralsInARow(30_000), 128)
+    assert.equal(deferralsInARow(HOST_TURN_LIFE_MS), 1)
+  })
+
+  it('a «not now» says where it happened: inside the machine counts, before it (or unsaid, from an older host) is a wait', () => {
+    assert.equal(waitPlace('##team phase verify\n##team wait in-machine\n'), 'in-machine')
+    assert.equal(waitPlace('##team wait before-machine\n'), 'before-machine')
+    assert.equal(waitPlace('##team wait before-machine\n##team wait in-machine'), 'in-machine', 'any line from inside the machine wins')
+    assert.equal(waitPlace(''), 'before-machine')
+    assert.equal(waitPlace(null), 'before-machine')
+  })
+
+  it('a «not now» from inside the machine fails at once as infrastructure: it runs once, spends no machine twice and the next deploy launches it again', async () => {
+    const counter = path('inside')
+    startWorker({ deliverCommand: `echo x >> ${counter}; echo 'falta el binario «python3»' >&2; echo '##team wait in-machine'; exit 75` })
+    const messageId = await publishedMessage('Un ahora no desde dentro de la máquina.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(delivery.status, 'failed')
+    assert.equal(readFileSync(counter, 'utf8').trim().split('\n').length, 1, 'it was not tried again: every try would spend a machine')
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'nothing goes back to Claude')
+    const last = env.db.prepare('SELECT failed_code, body FROM replies WHERE message_id = ? AND failed_job_id IS NOT NULL ORDER BY id DESC').get(messageId)
+    assert.equal(last.failed_code, 'deliver_env')
+    assert.match(last.body, /espera un arreglo del sistema/)
+  })
+
+  // The waits are made quick by moving `run_at` of the queued job to the past: the count is by events, so the clock does not matter.
+  const hurry = async (messageId, stop) => {
+    await until(() => {
+      const j = jobsOf(messageId, 'deliver')[0]
+      if (j && j.status === 'queued') env.db.prepare('UPDATE jobs SET run_at = 1 WHERE id = ?').run(j.id)
+      return stop(j)
+    }, { timeoutMs: 90000 })
+  }
+
+  it('the same «not now» without end stops being a wait: the job fails as infrastructure, says it waits for a fix and the next deploy launches it again', async () => {
+    const counter = path('forever')
+    startWorker({ capacityWaitMs: HOST_TURN_LIFE_MS / 2, deliverCommand: `echo x >> ${counter}; echo 'esperando el turno' >&2; echo '##team wait before-machine'; exit 75` })
+    const messageId = await publishedMessage('Un ahora no que no termina.')
+    await hurry(messageId, (j) => j?.status === 'failed')
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(readFileSync(counter, 'utf8').trim().split('\n').length, 2, 'it ran exactly the declared number of times and no more')
+    assert.equal(delivery.attempts, 1, 'the waits did not spend attempts: only the last run, the one that failed, counts')
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'nothing goes back to Claude')
+    const last = env.db.prepare('SELECT failed_code, body FROM replies WHERE message_id = ? AND failed_job_id IS NOT NULL ORDER BY id DESC').get(messageId)
+    assert.equal(last.failed_code, 'deliver_env', 'infrastructure: the resume by worker version launches it again')
+    assert.match(last.body, /espera un arreglo del sistema/)
+  })
+
+  it('a «not now» that changes its reason does not add up: it is a wait, not a stuck fault', async () => {
+    const counter = path('changes')
+    startWorker({ capacityWaitMs: HOST_TURN_LIFE_MS / 2, deliverCommand: `echo x >> ${counter}; n=$(wc -l < ${counter}); if [ "$n" -ge 4 ]; then echo ref-ok; exit 0; fi; echo "motivo $n" >&2; exit 75` })
+    const messageId = await publishedMessage('Un ahora no que cambia.')
+    await hurry(messageId, (j) => j?.status === 'done')
+    assert.equal(jobsOf(messageId, 'deliver')[0].status, 'done')
+    assert.equal(readFileSync(counter, 'utf8').trim().split('\n').length, 4)
+  })
+
   it('a second failure of the machine goes to a person with the reason; a failed verification still goes back to Claude, not to the retry', async () => {
     startWorker({ deliverCommand: "echo 'no se puede entrar por SSH a la máquina de producción' >&2; exit 1" })
     const messageId = await publishedMessage('Una máquina que no entra.')
@@ -683,6 +754,11 @@ describe('deliver job', () => {
     assert.equal(isEnvironmentFailure({ code: 1 }, '→ fallaron 2 archivos'), false, 'a failed test is the change')
     assert.equal(isEnvironmentFailure({ code: 5 }, 'No se instala: lo servido (cede6f154109cd99185ce1ec731a42a231155ca6) no es un antecesor de este árbol (69c17123af5b).'), true, 'production moved during the verification')
     assert.equal(isEnvironmentFailure({ code: 75 }, 'Connection reset'), false)
+    // An older delivery host that still answers 1 for what is not the change's (2026-10-26, jobs 219 and 220: the rehearsal gate sent a good change back to Claude).
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'sin ensayo verde de esta combinación (ab12): ninguna pasada sale sin ensayar antes la misma combinación'), true, 'the rehearsal gate is the infrastructure')
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'la máquina no se pudo crear: es de la infraestructura y no del cambio, se reintenta'), true)
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'no se pudo anotar la aprobación de wt-a: es del depósito y no del cambio'), true)
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'una rama no pasó su prueba: no entra a la cola'), false, 'a rejected change stays the change')
   })
 
   it('no machine is alive while the delivery runs', async () => {

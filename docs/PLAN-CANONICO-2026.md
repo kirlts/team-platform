@@ -146,7 +146,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | Pieza | Qué es | Estado |
 |---|---|---|
 | E1 El encargo, textual, en `panel/DISENO.md` | «Mezcla entre un foro de los años 2000 con un programa para operadores de call center… look optimista, futurista y reflectivo… como de una compañía telefónica» (Martín, 2026-10-26). Es la fuente contra la que se juzga | por hacer |
-| E2 Auditoría y propuesta | Capturas de las vistas actuales, auditoría contra el encargo, tres direcciones con maqueta HTML | en rama `wt-identidad` (`docs/investigaciones/identidad-2026-10-26/`, capturas listas; auditoría y propuesta en curso) |
+| E2 Auditoría y propuesta | Capturas de las vistas actuales, auditoría contra el encargo, tres direcciones con maqueta HTML | en rama `wt-identidad` (`b32ad0fe`): 52 capturas, auditoría, tres direcciones con bocetos y contraste medido |
 | E3 Dirección elegida | La única decisión que cruza a Martín en este plan: una de las tres, con recomendación y lo que pierde cada otra | por hacer |
 | E4 Tokens y componentes | La dirección elegida entra a `panel/src/styles.css` y a los componentes; contraste medido como hoy en DISENO.md; `prefers-reduced-motion` | por hacer |
 | E5 Jueces contra el encargo | Los mismos de D3, con el encargo de E1 como referente | por hacer |

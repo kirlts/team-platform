@@ -58,7 +58,7 @@ const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f)).so
 const browserFiles = files.filter((f) => f.endsWith('.browser.test.mjs'))
 const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)
-if (touchesPanel) console.error('The panel or the client package changed: also `npm run test:panel` (tsc and vitest) and `npm run test:client`.')
+if (touchesPanel) console.error('The panel or the client package changed: its unit tests and browser tests run here; also `npm run test:panel` for tsc and `npm run test:client`.')
 if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
 // The browser files go to the pool of the panel (panel/scripts/browser-tests.mjs): one build for all of them, one process per file at a time with
 // the width the cores allow. The rest run with one process per core.
@@ -66,6 +66,11 @@ let status = 0
 if (nodeFiles.length) {
   const r = spawnSync(process.execPath, ['--test', `--test-concurrency=${availableParallelism()}`, ...nodeFiles], { cwd: root, stdio: 'inherit' })
   status = r.status ?? 1
+}
+// The unit tests of the panel take about four seconds (one jsdom per worker), so a change in the panel runs them all.
+if (panelCode.length) {
+  const r = spawnSync('npx', ['vitest', 'run'], { cwd: path.join(root, 'panel'), stdio: 'inherit' })
+  status = status || (r.status ?? 1)
 }
 if (browserFiles.length) {
   const r = spawnSync(process.execPath, ['scripts/browser-tests.mjs', ...browserFiles.map((f) => path.relative('panel', f))], { cwd: path.join(root, 'panel'), stdio: 'inherit' })

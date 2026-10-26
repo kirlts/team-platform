@@ -165,18 +165,18 @@ export function closeWaitNote ({ db, events, now = Date.now }, { jobId, language
 // The row that says a failed job was taken up again by the system, and when. Like the other event rows it is not a reply.
 const RESUME_TEXTS = {
   'es-419': {
-    cause: { machine: 'la máquina de trabajo', timeout: 'el tiempo máximo', deliver: 'el entorno de entrega', interrupted: 'una interrupción del servicio', system: 'un problema del sistema' },
+    cause: { machine: 'la máquina de trabajo', service: 'el servicio del modelo', timeout: 'el tiempo máximo', deliver: 'el entorno de entrega', interrupted: 'una interrupción del servicio', system: 'un problema del sistema' },
     when: { start: 'al arrancar el servicio', capacity: 'al volver la capacidad' },
     body: (cause, when) => `Retomado solo tras fallar por ${cause}, ${when}.`
   },
   en: {
-    cause: { machine: 'the work machine', timeout: 'the time limit', deliver: 'the delivery environment', interrupted: 'a service interruption', system: 'a system problem' },
+    cause: { machine: 'the work machine', service: 'the model service', timeout: 'the time limit', deliver: 'the delivery environment', interrupted: 'a service interruption', system: 'a system problem' },
     when: { start: 'when the service started', capacity: 'when capacity came back' },
     body: (cause, when) => `Picked up again on its own after failing on ${cause}, ${when}.`
   }
 }
 
-/** The one-line row «picked up again on its own»: `cause` is one of machine, timeout, deliver, interrupted, system; `trigger` is `start` or `capacity`. */
+/** The one-line row «picked up again on its own»: `cause` is one of machine, service, timeout, deliver, interrupted, system; `trigger` is `start` or `capacity`. */
 export function addResumeNote ({ db, events, now = Date.now }, { messageId, jobId, authorId, cause = 'system', trigger = 'start', language = DEFAULT_LANGUAGE }) {
   const t = RESUME_TEXTS[language] ?? RESUME_TEXTS[DEFAULT_LANGUAGE]
   const body = t.body(t.cause[cause] ?? t.cause.system, t.when[trigger] ?? t.when.start)

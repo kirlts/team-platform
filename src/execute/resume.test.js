@@ -6,7 +6,10 @@ import { loadConfig } from '../config.js'
 import { addReply } from '../domain/messages.js'
 import { addMember, login, makeEnv, multipart, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { resumeInfraFailures } from './resume.js'
+import { readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { resumeInfraFailures, workerVersion } from './resume.js'
 
 describe('failures of the environment are relaunched by event', () => {
   let env, config, agentId, editor, anaCookie
@@ -30,7 +33,7 @@ describe('failures of the environment are relaunched by event', () => {
     env.db.prepare('UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = ?').run(jobId, code, replyId)
     return { jobId, replyId }
   }
-  const resume = (trigger = 'start') => resumeInfraFailures({ db: env.db, config, events: env.events }, { trigger })
+  const resume = (trigger = 'start', version = 'v1') => resumeInfraFailures({ db: env.db, config, events: env.events }, { trigger, version })
   const jobsOf = (id, kind) => env.db.prepare('SELECT id, status, payload_json FROM jobs WHERE message_id = ? AND kind = ? ORDER BY id').all(id, kind)
 
   before(async () => {
@@ -118,6 +121,50 @@ describe('failures of the environment are relaunched by event', () => {
     const { replyId } = (() => { const r = addReply({ db: env.db, events: env.events }, { messageId: a, authorId: agentId, kind: 'answer', body: 'Otra vez no pudo.' }); return r })()
     env.db.prepare("UPDATE replies SET failed_job_id = ?, failed_code = 'machine_create_failed' WHERE id = ?").run(last, replyId)
     assert.deepEqual(resume('capacity'), [], 'the system does not relaunch its own relaunch on every event: a person or the next start does')
+  })
+
+  it('a Guard of the idea that could not be judged (idea_guard_unavailable) is launched again: the case of #125 on 2026-10-26', async () => {
+    const id = await publishedMessage()
+    failedMessage(id, 'execute', 'idea_guard_unavailable')
+    assert.equal(resume().length, 1)
+    assert.equal(jobsOf(id, 'execute').at(-1).status, 'queued')
+  })
+
+  it('every code the source throws as an infrastructure failure (`infra(..., code)`) is one the start relaunches', () => {
+    const src = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
+    const codes = new Set()
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (entry.name.endsWith('.js') && !entry.name.endsWith('.test.js')) for (const m of readFileSync(full, 'utf8').matchAll(/\binfra\([^\n]*?,\s*'([a-z_]+)'/g)) codes.add(m[1])
+      }
+    }
+    walk(src)
+    assert.ok(codes.size >= 4, `found ${[...codes]}`)
+    const NOT_FIXED_BY_TRYING_AGAIN = new Set(['execute_flag_rejected']) // retry.js: the host's flags; another try fails the same way
+    for (const code of codes) {
+      if (NOT_FIXED_BY_TRYING_AGAIN.has(code)) continue
+      const table = readFileSync(path.join(src, 'execute', 'resume.js'), 'utf8')
+      assert.match(table, new RegExp(`\\b${code}\\b`), `${code} is thrown as infra and the start does not relaunch it`)
+    }
+  })
+
+  it('a relaunch that fails again is not relaunched by the same version, and is by the next one', async () => {
+    const id = await publishedMessage()
+    failedMessage(id, 'execute', 'execute_no_result')
+    assert.equal(resume('start', 'v1').length, 1)
+    const second = jobsOf(id, 'execute').at(-1)
+    env.db.prepare("UPDATE jobs SET status = 'failed', finished_at = 1 WHERE id = ?").run(second.id)
+    const { replyId } = addReply({ db: env.db, events: env.events }, { messageId: id, authorId: agentId, kind: 'answer', body: 'Otra vez no pudo.' })
+    env.db.prepare("UPDATE replies SET failed_job_id = ?, failed_code = 'execute_no_result' WHERE id = ?").run(second.id, replyId)
+    assert.deepEqual(resume('start', 'v1'), [], 'the same version does not loop')
+    assert.equal(resume('start', 'v2').length, 1, 'a new version tries once more')
+  })
+
+  it('the version of the worker is a hash of its code, not the constant of package.json', () => {
+    assert.match(workerVersion({}), /^[0-9a-f]{12}$/)
+    assert.equal(workerVersion({ TEAM_WORKER_VERSION: 'abc' }), 'abc')
   })
 
   it('the worker relaunches it when it starts', async () => {

@@ -178,7 +178,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 
 ## 8. Reglas de operación mientras dure el plan
 
-1. **El contrato sólo cambia de forma aditiva mientras el primer anfitrión estabiliza su camino a producción.** Vale una variable nueva con omisión, una orden opcional o un campo más en `/health`. Un cambio incompatible espera a que el anfitrión publique su cadena consolidada. Entonces sube `contract_version`.
+1. **El contrato sólo cambia de forma aditiva mientras el primer anfitrión estabiliza su camino a producción.** Vale una variable nueva con omisión, una orden opcional o un campo más en `/health`. Un cambio incompatible espera la cadena consolidada del anfitrión. Entonces sube `contract_version`.
 2. **Nada se fusiona a `desarrollo` del canónico sin su prueba.** El `node --test` dirigido y las pruebas del panel que toca pasan en el worktree del agente.
 3. **Un agente por pieza, en su worktree, con escritura incremental.** Lo que toca pantalla lo juzga otro agente con capturas programáticas.
 4. **Las pruebas que necesitan un driver real corren con `docker-local`.** Ninguna prueba del canónico necesita una nube.

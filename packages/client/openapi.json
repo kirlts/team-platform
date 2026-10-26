@@ -16757,6 +16757,17 @@
                               "type": "object",
                               "additionalProperties": true
                             }
+                          },
+                          "model_usage": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "description": "Tokens and cost by model, subagents included."
                           }
                         }
                       }

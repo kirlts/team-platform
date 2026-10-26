@@ -7,6 +7,11 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return <input className={cn(field, 'h-10', className)} {...props} />
 }
 
+/**
+ * A text box grows with what is written, up to twelve lines, and then scrolls: the same as the box of «Nuevo mensaje». A resize grip in
+ * the corner was the one hand-sized field of the panel (the reply field drew it inside its borderless box). A browser without
+ * `field-sizing` keeps the grip, so a long text still fits.
+ */
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { ref?: Ref<HTMLTextAreaElement> }) {
-  return <textarea className={cn(field, 'min-h-16 resize-y py-2', className)} {...props} />
+  return <textarea className={cn(field, 'min-h-16 max-h-[12lh] resize-y py-2 supports-[field-sizing:content]:resize-none supports-[field-sizing:content]:[field-sizing:content]', className)} {...props} />
 }

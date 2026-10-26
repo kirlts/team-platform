@@ -1,7 +1,7 @@
 // Estimated cost per call: each price comes from the pricing.js table (MASTER-SPEC §3, reports 02 and 06).
-import { test } from 'node:test';
+import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateCostUsd, unpricedSlots } from './pricing.js';
+import { costOfModelUsage, costOfResult, estimateCostUsd, unpricedSlots } from './pricing.js';
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-12, `${actual} ≠ ${expected}`);
 
@@ -57,4 +57,34 @@ test('the startup notice lists the available functions whose model has no price'
     { slot: 'text_fallback', provider: 'anthropic', model: 'claude-opus-4-8', available: false },
   ];
   assert.deepEqual(unpricedSlots(slots).map((s) => s.slot), ['vision']);
+});
+
+// Measured 2026-10-25: the session of message 119 (job 165) ran with `claude-haiku-5-5`, its three subagents with the same model. The transcript
+// adds 6.30M cache reads, 144k 5-minute and 52k 1-hour cache writes and 85k output; the CLI reported 4.0957 USD (costBasis «unknown», its fallback rate) and
+// the columns showed only the session's own turns. Local, CLI 2.1.284: `claude -p --model claude-haiku-5-5` prints «costBasis: "unknown"» for that model.
+describe('costOfModelUsage: the cost of a run with subagents', () => {
+  const usage = { 'claude-haiku-5-5': { inputTokens: 334, outputTokens: 84734, cacheReadInputTokens: 6302596, cacheCreationInputTokens: 196404, costUSD: 4.0957, costBasis: 'unknown' } };
+
+  it('adds every model\'s tokens and prices an unknown basis with the table, not with the CLI fallback', () => {
+    const c = costOfModelUsage(usage);
+    assert.equal(c.tokens.cache_read, 6302596);
+    assert.equal(c.tokens.input, 334 + 6302596 + 196404);
+    assert.ok(c.cost_usd < 1, `Haiku 5.5 at its table price is cents, got ${c.cost_usd}`);
+    assert.ok(c.cost_min_usd < c.cost_usd, 'the tier bounds are kept apart');
+    assert.equal(c.models[0].cli_cost_usd, 4.0957);
+    assert.equal(c.models[0].source, 'table_bounds');
+    assert.equal(costOfResult({ modelUsage: usage, total_cost_usd: 4.0957 }), c.cost_usd);
+  });
+
+  it('keeps the CLI figure when it priced the model from the list, or the model has no price here', () => {
+    const listed = { 'claude-haiku-5-5': { ...usage['claude-haiku-5-5'], costBasis: 'list' } };
+    assert.equal(costOfModelUsage(listed).cost_usd, 4.0957);
+    const other = { 'claude-x-9': { ...usage['claude-haiku-5-5'], costBasis: 'unknown' } };
+    assert.equal(costOfModelUsage(other).cost_usd, 4.0957);
+  });
+
+  it('without token counts it has nothing to say and the CLI total stands', () => {
+    assert.equal(costOfModelUsage({ 'claude-sonnet-5-5': {} }), null);
+    assert.equal(costOfResult({ modelUsage: { 'claude-sonnet-5-5': {} }, total_cost_usd: 1.2345 }), 1.2345);
+  });
 });

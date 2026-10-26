@@ -43,7 +43,10 @@ describe('M8: the microphone is available in the panel', () => {
       await page.getByRole('button', { name: 'Detener grabación' }).click()
       await status.waitFor({ state: 'detached' })
       assert.equal(await page.getByRole('alert').filter({ hasText: /micrófono|grab/i }).count(), 0, 'M8: the interface reported a problem with the microphone')
+      // The server's answer to the reply is the event to wait for: reading the API right after the click raced the request.
+      const sent = page.waitForResponse((r) => r.request().method() === 'POST' && /\/api\/messages\/[^/]+\/replies$/.test(new URL(r.url()).pathname))
       await page.getByRole('button', { name: 'Responder', exact: true }).click()
+      await sent
       const reply = await h.api('ana').get(`/messages/${id}`).then((r) => r.data.replies.at(-1))
       assert.ok(reply, 'M8: the recorded reply was not sent')
       assert.equal(reply.attachments?.[0]?.kind, 'audio', `M8: the reply has no audio (${JSON.stringify(reply.attachments)})`)

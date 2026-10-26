@@ -115,10 +115,34 @@ describe('Claude closes the message (UD-271)', () => {
     assert.doesNotMatch(lastAgentReply(id), /close_reason|\*\*close\*\*/, 'the request is not rendered as a structured entry')
   })
 
-  it('does not close with close false, with no reason, or without the field', async () => {
-    notClosed(await run('Un arreglo que deja algo para revisar.', { extra: { close: false, close_reason: 'Queda algo.' } }), 'close false')
-    notClosed(await run('Un arreglo sin motivo.', { extra: { close: true, close_reason: '   ' } }), 'close true with no reason')
-    notClosed(await run('Un arreglo sin el campo.'), 'no field')
+  it('UD-310: a verified delivery closes without the session asking; the reason is the fixed line of the system, and a reason from the session wins', async () => {
+    const plain = await run('Una entrega comprobada sin pedido de cierre.')
+    assert.equal(status(plain), 'closed', 'no `request`')
+    assert.match(lastAgentReply(plain), /En producción desde \d\d:\d\d \S+\.\n\nCerrado: Entregado y comprobado en producción\.$/)
+    assert.deepEqual(closeAudit(plain).map((r) => r.member_id), [agentId])
+    const falseAsk = await run('Una entrega con close en falso.', { extra: { close: false, close_reason: 'Queda algo.' } })
+    assert.equal(status(falseAsk), 'closed', 'the work is finished whatever the field says')
+    const noReason = await run('Una entrega con close sin motivo.', { extra: { close: true, close_reason: '   ' } })
+    assert.equal(status(noReason), 'closed')
+  })
+
+  it('UD-310: an idea that waits for the answer of a person is not closed, even with the outcome that changes nothing', async () => {
+    const analyze = async (bundle, opts) => {
+      const r = await fakeAnalyze(bundle, opts)
+      r.proposal.messages[0].assignee_ids = bundle.members.filter((m) => m.name === 'Claude').map((m) => m.id)
+      Object.assign(r.proposal.messages[0], { understand_vs_create: 0.2, irreversibility: 0.1, value_holder: 'model', certainty: 0.9, estimate_reason: 'x', idea: 0.9 })
+      r.proposal.messages[0].idea_guard = true
+      r.proposal.messages[0].idea_reason = 'Es una ocurrencia por explorar.'
+      return r
+    }
+    const original = env.modules.analyze
+    env.modules.analyze = analyze
+    try {
+      const id = await run('Se me ocurre que la agenda podría mostrar la semana.', { extra: { outcome: 'investigated', summary: 'Mirado.\n\nNo cambié nada.', ...ASK } })
+      notClosed(id, 'idea waiting for a person')
+    } finally {
+      env.modules.analyze = original
+    }
   })
 
   it('does not close when the delivery is held for a person (76), failed, or never started because the session did not ask', async () => {
@@ -182,7 +206,8 @@ describe('Claude closes the message (UD-271)', () => {
     assert.match(lastAgentReply(investigated), new RegExp(`Cerrado: ${REASON.replace('.', '\\.')}$`))
     assert.deepEqual(closeAudit(investigated).map((r) => r.member_id), [agentId])
     const kept = await run('Otro ya decidido, con algo por confirmar.', { extra: { outcome: 'investigated', summary: 'Ya estaba decidido.\n\nConfirma si aplica.', close: false, close_reason: 'Falta tu confirmación.' } })
-    notClosed(kept, 'investigated with close false')
+    assert.equal(status(kept), 'closed', 'UD-310: the outcome decides, not the request')
+    assert.match(lastAgentReply(kept), /Cerrado: Revisado, no había nada que cambiar\.$/, 'the reason of the session is used only with close true')
   })
 
   it('the request is read from the output, the label follows the language, and the prompt and the switch declare it', () => {

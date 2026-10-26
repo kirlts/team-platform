@@ -53,8 +53,13 @@ async function leftover(page, frame) {
       return { n: rows.length, gap: pager.top - rows.at(-1).getBoundingClientRect().bottom, first: rows[0].getBoundingClientRect().height }
     })
   const page1 = await measure()
+  const firstTitle = () => frame.locator('article h3').first().textContent()
+  const before = await firstTitle()
   await frame.getByRole('button', { name: 'Página siguiente' }).click()
-  await page.waitForTimeout(400)
+  // The next page is there when its first row is another one and the list has measured again; then the frames of the layout have run.
+  await page.waitForFunction(() => !document.querySelector('[data-fit-measuring]'))
+  await frame.locator('article h3').first().filter({ hasNotText: before.trim() }).waitFor()
+  await settled(page)
   const page2 = await measure()
   return { page1, nextRow: page2.first }
 }

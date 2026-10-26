@@ -612,6 +612,22 @@ describe('execute job', () => {
       return { messageId, id: Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]) }
     }
 
+    it('a run whose subagents moved the tokens records them and the table price, not the CLI fallback rate (measured 2026-10-25, job 165)', async () => {
+      process.env.FAKE_EXECUTE_MODEL_USAGE = JSON.stringify({ 'claude-haiku-5-5': { inputTokens: 334, outputTokens: 84734, cacheReadInputTokens: 6302596, cacheCreationInputTokens: 196404, costUSD: 4.0957, costBasis: 'unknown' } })
+      try {
+        startWorker()
+        const { id } = await enqueueFirst()
+        const job = await waitJob(id)
+        assert.equal(job.status, 'done', job.last_error)
+        const r = rowOf(id)
+        assert.equal(r.cache_read_tokens, 6302596, 'the subagents\' reads are in the column, not only the session\'s own turns')
+        assert.ok(r.cost_usd > 0 && r.cost_usd < 1, `cost ${r.cost_usd}`)
+        assert.ok(Math.abs(env.db.prepare('SELECT cost_usd FROM jobs WHERE id = ?').get(id).cost_usd - r.cost_usd) < 1e-6, 'the daily budget counts the same figure')
+        const [m] = JSON.parse(r.model_usage_json)
+        assert.deepEqual([m.model, m.cli_cost_usd, m.cost_basis], ['claude-haiku-5-5', 4.0957, 'unknown'])
+      } finally { delete process.env.FAKE_EXECUTE_MODEL_USAGE }
+    })
+
     it('a finished run leaves one row with the times, the tokens, the cost and the ten slowest tools', async () => {
       process.env.FAKE_EXECUTE_MULTI = '1'
       startWorker()
@@ -740,10 +756,10 @@ describe('execute job', () => {
       const { mine } = await run('La ficha de pacientes muestra un error.')
       assert.equal(mine.length, 2)
       assert.deepEqual(names(mine[0]), ['Antes - Ficha de pacientes con el error.png'])
-      assert.match(mine[0].body, /^Recibido\. Empiezo por leer la pantalla\.\n\n\*\*Antes\*\*: Ficha de pacientes con el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.match(mine[0].body, /^Recibido\. Empiezo por leer la pantalla\.\n\n\*\*Antes\*\*: Ficha de pacientes con el error\. Pacientes > Ficha, Clínica Sur, doctor\.(\n\nCerrado: .+)?$/)
       assert.deepEqual(names(mine[1]), ['Antes - Ficha de pacientes con el error.png', 'Después - Ficha de pacientes sin el error.png'])
       assert.deepEqual(mine[1].attachments.map((a) => a.kind), ['image', 'image'])
-      assert.match(mine[1].body, /^Arreglé[\s\S]*Ya carga con tus datos\.\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.match(mine[1].body, /^Arreglé[\s\S]*Ya carga con tus datos\.\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.(\n\nCerrado: .+)?$/)
       assert.ok(!mine[1].body.includes('"path"') && !mine[1].body.includes('Captures'), 'the list of captures is not printed as text')
       // The before is one file in the volume, referenced by both replies.
       assert.equal(env.db.prepare("SELECT COUNT(DISTINCT sha256) AS n FROM reply_attachments WHERE name LIKE 'Antes - %'").get().n >= 1, true)
@@ -757,7 +773,7 @@ describe('execute job', () => {
       process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'investigated', zone: 'ninguna', summary: 'Revisé la ficha.\n\nNo hay nada que cambiar.', captures: [shot('despues.png', { alt: 'Ficha de pacientes sin el error' })] })
       const { messageId, job, mine } = await run('Consulta sobre la ficha de pacientes.')
       assert.equal(mine.length, 2)
-      assert.match(mine[1].body, /^Revisé la ficha\.\n\nNo hay nada que cambiar\.\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.match(mine[1].body, /^Revisé la ficha\.\n\nNo hay nada que cambiar\.\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.(\n\nCerrado: .+)?$/)
       assert.doesNotMatch(mine[1].body, /Resultado|Zona tocada|investigated|ninguna/)
       const run_ = env.db.prepare('SELECT outcome, detail_json FROM execute_runs WHERE job_id = ?').get(job.id)
       assert.equal(run_.outcome, 'investigated')

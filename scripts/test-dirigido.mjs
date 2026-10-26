@@ -7,6 +7,7 @@
 //   npm test -- --base <ref>    compares against another reference
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { availableParallelism } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { globSync } from 'node:fs'
@@ -24,8 +25,10 @@ const changed = [...new Set([...git('diff', '--name-only', mergeBase), ...git('l
 const selected = new Set(config.always.flatMap((g) => globSync(g, { cwd: root })))
 const prefixes = Object.keys(config.areas).sort((a, b) => b.length - a.length)
 let touchesPanel = false
+const panelChanged = []
 for (const file of changed) {
   if (file.startsWith('panel/') || file.startsWith('packages/client/')) touchesPanel = true
+  if (file.startsWith('panel/')) panelChanged.push(file)
   const prefix = prefixes.find((p) => file === p || file.startsWith(p))
   if (prefix) {
     for (const g of config.areas[prefix]) for (const t of globSync(g, { cwd: root })) selected.add(t)
@@ -36,23 +39,47 @@ for (const file of changed) {
   }
   if (/\.test\.(js|mjs)$/.test(file)) selected.add(file)
 }
-const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f)).sort()
-console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always).`)
-if (touchesPanel) console.error('The panel or the client package changed: also `npm run test:panel` (tsc and vitest) and `npm run test:client`.')
-if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
-// The browser tests serve panel/dist. They run in parallel, and `vite build` empties its folder: it is built here, once and before any of
-// them starts, and they are told to read it (FIT_SIN_BUILD) instead of building each its own. A caller that set it owns the folder.
-const env = { ...process.env }
-if (files.some((f) => f.endsWith('.browser.test.mjs')) && !env.FIT_SIN_BUILD) {
-  const built = spawnSync('npx', ['vite', 'build', '--logLevel', 'error'], { cwd: path.join(root, 'panel'), stdio: 'inherit' })
-  if (built.status !== 0) process.exit(built.status ?? 1)
-  env.FIT_SIN_BUILD = '1'
+
+// Browser tests of the panel. A change that is only in one page (panel/src/pages/<Page>.tsx) runs the tests that open that page's route; any other
+// change in panel/ (a component, a style, the example server, the support files) can show in every page and runs them all. A test file that
+// changed runs by itself (above). The route of each page is the one App.tsx declares.
+const PAGE_ROUTES = { Areas: '/areas', AreaView: '/areas', Connections: '/connections', Messages: '/messages', MessageDetail: '/messages/', Settings: '/settings', Team: '/team' }
+const isPanelTest = (f) => /\.(test|spec)\.[a-z]+$/.test(f)
+const panelCode = panelChanged.filter((f) => !isPanelTest(f) && !/\.(md)$/.test(f))
+const browserAll = globSync('panel/src/*.browser.test.mjs', { cwd: root })
+const pageOnly = panelCode.length > 0 && panelCode.every((f) => PAGE_ROUTES[path.basename(f).replace(/\.tsx$/, '')] && f.startsWith('panel/src/pages/'))
+if (panelCode.length) {
+  if (pageOnly) {
+    const routes = new Set(panelCode.map((f) => PAGE_ROUTES[path.basename(f).replace(/\.tsx$/, '')]))
+    for (const t of browserAll) { const text = readFileSync(path.join(root, t), 'utf8'); if ([...routes].some((r) => text.includes(r))) selected.add(t) }
+  } else for (const t of browserAll) selected.add(t)
 }
+const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f)).sort()
+const browserFiles = files.filter((f) => f.endsWith('.browser.test.mjs'))
+const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
+console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)
+if (touchesPanel) console.error('The panel or the client package changed: its unit tests and browser tests run here; also `npm run test:panel` for tsc and `npm run test:client`.')
+if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
 // A selection with browser tests needs the browser of this Playwright version: it is asked once, before anything starts, and a machine
 // without it fails here in a second with the browser named (2026-10-25: the deploy server hung 20 minutes in the first browser test).
-if (files.some((f) => /\.browser\.test\.mjs$/.test(f))) {
+if (browserFiles.length) {
   const { assertBrowserInstalled } = await import(path.join(root, 'panel/src/browser-support.mjs'))
   try { assertBrowserInstalled() } catch (error) { console.error(`browser tests are selected and ${error.message}`); process.exit(1) }
 }
-const r = spawnSync(process.execPath, ['--test', '--test-concurrency=3', ...files], { cwd: root, env, stdio: 'inherit' })
-process.exit(r.status ?? 1)
+// The browser files go to the pool of the panel (panel/scripts/browser-tests.mjs): one build for all of them, one process per file at a time with
+// the width the cores allow. The rest run with one process per core.
+let status = 0
+if (nodeFiles.length) {
+  const r = spawnSync(process.execPath, ['--test', `--test-concurrency=${availableParallelism()}`, ...nodeFiles], { cwd: root, stdio: 'inherit' })
+  status = r.status ?? 1
+}
+// The unit tests of the panel take about four seconds (one jsdom per worker), so a change in the panel runs them all.
+if (panelCode.length) {
+  const r = spawnSync('npx', ['vitest', 'run'], { cwd: path.join(root, 'panel'), stdio: 'inherit' })
+  status = status || (r.status ?? 1)
+}
+if (browserFiles.length) {
+  const r = spawnSync(process.execPath, ['scripts/browser-tests.mjs', ...browserFiles.map((f) => path.relative('panel', f))], { cwd: path.join(root, 'panel'), stdio: 'inherit' })
+  status = status || (r.status ?? 1)
+}
+process.exit(status)

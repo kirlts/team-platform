@@ -1,10 +1,11 @@
-// Claude closes the message after its final reply (UD-271, MASTER-SPEC §7.5 «Cierre por Claude»). The session asks with two fields of its structured
-// output, `close` and `close_reason`; the system decides. It closes only when all of this holds, and the model cannot override any of it:
-//   1. what was asked is done and checked: the delivery ended with exit 0 (the `deliver` job), or the outcome is one that needs no change (`investigated`,
-//      no delivery) — never `needs_decision`, `not_mine` or `blocked`, a held, failed or exhausted delivery, nor an edited message;
-//   2. nothing is left to the sender: the session said so with `close: true` (the judgement of meaning is the model's; the system reads the field);
+// Claude closes the message after its final reply (UD-271, UD-310, MASTER-SPEC §7.5 «Cierre por Claude»). Finished work closes by itself: the system does
+// not wait for the model to ask (UD-310). It closes when all of this holds, and the model cannot override any of it:
+//   1. what was asked is done and checked: the delivery ended with exit 0 and was verified in production (the `deliver` job), or the outcome is one that
+//      needs no change (`investigated`, no delivery) — never `needs_decision`, `not_mine` or `blocked`, a held, failed or exhausted delivery, nor an edited message;
+//   2. nothing waits for a person: no idea (UD-307) that still waits for the written answer of a person, no Guard about a person (UD-295), no handoff;
 //   3. a first reply that carried a «before» is followed by a final reply that carries at least one «after».
-// And never when a person replied in the thread after the first reply of the agent in this run. The closing line is «Cerrado: <reason>» («Closed: …»).
+// And never when a person replied in the thread after the first reply of the agent in this run. The reason is the one the session wrote with `close: true`
+// (optional), else a fixed line of the system. The closing line is «Cerrado: <reason>» («Closed: …»).
 // The caller closes with `closeMessage`, the function of `POST /api/messages/:id/close`, right after posting the reply and with the agent as the author of its `message.close` audit row.
 
 import { touchesPerson } from '../domain/assessment.js'
@@ -16,6 +17,11 @@ import { hasBefore } from './captures.js'
 export const NO_CHANGE_OUTCOMES = ['investigated']
 const REASON_CHARS = 300 // declared courtesy: the reason is one line of the closing reply
 const LABELS = { 'es-419': 'Cerrado', en: 'Closed' }
+// UD-310: the reason the system writes when the session did not ask; it states the fact that finished the work, never a reading of the text.
+const DEFAULT_REASONS = {
+  'es-419': { delivered: 'Entregado y comprobado en producción.', unchanged: 'Revisado, no había nada que cambiar.' },
+  en: { delivered: 'Delivered and verified in production.', unchanged: 'Checked, nothing had to change.' }
+}
 
 /** What the session asked for in its output: `{ reason }` with `close: true` and a reason, else `null`. The reason is one line. */
 export function closeRequest (output) {
@@ -42,18 +48,24 @@ export function personRepliedSince (db, { messageId, agentId, since }) {
 }
 
 /**
- * The reason to close, or `null` when the message stays open. `delivered`: the delivery ended with exit 0. `after`: how many «after» captures the final
- * reply carries. `since`: the anchor of `firstReplyAnchor` (it travels with the delivery).
+ * The reason to close, or `null` when the message stays open. `delivered`: the delivery ended with exit 0 and was verified. `after`: how many «after» captures
+ * the final reply carries. `since`: the anchor of `firstReplyAnchor` (it travels with the delivery). `request`: what the session asked, optional (UD-310).
  */
-export function closeReason (db, config, { output, request, delivered, messageId, agentId, after, since }) {
-  if (!config.execute.autoClose || !request) return null
+export function closeReason (db, config, { output, request = null, delivered, messageId, agentId, after, since, language }) {
+  if (!config.execute.autoClose) return null
   // UD-295: a Guard about a person that the message touches, or a value only a person has, and Claude does not close alone: the person reads and decides.
   const row = get(db, 'SELECT area_id, guards_json, estimates_json FROM messages WHERE id = ?', messageId)
   if (row && touchesPerson(db, row.area_id, { guards: JSON.parse(row.guards_json || '[]'), estimates: row.estimates_json ? JSON.parse(row.estimates_json) : null })) return null
   if (HANDOFF_OUTCOMES.includes(output?.outcome)) return null
+  // UD-307: an idea that was built and shown waits for the written answer of a person; only its delivery (after that answer) finishes it.
+  if (!delivered && estimatesOf(row).idea_guard === true) return null
   if (!delivered && !NO_CHANGE_OUTCOMES.includes(output?.outcome)) return null
   if (hasBefore(db, { messageId, authorId: agentId }) && after < 1) return null
   if (output?.touches_screen === true && after < 1) return null // UD-298: a change to a screen that shows nothing is read by a person before it closes
   if (personRepliedSince(db, { messageId, agentId, since })) return null
-  return request.reason
+  return request?.reason ?? (DEFAULT_REASONS[language] ?? DEFAULT_REASONS['es-419'])[delivered ? 'delivered' : 'unchanged']
+}
+
+function estimatesOf (row) {
+  try { return row?.estimates_json ? JSON.parse(row.estimates_json) ?? {} : {} } catch { return {} }
 }

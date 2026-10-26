@@ -28,7 +28,7 @@ test('login does not return while the sign-in is still waiting for the server', 
       await route.continue()
     })
     let returned = false
-    const signing = login(page, panel.origin, 'ana').then(() => (returned = true))
+    const signing = login(page, panel.origin, 'ana', { form: true }).then(() => (returned = true))
     await intercepted
     await settled(page)
     assert.equal(returned, false, 'login returned with the entry page in view, before the server opened the session')

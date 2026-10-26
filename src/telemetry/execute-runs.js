@@ -10,7 +10,7 @@ export const PHASES = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'tot
 const COLUMNS = [
   'job_id', 'attempt', 'message_id', 'instance', 'trace_id', 'session_id', 'model', 'runner', 'machine', 'started_at', 'finished_at',
   ...PHASES, 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'cost_usd', 'turns', 'tool_count', 'subagent_count',
-  'outcome', 'error_code', 'delivered', 'transcript_ref', 'transcript_error', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref', 'delivery_held', 'delivery_hold_reason', 'delivery_discarded_at', 'delivery_discarded_by', 'detail_json', 'review_answered'
+  'outcome', 'error_code', 'delivered', 'transcript_ref', 'transcript_error', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref', 'delivery_held', 'delivery_hold_reason', 'delivery_discarded_at', 'delivery_discarded_by', 'detail_json', 'review_answered', 'model_usage_json'
 ]
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : null)
 
@@ -78,9 +78,11 @@ function where ({ since = null, until = null, messageId = null, instance = null,
 export function runView (r) {
   let slowest = []
   try { slowest = JSON.parse(r.slowest_tools_json ?? '[]') } catch { /* a damaged cell shows no tools */ }
-  const { slowest_tools_json: _json, ...rest } = r
+  let usage = null
+  try { usage = r.model_usage_json ? JSON.parse(r.model_usage_json) : null } catch { /* a damaged cell shows no breakdown */ }
+  const { slowest_tools_json: _json, model_usage_json: _usage, ...rest } = r
   return {
-    ...rest, delivered: r.delivered === null ? null : r.delivered === 1, delivery_held: r.delivery_held === null || r.delivery_held === undefined ? null : r.delivery_held === 1, slowest_tools: slowest
+    ...rest, delivered: r.delivered === null ? null : r.delivered === 1, delivery_held: r.delivery_held === null || r.delivery_held === undefined ? null : r.delivery_held === 1, slowest_tools: slowest, model_usage: usage
   }
 }
 

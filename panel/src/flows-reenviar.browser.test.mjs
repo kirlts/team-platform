@@ -61,17 +61,5 @@ describe('forwarding a message', () => {
     })
   }
 
-  test('an empty reason is refused by the server and says why', async () => {
-    const { done_id: id } = await panel.control.execution()
-    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
-    const page = await context.newPage()
-    try {
-      await login(page, origin, 'ana')
-      const r = await page.request.post(`${origin}/api/messages/${id}/forward`, { data: { member_id: 'u-claude', comment: '  ' }, headers: { 'x-team-request': 'panel' } })
-      assert.equal(r.status(), 400)
-      assert.equal((await r.json()).code, 'forward_comment_required')
-    } finally {
-      await context.close()
-    }
-  })
+  // The refusal of a forward with no reason is checked once, on the real server: test M4 of the e2e contract suite.
 })

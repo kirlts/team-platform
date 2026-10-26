@@ -206,28 +206,5 @@ describe('the window of a template (UD-297)', () => {
   })
 })
 
-describe('the models of an area are the Editor\'s (UD-297)', () => {
-  test('the Editor has both selects in the area; a member does not reach the area, and the API refuses the change with 403', async () => {
-    const editor = await session(DESKTOP, 'light', 'ana')
-    try {
-      await editor.page.goto(`${origin}/areas/a-error`)
-      await editor.page.getByTestId('area-owner').waitFor()
-      assert.equal(await editor.page.getByRole('combobox', { name: 'Ligero' }).count(), 1)
-      assert.equal(await editor.page.getByRole('combobox', { name: 'Mayor' }).count(), 1)
-    } finally {
-      await editor.context.close()
-    }
-    const member = await session(DESKTOP, 'light', 'tomas')
-    try {
-      await member.page.goto(`${origin}/areas/a-error`)
-      await member.page.getByRole('status').filter({ hasText: /editor/i }).waitFor()
-      assert.equal(await member.page.getByRole('combobox', { name: /Ligero|Mayor/ }).count(), 0)
-      const res = await member.page.request.patch(`${origin}/api/areas/a-error`, { data: { execute_model: 'claude-opus-5-5' }, headers: csrf })
-      assert.equal(res.status(), 403)
-      const areas = await (await member.page.request.get(`${origin}/api/areas`, { headers: csrf })).json()
-      assert.equal((areas.items ?? areas).find((a) => a.id === 'a-error').execute_model, 'claude-sonnet-5-5', 'the model is the one it had')
-    } finally {
-      await member.context.close()
-    }
-  })
-})
+// The models of an area are the Editor's (UD-297): one test per guarantee, and it runs on the real server: test A2 of the e2e contract suite
+// (the Editor sees both selectors, a member does not reach them, the API answers 403 and saves nothing).

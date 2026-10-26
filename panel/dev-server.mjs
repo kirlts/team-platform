@@ -2053,5 +2053,6 @@ if (process.env.PANEL_DEV_EXIT_WITH_PARENT === '1') {
 }
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}${BASE}api${STATIC ? ' (also serves panel/dist)' : ''}`)
+  // PANEL_DEV_PORT=0 asks the system for a free port; the line below says which one it got.
+  console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${server.address().port}${BASE}api${STATIC ? ' (also serves panel/dist)' : ''}`)
 })

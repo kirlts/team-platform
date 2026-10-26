@@ -104,3 +104,23 @@ test('Conexiones says its state beside the title', async () => {
     await context.close()
   }
 })
+
+test('a log that failed to load says so, never «Sin registros» or «Sin envíos»', async () => {
+  const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+  try {
+    const page = await context.newPage()
+    await login(page, panel.origin, 'ana')
+    const fail = (r) => r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'internal', message: 'boom' }) })
+    await page.route(/\/api\/audit(\?|$)/, fail)
+    await page.route(/\/api\/inputs\?.*all=1/, fail)
+    await page.goto(`${panel.origin}/settings`)
+    const audit = page.locator('[data-audit]')
+    const queue = page.locator('[data-queue]')
+    await audit.getByText('No se pudo cargar', { exact: false }).first().waitFor({ timeout: 20_000 })
+    await queue.getByText('No se pudo cargar', { exact: false }).first().waitFor({ timeout: 20_000 })
+    assert.equal(await audit.getByText('Sin registros').count(), 0)
+    assert.equal(await queue.getByText('Sin envíos').count(), 0)
+  } finally {
+    await context.close()
+  }
+})

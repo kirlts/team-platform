@@ -182,7 +182,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       const entry = page.locator('[data-audit-row="jobs.purge"]')
       await entry.waitFor()
       assert.match(await entry.innerText(), /Ana Prueba/)
-      assert.match(await entry.innerText(), /Estado Terminado/)
+      assert.match(await entry.innerText(), /Estado: Terminado/)
     } finally {
       await context.close()
     }

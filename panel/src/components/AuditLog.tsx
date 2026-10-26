@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadState } from '@/components/LoadState'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
 import { SettingsBox } from '@/components/SettingsBox'
@@ -63,7 +64,7 @@ export function AuditLog() {
       .filter(([k]) => has(key('audit.d', k)))
       .map(([k, v]) => [t(key('audit.d', k)), valueOf(k, v)] as const)
       .filter(([, value]) => value)
-      .map(([label, value]) => `${label} ${value}`)
+      .map(([label, value]) => `${label}: ${value}`)
       .join(' · ')
   return (
     <SettingsBox
@@ -89,7 +90,10 @@ export function AuditLog() {
         </div>
       }
     >
-      {rows.length === 0 ? (
+      {/* «Sin registros» only when the log answered empty: a failed or pending read draws its own state, never the empty line. */}
+      {!log.data ? (
+        <LoadState query={log} />
+      ) : rows.length === 0 ? (
         <p className="text-sm text-muted">{t('audit.empty')}</p>
       ) : (
         <div className="flex flex-col">

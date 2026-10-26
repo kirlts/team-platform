@@ -172,6 +172,8 @@ export interface Reply {
   forwarded_to?: string | null
   /** The reply tells a failed `execute` job that `POST /messages/:id/replies/:replyId/retry` launches again (UD-282). */
   retryable?: boolean
+  /** What «Reintentar» does: `publish` delivers the branch that already exists, `work` launches a new session of Claude; the server decides (RULES 4). */
+  retry_action?: 'publish' | 'work' | null
   /** The job that retried this notice (UD-290): the notice stays, marked as replaced; the thread omits it once that job ended. */
   replaced_by_job_id?: string | null
   /** The job that retried the notice is still queued or running: the thread draws «Reintentando» in its place (UD-290). */

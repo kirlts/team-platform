@@ -37,10 +37,10 @@ function Undo({ children }: { children: React.ReactNode }) {
   const stack = useUndoStack()
   return <UndoProvider stack={stack}>{children}</UndoProvider>
 }
-const thread = (retryable: boolean | undefined, status = 'open') =>
+const thread = (retryable: boolean | undefined, status = 'open', retry_action: 'publish' | 'work' | null = 'work') =>
   ({
     id: 'm1', area_id: 'a1', author_id: '2', title: 't', body: 'b', status, created_at: '2026-10-24T12:00:00Z', updated_at: '2026-10-24T12:00:00Z', assignee_ids: ['1'], attachments: [], reply_count: 1,
-    replies: [{ id: 'r9', message_id: 'm1', author_id: '3', body: 'Claude no pudo responder: se acabó el tiempo.', kind: 'answer', created_at: '2026-10-24T12:05:00Z', retryable }],
+    replies: [{ id: 'r9', message_id: 'm1', author_id: '3', body: 'Claude no pudo responder: se acabó el tiempo.', kind: 'answer', created_at: '2026-10-24T12:05:00Z', retryable, retry_action }],
   }) as unknown as MessageDetail
 
 const store = new EventsStore()
@@ -62,6 +62,13 @@ describe('Reintentar under the notice of a failed session (UD-282)', () => {
     render(<Mount><ReplyThread message={thread(true)} /></Mount>)
     fireEvent.click(await screen.findByTestId('retry-execute'))
     await waitFor(() => expect(posted).toEqual(['/messages/m1/replies/r9/retry']))
+  })
+  it('names what it does, as the server says: «Reintentar publicación» for the existing branch, «Reintentar trabajo» for a new session', async () => {
+    render(<Mount><ReplyThread message={thread(true, 'open', 'publish')} /></Mount>)
+    expect((await screen.findByTestId('retry-execute')).textContent?.trim()).toBe('Reintentar publicación')
+    cleanup()
+    render(<Mount><ReplyThread message={thread(true, 'open', 'work')} /></Mount>)
+    expect((await screen.findByTestId('retry-execute')).textContent?.trim()).toBe('Reintentar trabajo')
   })
   it('shows only when the server says the reply is retryable', async () => {
     render(<Mount><ReplyThread message={thread(true)} /></Mount>)

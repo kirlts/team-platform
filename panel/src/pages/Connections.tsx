@@ -2,6 +2,7 @@ import { useParams } from 'react-router'
 import { FitList } from '@/components/FitList'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
+import { Badge } from '@/components/ui/badge'
 import { useT, type MessageKey } from '@/i18n'
 import { CONNECTIONS, isConnection } from '@/lib/connections'
 import { cn } from '@/lib/utils'
@@ -19,13 +20,14 @@ export function Connections() {
 
   return (
     <Page cols={12}>
-      <PageHeader title={t('nav.connections')} />
+      {/* None of them is built yet: the state is said once, beside the title, and the rows are names that open nothing. */}
+      <PageHeader title={t('nav.connections')} aside={<Badge tone="outline">{t('connections.unavailable')}</Badge>} />
       <FitList
         rows={CONNECTIONS}
         rowKey={(c) => c}
         label={t('nav.connections')}
         renderRow={(c) => (
-          <div aria-current={c === chosen ? 'true' : undefined} title={t(`connections.${c}Hint` as MessageKey)} className={cn('flex min-h-12 items-center border-b border-line px-4 py-3 text-sm font-semibold last:border-b-0', c === chosen && 'bg-selected text-accent-deep shadow-[inset_var(--nav-bar-width)_0_0_var(--color-accent)]')}>
+          <div aria-current={c === chosen ? 'true' : undefined} title={t(`connections.${c}Hint` as MessageKey)} className={cn('flex min-h-12 cursor-default items-center border-b border-line px-4 py-3 text-sm font-semibold text-muted last:border-b-0', c === chosen && 'bg-selected text-accent-deep shadow-[inset_var(--nav-bar-width)_0_0_var(--color-accent)]')}>
             {t(`connections.${c}` as MessageKey)}
           </div>
         )}

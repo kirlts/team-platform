@@ -9,8 +9,12 @@ import { addProgressNote, sessionStartOf } from '../domain/progress-notes.js'
  * Starts the clock. `intervalMin` 0 starts nothing. `unitMs` is how long a minute is (the handler passes 60 000; a test passes a few milliseconds).
  * `reader` is the stream reader of the session: its `state()` has the turns, the tools, the last step and the commits. Returns `{ stop }`.
  */
-export function startProgressNotices ({ db, events, now = Date.now, logger = null, jobId, messageId, authorId, language, intervalMin, unitMs, reader }) {
+export function startProgressNotices ({ db, events, now: handlerNow = Date.now, clock = null, logger = null, jobId, messageId, authorId, language, intervalMin, unitMs, reader }) {
   if (!(intervalMin > 0)) return { stop () {} }
+  // `clock` ({ now, setTimeout, clearTimeout }) is the injected time of a test: it moves only when the test moves it, so the interval is exact under any load.
+  const now = clock?.now ?? handlerNow
+  const setTimer = clock?.setTimeout ?? setTimeout
+  const clearTimer = clock?.clearTimeout ?? clearTimeout
   const startedAt = sessionStartOf(db, jobId) ?? now()
   let stopped = false
   let timer = null
@@ -40,9 +44,9 @@ export function startProgressNotices ({ db, events, now = Date.now, logger = nul
   }
   const schedule = () => {
     if (stopped) return
-    timer = setTimeout(tick, intervalMin * unitMs)
+    timer = setTimer(tick, intervalMin * unitMs)
     timer.unref?.()
   }
   schedule()
-  return { stop () { stopped = true; clearTimeout(timer) } }
+  return { stop () { stopped = true; clearTimer(timer) } }
 }

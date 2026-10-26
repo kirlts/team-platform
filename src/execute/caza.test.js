@@ -34,7 +34,7 @@ describe('failure hunt: execute and deliver', () => {
     })
     const handlers = {
       ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }),
-      execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }),
+      execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders }),
       deliver: createDeliverHandler({ db: env.db, config, queue: env.queue, events: env.events })
     }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
@@ -368,7 +368,7 @@ describe('failure hunt: execute and deliver', () => {
   it('a progress line that cannot be recorded does not take the worker down', async () => {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { bin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, dailyBudgetUsd: 1000, killGraceMs: 200 } })
     const queue = { ...env.queue, progress: (job, percent, phrase) => { if (phrase === 'Sesión iniciada') throw new Error('database is locked'); return env.queue.progress(job, percent, phrase) } }
-    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue, events: env.events, vault }) }
+    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue, events: env.events, vault, getProviders: env.modules.getProviders }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
     worker.start()
     const messageId = await publishedMessage('Una línea de avance que no se puede guardar.')

@@ -28,7 +28,7 @@ describe('a reply that mentions an agent (UD-278)', () => {
     })
     const handlers = {
       ...createPipeline({ db: env.db, config: cfg, queue: env.queue, events: env.events, modules: env.modules }),
-      execute: createExecuteHandler({ db: env.db, config: cfg, queue: env.queue, events: env.events, vault })
+      execute: createExecuteHandler({ db: env.db, config: cfg, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders })
     }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config: cfg, handlers })
     worker.start()

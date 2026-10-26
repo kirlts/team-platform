@@ -35,7 +35,7 @@ describe('Claude closes the message (UD-271)', () => {
     })
     const handlers = {
       ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }),
-      execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }),
+      execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders }),
       deliver: createDeliverHandler({ db: env.db, config, queue: env.queue, events: env.events })
     }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })

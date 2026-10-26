@@ -26,7 +26,7 @@ describe('progress notices of an execute session (UD-293)', () => {
 
   function startWorker ({ execute = {}, logger } = {}) {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent' }, { execute: { bin: FAKE, machineBin: FAKE, killGraceMs: 200, dailyBudgetUsd: 1000, ...execute } })
-    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, progressUnitMs: UNIT_MS }) }
+    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders, progressUnitMs: UNIT_MS }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers, ...(logger ? { logger } : {}) })
     worker.start()
   }

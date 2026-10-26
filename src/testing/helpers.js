@@ -72,6 +72,9 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
  * Full environment. `modules` replaces the fakes; `worker: true` starts a worker (off by default, so that
  * the test controls when it runs). Returns everything needed and a `close()`.
  */
+// The text provider of the tests answers the late judgement of the Guard of the idea (src/execute/idea-guard.js): a decided request, which is what a message without it means in most tests.
+const fakeTextProvider = { name: 'fake', model: 'fake-model', complete: async () => ({ json: { idea: 0.1, idea_guard: false, idea_reason: 'razón de prueba' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'fake-model' }) }
+
 export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false, autoPublish = false, logger = false } = {}) {
   const dir = tempDir()
   const config = testConfig(dir, overrides)
@@ -85,7 +88,7 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
   // Telemetry is process-global: only one test per file can start it (`telemetry: true`).
   const telemetryHandle = telemetry ? initTelemetry({ db, serviceVersion: config.version }) : null
   const mods = {
-    analyze: fakeAnalyze, extract: fakeExtract, getProviders: () => ({ describe: () => [] }), getAnalyzer: () => 'api',
+    analyze: fakeAnalyze, extract: fakeExtract, getProviders: () => ({ describe: () => [], text: fakeTextProvider }), getAnalyzer: () => 'api',
     buildProviders: () => ({}), audioBudget: null, estimateAudioSeconds: null, warmTemplate: null, ...modules
   }
   // `clock`: a controllable clock for identity (login waits, session expiry) without really sleeping.

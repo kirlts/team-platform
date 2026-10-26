@@ -389,7 +389,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
     // UD-307: a message analyzed before the Guard of the idea existed gets that one judgement now, before anything is decided about it.
-    const guardCost = await ensureIdeaGuard({ db, signal: ctx.signal, messageId, providers: getProviders(), retryAfterMs: x.infraRetryWaitMs })
+    const guardCost = await ensureIdeaGuard({ db, signal: ctx.signal, messageId, providers: getProviders(), retryAfterMs: x.infraRetryWaitMs, logger })
     if (guardCost > 0) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', guardCost, job.id)
     // UD-295: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
     const { model, estimates, idea } = resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: payload.escalated === true })
@@ -644,6 +644,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
       judgment = await runJudge({
         providers: getProviders(),
+        logger,
         signal: ctx.signal,
         prompt: buildJudgePrompt({
           message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,

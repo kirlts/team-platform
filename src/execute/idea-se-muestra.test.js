@@ -173,6 +173,7 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: same as above
     const waiting = get(env.db, "SELECT status, attempts, run_at FROM jobs WHERE kind = 'execute' AND message_id = ?", failing)
     assert.equal(waiting.status, 'queued', 'the job waits, it does not fail')
+    assert.match(get(env.db, "SELECT last_error FROM jobs WHERE kind = 'execute' AND message_id = ?", failing).last_error, /sin clave/, 'the real reason of the provider is in last_error, not swallowed')
     assert.equal(waiting.attempts, 1, 'one attempt burned, not both within milliseconds')
     assert.ok(waiting.run_at - Date.now() > 5000, 'the next try is a wait away, not immediate')
     assert.equal(jobs(failing, 'deliver').length, 0, 'an idea is never delivered without the judgement')

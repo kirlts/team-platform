@@ -43,9 +43,12 @@ export function ideaGuardPrompt ({ author, message, areaTitle, areaDescription }
  * (the session runs on a machine), so spawning it here failed in milliseconds in production and burned the attempts of the job (2026-10-26, jobs 205 and 206).
  * A judgement that cannot be made fails the job as a service failure and waits `retryAfterMs` before the next try: delivering an idea without it is what this exists to prevent.
  */
-export async function ensureIdeaGuard ({ db, signal, messageId, providers, retryAfterMs = 0 }) {
+export async function ensureIdeaGuard ({ db, signal, messageId, providers, retryAfterMs = 0, logger = null }) {
   if (!ideaGuardMissing(db, messageId)) return 0
-  const unavailable = (why) => infra(`No se pudo juzgar si el pedido es una idea${why ? ` (${why})` : ''}; se reintenta.`, 'idea_guard_unavailable', { retryAfterMs })
+  const unavailable = (why, cause = null) => {
+    logger?.warn({ err: cause, messageId, why }, 'idea_guard_unavailable') // the real reason reaches the log and, in the message, `last_error`
+    return infra(`No se pudo juzgar si el pedido es una idea${why ? ` (${why})` : ''}; se reintenta.`, 'idea_guard_unavailable', { retryAfterMs })
+  }
   const row = get(db, `SELECT m.title, m.body, m.fields_json, m.estimates_json, a.title AS area_title, a.description AS area_description, u.name AS author_name, u.profile AS author_profile
                          FROM messages m JOIN areas a ON a.id = m.area_id JOIN members u ON u.id = m.author_id WHERE m.id = ?`, messageId)
   let fields = {}
@@ -61,7 +64,7 @@ export async function ensureIdeaGuard ({ db, signal, messageId, providers, retry
     out = r.json
     cost = estimateCostUsd({ provider: r.provider ?? text.name, model: r.model ?? text.model, usage: r.usage }) ?? 0
   } catch (error) {
-    throw unavailable(String(error?.message ?? error).slice(0, 200))
+    throw unavailable(String(error?.message ?? error).slice(0, 200), error)
   }
   if (!out || typeof out.idea_guard !== 'boolean') throw unavailable('respuesta sin el juicio')
   let stored = {}

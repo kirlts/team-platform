@@ -97,7 +97,7 @@ export function axisScores (kpis, quadrant) {
  * `claude -p` that used to run here failed in every job and no job was ever judged, found 2026-10-26). Never throws: a judge that cannot run (no provider, a service failure,
  * an answer out of shape) returns null and the job is not judged; the work it did does not depend on it. `cost` is what the provider's usage costs.
  */
-export async function runJudge ({ providers, prompt, signal }) {
+export async function runJudge ({ providers, prompt, signal, logger = null }) {
   const text = providers?.text
   if (typeof text?.complete !== 'function' || signal?.aborted) return null
   try {
@@ -107,7 +107,7 @@ export async function runJudge ({ providers, prompt, signal }) {
     const kpis = out.kpis.filter((k) => KPIS.some((x2) => x2.id === k.id) && Number.isInteger(k.score) && k.score >= -2 && k.score <= 2)
     const model = r.model ?? text.model
     return { model, quadrant: out.quadrant, kpis, axes: axisScores(kpis, out.quadrant), summary: String(out.summary ?? ''), cost: estimateCostUsd({ provider: r.provider ?? text.name, model, usage: r.usage }) }
-  } catch { return null }
+  } catch (error) { logger?.warn({ err: error }, 'imk_judge_unavailable'); return null }
 }
 
 /** Saves the judgement of a job (one per job; a second pass of the same job replaces it). */

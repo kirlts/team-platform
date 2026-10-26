@@ -32,7 +32,7 @@ El script imprime dónde se crea cada llave, no muestra lo que se pega y no guar
 
 ## Ramas
 
-Dos ramas permanentes. Todo trabajo se fusiona a `desarrollo`. `main` es lo que sirve producción: sólo avanza al commit de `desarrollo` que el despliegue puso en producción, por avance rápido, y lo empuja el despliegue (`tools/publicar-team-platform.sh` del repositorio de Devalis). Activar el gancho: `git config core.hooksPath .githooks`. El gancho `pre-push` rechaza cualquier otro empujón a `main`; `.github/workflows/main-solo-desde-desarrollo.yml` lo mide en el servidor y, si algo entra por otro camino, abre un issue con la etiqueta `alerta` y devuelve `main` al último commit válido. Prueba: `bash scripts/main-solo-desde-desarrollo.test.sh`.
+Dos ramas permanentes. Todo trabajo se fusiona a `desarrollo`. `main` es lo que sirve producción: sólo avanza al commit de `desarrollo` que el despliegue puso en producción, por avance rápido, y lo empuja el despliegue (el guion de despliegue del repositorio que despliega). Activar el gancho: `git config core.hooksPath .githooks`. El gancho `pre-push` rechaza cualquier otro empujón a `main`; `.github/workflows/main-solo-desde-desarrollo.yml` lo mide en el servidor y, si algo entra por otro camino, abre un issue con la etiqueta `alerta` y devuelve `main` al último commit válido. Prueba: `bash scripts/main-solo-desde-desarrollo.test.sh`.
 
 ## Pruebas y banco de referencia
 

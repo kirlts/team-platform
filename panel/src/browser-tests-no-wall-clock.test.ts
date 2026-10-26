@@ -1,4 +1,4 @@
-// The browser tests of the pool wait for events, never for the wall clock, and the runner never runs a file again (hard rule 14 of the Devalis
+// The browser tests of the pool wait for events, never for the wall clock, and the runner never runs a file again (hard rule 14 of the deploying
 // repository: a race is not fixed with a retry or a pause). 2026-10-26, deploy server (4 cores, three files at a time next to image builds): a
 // different file failed in each run and each one passed alone. The causes were a sample-data tie broken by the millisecond of the seeding, a
 // keep-alive socket closed by the server at the moment the client reused it, and a video judged by 800 ms of wall clock.

@@ -18,12 +18,12 @@ git add -A && git commit -qm base && A=$(git rev-parse HEAD)
 esperar 1 "without the deploy mark, main is not pushed" git push origin "$A:refs/heads/main"
 echo uno >f && git add f && git commit -qm uno && B=$(git rev-parse HEAD)
 git push -q origin desarrollo
-esperar 0 "with the mark and a desarrollo sha, main advances (deploy)" env DEVALIS_DESPLIEGUE_PUBLICA_MAIN="$A" git push origin "$A:refs/heads/main"
+esperar 0 "with the mark and a desarrollo sha, main advances (deploy)" env DEPLOY_PUBLISHES_MAIN="$A" git push origin "$A:refs/heads/main"
 git checkout -q -b ajena "$B" && echo dos >g && git add g && git commit -qm ajena && C=$(git rev-parse HEAD)
-esperar 1 "with the mark but a sha that is not in desarrollo, it is rejected" env DEVALIS_DESPLIEGUE_PUBLICA_MAIN="$C" git push origin "$C:refs/heads/main"
-esperar 1 "the mark of another sha is no use" env DEVALIS_DESPLIEGUE_PUBLICA_MAIN="$A" git push origin "$C:refs/heads/main"
-esperar 1 "deleting main is rejected" env DEVALIS_DESPLIEGUE_PUBLICA_MAIN=0000000000000000000000000000000000000000 git push origin :refs/heads/main
-esperar 0 "main fast-forwards to another desarrollo sha" env DEVALIS_DESPLIEGUE_PUBLICA_MAIN="$B" git push origin "$B:refs/heads/main"
+esperar 1 "with the mark but a sha that is not in desarrollo, it is rejected" env DEPLOY_PUBLISHES_MAIN="$C" git push origin "$C:refs/heads/main"
+esperar 1 "the mark of another sha is no use" env DEPLOY_PUBLISHES_MAIN="$A" git push origin "$C:refs/heads/main"
+esperar 1 "deleting main is rejected" env DEPLOY_PUBLISHES_MAIN=0000000000000000000000000000000000000000 git push origin :refs/heads/main
+esperar 0 "main fast-forwards to another desarrollo sha" env DEPLOY_PUBLISHES_MAIN="$B" git push origin "$B:refs/heads/main"
 # The server rule, on the same repository.
 git fetch -q origin; DES=$(git rev-parse origin/desarrollo)
 esperar 0 "server: an ancestor of desarrollo is valid" bash scripts/main-solo-desde-desarrollo.sh "$B" "$DES" "$A"

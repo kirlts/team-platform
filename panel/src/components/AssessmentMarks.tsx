@@ -18,7 +18,7 @@ export function AssessmentMarks({ message, className, oneLine = false }: { messa
     <span data-testid="assessment-marks" className={cn('inline-flex min-w-0 items-center gap-x-2 gap-y-1', oneLine ? 'flex-nowrap overflow-hidden' : 'flex-wrap', className)}>
       {touched.map((g) => (
         <span key={g.id} data-testid="guard-mark" data-person={g.person ? '' : undefined} title={g.mechanism ? `${g.text} · ${g.mechanism}` : g.text} className={cn('guard-mark', oneLine && 'shrink')}>
-          {oneLine ? <span data-ellipsis-ok="UD-241" className="min-w-0 truncate">{g.text}</span> : g.text}
+          {oneLine ? <span data-ellipsis-ok="UD-241" className="min-w-0 truncate">{g.text}</span> : g.text} {/* justified: UD-241, a Guard mark on one line; the whole text is its tooltip and the detail */}
         </span>
       ))}
       {person && <span data-testid="person-mark" className={cn('guard-mark', oneLine && 'shrink-0')} data-person="">{t('assessment.person')}</span>}

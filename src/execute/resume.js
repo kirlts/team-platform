@@ -7,15 +7,10 @@
 
 import { all, get } from '../db/index.js'
 import { addResumeNote } from '../domain/progress-notes.js'
-import { retryBlock, retryExecute, watchBudget } from './retry.js'
+import { INFRA, retryBlock, retryExecute, watchBudget } from './retry.js'
 
 // Failure code of a notice → cause of the environment. A code that is not here is not an infrastructure failure: the verification of a change that failed
 // (`deliver_failed`) goes back to Claude by its own rule (UD-298), and the limits of one session (steps, spend) are not fixed by trying again at start.
-const INFRA = {
-  machine_create_failed: 'machine', execute_no_result: 'machine', execute_api_error: 'machine', capacity: 'machine',
-  execute_timeout: 'timeout', deliver_timeout: 'timeout',
-  deliver_env: 'deliver', lease_expired: 'interrupted', system: 'system'
-}
 // What comes back with capacity: the failures of getting a machine. The rest waits for the next start.
 const CAPACITY = new Set(['machine_create_failed', 'capacity', 'execute_no_result'])
 

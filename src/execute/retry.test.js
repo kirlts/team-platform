@@ -69,7 +69,7 @@ describe('retry of a failed session (UD-282)', () => {
     agentId = Number(created.json().id)
     await env.app.listen({ host: '127.0.0.1', port: PORT })
   })
-  beforeEach(() => { process.env.FAKE_EXECUTE_MODE = 'ok'; process.env.FAKE_EXECUTE_REPLY = '1'; delete process.env.FAKE_EXECUTE_EXTRA; delete process.env.FAKE_EXECUTE_SLEEP_MS; delete process.env.FAKE_EXECUTE_FAIL_FIRST })
+  beforeEach(() => { env.config.execute.deliverCommand = ''; process.env.FAKE_EXECUTE_MODE = 'ok'; process.env.FAKE_EXECUTE_REPLY = '1'; delete process.env.FAKE_EXECUTE_EXTRA; delete process.env.FAKE_EXECUTE_SLEEP_MS; delete process.env.FAKE_EXECUTE_FAIL_FIRST })
   after(async () => { await worker?.stop(); await env.close() })
 
   const fail = () => { process.env.FAKE_EXECUTE_MODE = 'error'; process.env.FAKE_EXECUTE_REPLY = '0' }
@@ -214,5 +214,49 @@ describe('retry of a failed session (UD-282)', () => {
     assert.equal(mid.retryable, false)
     env.db.prepare("UPDATE jobs SET status = 'failed' WHERE id = ?").run(jobId)
     assert.equal((await detail(id, anaCookie)).replies.find((r) => Number(r.id) === notice.id).retrying, false, 'when the job ends the thread stops drawing it')
+  })
+
+  // Case #125 (2026-10-26): the work was done and pushed; then only steps of the environment fell (a delivery, an `execute` that died before doing anything).
+  const seedWorkDone = async (id, { failures, edited = false }) => {
+    await worker.stop()
+    const job = (kind, status, extra = {}) => Number(env.db.prepare("INSERT INTO jobs (kind, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at, finished_at) VALUES (?, ?, ?, ?, 0, 1, 1, 0, 1000, 2000)").run(kind, id, JSON.stringify({ message_id: id, member_id: agentId, ...extra }), status).lastInsertRowid)
+    const green = job('execute', 'done')
+    env.db.prepare("INSERT INTO execute_runs (job_id, attempt, message_id, started_at, finished_at, outcome) VALUES (?, 1, ?, 1000, 2000, 'done')").run(green, id)
+    let last = null
+    for (const [kind, code] of failures) {
+      const jobId = job(kind, 'failed')
+      const r = env.db.prepare("INSERT INTO replies (message_id, author_id, body, kind, created_at, failed_job_id, failed_code) VALUES (?, ?, 'No pude terminar este trabajo.', 'clarification', 3000, ?, ?)").run(id, agentId, jobId, code)
+      last = Number(r.lastInsertRowid)
+    }
+    if (edited) env.db.prepare('UPDATE messages SET edited_at = 5000 WHERE id = ?').run(id)
+    return last
+  }
+  const startForDelivery = async () => { await worker?.stop(); env.config.execute.deliverCommand = 'true'; startWorker({ deliverCommand: 'true' }) } // the API offers a delivery only when the instance declares the command
+  const kinds = (id) => env.db.prepare("SELECT kind FROM jobs WHERE message_id = ? AND status = 'queued' ORDER BY id").all(id).map((r) => r.kind)
+
+  it('#125: work done, then a failed delivery and an `execute` that fell by the environment: «Reintentar» enqueues the delivery of the branch, not another session', async () => {
+    await startForDelivery()
+    const id = await publishedMessage()
+    const notice = await seedWorkDone(id, { failures: [['deliver', 'deliver_env'], ['execute', 'system'], ['deliver', 'deliver_failed'], ['execute', 'system']] })
+    const view = (await detail(id, anaCookie)).replies.find((r) => Number(r.id) === notice)
+    const res = await api('POST', `/api/messages/${id}/replies/${notice}/retry`, anaCookie)
+    assert.equal(res.statusCode, 202, res.body)
+    assert.deepEqual(kinds(id), ['deliver'], 'a delivery and no `execute`: no paid session redoes the work')
+    const payload = JSON.parse(env.db.prepare("SELECT payload_json FROM jobs WHERE id = ?").get(res.json().job_id).payload_json)
+    assert.equal(payload.branch, `tp/${id}`)
+    assert.equal(env.db.prepare("SELECT action FROM audit_log WHERE action = 'message.deliver_retry' AND entity_id = ?").all(String(id)).length, 1)
+  })
+
+  it('#125: what Claude did wrong or an edited message goes back to a session: «Reintentar» enqueues an `execute`', async () => {
+    await startForDelivery()
+    const wrong = await publishedMessage()
+    const n1 = await seedWorkDone(wrong, { failures: [['deliver', 'deliver_env'], ['execute', 'execute_max_turns']] })
+    assert.equal((await api('POST', `/api/messages/${wrong}/replies/${n1}/retry`, anaCookie)).statusCode, 202)
+    assert.deepEqual(kinds(wrong), ['execute'], 'the session that failed on its own work runs again')
+    await startForDelivery()
+    const edited = await publishedMessage()
+    const n2 = await seedWorkDone(edited, { failures: [['deliver', 'deliver_env'], ['execute', 'system']], edited: true })
+    assert.equal((await api('POST', `/api/messages/${edited}/replies/${n2}/retry`, anaCookie)).statusCode, 202)
+    assert.deepEqual(kinds(edited), ['execute'], 'the text changed after the work: the branch no longer answers it')
   })
 })

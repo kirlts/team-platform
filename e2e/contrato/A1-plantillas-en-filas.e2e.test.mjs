@@ -46,7 +46,7 @@ describe('A1: the templates of an area are aligned rows that open their window',
             name: await row.getByTestId('template-open').boundingBox(),
             whole: await row.boundingBox(),
             figures: await row.locator('[data-figure] > span:last-child').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().right)),
-            del: await row.getByRole('button', { name: /^Eliminar / }).boundingBox()
+            del: await row.getByRole('button', { name: /^Borrar / }).boundingBox()
           })
         }
         same(boxes.map((b) => b.name.x), 'the name does not start at one x in every row')

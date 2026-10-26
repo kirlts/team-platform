@@ -17,7 +17,7 @@ import { createDeliverHandler } from './deliver.js'
 import { buildExecuteParts } from './prompt.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8645 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: two suites shared 8645 and collided with EADDRINUSE when run in parallel
 
 describe('an idea is shown, not delivered (UD-307)', () => {
   let env, state, worker, author, editor, vault, estimates
@@ -60,7 +60,7 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     await addMember(env, { email: 'ana@x.org', name: 'Ana' })
     author = await login(env, 'ana@x.org')
     env.config.execute.deliverCommand = 'true' // the API answers `POST /messages/:id/deliver` only when the instance declares the command
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(async () => {
     await worker?.stop()

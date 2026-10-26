@@ -159,6 +159,11 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const text = 'Corregir el desalineado del sidebar en la vista dashboard. Agregar la sincronización.'
       await send(page, text)
       await page.getByTestId('published-message').first().waitFor({ timeout: 20000 })
+      // The most options the selector ever drew: a send is ONE option from the moment it goes up until the server has it (it was drawn twice for a moment).
+      await page.evaluate(() => {
+        window.__maxOptions = 0
+        new MutationObserver(() => { window.__maxOptions = Math.max(window.__maxOptions, document.querySelectorAll('[data-testid="send-switcher"] [role="option"]').length) }).observe(document.body, { childList: true, subtree: true })
+      })
       await send(page, text)
       const switcher = page.getByTestId('send-switcher')
       await switcher.waitFor()
@@ -166,6 +171,9 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       // While the second send goes from «going up» to «the server has it» the selector draws it twice for a moment: the count of two is an event the
       // page reaches, waited for in the page, and not a number read at the first instant there are two options.
       await page.waitForFunction(() => document.querySelectorAll('[data-testid="send-switcher"] [role="option"]').length === 2)
+      // The send has left «going up»: from here on nothing can draw it a second time.
+      await page.waitForFunction(() => ![...document.querySelectorAll('[data-testid="send-switcher"] [role="option"]')].some((o) => /Subiendo|Enviando/.test(o.textContent ?? '')))
+      assert.equal(await page.evaluate(() => window.__maxOptions), 2, 'a send is one option at every moment')
       assert.equal(await options.count(), 2)
       const row = await switcher.boundingBox()
       const labels = []

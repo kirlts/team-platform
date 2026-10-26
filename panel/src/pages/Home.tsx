@@ -28,6 +28,8 @@ interface Upload {
   at: string
   progress: number
   error?: string
+  /** The id the server gave the input once it answered: from then on the upload and that input are ONE send. */
+  landed?: string
 }
 
 /** Elements where a key press is for typing or for the control itself, never for moving through the tray. */
@@ -101,7 +103,8 @@ export function Home() {
   const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
 
   const items = useMemo<TrayItem[]>(() => {
-    const sending: TrayItem[] = uploads.map((u): TrayItem => {
+    const listed = new Set(inputs.map((i) => i.id))
+    const sending: TrayItem[] = uploads.filter((u) => !u.landed || !listed.has(u.landed)).map((u): TrayItem => {
       const pending: PendingUpload = {
         key: u.key,
         text: u.draft.text,
@@ -174,7 +177,10 @@ export function Home() {
     async (key: string, draft: SendDraft) => {
       setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: undefined, progress: 0 } : u)))
       try {
-        await team.inputs.upload({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId, recipientIds: draft.recipientIds }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
+        const created = await team.inputs.upload({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId, recipientIds: draft.recipientIds }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
+        // The upload learns which input it became: the tray draws that send once, as the upload until the server's list has the input and as the input from then on
+        // (the list can bring it before the upload leaves, and both were drawn for a moment: two options for one send).
+        setUploads((list) => list.map((u) => (u.key === key ? { ...u, landed: created.input_id } : u)))
         // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
         await invalidateRoots(queryClient, ['inputs'])
         setUploads((list) => list.filter((u) => u.key !== key))

@@ -18,7 +18,7 @@ import { modelFor } from '../domain/assessment.js'
 import { closeReason } from './auto-close.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8644 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
 const LIMITS = { create: 0.6, irreversibility: 0.5, certainty: 0.4 }
 
 describe('model by area and by estimates', () => {
@@ -28,9 +28,21 @@ describe('model by area and by estimates', () => {
   let extra = {}
   let routing = 'agent'
 
+  // The text provider answers the Guard of the idea and the IMK judge (FAKE_JUDGE=off makes the judge fail the way a missing key does), as in production: the worker has no `claude`.
+  const KPI_IDS = ['1.1', '1.2', '1.3', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3']
+  const fakeText = { name: 'fake', model: 'claude-haiku-5-5', complete: async (req) => {
+    const prompt = req.messages[0].content
+    if (prompt.startsWith('Eres un juez del IMK')) {
+      if (process.env.FAKE_JUDGE === 'off') throw new Error('anthropic: sin clave')
+      const kpis = KPI_IDS.map((id) => ({ id, applies: id === '2.1' || id === '1.2', score: id === '2.1' ? 1 : 0, quote: id === '2.1' || id === '1.2' ? 'Arreglé la pantalla' : '', claim: 'c', reasoning: 'r' }))
+      return { json: { quadrant: 'execute', kpis, summary: 'Adecuado.' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
+    }
+    return { json: { idea: 0.1, idea_guard: false, idea_reason: 'razón de prueba' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
+  } }
+  const getProviders = () => ({ describe: () => [], text: fakeText })
   const startWorker = () => {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, lightLimits: LIMITS } })
-    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders }) }
+    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
     worker.start()
   }
@@ -71,7 +83,7 @@ describe('model by area and by estimates', () => {
     await addMember(env, { email: 'ana@x.org', name: 'Ana' })
     author = await login(env, 'ana@x.org')
     areaId = get(env.db, 'SELECT id FROM areas WHERE deleted_at IS NULL ORDER BY position, id LIMIT 1').id
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(async () => {
     await worker?.stop()

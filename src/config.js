@@ -411,7 +411,6 @@ export function loadConfig (env = process.env, overrides = {}) {
       directHostInstructions: textValue(env, 'EXECUTE_DIRECT_HOST_INSTRUCTIONS', ''),
       directSessionEnv: otelPairs(env.EXECUTE_DIRECT_SESSION_ENV, 'EXECUTE_DIRECT_SESSION_ENV'), // what a light session needs set in its environment; no default: the economy of the context is what loads at the start, not a limit that cuts the session
       lightLimits: limitPairs(env.EXECUTE_LIGHT_LIMITS ?? LIGHT_LIMITS),
-      judgeModel: textValue(env, 'EXECUTE_JUDGE_MODEL', 'claude-haiku-5-5'), // UD-295: the cheap model that judges each finished job with the IMK
       directStopCommand: textValue(env, 'EXECUTE_DIRECT_STOP_COMMAND', ''),
       // The tools a direct fix on a light model gets (`claude --tools`): the definitions of the others weigh 24,600 tokens in every request (measured 2026-10-25: 53,938 against 29,302
       // with these seven). Empty = all of Claude Code's tools.

@@ -5,8 +5,7 @@
 // What the IMK asks of a collaboration with a person (a conversation in which the person guides the AI) mostly does not exist in an unattended job: a KPI that does not apply is
 // scored `applies: false` and is left out of its axis; it is never scored 0 to fill it. The axis target comes from the McGrath quadrant of the task (PPD-K, phase 1).
 import { get, run as runSql } from '../db/index.js'
-import { spawnStreaming } from './runners.js'
-import { costOfResult } from '../telemetry/pricing.js'
+import { estimateCostUsd } from '../telemetry/pricing.js'
 
 export const AXES = Object.freeze([
   { axis: 1, name: 'Alineación estratégica' },
@@ -94,20 +93,20 @@ export function axisScores (kpis, quadrant) {
 }
 
 /**
- * Runs the judge: one call of `claude -p` with no tools and the schema above. Never throws: a judge that cannot run (no binary, a service failure, an answer out of shape) returns null
- * and the job is not judged; the work it did does not depend on it. `cost` is what the CLI reports for the call.
+ * Runs the judge: one call to the text provider with the schema above (the same path as the analyzer and the Guard of the idea: the worker has no `claude` executable, so the
+ * `claude -p` that used to run here failed in every job and no job was ever judged, found 2026-10-26). Never throws: a judge that cannot run (no provider, a service failure,
+ * an answer out of shape) returns null and the job is not judged; the work it did does not depend on it. `cost` is what the provider's usage costs.
  */
-export async function runJudge ({ config, prompt, signal, run = (opts) => spawnStreaming(opts.bin, opts.args, { env: process.env, stdin: opts.prompt, keepStdout: true, timeoutMs: opts.timeoutMs, graceMs: opts.graceMs, signal: opts.signal }) }) {
-  const x = config.execute
-  const args = ['-p', '--model', x.judgeModel, '--output-format', 'json', '--json-schema', JSON.stringify(judgeSchema()), '--tools', '', '--max-budget-usd', String(Math.min(1, x.maxBudgetUsd))]
+export async function runJudge ({ providers, prompt, signal }) {
+  const text = providers?.text
+  if (typeof text?.complete !== 'function' || signal?.aborted) return null
   try {
-    const r = await run({ bin: x.bin, args, prompt, timeoutMs: Math.min(x.timeoutMs, 300_000), graceMs: x.killGraceMs, signal })
-    if (r.code !== 0 || r.spawnError) return null
-    const result = JSON.parse(r.stdout ?? '')
-    const out = result.structured_output
+    const r = await text.complete({ messages: [{ role: 'user', content: prompt }], schema: judgeSchema(), effort: 'low' })
+    const out = r.json
     if (!out || !Array.isArray(out.kpis) || !QUADRANTS[out.quadrant]) return null
     const kpis = out.kpis.filter((k) => KPIS.some((x2) => x2.id === k.id) && Number.isInteger(k.score) && k.score >= -2 && k.score <= 2)
-    return { model: x.judgeModel, quadrant: out.quadrant, kpis, axes: axisScores(kpis, out.quadrant), summary: String(out.summary ?? ''), cost: costOfResult(result) }
+    const model = r.model ?? text.model
+    return { model, quadrant: out.quadrant, kpis, axes: axisScores(kpis, out.quadrant), summary: String(out.summary ?? ''), cost: estimateCostUsd({ provider: r.provider ?? text.name, model, usage: r.usage }) }
   } catch { return null }
 }
 

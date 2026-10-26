@@ -22,8 +22,7 @@ import { createExecuteHandler, dailyBudget, localDay, otelSessionEnv, stderrTail
 import { phraseForTool } from './stream.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-process.env.FAKE_JUDGE = 'off' // these measure the cost of the session itself; the judge has its own test (judge.test.js)
-const PORT = 8641 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
 
 describe('execute job', () => {
   let env, state, worker, editor, author, agentId, agent, vault
@@ -71,7 +70,7 @@ describe('execute job', () => {
     updateMember(env.db, authorId, { profile: 'Perfil de Ana: llevo la agenda de la clínica.' })
     author = await login(env, 'ana@x.org')
     setProjectDescription(env.db, 'Descripción del proyecto: agenda de clínicas.')
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(async () => {
     await worker?.stop()

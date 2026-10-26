@@ -13,7 +13,7 @@ import { createWorker } from '../worker.js'
 import { createExecuteHandler } from './handler.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8661
+let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('imagen-de-prueba')])
 
 describe('retry of a failed session (UD-282)', () => {
@@ -67,7 +67,7 @@ describe('retry of a failed session (UD-282)', () => {
     anaCookie = await login(env, 'ana@x.org')
     const created = await api('POST', '/api/members', editor, { email: 'claude@x.org', name: 'Claude', kind: 'agent', profile: 'Perfil del agente.' })
     agentId = Number(created.json().id)
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(() => { process.env.FAKE_EXECUTE_MODE = 'ok'; process.env.FAKE_EXECUTE_REPLY = '1'; delete process.env.FAKE_EXECUTE_EXTRA; delete process.env.FAKE_EXECUTE_SLEEP_MS; delete process.env.FAKE_EXECUTE_FAIL_FIRST })
   after(async () => { await worker?.stop(); await env.close() })

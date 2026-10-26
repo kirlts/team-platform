@@ -21,8 +21,7 @@ import { enqueueDeliver } from './enqueue.js'
 import { createExecuteHandler } from './handler.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-process.env.FAKE_JUDGE = 'off' // these measure the cost of the session itself; the judge has its own test (judge.test.js)
-const PORT = 8648 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
 
 describe('failure hunt: execute and deliver', () => {
   let env, state, worker, editor, editorId, author, authorId, englishAuthor, agentId, vault
@@ -92,7 +91,7 @@ describe('failure hunt: execute and deliver', () => {
     env.db.prepare("UPDATE members SET language = 'en' WHERE id = ?").run(englishId)
     englishAuthor = await login(env, 'bob@x.org')
     env.config.execute.deliverCommand = 'true'
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(async () => {
     await worker?.stop()

@@ -19,7 +19,7 @@ import { createExecuteHandler } from './handler.js'
 import { buildExecuteParts, finalSchema } from './prompt.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8649 // the range given to this work (8640 to 8649)
+let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
 const REASON = 'La agenda ya carga y está en producción.'
 const ASK = { close: true, close_reason: REASON }
 const CHECK = { searched: ['docs/USER-DECISIONS.md'], why_not_covered: 'Ninguna lo fija.', recommendation: 'Cobrar al cierre.', if_wrong: 'Se devuelve.', question: '¿Al inicio o al cierre?' }
@@ -93,7 +93,7 @@ describe('Claude closes the message (UD-271)', () => {
     author = await login(env, 'ana@x.org')
     setProjectDescription(env.db, 'Descripción del proyecto: agenda de clínicas.')
     env.config.execute.deliverCommand = 'true'
-    await env.app.listen({ host: '127.0.0.1', port: PORT })
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); PORT = env.app.server.address().port
   })
   beforeEach(async () => {
     await worker?.stop()

@@ -22,17 +22,8 @@ if (process.env.FAKE_EXECUTE_FAIL_FIRST) {
 let stdin = ''
 process.stdin.on('data', (d) => { stdin += d })
 process.stdin.on('end', async () => {
-  // UD-295: the IMK judge is one more call of `claude -p` (a single JSON result, no stream). It is answered here and is not one of the session's calls: calls.jsonl keeps only those.
-  // FAKE_JUDGE=off makes it fail the way a missing binary does; otherwise it scores the KPI 2.1 and 1.2 and leaves the rest as not observed.
-  // UD-307: the Guard of the idea is judged through the text provider, never by spawning `claude` in the worker (which has none in production): a call that reaches here is the defect of 2026-10-26.
-  if (stdin.startsWith('Eres el analizador de pedidos')) process.exit(1)
-  if (stdin.startsWith('Eres un juez del IMK')) {
-    if (process.env.FAKE_JUDGE === 'off') process.exit(1)
-    const ids = ['1.1', '1.2', '1.3', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3']
-    const kpis = ids.map((id) => ({ id, applies: id === '2.1' || id === '1.2', score: id === '2.1' ? 1 : id === '1.2' ? 0 : 0, quote: id === '2.1' || id === '1.2' ? 'Arreglé la pantalla' : '', claim: 'c', reasoning: 'r' }))
-    process.stdout.write(`${JSON.stringify({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.0123, structured_output: { quadrant: 'execute', kpis, summary: 'Adecuado.' } })}\n`)
-    process.exit(0)
-  }
+  // The Guard of the idea and the IMK judge go through the text provider, never by spawning `claude` in the worker (which has none in production): a call that reaches here is the defect of 2026-10-26.
+  if (stdin.startsWith('Eres el analizador de pedidos') || stdin.startsWith('Eres un juez del IMK')) process.exit(1)
   const team = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('TEAM_')))
   if (state) appendFileSync(`${state}/calls.jsonl`, `${JSON.stringify({ pid: process.pid, t0: Date.now(), args: process.argv.slice(2), cwd: process.cwd(), team, stdin, otel: Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'TRACEPARENT' || k.startsWith('OTEL_') || k.startsWith('CLAUDE_CODE_'))) })}\n`)
   const out = (e) => process.stdout.write(`${JSON.stringify(e)}\n`)

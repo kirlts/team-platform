@@ -637,7 +637,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       let touched = []
       try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
       judgment = await runJudge({
-        config,
+        providers: getProviders(),
         signal: ctx.signal,
         prompt: buildJudgePrompt({
           message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,

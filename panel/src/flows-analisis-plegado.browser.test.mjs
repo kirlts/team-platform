@@ -64,8 +64,10 @@ describe('the messages of a send are listed folded with their count (UD-257)', (
       const tally = analysis(page).getByTestId('message-tally')
       assert.match(await tally.innerText(), /^4 mensajes/)
       // Two areas: the count of each one beside its chip.
+      await tally.getByTestId('area-chip').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await tally.getByTestId('area-chip').count(), 2)
 
+      await rows(page).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await rows(page).count(), 4)
       for (let i = 0; i < 4; i++) {
         const row = rows(page).nth(i)
@@ -90,11 +92,13 @@ describe('the messages of a send are listed folded with their count (UD-257)', (
       await open.getByRole('button', { name: /^Área:/ }).waitFor()
       await open.getByRole('button', { name: /^Quitar el mensaje/ }).waitFor()
       // Only that one opened.
+      await analysis(page).getByRole('button', { name: /^Abrir el mensaje/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await analysis(page).getByRole('button', { name: /^Abrir el mensaje/ }).count(), 3)
 
       await open.getByRole('button', { name: /^Plegar el mensaje 2:/ }).click()
       await settled(page)
       assert.equal(await rows(page).nth(1).getByRole('button', { name: /^Texto del mensaje:/ }).count(), 0)
+      await analysis(page).getByRole('button', { name: /^Abrir el mensaje/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await analysis(page).getByRole('button', { name: /^Abrir el mensaje/ }).count(), 4)
     } finally {
       await context.close()
@@ -112,7 +116,9 @@ describe('the messages of a send are listed folded with their count (UD-257)', (
       await settled(page)
       assert.match(await pane.getByTestId('message-tally').innerText(), /^3 mensajes/)
       const items = pane.getByTestId('published-message')
+      await items.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await items.count(), 3)
+      await pane.getByRole('button', { name: /^Abrir el mensaje \d:/, expanded: false }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await pane.getByRole('button', { name: /^Abrir el mensaje \d:/, expanded: false }).count(), 3)
       assert.equal(await pane.getByTestId('published-body').count(), 0)
 

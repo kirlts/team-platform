@@ -44,6 +44,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
         const row = reply.locator('li', { hasText: NAME })
         assert.ok(await row.getByText(/KB|B$/).count() >= 1, 'the size is next to the name')
         const link = row.getByRole('link', { name: `Descargar ${NAME}` })
+        await link.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await link.count(), 1)
         const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
         assert.equal(download.suggestedFilename(), NAME)

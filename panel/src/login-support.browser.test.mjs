@@ -34,6 +34,7 @@ test('login does not return while the sign-in is still waiting for the server', 
     assert.equal(returned, false, 'login returned with the entry page in view, before the server opened the session')
     answer()
     await signing
+    await page.locator('main#main').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
     assert.equal(await page.locator('main#main').count(), 1, 'the open session shows its shell')
   } finally {
     await context.close()

@@ -52,7 +52,9 @@ describe('attachments from the detail (H-3707)', () => {
       const before = await stored(page, 'Corregir el contraste')
       assert.equal(before.length, 1)
       const add = page.getByRole('button', { name: 'Agregar adjuntos' })
+      await add.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await add.count(), 1, 'the sender sees «Adjunto»')
+      await page.getByTestId('detach-attachment').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByTestId('detach-attachment').count(), 1, 'and «Quitar» over the medium shown')
       await page.getByTestId('detail-files').setInputFiles(note)
       await page.locator('[data-gallery-count]').waitFor()
@@ -87,6 +89,7 @@ describe('attachments from the detail (H-3707)', () => {
       await page.locator('[data-gallery-count], [aria-label="Galería de medios"]').first().waitFor()
       await settled(page)
       assert.deepEqual(await stored(page, 'Definir el tamaño'), ['nota.txt'])
+      await page.getByRole('button', { name: 'Quitar nota.txt' }).and(page.getByTestId('detach-attachment')).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Quitar nota.txt' }).and(page.getByTestId('detach-attachment')).count(), 1)
     } finally {
       await context.close()

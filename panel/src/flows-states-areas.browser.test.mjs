@@ -234,6 +234,7 @@ describe('areas: list and view layout (H-2900 to H-2906)', () => {
         assert.equal(await page.getByTestId('area-chip').count(), 0, 'the rows of an area do not repeat the area')
         await page.goto(`${origin}/messages`)
         await page.locator('main article').first().waitFor()
+        await page.getByTestId('area-chip').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.ok((await page.getByTestId('area-chip').count()) > 0, 'Mensajes keeps the chip of the area')
       } finally {
         await context.close()

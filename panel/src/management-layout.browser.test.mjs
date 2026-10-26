@@ -99,6 +99,7 @@ test('a window title is larger than its own field labels and is not set as one o
 test('Conexiones says its state beside the title', async () => {
   const { page, context } = await open('/connections')
   try {
+    await page.locator('main header').getByText('No disponible', { exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
     assert.equal(await page.locator('main header').getByText('No disponible', { exact: true }).count(), 1)
   } finally {
     await context.close()

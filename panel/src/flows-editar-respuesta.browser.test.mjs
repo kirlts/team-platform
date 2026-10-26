@@ -55,6 +55,7 @@ describe('editing a reply (H-3714)', () => {
       await openFromList(page, 'Arreglar el error')
       const thread = page.locator('section[aria-label="Respuestas"]')
       const text = thread.getByRole('button', { name: /^Texto de la respuesta: / })
+      await text.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await text.count(), 1, 'the author sees the text of the reply as editable')
       assert.equal(await thread.getByTestId('reply-edited').count(), 0, 'not edited yet')
 

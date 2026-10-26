@@ -64,7 +64,9 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     const { page, context } = await session('bruno')
     try {
       await page.locator('[data-queue]').waitFor()
+      await page.locator('[data-queue]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('[data-queue]').count(), 1)
+      await page.locator('[data-audit]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('[data-audit]').count(), 1)
       const status = await page.evaluate(async () => (await fetch('/api/inputs?all=1')).status)
       assert.equal(status, 200)

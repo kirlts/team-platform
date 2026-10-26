@@ -70,6 +70,7 @@ describe('Team: password of another member', () => {
     const other = await session('bruno', '/team', teamReady)
     try {
       assert.equal(await rowOf(other.page, 'bruno@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row has no menu')
+      await other.page.getByRole('button', { name: /^Acciones de/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.ok((await other.page.getByRole('button', { name: /^Acciones de/ }).count()) > 0, 'a member has the menu on the others')
     } finally {
       await other.context.close()
@@ -78,6 +79,7 @@ describe('Team: password of another member', () => {
     try {
       assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0)
       const menu = await openActions(page, await findRow(page, 'carla@dev.invalid'), 'Carla Prueba')
+      await menu.getByRole('menuitem', { name: 'Cambiar contraseña de Carla Prueba' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await menu.getByRole('menuitem', { name: 'Cambiar contraseña de Carla Prueba' }).count(), 1)
       await page.keyboard.press('Escape')
     } finally {
@@ -127,6 +129,7 @@ describe('Settings: seed examples', () => {
   test('a member sees the button too (UD-287)', async () => {
     const { page, context } = await session('bruno', '/settings', (p) => p.getByRole('heading', { name: 'Cuenta' }))
     try {
+      await page.getByRole('button', { name: 'Sembrar ejemplos' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Sembrar ejemplos' }).count(), 1)
     } finally {
       await context.close()

@@ -76,6 +76,7 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
       assert.equal(await box.evaluate((el) => getComputedStyle(el).transitionProperty.includes('background')), false, 'the bar background has no transition')
       const alpha = await box.evaluate((el) => getComputedStyle(el).backgroundColor)
       assert.ok(!/\/ ?0?\.\d|rgba\(.*,\s*0?\.\d+\)/.test(alpha), `the background is opaque: ${alpha}`)
+      await page.locator('[data-compose-scrim]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('[data-compose-scrim]').count(), 1, 'the page below dims while the bar grows')
       // What is under the bar cannot be reached through it: the point inside its bottom edge belongs to the bar.
       const r = await rect(box)
@@ -286,6 +287,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       await sendAndOpen(page)
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       await page.getByRole('button', { name: /^Partes sin mensaje/ }).click()
+      await page.getByRole('button', { name: 'Crear mensaje' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Crear mensaje' }).count(), 2, 'one button per part')
       await page.getByRole('button', { name: 'Crear mensaje' }).first().click()
       await page.getByRole('button', { name: 'Enviar 4 mensajes', exact: true }).waitFor()
@@ -381,6 +383,7 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await page.getByRole('button', { name: 'Reintentar' }).waitFor()
       const chip = page.getByTestId('tray-control')
       // The failure is not told by color alone: its mark carries an icon beside the word.
+      await chip.locator('text=/falló/').first().locator('svg').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await chip.locator('text=/falló/').first().locator('svg').count(), 1, 'the failure mark has an icon')
     } finally {
       await panel.control.release()

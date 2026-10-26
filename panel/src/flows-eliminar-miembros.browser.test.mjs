@@ -64,6 +64,7 @@ describe('Eliminar un miembro', () => {
     try {
       assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row offers deletion')
       const menu = await openActions(page, rowOf(page, 'eduardo@dev.invalid'), 'Eduardo Valenzuela Ibáñez')
+      await menu.getByRole('menuitem', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await menu.getByRole('menuitem', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).count(), 1)
       await page.keyboard.press('Escape')
     } finally {
@@ -73,6 +74,7 @@ describe('Eliminar un miembro', () => {
     try {
       assert.equal(await rowOf(other.page, 'bruno@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row offers deletion')
       const menu = await openActions(other.page, rowOf(other.page, 'eduardo@dev.invalid'), 'Eduardo Valenzuela Ibáñez')
+      await menu.getByRole('menuitem', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await menu.getByRole('menuitem', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).count(), 1, 'a member deletes others')
     } finally {
       await other.context.close()
@@ -142,6 +144,7 @@ describe('Eliminar un miembro', () => {
     try {
       const row = rowOf(page, 'carla@dev.invalid')
       const menu = await openActions(page, row, 'Carla Prueba')
+      await menu.getByRole('menuitem', { name: 'Eliminar a Carla Prueba' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await menu.getByRole('menuitem', { name: 'Eliminar a Carla Prueba' }).count(), 1)
       await menu.getByRole('menuitem', { name: 'Desactivar a Carla Prueba' }).click()
       await row.getByText('Inactivo').waitFor()

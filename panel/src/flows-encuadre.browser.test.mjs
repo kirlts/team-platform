@@ -51,6 +51,7 @@ describe('Configuración: project name and analysis framing', () => {
       assert.match(await header.textContent(), /Desarrollo/)
       const field = page.getByRole('textbox', { name: 'Nombre del proyecto' })
       assert.equal(await field.inputValue(), 'Desarrollo')
+      await page.locator('#hint-project-name').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('#hint-project-name').count(), 1, 'the setting has its one-line explanation')
       await field.fill('Clínica Norte')
       await field.press('Enter')
@@ -73,6 +74,7 @@ describe('Configuración: project name and analysis framing', () => {
   test('the Editor edits the framing of a language, it is saved on leaving the field, and Restablecer goes back to the default', async () => {
     const { page, context } = await settings('ana')
     try {
+      await page.getByRole('heading', { name: 'Encuadre del análisis' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('heading', { name: 'Encuadre del análisis' }).count(), 1)
       const es = page.getByRole('textbox', { name: 'Encuadre del análisis · Español' })
       const before = await es.inputValue()

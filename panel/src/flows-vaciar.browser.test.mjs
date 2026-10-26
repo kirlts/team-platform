@@ -36,7 +36,9 @@ describe('Configuración, Datos', () => {
   test('a member sees the section too (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {
+      await page.locator('[data-data-reset]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('[data-data-reset]').count(), 1)
+      await page.getByRole('button', { name: 'Vaciar contenido' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Vaciar contenido' }).count(), 1)
     } finally {
       await context.close()
@@ -48,6 +50,7 @@ describe('Configuración, Datos', () => {
     try {
       const section = page.locator('[data-data-reset]')
       await section.waitFor()
+      await section.getByText('Borra envíos, mensajes, respuestas y adjuntos; conserva equipo, áreas y ajustes').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await section.getByText('Borra envíos, mensajes, respuestas y adjuntos; conserva equipo, áreas y ajustes').count(), 1)
       const before = await page.evaluate(async () => (await (await fetch('/api/messages')).json()).total)
       assert.ok(before > 0)

@@ -162,6 +162,7 @@ describe('the detail and the reply flow (J4 message-detail, flow-reply-close)', 
       const send = await page.getByRole('button', { name: 'Responder', exact: true }).boundingBox()
       const close = await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).boundingBox()
       assert.ok(Math.abs(close.y - send.y) < 8, `«Cerrar» is ${Math.abs(close.y - send.y)} px from «Responder»`)
+      await page.getByRole('main').getByRole('button', { name: 'Cerrar mensaje', exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('main').getByRole('button', { name: 'Cerrar mensaje', exact: true }).count(), 1, 'one «Cerrar» in the page')
     } finally {
       await context.close()

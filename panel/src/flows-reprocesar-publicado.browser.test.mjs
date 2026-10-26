@@ -67,6 +67,7 @@ describe('reprocessing a published send (UD-258)', () => {
       await notice.getByRole('link', { name: 'Borrados' }).click()
       const deleted = page.locator('main article[data-deleted="true"]')
       await deleted.first().waitFor()
+      await deleted.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await deleted.count(), 1)
       await deleted.getByRole('button', { name: 'Restaurar' }).click()
       await deleted.first().waitFor({ state: 'detached' })
@@ -83,7 +84,9 @@ describe('reprocessing a published send (UD-258)', () => {
       const drawer = page.getByTestId('send-drawer')
       await drawer.getByTestId('published-message').first().waitFor({ timeout: 20000 })
       await settled(page)
+      await drawer.getByTestId('delete-send').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await drawer.getByTestId('delete-send').count(), 1, 'the drawer is the published one')
+      await drawer.getByTestId('reprocess-send').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await drawer.getByTestId('reprocess-send').count(), 1)
     } finally {
       await context.close()

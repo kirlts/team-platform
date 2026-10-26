@@ -88,9 +88,11 @@ describe('selection and navigation', () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Galería de seis fotos')
+      await thumbs(page).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await thumbs(page).count(), 6)
       await until(page, 1, 6)
       assert.equal(await thumbs(page).nth(0).getAttribute('aria-current'), 'true')
+      await gallery(page).locator('[data-gallery-viewer] img').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await gallery(page).locator('[data-gallery-viewer] img').count() > 0, true, 'the viewer draws the chosen photo')
       // Next arrow.
       await gallery(page).getByRole('button', { name: 'Siguiente' }).click()
@@ -151,6 +153,7 @@ describe('selection and navigation', () => {
       assert.equal(await thumbs(page).count(), 0)
       assert.equal(await gallery(page).getByRole('button', { name: 'Siguiente' }).count(), 0)
       assert.equal(await counter(page).count(), 0)
+      await gallery(page).locator('[data-gallery-viewer] img').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await gallery(page).locator('[data-gallery-viewer] img').count(), 1)
     } finally {
       await context.close()
@@ -168,6 +171,7 @@ describe('selection and navigation', () => {
       await dialog.locator('[data-gallery-zoomed]').waitFor()
       await page.keyboard.press('Escape')
       await dialog.locator('[data-gallery-zoomed]').waitFor({ state: 'detached' })
+      await dialog.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await dialog.count(), 1, 'the window is still open')
       await page.keyboard.press('Escape')
       await dialog.waitFor({ state: 'detached' })
@@ -198,6 +202,7 @@ describe('each kind of medium', () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Fotos mezcladas con un video')
+      await thumbs(page).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await thumbs(page).count(), 4)
       await thumbs(page).nth(1).click()
       await until(page, 2, 4)
@@ -233,6 +238,7 @@ describe('each kind of medium', () => {
       await openMessage(page, 'Informe en PDF y una foto dañada')
       await until(page, 1, 3)
       await gallery(page).getByText('informe-del-cliente.pdf').first().waitFor()
+      await gallery(page).getByRole('link', { name: 'Abrir informe-del-cliente.pdf' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await gallery(page).getByRole('link', { name: 'Abrir informe-del-cliente.pdf' }).count(), 1)
       await thumbs(page).nth(1).click()
       await until(page, 2, 3)
@@ -267,6 +273,7 @@ describe('where the gallery is used', () => {
       await opener.click()
       const dialog = page.getByRole('dialog')
       await dialog.locator('[data-gallery]').waitFor()
+      await dialog.locator('[data-gallery-thumb]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await dialog.locator('[data-gallery-thumb]').count(), 6)
       await shot(page, 'lista-galeria-1440-claro')
     } finally {
@@ -308,6 +315,7 @@ describe('where the gallery is used', () => {
       await list.getByRole('button', { name: /^Ver 1 de/ }).first().click()
       const inner = page.getByRole('dialog').last()
       await inner.locator('[data-gallery]').waitFor()
+      await inner.locator('[data-gallery-viewer] img').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.ok((await inner.locator('[data-gallery-viewer] img').count()) > 0)
     } finally {
       await context.close()
@@ -354,7 +362,9 @@ describe('media that production holds (messages 117 and 123)', () => {
         await openMessage(page, 'Cinco capturas y una grabación de voz')
         // The recording is the sixth of six: its element exists from the start, without having to reach it first.
         await page.locator('[data-gallery-viewer] audio').waitFor({ state: 'attached' })
+        await page.locator('[data-gallery-viewer] audio').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await page.locator('[data-gallery-viewer] audio').count(), 1)
+        await thumbs(page).nth(5).locator('[data-media-icon="audio"]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await thumbs(page).nth(5).locator('[data-media-icon="audio"]').count(), 1, 'the thumbnail is the microphone, not a blank square')
         await thumbs(page).nth(5).click()
         await until(page, 6, 6)
@@ -377,6 +387,7 @@ describe('media that production holds (messages 117 and 123)', () => {
       try {
         await openMessage(page, 'Seis capturas pegadas')
         await decoded(page).catch(async () => assert.fail(`photos that did not decode: ${JSON.stringify(await undecoded(page))}`))
+        await page.locator('[data-gallery] img').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await page.locator('[data-gallery] img').count(), 8, 'the current slide, the next one and the six thumbnails')
         const body = await (await page.request.get(`${origin}/api/messages?limit=200`)).json()
         const thread = (body.items ?? body).find((m) => m.title === 'Hilo largo con una captura al final')
@@ -493,6 +504,7 @@ describe('the sender sees the «+» square at the end of the strip', () => {
           await openMessage(page, 'Galería de seis fotos')
           await gallery(page).locator('[data-gallery-viewer] img').first().waitFor()
           const tile = gallery(page).locator('[data-gallery-add]')
+          await tile.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
           assert.equal(await tile.count(), 1)
           assert.equal(await page.getByRole('button', { name: 'Adjunto', exact: true }).count(), 0)
           const [a, b] = [await tile.boundingBox(), await thumbs(page).first().boundingBox()]

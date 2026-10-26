@@ -72,6 +72,7 @@ describe('sign-in and navigation', () => {
       const said = await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).boundingBox()
       assert.ok(said.y >= email.y + email.height && said.y - (email.y + email.height) <= 16, `the error is ${said.y - (email.y + email.height)} px under its field`)
       assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, `the card moved ${before.height}→${after.height}`)
+      await page.getByLabel('Contraseña', { exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByLabel('Contraseña', { exact: true }).count(), 1, 'the notice entered the field name')
       assert.equal(await page.getByLabel('Correo').getAttribute('aria-invalid'), 'true')
       assert.equal(await page.getByLabel('Contraseña').getAttribute('aria-invalid'), null, 'the field that did not fail is not marked')
@@ -92,6 +93,7 @@ describe('sign-in and navigation', () => {
     try {
       assert.equal(await page.getByRole('button', { name: 'Menú' }).count(), 0, 'the top menu duplicated the sidebar')
       assert.equal(await page.getByText('Salir', { exact: true }).count(), 0)
+      await page.getByRole('button', { name: 'Cerrar sesión' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Cerrar sesión' }).count(), 1, 'signing out has a single entry point')
     } finally {
       await context.close()
@@ -217,6 +219,7 @@ describe('message list and home', () => {
       await button.click()
       // The menu names the filter that is on with its value; the others carry none.
       await page.getByRole('menuitem', { name: 'Estado: Abierto' }).waitFor()
+      await page.getByRole('menuitem', { name: 'Área', exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('menuitem', { name: 'Área', exact: true }).count(), 1)
     } finally {
       await context.close()
@@ -504,6 +507,7 @@ describe('states', () => {
       answer()
       const alert = page.getByRole('alert').filter({ hasText: 'No se pudo cargar' })
       await alert.waitFor({ timeout: 15000 })
+      await alert.locator(':scope > svg').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await alert.locator(':scope > svg').count(), 1, 'the error has no icon')
       fail = false
       gate = Promise.resolve()

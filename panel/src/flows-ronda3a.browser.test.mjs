@@ -181,7 +181,9 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
         const bar = page.getByTestId('status-bar')
         await bar.waitFor()
         const marks = bar.locator('[data-testid="state-button"]')
+        await marks.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await marks.count(), 3)
+        await bar.locator('button:visible').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await bar.locator('button:visible').count(), 3, 'no summary button')
         const boxes = await marks.evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return { w: r.width, h: r.height, right: r.right, left: r.left, status: el.dataset.status, n: el.innerText.trim() } }))
         for (const b of boxes) assert.ok(b.w >= 24 && b.h >= 24, `${b.status} measures ${b.w}x${b.h} at ${width}`)
@@ -283,6 +285,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       // idea.md asks for «fecha y hora actuales»: one line of plain text, the date and the hour, as a <time> element.
       const stamp = page.locator('main time[datetime]').filter({ hasText: /\d{1,2} [a-z]{3} 20\d\d, \d{2}:\d{2}/ })
       await stamp.first().waitFor()
+      await stamp.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await stamp.count(), 1, 'the date and the hour are one element')
       const style = await stamp.first().evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), upper: getComputedStyle(el).textTransform }))
       assert.ok(style.size >= 14 && style.upper === 'none', 'plain text, not a decoration (H-509)')
@@ -808,6 +811,7 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
       await editor.page.locator('[data-providers]').waitFor()
       await member.page.goto(`${origin}/settings`)
       await member.page.locator('[data-providers]').waitFor()
+      await member.page.getByRole('heading', { name: 'Proveedores' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await member.page.getByRole('heading', { name: 'Proveedores' }).count(), 1)
     } finally {
       await editor.context.close()

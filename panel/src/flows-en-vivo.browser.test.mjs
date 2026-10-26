@@ -123,6 +123,7 @@ describe('screens that show data the server changes by itself', () => {
       const message = await messageByTitle(carla.page, title)
       const card = bruno.page.locator('main').getByText(title).first().locator('xpath=ancestor::*[self::li or self::article][1]')
       await card.waitFor()
+      await card.getByText('Respondido').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await card.getByText('Respondido').count(), 1)
       const closed = await carla.page.request.post(`${origin}/api/messages/${message.id}/close`, { headers: csrf })
       assert.ok(closed.ok(), `close answered ${closed.status()}`)

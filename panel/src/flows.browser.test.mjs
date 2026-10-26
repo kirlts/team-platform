@@ -203,6 +203,7 @@ describe('analysis proposal', () => {
       await page.getByText('Texto que no se debe perder', { exact: false }).first().waitFor()
       // The text stays in the send; the failure does not add a line that reassures.
       assert.equal(await page.getByText('Texto y adjuntos del envío conservados').count(), 0)
+      await page.getByRole('button', { name: 'Reintentar' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Reintentar' }).count(), 1)
       await page.getByRole('button', { name: 'Reintentar' }).first().click()
       await openFirst(page, 20000)
@@ -395,6 +396,7 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
           assert.equal(new Set(Object.values(fills)).size, 3, 'the three states have different fills')
           const bar = page.getByTestId('status-bar')
           // The three states are always there (UD-100); closed ones are counted from the data, the other two from the mocked summary.
+          await bar.locator('[data-testid="state-button"]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
           assert.equal(await bar.locator('[data-testid="state-button"]').count(), 3, 'three marks, one per state')
           for (const status of ['open', 'answered', 'closed']) {
             const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
@@ -433,6 +435,7 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
       const bar = page.getByTestId('status-bar')
       // The marks are drawn when the summary reaches the page: waited for as an element, not counted at the first instant after the shell opened.
       await bar.locator('[data-testid="state-button"][data-status="closed"]').waitFor()
+      await bar.locator('[data-testid="state-button"][data-status="closed"]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await bar.locator('[data-testid="state-button"][data-status="closed"]').count(), 1, 'the closed state has its mark too')
       for (const [status, n] of [['open', summary.mine.open], ['answered', summary.mine.answered]]) {
         const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
@@ -503,6 +506,7 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
           await settled(page)
           const bar = page.getByTestId('status-bar')
           assert.equal(await bar.locator('[data-testid="area-pending"], [data-testid="area-chip"], [data-area-id], [data-testid="area-more"]').count(), 0, `${path} (${viewport.width}): contador por área en la barra`)
+          await bar.locator('button:visible').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
           assert.equal(await bar.locator('button:visible').count(), 3, `${path} (${viewport.width}): la barra son tres marcas, también en el teléfono, y nada más`)
           assert.doesNotMatch(await bar.innerText(), /abiertos?|respondidos?|cerrados?/i, `${path}: texto de estado visible`)
           assert.equal(await page.locator('header [data-testid="area-pending"], header [data-area-id]').count(), 0)
@@ -821,14 +825,18 @@ describe('publishing flow (round 1, judge B)', () => {
       await sendInput(page, THREE)
       await openFirst(page, 20000)
       // One open and the other two on one line: the three titles are in view, without paging.
+      await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'two folded messages on one line')
       // The pager of the two lists of Home is outside the proposal: with the strip gone from Home they have room and page, which says nothing about the proposal.
       assert.equal(await page.getByTestId('send-drawer').getByRole('button', { name: 'Página siguiente' }).count(), 0, 'no pagination for three messages')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       // Opening another folds the previous one: there are still three, one open.
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 1)
+      await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2)
+      await page.getByRole('button', { name: /^Abrir el mensaje 1/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje 1/ }).count(), 1, 'the first one stayed folded')
     } finally {
       await context.close()
@@ -1084,6 +1092,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
       await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).waitFor()
       assert.equal((await again.boundingBox()).x, x0, '«Volver a analizar» keeps its place when the history appears')
+      await page.getByRole('button', { name: 'Deshacer' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 1, 'a single «Deshacer» in view')
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       assert.equal(await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).count(), 0, 'the notice does not repeat the «Deshacer»')
@@ -1125,6 +1134,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       const chips = page.getByRole('button', { name: /^Quitar a / })
       while (await chips.count()) await chips.first().click({ force: true })
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
+      await page.locator('[data-needs-attention]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('[data-needs-attention]').count(), 1, 'only the row with no recipient is flagged')
     } finally {
       await context.close()
@@ -1168,6 +1178,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       // One row that scrolls sideways, not a list that takes the screen: three sends do not push the proposal down.
       const switcher = await page.getByTestId('send-switcher').boundingBox()
       assert.ok(switcher.height < 100, `the submissions selector is ${switcher.height} px tall`)
+      await page.getByTestId('send-switcher').getByRole('option').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByTestId('send-switcher').getByRole('option').count(), 3, 'each submission has its own option')
       const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       assert.ok(proposal.y < 844 * 1.2, `the proposal starts within the first two screens: y=${proposal.y}`)

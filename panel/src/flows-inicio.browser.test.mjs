@@ -174,6 +174,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       // The send has left «going up»: from here on nothing can draw it a second time.
       await page.waitForFunction(() => ![...document.querySelectorAll('[data-testid="send-switcher"] [role="option"]')].some((o) => /Subiendo|Enviando/.test(o.textContent ?? '')))
       assert.equal(await page.evaluate(() => window.__maxOptions), 2, 'a send is one option at every moment')
+      await options.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await options.count(), 2)
       const row = await switcher.boundingBox()
       const labels = []
@@ -214,8 +215,10 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const box = page.getByTestId('published-message').first()
       await box.waitFor({ timeout: 20000 })
       await unfold(box)
+      await box.getByRole('button', { name: /^Agregar destinatario$/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await box.getByRole('button', { name: /^Agregar destinatario$/ }).count(), 1)
       const add = box.getByRole('button', { name: 'Agregar adjuntos' })
+      await add.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await add.count(), 1)
       assert.match(await add.innerText(), /Adjunto/)
       const [chooser] = await Promise.all([page.waitForEvent('filechooser'), add.click()])
@@ -456,6 +459,7 @@ describe('the publication setting (UD-070)', () => {
     try {
       await member.page.goto(`${origin}/settings`)
       await member.page.getByRole('radiogroup', { name: 'Publicación' }).waitFor()
+      await member.page.getByRole('radiogroup', { name: 'Publicación' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await member.page.getByRole('radiogroup', { name: 'Publicación' }).count(), 1, 'a member sees the knob')
       assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: false } })).status, 200)
       assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: true } })).status, 200)

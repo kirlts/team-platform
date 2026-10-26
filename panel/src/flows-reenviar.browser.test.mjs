@@ -33,6 +33,7 @@ describe('forwarding a message', () => {
         await page.getByTestId('forward-open').click()
         const dialog = page.getByRole('dialog')
         await dialog.waitFor()
+        await dialog.getByText('Reenviar mensaje').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await dialog.getByText('Reenviar mensaje').count(), 1)
         const submit = page.getByTestId('forward-submit')
         assert.equal(await submit.isDisabled(), true)

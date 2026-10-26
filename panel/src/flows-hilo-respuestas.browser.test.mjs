@@ -49,6 +49,7 @@ describe('the thread of replies', () => {
       const { page, context } = await session('bruno', viewport)
       try {
         await openWithReplies(page, 'Confirmar el formato', 1) // it has one; this adds the second
+        await thread(page).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await thread(page).count(), 2)
         const [a, b] = await Promise.all([thread(page).nth(0).boundingBox(), thread(page).nth(1).boundingBox()])
         assert.ok(b.y > a.y + a.height - 1, 'the second reply is under the first')
@@ -65,6 +66,7 @@ describe('the thread of replies', () => {
       const { page, context } = await session('bruno', viewport)
       try {
         await openWithReplies(page, 'Revisar el tiempo', 8)
+        await thread(page).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await thread(page).count(), 5, 'the first, the control and the last three')
         const more = page.getByRole('button', { name: '4 respuestas más' })
         await more.waitFor()
@@ -75,6 +77,7 @@ describe('the thread of replies', () => {
         assert.ok(last.shadow !== 'none' || quiet.shadow === 'none', 'the last reply is lifted over the earlier ones')
         assert.ok(parseFloat(last.size) >= parseFloat(quiet.size), 'the last reply is not smaller')
         await more.click()
+        await thread(page).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await thread(page).count(), 8)
         assert.equal(await page.getByRole('button', { name: /respuestas más/ }).count(), 0)
         const ys = await thread(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().y))
@@ -105,6 +108,7 @@ describe('the thread of replies', () => {
         await page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] img').first().waitFor()
         await settled(page)
         const imgs = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] img')
+        await imgs.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await imgs.count(), 2)
         const [a, b, card] = await Promise.all([imgs.nth(0).boundingBox(), imgs.nth(1).boundingBox(), imgs.nth(0).locator('xpath=ancestor::article').boundingBox()])
         // UD-309: the thread is the narrow column (at most 28 rem) at every width, so the two images always go one under the other.
@@ -114,6 +118,7 @@ describe('the thread of replies', () => {
         assert.ok(/ANTES/i.test(text) && /DESPUÉS/i.test(text), 'the short labels')
         assert.ok(!text.includes('.png'), 'no file name')
         assert.ok(!text.includes('**'), 'no raw asterisks')
+        await page.locator('section[aria-label="Respuestas"] strong', { hasText: 'Antes' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await page.locator('section[aria-label="Respuestas"] strong', { hasText: 'Antes' }).count(), 1, 'bold is drawn')
         await imgs.nth(0).click()
         await page.getByRole('dialog').waitFor()

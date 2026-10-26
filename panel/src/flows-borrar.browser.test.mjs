@@ -52,6 +52,7 @@ describe('deleting a message (H-3700)', () => {
       const del = page.getByRole('button', { name: 'Borrar', exact: true })
       // «Borrar» depends on /api/me, which can arrive after the page settled under load.
       await del.waitFor({ timeout: 5000 }).catch(() => {})
+      await del.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await del.count(), 1, 'the sender sees «Borrar»')
       assert.equal(await page.getByRole('dialog').count(), 0)
       await del.click()
@@ -83,6 +84,7 @@ describe('deleting a message (H-3700)', () => {
     try {
       await openFromList(page, 'Definir el tamaño')
       await page.getByRole('button', { name: 'Borrar', exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
+      await page.getByRole('button', { name: 'Borrar', exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Borrar', exact: true }).count(), 1, 'any person of the team deletes any message')
     } finally {
       await context.close()
@@ -91,6 +93,7 @@ describe('deleting a message (H-3700)', () => {
     try {
       await openFromList(editor.page, 'Definir el tamaño')
       await editor.page.getByRole('button', { name: 'Borrar', exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
+      await editor.page.getByRole('button', { name: 'Borrar', exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await editor.page.getByRole('button', { name: 'Borrar', exact: true }).count(), 1, 'the Editor deletes any message too')
     } finally {
       await editor.context.close()
@@ -135,6 +138,7 @@ describe('deleting a reply (H-3701)', () => {
       // «Arreglar el error al iniciar sesión…» has one reply, by Bruno; Carla sent the message.
       await openFromList(page, 'Arreglar el error')
       const thread = page.locator('section[aria-label="Respuestas"]')
+      await thread.getByRole('button', { name: 'Borrar respuesta' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await thread.getByRole('button', { name: 'Borrar respuesta' }).count(), 1)
       await thread.getByRole('button', { name: 'Borrar respuesta' }).click()
       await thread.getByRole('status').filter({ hasText: 'borrada' }).waitFor()
@@ -154,6 +158,7 @@ describe('deleting a reply (H-3701)', () => {
       // The thread arrives after the title: count once its first reply is drawn, not in the frame the page opened (it read 0 under load).
       const otherThread = other.page.locator('section[aria-label="Respuestas"]')
       await otherThread.locator('article').first().waitFor()
+      await otherThread.getByRole('button', { name: 'Borrar respuesta' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await otherThread.getByRole('button', { name: 'Borrar respuesta' }).count(), 1, 'Carla did not write it and still deletes it')
     } finally {
       await other.context.close()

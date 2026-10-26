@@ -55,6 +55,7 @@ describe('Providers section of Configuración (UD-120)', () => {
     const member = await session('bruno')
     try {
       await member.page.locator('[data-providers]').waitFor()
+      await member.page.locator('[data-providers]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await member.page.locator('[data-providers]').count(), 1)
     } finally {
       await member.context.close()

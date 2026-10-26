@@ -59,6 +59,7 @@ describe('Template output', () => {
         const output = dialog.locator('section[aria-label="Salida"]')
         const labels = (await output.locator('li').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim())
         assert.deepEqual(labels.map((x) => x.split(' ')[0]), ['Causa', 'Rama', 'Resultado', 'Resumen'])
+        await output.locator('[data-output-fixed]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await output.locator('[data-output-fixed]').count(), 2)
         await shot(page, `salida-ventana-${viewport.width}-${colorScheme}`)
       } finally {
@@ -73,6 +74,7 @@ describe('Template output', () => {
       const dialog = await openTemplate(page, 'Reporte de error')
       const output = dialog.locator('section[aria-label="Salida"]')
       await output.waitFor()
+      await output.locator('[data-output-fixed]').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await output.locator('[data-output-fixed]').count(), 2)
       const sent = []
       page.on('request', (r) => { if (r.method() === 'PATCH' && /\/api\/areas\/a-error\/templates\//.test(r.url())) sent.push(JSON.parse(r.postData() ?? '{}')) })

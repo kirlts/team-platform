@@ -1,0 +1,21 @@
+ 4.61  cumple  A claro, título de ventana, blanco sobre degradado .44→.30 con brillo .22
+ 5.29  cumple  A oscuro, título de ventana, .97 sobre degradado .40→.26 con brillo .18
+ 5.06  cumple  A claro, fila activa, blanco sobre gel .44→.34 con brillo .18
+ 9.52  cumple  A oscuro, fila activa, tinta .16 sobre gel .80→.66 con brillo .18
+ 6.99  cumple  A, cifra LCD verde, ámbar, azul y rojo sobre LCD .24 (la peor)
+ 6.66  cumple  A, rótulo LCD .72 sobre LCD .24 y .14 (el peor)
+15.40  cumple  A, texto sobre panel claro
+14.63  cumple  A, texto sobre panel oscuro
+ 6.97  cumple  B claro, título de tabla blanco sobre .46 .10 235
+ 9.87  cumple  B oscuro, título de tabla blanco sobre .38 .09 240
+ 7.02  cumple  B claro, texto de categoría .36 sobre .86
+13.19  cumple  B claro, texto sobre fila .925
+14.59  cumple  B oscuro, texto sobre fila .205
+ 5.91  cumple  B, barra superior, blanco sobre degradado .50→.34
+13.37  cumple  C claro, título de ventana oscuro .22 sobre celeste con brillo .6
+ 5.54  cumple  C oscuro, título de ventana blanco sobre .42→.30 con brillo .16
+ 8.67  cumple  C claro, fila activa, tinta .20 sobre aqua→azul .75→.55 con brillo .35
+ 6.43  cumple  C oscuro, fila activa, blanco sobre .40→.28 con brillo .12
+14.43  cumple  C claro, texto sobre cristal 62% sobre cielo aqua
+ 4.89  cumple  Botón primario claro, blanco sobre gel .46→.36 con brillo .16
+ 9.53  cumple  Botón primario oscuro, tinta .18 sobre gel .80→.66 con brillo .22

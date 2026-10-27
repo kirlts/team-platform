@@ -41,7 +41,7 @@ Los casos se citan con el nombre que llevan en el archivo. La columna Estado usa
 | Reenviar con motivo | Reenviar un mensaje a un miembro exige un motivo escrito y queda en el hilo; si va a Claude, investiga sin cerrar ni entregar | `src/execute/forward.test.js` «investigate: the answer is in the thread, nothing is delivered and nothing is closed, even with a branch, outcome done and close true» `verde`; `e2e/contrato/M4-reenviar-con-comentario.e2e.test.mjs` `navegador`; `e2e/contrato/C12-investigacion-no-cambia-codigo.e2e.test.mjs` `roja` | `src/api/forward.test.js`, `panel/src/flows-reenviar.browser.test.mjs` | sin veredicto | `b87e4d7b` | falta veredicto |
 | Traspaso a una persona | Cuando Claude no puede decidir o el pedido no es suyo, el mensaje pasa a quien decide en el área con la pregunta escrita, y ningún mensaje espera a una persona que nadie ve | `src/execute/handoff.test.js` «needs_decision with its check: the message is open, in the tray of the first Editor, without the agent, and the reply is the question» `verde` | `src/db/escalation-migration.test.js` | sin veredicto | `b87e4d7b` | falta veredicto |
 | Presupuesto diario | Sólo el gasto del día limita cuántas sesiones corren: la que no cabe espera al día siguiente y lo dice en el hilo | `src/execute/execute.test.js` «cap reached defers the job to the next day without calling claude» `verde`; `src/execute/execute.test.js` «partial remainder lowers --max-budget-usd and the job keeps its cost» `verde`; `e2e/contrato/C2-solo-el-presupuesto-en-plata.e2e.test.mjs` `roja` | `src/execute/session-reserve.test.js`, `src/telemetry/budget.test.js` | sin veredicto | `b87e4d7b` | falta veredicto |
-| Máquinas de ejecución | El anfitrión conecta un driver de cuatro órdenes (crear, correr, recoger, destruir) y la sesión corre en esa máquina, que se destruye siempre | Ninguna: `src/execute/execute.test.js` «creates the machine, runs the session inside and destroys it» `verde` encola el trabajo por la ruta de edición y no lee el hilo | `src/execute/drivers-docker-local.test.js` (ver «Pruebas corridas»), `src/execute/execute.test.js` (grupo «machine runner») | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
+| Máquinas de ejecución | El anfitrión conecta un driver de cuatro órdenes (crear, correr, recoger, destruir) y la sesión corre en esa máquina, que se destruye siempre | Ninguna: `src/execute/execute.test.js` «creates the machine, runs the session inside and destroys it» `verde` encola el trabajo por la ruta de edición y no lee el hilo | `src/execute/drivers-docker-local.test.js` (contra Docker real, 11 de 11 `verde`, sin leer el hilo), `src/execute/execute.test.js` (grupo «machine runner») | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
 | Identidad local y delegada | Cada instalación inicia sesión con correo y contraseña propios o delega la entrada en el sitio anfitrión (JWT, cabecera firmada o redirección), y una sesión vencida lleva a la entrada que funciona | `e2e/contrato/E2-sesion-vencida-lleva-a-la-entrada.e2e.test.mjs` `navegador` | `src/identity/identity.test.js`, `src/api/identity-host.test.js`, `src/api/host-entry.test.js`, `src/api/members-lifecycle.test.js` | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
 | Proveedores y claves | Una persona del equipo configura el proveedor y el modelo de cada función y guarda claves cifradas que no salen del servidor, con prueba previa y diagnóstico | Ninguna | `src/api/connections.test.js`, `src/providers/probe.test.js`, `src/domain/vault.test.js`, `src/api/secrets-never-leak.test.js`, `panel/src/flows-proveedores.browser.test.mjs` | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
 | Cola, traza y auditoría | El equipo ve la cola de trabajos, la traza de cada uno y el registro de auditoría, y reprocesa o borra los envíos de todos | `src/api/reprocess-published.test.js` «UD-258 · the Editor reprocesses a published input: messages to the trash with their replies, input queued, then published again» `verde`; `src/execute/execute.test.js` «a message published to an agent enqueues execute; the session replies twice and the job closes with the summary» `verde` (lee `GET /api/jobs` y la traza del trabajo) | `src/api/queue-admin.test.js`, `src/queue/queue.test.js`, `src/worker.test.js`, `panel/src/flows-cola.browser.test.mjs` | sin veredicto | `b87e4d7b` | falta veredicto |
@@ -53,7 +53,7 @@ Los casos se citan con el nombre que llevan en el archivo. La columna Estado usa
 | Tema y piel del anfitrión | El panel se ve claro, oscuro o del sistema, se monta bajo la ruta de otro sitio y toma color, tipografía y radio de una hoja `THEME_CSS` sin recompilar | Ninguna: las pruebas de tema del panel corren contra un servidor doble | `src/api/mount.test.js`, `panel/src/theme.browser.test.mjs`, `panel/src/theme-edges.browser.test.mjs` | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
 | API documentada y cliente | Toda ruta tiene esquema, la API publica un OpenAPI 3.1 válido y el paquete cliente se genera de él | Ninguna | `src/api/contract.test.js`, `src/openapi-valid.test.js`, `src/client-contract.test.js`, `src/error-codes.test.js` | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
 | Instalación con imagen Docker | Una instancia nueva se instala con la imagen Docker o con `scripts/install.sh`, y arranca sin red salvo el proveedor configurado | `src/image-walkthrough.docker.test.js` `navegador` (exige también la imagen construida) | `src/image.docker.test.js`, `src/image-binaries.test.js`, `src/image-imports.test.js`, `src/network-egress.test.js`, `src/install-script.test.js`, `src/env-example.test.js` | sin veredicto | `b87e4d7b` | falta prueba e2e; falta veredicto |
-| Canario de instalación | Un comando envía un mensaje real a un agente por todo el camino y sale en verde sólo cuando el agente responde «OK» en el hilo | `scripts/canary.test.mjs` «green: the agent replies OK, the message ends closed, the state file says ok, and CANARY_DELETE=1 sends it to the trash» `verde`; `src/vps-check.test.js` «the check passes against a local server, prints no password and deletes its test input; with a wrong password it fails» `verde` | `scripts/canary.test.mjs` (casos rojos por tramo) | sin veredicto | `b87e4d7b` | falta veredicto |
+| Canario de instalación | Un comando envía un mensaje real a un agente por todo el camino y sale en verde sólo cuando el agente responde «OK» en el hilo | `scripts/canary.test.mjs` «green: the agent replies OK, the message ends closed, the state file says ok, and CANARY_DELETE=1 sends it to the trash» `verde` | `scripts/canary.test.mjs` (casos rojos por tramo), `src/vps-check.test.js` (el caso contra un servidor local se omite sin `panel/dist`) | sin veredicto | `b87e4d7b` | falta veredicto |
 
 ## Cómo se verificó
 
@@ -63,11 +63,123 @@ Las pruebas `navegador` levantan Chromium contra el servidor real (`e2e/contrato
 
 ## Pruebas corridas
 
-PLACEHOLDER_CORRIDAS
+85 archivos corridos el 2026-10-26 sobre `b87e4d7b`: 68 verdes y 17 rojos. `src/vps-check.test.js` pasa con un caso omitido (`panel/dist` sin compilar), por eso su caso contra un servidor local no cuenta.
+
+| Archivo | Casos | Pasan | Fallan | Omitidos | Segundos | Resultado |
+|---|---|---|---|---|---|---|
+| `src/analyze/framing.test.js` | 4 | 4 | 0 | 0 | 1 | verde |
+| `src/api/admin-controls.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/api/agent-members.test.js` | 7 | 7 | 0 | 0 | 1 | verde |
+| `src/api/api.test.js` | 25 | 25 | 0 | 0 | 11 | verde |
+| `src/api/area-model-editor.test.js` | 4 | 4 | 0 | 0 | 0 | verde |
+| `src/api/auto-publish.test.js` | 15 | 15 | 0 | 0 | 7 | verde |
+| `src/api/bulk-delete.test.js` | 4 | 4 | 0 | 0 | 3 | verde |
+| `src/api/connections.test.js` | 43 | 43 | 0 | 0 | 12 | verde |
+| `src/api/contract.test.js` | 22 | 22 | 0 | 0 | 8 | verde |
+| `src/api/data-reset.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/api/editor-solo-textos.test.js` | 4 | 4 | 0 | 0 | 2 | verde |
+| `src/api/execute-runs.test.js` | 4 | 4 | 0 | 0 | 2 | verde |
+| `src/api/forward.test.js` | 7 | 7 | 0 | 0 | 3 | verde |
+| `src/api/host-entry.test.js` | 3 | 3 | 0 | 0 | 1 | verde |
+| `src/api/host-notices.test.js` | 4 | 4 | 0 | 0 | 2 | verde |
+| `src/api/identity-host.test.js` | 9 | 9 | 0 | 0 | 2 | verde |
+| `src/api/input-deletion.test.js` | 5 | 5 | 0 | 0 | 3 | verde |
+| `src/api/language.test.js` | 4 | 4 | 0 | 0 | 1 | verde |
+| `src/api/member-deletion.test.js` | 6 | 6 | 0 | 0 | 3 | verde |
+| `src/api/member-retirement.test.js` | 5 | 5 | 0 | 0 | 3 | verde |
+| `src/api/members-lifecycle.test.js` | 9 | 9 | 0 | 0 | 4 | verde |
+| `src/api/mentions.test.js` | 9 | 9 | 0 | 0 | 4 | verde |
+| `src/api/message-author-edit.test.js` | 11 | 11 | 0 | 0 | 6 | verde |
+| `src/api/message-deletion.test.js` | 2 | 2 | 0 | 0 | 1 | verde |
+| `src/api/message-state-derivation.test.js` | 2 | 2 | 0 | 0 | 1 | verde |
+| `src/api/messages-search.test.js` | 1 | 1 | 0 | 0 | 1 | verde |
+| `src/api/mount.test.js` | 7 | 7 | 0 | 0 | 2 | verde |
+| `src/api/one-send-many-messages.test.js` | 1 | 1 | 0 | 0 | 1 | verde |
+| `src/api/progress-interval.test.js` | 2 | 2 | 0 | 0 | 1 | verde |
+| `src/api/project-settings.test.js` | 6 | 6 | 0 | 0 | 2 | verde |
+| `src/api/queue-admin.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/api/recipients.test.js` | 10 | 10 | 0 | 0 | 4 | verde |
+| `src/api/replies-media.test.js` | 7 | 7 | 0 | 0 | 4 | verde |
+| `src/api/reply-edit.test.js` | 7 | 7 | 0 | 0 | 3 | verde |
+| `src/api/reply-speech-edit.test.js` | 5 | 5 | 0 | 0 | 2 | verde |
+| `src/api/reprocess-published.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/api/restore-deleted.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/api/send-as.test.js` | 6 | 6 | 0 | 0 | 3 | verde |
+| `src/api/template-output.test.js` | 2 | 2 | 0 | 0 | 1 | verde |
+| `src/api/transcript.test.js` | 1 | 1 | 0 | 0 | 1 | verde |
+| `src/api/ui-telemetry.test.js` | 9 | 9 | 0 | 0 | 3 | verde |
+| `src/events/changes.test.js` | 2 | 2 | 0 | 0 | 4 | verde |
+| `src/execute/auto-close.test.js` | 10 | 10 | 0 | 0 | 7 | verde |
+| `src/execute/captures.test.js` | 15 | 15 | 0 | 0 | 0 | verde |
+| `src/execute/creation-gate.test.js` | 2 | 2 | 0 | 0 | 0 | verde |
+| `src/execute/deliver.test.js` | 51 | 51 | 0 | 0 | 57 | verde |
+| `src/execute/drivers-docker-local.test.js` | 11 | 11 | 0 | 0 | 20 | verde |
+| `src/execute/execute.test.js` | 54 | 54 | 0 | 0 | 28 | verde |
+| `src/execute/forward.test.js` | 6 | 6 | 0 | 0 | 3 | verde |
+| `src/execute/handoff.test.js` | 7 | 7 | 0 | 0 | 3 | verde |
+| `src/execute/idea-se-muestra.test.js` | 8 | 8 | 0 | 0 | 5 | verde |
+| `src/execute/live-mention.test.js` | 6 | 6 | 0 | 0 | 5 | verde |
+| `src/execute/mention.test.js` | 6 | 6 | 0 | 0 | 4 | verde |
+| `src/execute/progress-notices.test.js` | 8 | 8 | 0 | 0 | 12 | verde |
+| `src/execute/respuesta-para-pm.test.js` | 5 | 5 | 0 | 0 | 0 | verde |
+| `src/execute/resume.test.js` | 12 | 12 | 0 | 0 | 2 | verde |
+| `src/execute/retry.test.js` | 7 | 7 | 0 | 0 | 2 | verde |
+| `src/execute/review-reply.test.js` | 5 | 5 | 0 | 0 | 4 | verde |
+| `src/execute/session-reserve.test.js` | 8 | 8 | 0 | 0 | 1 | verde |
+| `src/execute/sin-reconfirmar.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/execute/sin-tope-de-pasos.test.js` | 2 | 2 | 0 | 0 | 1 | verde |
+| `src/telemetry-integration.test.js` | 1 | 1 | 0 | 0 | 1 | verde |
+| `src/vps-check.test.js` | 3 | 2 | 0 | 1 | 0 | verde |
+| `scripts/canary.test.mjs` | 8 | 8 | 0 | 0 | 4 | verde |
+| `scripts/sembrar.test.mjs` | 1 | 1 | 0 | 0 | 2 | verde |
+| `scripts/team.test.mjs` | 9 | 9 | 0 | 0 | 2 | verde |
+| `scripts/vaciar.test.mjs` | 3 | 3 | 0 | 0 | 2 | verde |
+| `e2e/contrato/C1-aviso-de-inicio-y-espera.e2e.test.mjs` | 2 | 0 | 2 | 0 | 17 | roja |
+| `e2e/contrato/C2-solo-el-presupuesto-en-plata.e2e.test.mjs` | 2 | 0 | 2 | 0 | 18 | roja |
+| `e2e/contrato/C3-sin-tope-de-pasos.e2e.test.mjs` | 2 | 0 | 2 | 0 | 1 | roja |
+| `e2e/contrato/C4-prueba-que-falla-no-es-final.e2e.test.mjs` | 2 | 0 | 2 | 0 | 3 | roja |
+| `e2e/contrato/C5-final-solo-con-produccion-comprobada.e2e.test.mjs` | 3 | 0 | 3 | 0 | 22 | roja |
+| `e2e/contrato/C6-entrega-fallida-lo-dice.e2e.test.mjs` | 4 | 1 | 3 | 0 | 4 | roja |
+| `e2e/contrato/C7-reintentar-avisa-al-instante.e2e.test.mjs` | 1 | 0 | 1 | 0 | 31 | roja |
+| `e2e/contrato/C8-rama-ya-en-produccion.e2e.test.mjs` | 2 | 0 | 2 | 0 | 2 | roja |
+| `e2e/contrato/C9-captura-en-la-respuesta.e2e.test.mjs` | 10 | 1 | 9 | 0 | 7 | roja |
+| `e2e/contrato/C10-trato-del-perfil.e2e.test.mjs` | 3 | 0 | 3 | 0 | 3 | roja |
+| `e2e/contrato/C11-avisos-de-progreso.e2e.test.mjs` | 3 | 0 | 3 | 0 | 16 | roja |
+| `e2e/contrato/C12-investigacion-no-cambia-codigo.e2e.test.mjs` | 4 | 0 | 4 | 0 | 1 | roja |
+| `e2e/contrato/C13-idea-se-muestra-y-se-publica.e2e.test.mjs` | 6 | 6 | 0 | 0 | 4 | verde |
+| `e2e/contrato/C14-claude-cierra-cuando-corresponde.e2e.test.mjs` | 7 | 4 | 3 | 0 | 5 | roja |
+| `e2e/contrato/C15-mismos-accesos-que-el-notebook.e2e.test.mjs` | 4 | 1 | 3 | 0 | 3 | roja |
+| `e2e/contrato/C16-un-despliegue-no-corta-la-sesion.e2e.test.mjs` | 1 | 0 | 1 | 0 | 21 | roja |
+| `e2e/contrato/C17-capturas-sin-anonimizar.e2e.test.mjs` | 3 | 0 | 3 | 0 | 2 | roja |
+| `e2e/contrato/C18-nada-queda-sin-atender.e2e.test.mjs` | 2 | 0 | 2 | 0 | 63 | roja |
 
 ## Pruebas que fallan hoy
 
-PLACEHOLDER_FALLAS
+Los 17 archivos de `e2e/contrato/C*` que dependen de `e2e/contrato/ciclo.mjs` fallan en 48 de sus 55 casos. `C13-idea-se-muestra-y-se-publica.e2e.test.mjs` no falla porque fija la decisión de la Guardia de la idea en cada caso.
+
+Causa: `ciclo.mjs` crea el manejador `execute` con `createExecuteHandler({ db, config, queue, events, vault, progressUnitMs, progressClock })` y sin `getProviders`. Desde `9f446792`, `src/execute/idea-guard.js` pide el juicio de la Guardia de la idea al proveedor de texto cuando el mensaje no lo trae. Sin proveedor, el trabajo `execute` termina con `last_error`: «No se pudo juzgar si el pedido es una idea (el proveedor de texto no está configurado); se reintenta.». La sesión no arranca, no queda ninguna llamada registrada y cada caso espera en vano una respuesta.
+
+Comprobación de la causa: una copia de `ciclo.mjs` con `getProviders: env.modules.getProviders` en esa llamada hace pasar los 55 casos de los 17 archivos. Se corrió desde un directorio temporal que ya se borró. `src/execute/execute.test.js`, que sí pasa `getProviders`, está en verde. El arreglo no se aplicó en esta rama.
+
+| Archivo | Casos que fallan | Primer error |
+|---|---|---|
+| `e2e/contrato/C1-aviso-de-inicio-y-espera.e2e.test.mjs` | 2 de 2 | AssertionError: 0 !== 1 (el hilo no trae «Claude empezó a trabajar») |
+| `e2e/contrato/C2-solo-el-presupuesto-en-plata.e2e.test.mjs` | 2 de 2 | AssertionError: sessions alive at once: 0 !== 12 |
+| `e2e/contrato/C3-sin-tope-de-pasos.e2e.test.mjs` | 2 de 2 | TypeError: Cannot read properties of undefined (reading 'args') |
+| `e2e/contrato/C4-prueba-que-falla-no-es-final.e2e.test.mjs` | 2 de 2 | AssertionError: one session per round: 1 !== 4 |
+| `e2e/contrato/C5-final-solo-con-produccion-comprobada.e2e.test.mjs` | 3 de 3 | Error: until: timed out waiting for the condition |
+| `e2e/contrato/C6-entrega-fallida-lo-dice.e2e.test.mjs` | 3 de 4 | AssertionError: la respuesta no coincide con /^No quedó en producción: no pasó la verificación/ |
+| `e2e/contrato/C7-reintentar-avisa-al-instante.e2e.test.mjs` | 1 de 1 | Error: until: timed out waiting for the condition |
+| `e2e/contrato/C8-rama-ya-en-produccion.e2e.test.mjs` | 2 de 2 | AssertionError: Expected values to be strictly deep-equal |
+| `e2e/contrato/C9-captura-en-la-respuesta.e2e.test.mjs` | 9 de 10 | AssertionError: la respuesta no coincide con /No incluye captura ni video/ |
+| `e2e/contrato/C10-trato-del-perfil.e2e.test.mjs` | 3 de 3 | TypeError: Cannot destructure property 'stdin' of 'c.llamadas(...).at(...)' |
+| `e2e/contrato/C11-avisos-de-progreso.e2e.test.mjs` | 3 de 3 | Error: until: timed out waiting for the condition |
+| `e2e/contrato/C12-investigacion-no-cambia-codigo.e2e.test.mjs` | 4 de 4 | AssertionError: 0 !== 1 |
+| `e2e/contrato/C14-claude-cierra-cuando-corresponde.e2e.test.mjs` | 3 de 7 | AssertionError: 'open' !== 'closed' |
+| `e2e/contrato/C15-mismos-accesos-que-el-notebook.e2e.test.mjs` | 3 de 4 | TypeError: Cannot read properties of undefined (reading 'pid') |
+| `e2e/contrato/C16-un-despliegue-no-corta-la-sesion.e2e.test.mjs` | 1 de 1 | Error: until: timed out waiting for the condition |
+| `e2e/contrato/C17-capturas-sin-anonimizar.e2e.test.mjs` | 3 de 3 | AssertionError: la respuesta es «No pude terminar este trabajo por un problema del sistema» |
+| `e2e/contrato/C18-nada-queda-sin-atender.e2e.test.mjs` | 2 de 2 | Error: until: timed out waiting for the condition |
 
 ## Lo que falta para 1.0
 

@@ -39,3 +39,41 @@ export async function equipo ({ config = {}, modules = {}, worker = true } = {})
   }
   return env
 }
+
+/** A host site's JWKS server on an ephemeral port, and `firmar(claims)`: the token that site signs for one of its people (RS256, five minutes). */
+export async function anfitrionJwt ({ issuer = 'https://anfitrion.example', audience = 'team-platform' } = {}) {
+  const { generateKeyPairSync } = await import('node:crypto')
+  const { createServer } = await import('node:http')
+  const { exportJWK, SignJWT } = await import('jose')
+  const keys = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  const jwk = { ...(await exportJWK(keys.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' }
+  const server = createServer((req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ keys: [jwk] })) })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const sign = (claims, aud = audience, exp = '5m') => new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuer(issuer).setAudience(aud).setIssuedAt().setExpirationTime(exp).sign(keys.privateKey)
+  return {
+    config: { jwksUrl: `http://127.0.0.1:${server.address().port}/jwks.json`, jwksCooldownMs: 0, issuer, audience },
+    firmar: async (claims, aud) => ({ authorization: `Bearer ${await sign(claims, aud)}` }),
+    cerrar: () => new Promise((resolve) => server.close(resolve))
+  }
+}
+
+/**
+ * A send as a person does, with the credentials their identity source gives (`credenciales(method, url)` returns the headers of each request):
+ * input, analysis by the worker, publication. Returns the message id. The instance must have a worker.
+ */
+export async function enviarComo (env, credenciales, text, assignees = null) {
+  const { multipart } = await import('../../src/testing/helpers.js')
+  const call = (method, url, payload) => env.app.inject({ method, url: `/api${url}`, headers: { ...credenciales(method, `/api${url}`), 'x-team-request': 'panel' }, payload, remoteAddress: '127.0.0.1' })
+  const { payload, headers } = await multipart({ text: `${text} (envío ${++sends})` }, [])
+  const sent = await env.app.inject({ method: 'POST', url: '/api/inputs', payload, headers: { ...headers, ...credenciales('POST', '/api/inputs'), 'x-team-request': 'panel' }, remoteAddress: '127.0.0.1' })
+  assert.equal(sent.statusCode, 202, sent.body)
+  const inputId = sent.json().input_id
+  const view = await until(async () => {
+    const v = (await call('GET', `/inputs/${inputId}`)).json()
+    return v.status === 'proposed' ? v : null
+  }, { timeoutMs: 15000 })
+  const messages = view.proposal.messages.map((m) => (assignees ? { ...m, assignee_ids: assignees } : m))
+  const published = await call('POST', `/inputs/${inputId}/publish`, { messages })
+  assert.equal(published.statusCode, 200, published.body)
+  return { messageId: published.json().message_ids[0], call }
+}

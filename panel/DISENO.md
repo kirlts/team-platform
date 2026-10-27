@@ -251,6 +251,8 @@ UD-050. El texto de la interfaz es el de un programa de gestión: sustantivo cor
 - Una plantilla se edita como formulario (campos con casilla «Obligatorio» e instrucciones al modelo en su propia sección); el archivo con su cabecera YAML se construye al guardar y no se muestra (J1-A-32).
 - El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado se dice con su forma y su palabra (ver «Estados y avisos»).
 - Los anchos de columna siguen el contenido: la lista de mensajes ocupa 60 rem y deja el resto al fondo.
+- Trabajo de un agente (`AgentWork`, B7): en la ficha de un mensaje que atiende un agente, mientras espera, corre o falla, un panel de vidrio con una fila por tramo (Máquina, Sesión, Entrega). Tres columnas fijas: marca, nombre y tiempo al borde derecho; lo que un tramo agrega (la palabra «Falló», «Se repite» o «No se repite» según el «Reintentar» del hilo) va bajo su nombre y no mueve el tiempo. La barra del trabajo va bajo el tramo en curso. En teléfono, donde el hilo queda bajo la primera pantalla, el mismo botón «Reintentar» está también en el panel. Sin color nuevo: acento al terminar o correr, peligro al fallar, tenue si espera. Terminado el trabajo el panel desaparece y los tiempos quedan en Detalles › Tiempos.
+- El medidor (`Meter`) trae su alto (`h-2.5`, el del análisis y el envío): el relleno y el destello miden el 100 % de él, y sin alto la barra es una línea de 2 px. Un uso que necesite otro alto lo reemplaza con su clase.
 
 ## Estados y avisos
 

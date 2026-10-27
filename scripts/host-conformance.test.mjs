@@ -96,15 +96,23 @@ describe('scripts/host-conformance.mjs', () => {
     assert.match(r.out, /^FAIL deliver-repeat: .*the references differ/m)
   })
 
-  it('the reference driver docker-local passes every case against a real Docker daemon and the run says the contract_version it meets', async () => {
+  it('the reference driver docker-local passes every case against a real Docker daemon, twice at the same time on the same daemon, and the run says the contract_version it meets', async () => {
     try { execFileSync('docker', ['info'], { stdio: 'ignore' }) } catch {
       assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and does not skip without one')
     }
-    const r = await conformance(['--driver', 'drivers/docker-local'])
-    assert.equal(r.code, 0, r.out + r.err)
-    for (const id of CASES) assert.equal(verdict(r.out, id), 'ok', `${id}:\n${r.out}`)
-    assert.match(r.out, /^contract_version: 1 met \(14 cases passed/m)
-    const leftover = execFileSync('docker', ['ps', '-a', '--filter', 'label=team-platform.driver=docker-local', '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter((n) => /^tp-job-\d+$/.test(n))
+    // Both runs start from job 1 on the same daemon: before instances they named the same machines (tp-job-<id>) and destroyed each other's. The first fixes its
+    // instance so that its leftovers can be asked for; the second takes the one the driver derives from its own state directory, which is the default every host gets.
+    const instance = `cf${process.pid}`
+    const [r, second] = await Promise.all([
+      conformance(['--driver', 'drivers/docker-local'], { TP_DOCKER_INSTANCE: instance }),
+      conformance(['--driver', 'drivers/docker-local'], { TP_DOCKER_INSTANCE: '' })
+    ])
+    for (const run of [r, second]) {
+      assert.equal(run.code, 0, run.out + run.err)
+      for (const id of CASES) assert.equal(verdict(run.out, id), 'ok', `${id}:\n${run.out}`)
+      assert.match(run.out, /^contract_version: 1 met \(14 cases passed/m)
+    }
+    const leftover = execFileSync('docker', ['ps', '-a', '--filter', 'label=team-platform.driver=docker-local', '--filter', `label=team-platform.instance=${instance}`, '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter(Boolean)
     assert.deepEqual(leftover, [], 'no machine of the run is left')
   })
 })

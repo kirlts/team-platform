@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DriverError, POLL_MAX_BYTES, exec, execOk, findMachine, loadSettings, machineName, main, sleep } from './lib/fly.mjs'
+import { DriverError, POLL_MAX_BYTES, exec, execOk, findMachine, isMachineOfJob, loadSettings, machineName, main, sleep } from './lib/fly.mjs'
 import { tarDirectory, upload } from './lib/transfer.mjs'
 
 const MACHINE_DIR = fileURLToPath(new URL('./machine/', import.meta.url))
@@ -82,9 +82,9 @@ await main(async () => {
   if (!job || !workdir) throw new DriverError('usage: run.sh <job_id> <workdir> <machine>')
   if (!existsSync(join(workdir, 'run.sh'))) throw new DriverError(`${join(workdir, 'run.sh')} does not exist`, 2)
   const s = loadSettings()
-  if (machine && machine !== machineName(job)) throw new DriverError(`not a machine of this driver: ${machine}`)
+  if (machine && !isMachineOfJob(s, job, machine)) throw new DriverError(`not a machine of this driver: ${machine}`)
   const mine = await findMachine(s, job)
-  if (!mine) throw new DriverError(`the machine ${machineName(job)} does not exist`, 2)
+  if (!mine) throw new DriverError(`the machine ${machineName(s, job)} does not exist`, 2)
   const launched = (await exec(s, mine.id, ['test', '-d', '/tp/launched'])).code === 0
   if (launched) console.error('run.sh: the session is already launched; following it from its first line')
   else await launch(s, mine.id, job, workdir)

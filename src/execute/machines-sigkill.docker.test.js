@@ -1,8 +1,8 @@
 // Piece B4 with a worker killed without warning: the worker is a real process (`node src/worker.js`, WORKER_MODE=external) with drivers/docker-local against a real
 // Docker daemon. RUN is running, the process gets SIGKILL, another worker starts and nothing is left alive: the container is destroyed (or taken over by the next
 // attempt of the job) and `GET /health` says `machines.open` is 0 again. Without Docker this test FAILS and says so: a skipped test did not pass.
-// It is a `.docker.test.js`: run it with `npm run test:sigkill`. The directed selection leaves those out because its containers (tp-job-<job id>) live for seconds and the tests
-// of the driver that run beside it count the machines of the daemon.
+// It is a `.docker.test.js`: run it with `npm run test:sigkill`. The directed selection leaves those out because its containers (tp-<instance>-job-<job id>) live for seconds.
+// Its instance (TP_DOCKER_INSTANCE) is its own, so the tests of the driver that run beside it neither count nor touch its machines.
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -17,7 +17,10 @@ import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const DRIVER = fileURLToPath(new URL('../../drivers/docker-local/', import.meta.url))
 const IMAGE = 'team-platform-agent:test-b4k' // its own tag: the other tests of the driver build and tag theirs at the same time
+const INSTANCE = `sk${process.pid}` // this run's own identity on the shared daemon (TP_DOCKER_INSTANCE)
 const LABEL = 'team-platform.driver=docker-local'
+const INSTANCE_LABEL = `team-platform.instance=${INSTANCE}`
+const nameOf = (id) => `tp-${INSTANCE}-job-${id}`
 // A stand-in for Claude Code that prints its init and keeps the session open for as long as the test needs.
 const SLOW_CLAUDE = `#!/bin/sh
 cat > /dev/null
@@ -34,7 +37,7 @@ describe('B4 with SIGKILL of a real worker process', () => {
   const saved = {}
   const setEnv = (values) => { for (const [k, v] of Object.entries(values)) { if (!(k in saved)) saved[k] = process.env[k]; if (v === undefined) delete process.env[k]; else process.env[k] = v } }
   const cookieHeaders = (cookie) => ({ cookie, 'x-team-request': 'panel' })
-  const containers = () => execFileSync('docker', ['ps', '-a', '--filter', `label=${LABEL}`, '--filter', `name=^tp-job-${jobId}$`, '--format', '{{.ID}}'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+  const containers = () => execFileSync('docker', ['ps', '-a', '--filter', `label=${LABEL}`, '--filter', `label=${INSTANCE_LABEL}`, '--filter', `name=^${nameOf(jobId)}$`, '--format', '{{.ID}}'], { encoding: 'utf8' }).split('\n').filter(Boolean)
   const idOf = (name) => { try { return execFileSync('docker', ['inspect', '-f', '{{.Id}}', name], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null } }
   const health = async () => (await env.app.inject({ url: '/health', headers: { cookie: editor } })).json()
   const attemptRows = () => env.db.prepare('SELECT id, attempt, machine, destroyed_at, destroy_attempts FROM execute_machines WHERE job_id = ?').all(jobId)
@@ -74,7 +77,7 @@ describe('B4 with SIGKILL of a real worker process', () => {
     try {
       await until(() => jobRow().phase === 'run' && containers().length === 1, { timeoutMs: 120_000, everyMs: 100 })
     } catch (error) { throw new Error(`${error.message}; the job is ${JSON.stringify(jobRow())}; worker A said:\n${a.output.slice(-3000)}`) }
-    const id = idOf(`tp-job-${jobId}`)
+    const id = idOf(nameOf(jobId))
     assert.ok(id, 'the container of the session exists')
     assert.equal((await health()).machines.open, 1, 'the machine is registered while the session runs')
     return { a, id }
@@ -90,7 +93,7 @@ describe('B4 with SIGKILL of a real worker process', () => {
     writeFileSync(join(dir, 'slow-claude'), SLOW_CLAUDE)
     chmodSync(join(dir, 'slow-claude'), 0o755)
     execFileSync('docker', ['build', '-q', '--build-arg', 'CLAUDE_PACKAGE=', '-t', IMAGE, DRIVER], { stdio: ['ignore', 'ignore', 'inherit'], timeout: 600_000 })
-    setEnv({ TP_DOCKER_IMAGE: IMAGE, TP_DOCKER_STATE: join(dir, 'state'), TP_DOCKER_REPO: '', TP_DOCKER_MAX_CONTAINERS: undefined, TP_DOCKER_PASS_ENV: undefined })
+    setEnv({ TP_DOCKER_IMAGE: IMAGE, TP_DOCKER_STATE: join(dir, 'state'), TP_DOCKER_INSTANCE: INSTANCE, TP_DOCKER_REPO: '', TP_DOCKER_MAX_CONTAINERS: undefined, TP_DOCKER_PASS_ENV: undefined })
     await addMember(env, { email: 'ed@x.org', role: 'editor' })
     editor = await login(env, 'ed@x.org')
     const created = await env.app.inject({ method: 'POST', url: '/api/members', headers: cookieHeaders(editor), payload: { email: 'claude@x.org', name: 'Claude', kind: 'agent', profile: 'Perfil del agente: arreglo pantallas.' } })
@@ -111,15 +114,11 @@ describe('B4 with SIGKILL of a real worker process', () => {
     env.db.prepare('UPDATE messages SET estimates_json = ? WHERE id = ?').run(JSON.stringify({ idea: 0.1, idea_guard: false, idea_reason: 'prueba' }), messageId)
     env.db.prepare('INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)').run(messageId, agentId)
     env.db.prepare("UPDATE jobs SET status = 'cancelled' WHERE kind = 'execute' AND status = 'queued'").run()
-    // The machine is named tp-job-<job id> and the daemon is shared with other runs of the driver (the conformance script and its tests start from job 1): the jobs of this test get
-    // ids from a range that depends on this process, so that nobody else's container has the name of one of ours.
-    const first = 100_000 + (process.pid % 800_000)
-    env.db.prepare("INSERT INTO jobs (id, kind, payload_json, status, priority, attempts, max_attempts, run_at, created_at, finished_at) VALUES (?, 'extract', '{}', 'cancelled', 0, 0, 1, ?, ?, ?)").run(first, Date.now(), Date.now(), Date.now())
   })
 
   after(async () => {
     for (const w of children) { if (w.exited === null) w.child.kill('SIGKILL') }
-    try { execFileSync('docker', ['ps', '-a', '-q', '--filter', `label=${LABEL}`, '--filter', 'name=^tp-job-'], { encoding: 'utf8' }).split('\n').filter(Boolean).forEach((id) => { try { execFileSync('docker', ['rm', '-f', '-v', id], { stdio: 'ignore' }) } catch { /* gone */ } }) } catch { /* docker gone */ }
+    try { execFileSync('docker', ['ps', '-a', '-q', '--filter', `label=${LABEL}`, '--filter', `label=${INSTANCE_LABEL}`], { encoding: 'utf8' }).split('\n').filter(Boolean).forEach((id) => { try { execFileSync('docker', ['rm', '-f', '-v', id], { stdio: 'ignore' }) } catch { /* gone */ } }) } catch { /* docker gone */ }
     for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v }
     await env?.close()
     if (dir) rmSync(dir, { recursive: true, force: true })
@@ -129,13 +128,13 @@ describe('B4 with SIGKILL of a real worker process', () => {
     const { a, id } = await sessionRunning()
     await killed(a)
     assert.deepEqual(a.exited.signal, 'SIGKILL')
-    assert.equal(idOf(`tp-job-${jobId}`), id, 'nothing destroyed the container: the worker died without a chance to')
+    assert.equal(idOf(nameOf(jobId)), id, 'nothing destroyed the container: the worker died without a chance to')
     const dead = await health()
     assert.equal(dead.machines.open, 1, 'the register still has the machine open: a person looking would see it')
     env.queue.cancel(jobId) // the job does not come back
     const b = startWorker('worker B')
     await ready(b)
-    await until(async () => idOf(`tp-job-${jobId}`) === null && (await health()).machines.open === 0, { timeoutMs: 60_000, everyMs: 100 })
+    await until(async () => idOf(nameOf(jobId)) === null && (await health()).machines.open === 0, { timeoutMs: 60_000, everyMs: 100 })
     assert.match(b.output, /an orphan machine was destroyed/, 'the worker says it destroyed it')
     assert.equal((await health()).status, 'ok')
     b.child.kill('SIGTERM')
@@ -153,7 +152,7 @@ describe('B4 with SIGKILL of a real worker process', () => {
       // `jobs.phase` still says «run» from the killed attempt: the second attempt is running when its own row exists and the old one is gone or closed.
       await until(async () => jobRow().attempts >= 2 && jobRow().phase === 'run' && attemptRows().some((r) => r.attempt >= 2) && (await health()).machines.open === 1, { timeoutMs: 90_000, everyMs: 100 })
     } catch (error) { throw new Error(`${error.message}; the job is ${JSON.stringify(jobRow())}; open ${JSON.stringify((await health()).machines)}; worker B said:\n${b.output.slice(-2500)}`) }
-    const now = idOf(`tp-job-${jobId}`)
+    const now = idOf(nameOf(jobId))
     assert.ok(now, 'the second attempt has its container')
     assert.equal(containers().length, 1, 'one container for the job, not two')
     const open = (await health()).machines.open
@@ -161,7 +160,7 @@ describe('B4 with SIGKILL of a real worker process', () => {
     // The job ends without anyone asking the worker: cancelled. The worker notices at its next heartbeat, aborts the session and destroys the machine.
     env.queue.cancel(jobId)
     await until(async () => containers().length === 0 && (await health()).machines.open === 0, { timeoutMs: 60_000, everyMs: 100 })
-    assert.equal(idOf(`tp-job-${jobId}`), null)
+    assert.equal(idOf(nameOf(jobId)), null)
     assert.notEqual(now, null)
     assert.ok(id, 'the first container existed before the kill')
     b.child.kill('SIGTERM')

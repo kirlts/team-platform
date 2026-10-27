@@ -36,6 +36,7 @@ El trabajador necesita `node` 22 o superior (usa `fetch`), `bash`, `flock`, `tar
 | `TP_FLY_REPO` | vacía | Repositorio del anfitrión en el trabajador. La sesión recibe un clon, trabaja en `tp/<id>` y collect trae la rama de vuelta aquí, que es donde `deliver.sh` la busca |
 | `TP_FLY_BASE_REF` | HEAD del clon | De dónde nace la rama |
 | `TP_FLY_STATE` | `~/.local/state/team-platform-fly` | Candado de creación y transcripciones (`transcripts/<job_id>`) |
+| `TP_FLY_INSTANCE` | derivada de `TP_FLY_STATE` | Identidad de esta instancia cuando otras usan la misma app de Fly: 1 a 20 letras minúsculas o dígitos. Va en el nombre de la máquina, `tp-<instancia>-job-<id>`, y en la metadata `team_platform_instance` con que el driver lista, cuenta y valida las suyas. Omisión: los 8 primeros dígitos hexadecimales del sha256 de `TP_FLY_STATE` |
 | `TP_FLY_API` | `https://api.machines.dev` | URL base de la API |
 | `TP_FLY_START_TIMEOUT_S` | 60 | Espera de create a que la máquina arranque. Es la omisión del endpoint `wait` |
 | `TP_FLY_POLL_WAIT_S` | 45 | Espera de cada consulta de salida de la sesión |
@@ -48,8 +49,9 @@ La organización no es una variable: la API de Machines direcciona por app y el 
 
 | Orden | Qué hace |
 |---|---|
-| create | Lista las máquinas del driver (metadata `team_platform_driver` y `team_platform_job`), responde 75 si se alcanzó `TP_FLY_MAX_MACHINES`, crea `tp-job-<id>` con `auto_destroy: true`, `restart: no`, el tamaño pedido y `init.exec = ["sleep", "<vida>"]`, espera a que arranque e imprime el nombre. Cuenta y crea bajo un candado (`flock`). Repetida para un trabajo con máquina viva, devuelve esa máquina |
+| create | Lista las máquinas del driver (metadata `team_platform_driver`, `team_platform_instance` y `team_platform_job`), responde 75 si se alcanzó `TP_FLY_MAX_MACHINES` (cuenta las de su instancia), crea `tp-<instancia>-job-<id>` con `auto_destroy: true`, `restart: no`, el tamaño pedido y `init.exec = ["sleep", "<vida>"]`, espera a que arranque e imprime el nombre. Cuenta y crea bajo un candado (`flock`). Repetida para un trabajo con máquina viva, devuelve esa máquina |
 | run | Sube el directorio del trabajo (y el repositorio como `git bundle`), lanza la sesión aparte con `setsid` como usuario sin privilegios y la sigue con consultas largas. Su stdout es sólo el NDJSON de la sesión, línea a línea; el stderr de la sesión va al stderr. Sale con el código de la sesión |
+| destroy y los demás | Aceptan como `{machine}` el nombre de su instancia, el que el núcleo anota por omisión (`team-job-<id>`) y el anterior a las instancias (`tp-job-<id>`). Una máquina con ese último nombre no lleva metadata de instancia y el driver no la encuentra: termina sola al agotar su vida máxima. Cualquier otro nombre se rechaza con código 1 |
 | collect | Trae `captures/` y `attachments/` a `{workdir}`, trae al repositorio del anfitrión los commits que la sesión empujó a `tp/<id>` y copia la transcripción a `$TP_FLY_STATE/transcripts/<job_id>`, que imprime. Sale 3 si no hay transcripción |
 | destroy | Busca la máquina por su metadata (nunca por patrón de nombre) y la destruye con `force`. Una máquina que no existe sale 0. Una máquina sin la metadata del driver no se toca |
 | deliver | Ejemplo igual al de `docker-local`: comprueba que la rama exista en `TP_FLY_REPO` y entrega el commit como referencia. El anfitrión reemplaza lo que hay entre `##team phase deploy` y la última línea |

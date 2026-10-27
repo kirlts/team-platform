@@ -18,6 +18,8 @@ import { machineHealth, nameMachine, openMachine, recordDestroy } from './machin
 import { fillCommand, runMachine, spawnStreaming } from './runners.js'
 
 const DRIVER = fileURLToPath(new URL('../../drivers/docker-local/', import.meta.url))
+const INSTANCE = `mb${process.pid}` // this run's own identity on the shared daemon (TP_DOCKER_INSTANCE)
+const nameOf = (id) => `tp-${INSTANCE}-job-${id}`
 const IMAGE = 'team-platform-agent:test-b4' // its own tag: the other test of the driver builds and tags its own image at the same time
 const HOOKS = {
   machineCreate: `bash ${DRIVER}create.sh {job_id} {workdir}`,
@@ -45,7 +47,7 @@ describe('B4 against drivers/docker-local', () => {
   const row = (id) => get(env.db, 'SELECT * FROM execute_machines WHERE id = ?', id)
   const sh = (command) => spawnStreaming('/bin/sh', ['-c', command], { env: process.env, keepStdout: true, timeoutMs: TIMEOUT_MS, graceMs: GRACE_MS })
   /** A job id the driver accepts, and the name of its default machine registered for the final cleanup. */
-  const jobId = () => { const id = `b4test-${process.pid}-${++counter}`; machines.push(`tp-job-${id}`); return id }
+  const jobId = () => { const id = `b4test-${process.pid}-${++counter}`; machines.push(nameOf(id)); return id }
   function workdirOf (id) {
     const workdir = join(jobs, id)
     mkdirSync(workdir)
@@ -67,7 +69,7 @@ describe('B4 against drivers/docker-local', () => {
     state = join(dir, 'state')
     counter = 0
     execFileSync('docker', ['build', '-q', '--build-arg', 'CLAUDE_PACKAGE=', '-t', IMAGE, DRIVER], { stdio: ['ignore', 'ignore', 'inherit'], timeout: 600_000 })
-    setEnv({ TP_DOCKER_IMAGE: IMAGE, TP_DOCKER_STATE: state, TP_DOCKER_REPO: '', TP_DOCKER_MAX_CONTAINERS: undefined, ANTHROPIC_API_KEY: 'valor-de-prueba', TP_DOCKER_PASS_ENV: undefined })
+    setEnv({ TP_DOCKER_IMAGE: IMAGE, TP_DOCKER_STATE: state, TP_DOCKER_INSTANCE: INSTANCE, TP_DOCKER_REPO: '', TP_DOCKER_MAX_CONTAINERS: undefined, ANTHROPIC_API_KEY: 'valor-de-prueba', TP_DOCKER_PASS_ENV: undefined })
   })
 
   after(async () => {
@@ -84,7 +86,7 @@ describe('B4 against drivers/docker-local', () => {
     assert.equal(created.code, 0, created.stderr)
     const machine = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
     assert.ok(exists(machine), 'the container is alive before the worker starts')
-    const rowId = openMachine(env.db, { jobId: 777001, attempt: 1, machine: `tp-job-${id}`, workdir: join(jobs, id) })
+    const rowId = openMachine(env.db, { jobId: 777001, attempt: 1, machine: nameOf(id), workdir: join(jobs, id) })
     nameMachine(env.db, rowId, machine)
     assert.deepEqual(machineHealth(env.db).open, 1)
 
@@ -113,12 +115,12 @@ describe('B4 against drivers/docker-local', () => {
     const result = await runMachine({
       config: configFor(), jobId: id, workdir, args: ['-p', '--output-format', 'stream-json'], prompt: 'espera', env: { TEAM_JOB_ID: id, TEAM_MESSAGE_ID: '88', TEAM_BRANCH: 'tp/88' },
       signal: controller.signal, track,
-      onData: () => { if (!alive) { alive = true; assert.ok(exists(`tp-job-${id}`), 'the session is running in its container'); controller.abort('shutdown') } }
+      onData: () => { if (!alive) { alive = true; assert.ok(exists(nameOf(id)), 'the session is running in its container'); controller.abort('shutdown') } }
     })
     assert.ok(alive, 'the session started before the shutdown')
     assert.equal(result.destroy.code, 0, result.destroy.stderr)
     assert.equal(result.collect, undefined, 'no COLLECT on an abort')
-    assert.ok(!exists(`tp-job-${id}`), 'the container is gone')
+    assert.ok(!exists(nameOf(id)), 'the container is gone')
     assert.ok(row(handle).destroyed_at > 0)
     assert.equal(machineHealth(env.db).open, 0)
   })

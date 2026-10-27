@@ -155,7 +155,7 @@ Deja lista una máquina para un trabajo.
 
 | Elemento | Contrato |
 |---|---|
-| stdout | La última línea no vacía es el nombre de la máquina, que pasa como `{machine}` a las demás órdenes. Vacía: `team-job-<job_id>`. Lo demás va a stderr |
+| stdout | La última línea no vacía es el nombre de la máquina, que pasa como `{machine}` a las demás órdenes. Vacía: `team-job-<job_id>`. Lo demás va a stderr. El `{job_id}` sale de la base de cada instancia de Team Platform, así que dos instancias que comparten demonio, app o proyecto de nube reciben los mismos ids: un driver que comparte recurso con otras instancias incluye una identidad de instancia en el nombre y en lo que usa para contar y reconocer las suyas (los drivers de `drivers/` lo hacen con `TP_DOCKER_INSTANCE` y `TP_FLY_INSTANCE`) |
 | Código 0 | Máquina creada |
 | Código 75 | Sin capacidad ahora (cuota o existencias). El trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve sin gastar intento. stderr puede llevar `##team quota machines=<N>` con las máquinas que la cuota admitió |
 | Otro código | Falla de infraestructura (`machine_create_failed`). Se reintenta una vez tras `EXECUTE_INFRA_RETRY_WAIT_MS` y el segundo fallo pasa a una persona |

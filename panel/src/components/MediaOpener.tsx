@@ -20,7 +20,7 @@ export function MediaOpener({ attachments, scope = 'message', px = 40 }: { attac
   const label = attachments.length > 1 ? t('gallery.openMany', { n: attachments.length }) : t('media.zoom', { name: main.name ?? t(MEDIA_KEY[main.kind]) })
   return (
     <>
-      <button type="button" aria-label={label} title={label} onClick={() => setOpen(true)} className="relative block rounded-md">
+      <button type="button" aria-label={label} title={label} onClick={() => setOpen(true)} className="relative block rounded-md pointer-coarse:-mx-0.5 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center">
         <Thumb item={items[start]} px={px} />
         {attachments.length > 1 && (
           <span aria-hidden className="absolute -bottom-1 -right-1 inline-flex min-w-4 items-center justify-center rounded-full border border-line-strong bg-surface px-1 text-xs font-semibold tabular-nums leading-4 text-fg">

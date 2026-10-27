@@ -20,7 +20,17 @@ export function Segmented<T extends string>({
   describedBy?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cn('inline-flex self-start', quiet ? 'gap-1 rounded-[var(--quiet-tab-radius)] bg-[var(--quiet-tab-track)] p-0.5' : 'well opt-track rounded-full p-0.5')}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      aria-describedby={describedBy}
+      className={cn(
+        'inline-flex self-start',
+        quiet ? 'gap-1 rounded-[var(--quiet-tab-radius)] bg-[var(--quiet-tab-track)] p-0.5' : 'well opt-track rounded-full p-0.5',
+        // A finger needs 44 px (WCAG 2.5.8 asks 24, the platforms 44): the buttons grow and the small filter gives the extra back with a negative margin, so its row keeps its height (I3).
+        size === 'sm' && 'pointer-coarse:-my-2.5',
+      )}
+    >
       {options.map((o) => (
         <button
           key={o.value}
@@ -32,6 +42,7 @@ export function Segmented<T extends string>({
             'font-semibold transition-colors duration-[var(--duration-hover)]',
             quiet ? 'rounded-[var(--quiet-tab-radius)] border-b-2 px-2' : 'rounded-full border px-3',
             size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
+            'pointer-coarse:h-11',
             quiet
               ? value === o.value
                 ? 'border-[var(--quiet-tab-edge)] bg-[var(--quiet-tab-bg)] text-fg shadow-[var(--quiet-tab-shadow)]'

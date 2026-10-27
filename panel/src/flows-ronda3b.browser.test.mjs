@@ -286,7 +286,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
     try {
       await sendAndOpen(page)
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
-      await page.getByRole('button', { name: /^Partes sin mensaje/ }).click()
+      await page.getByRole('button', { name: /^Texto sin mensaje/ }).click()
       await page.getByRole('button', { name: 'Crear mensaje' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByRole('button', { name: 'Crear mensaje' }).count(), 2, 'one button per part')
       await page.getByRole('button', { name: 'Crear mensaje' }).first().click()
@@ -295,8 +295,8 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       const body = await page.getByRole('button', { name: /^Texto del mensaje:/ }).first().innerText()
       assert.match(body, /Cuarto: la página de inicio/)
       await page.keyboard.press('Escape')
-      await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor()
-      assert.match(await page.getByRole('button', { name: /^Partes sin mensaje/ }).innerText(), /1/, 'one part remains')
+      await page.getByRole('button', { name: /^Texto sin mensaje/ }).waitFor()
+      assert.match(await page.getByRole('button', { name: /^Texto sin mensaje/ }).innerText(), /1/, 'one part remains')
       await page.getByRole('button', { name: 'Deshacer', exact: true }).click()
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
     } finally {

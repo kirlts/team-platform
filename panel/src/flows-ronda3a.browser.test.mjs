@@ -870,7 +870,7 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
 })
 
 describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
-  test('the mark is the size of an identity, the note reads, and the card keeps its shape with an error (J3-A-01, J3-A-02, J3-A-03)', async () => {
+  test('the mark is the size of an identity, the reason reads, and the card keeps its shape with an error (J3-A-01, J3-A-02, J3-A-03)', async () => {
     const context = await panel.browser.newContext({ viewport: DESKTOP, locale: 'es-CL' })
     const page = await context.newPage()
     try {
@@ -881,10 +881,13 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       assert.ok(orb.width >= 24, `the sphere measures ${orb.width} px`)
       const mark = await card.locator('h1 span').last().evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       assert.ok(mark >= 18, `the mark measures ${mark} px`)
-      const note = card.getByText('Cuentas creadas por el equipo')
-      const style = await note.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), color: getComputedStyle(el).color }))
-      assert.ok(style.size >= 15, `the note measures ${style.size} px`)
-      // Contrast of the note on the card, measured.
+      const before = await card.boundingBox()
+      await page.getByRole('button', { name: 'Entrar' }).click()
+      const alert = page.getByRole('alert').filter({ hasText: 'Falta el correo' })
+      await alert.waitFor()
+      const style = await alert.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), color: getComputedStyle(el).color }))
+      assert.ok(style.size >= 15, `the reason measures ${style.size} px`)
+      // Contrast of the reason on the card, measured.
       const ratio = await page.evaluate((color) => {
         const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
         const toRgb = (c) => {
@@ -899,10 +902,6 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
         return (a + 0.05) / (b + 0.05)
       }, style.color)
       assert.ok(ratio >= 4.5, `contrast ${ratio.toFixed(2)}`)
-      const before = await card.boundingBox()
-      await page.getByRole('button', { name: 'Entrar' }).click()
-      const alert = page.getByRole('alert').filter({ hasText: 'Falta el correo' })
-      await alert.waitFor()
       // The error lives under its field, in a line the form keeps free.
       const email = await page.getByLabel('Correo').boundingBox()
       const said = await alert.boundingBox()

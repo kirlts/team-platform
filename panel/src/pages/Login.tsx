@@ -45,6 +45,7 @@ export function Login() {
       <Atmosphere />
       <form
         className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-3 p-7"
+        aria-busy={pending}
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
@@ -57,7 +58,7 @@ export function Login() {
           <label htmlFor="login-email" className="rotulo">
             {t('login.email')}
           </label>
-          <Input id="login-email" type="email" autoComplete="username" autoFocus aria-invalid={errors.email !== undefined ? true : undefined} aria-describedby={errors.email ? 'login-email-error' : undefined} className={fieldClass('email')} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input id="login-email" type="email" autoComplete="username" autoFocus readOnly={pending} aria-invalid={errors.email !== undefined ? true : undefined} aria-describedby={errors.email ? 'login-email-error' : undefined} className={fieldClass('email')} value={email} onChange={(e) => setEmail(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
           <div className="-mt-1 min-h-6">
             {errors.email && (
@@ -71,7 +72,7 @@ export function Login() {
           <label htmlFor="login-password" className="rotulo">
             {t('login.password')}
           </label>
-          <Input id="login-password" type="password" autoComplete="current-password" aria-invalid={errors.password !== undefined ? true : undefined} aria-describedby={errors.password ? 'login-password-error' : undefined} className={fieldClass('password')} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input id="login-password" type="password" autoComplete="current-password" readOnly={pending} aria-invalid={errors.password !== undefined ? true : undefined} aria-describedby={errors.password ? 'login-password-error' : undefined} className={fieldClass('password')} value={password} onChange={(e) => setPassword(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
           <div className="-mt-1 min-h-6">
             {errors.password && (
@@ -82,9 +83,8 @@ export function Login() {
           </div>
         </div>
         <Button type="submit" variant="primary" size="lg" className="justify-center" disabled={pending}>
-          {t('login.enter')}
+          {pending ? t('login.entering') : t('login.enter')}
         </Button>
-        <p className="text-sm text-muted">{t('login.noAccount')}</p>
       </form>
     </main>
   )

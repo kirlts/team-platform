@@ -81,8 +81,8 @@ describe('sign-in and navigation', () => {
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').filter({ hasText: 'Falta la contraseña' }).waitFor()
       assert.equal(await page.getByLabel('Contraseña').getAttribute('aria-invalid'), 'true')
-      const note = await page.getByText('Cuentas creadas por el equipo').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-      assert.ok(note >= 15, `the text below measures ${note} px`)
+      const reason = await page.getByRole('alert').filter({ hasText: 'Falta la contraseña' }).evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+      assert.ok(reason >= 15, `the reason measures ${reason} px`)
     } finally {
       await context.close()
     }

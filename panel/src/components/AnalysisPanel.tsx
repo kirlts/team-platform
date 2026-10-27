@@ -102,9 +102,10 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
       style={tinted ? areaStyle : undefined}
       className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-4', tinted ? 'area-tint area-box' : 'leaf border border-transparent bg-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
     >
-      {/* «Volver a analizar» keeps the right edge of the first row whatever the history has: the left group wraps inside its own space and never pushes it down (J2-B-14). */}
-      <div className="flex min-h-8 items-start justify-between gap-x-2 gap-y-1">
-        <div className="flex min-h-8 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+      {/* «Volver a analizar» keeps the right edge of the first row whatever the history has: the left group wraps inside its own space and never pushes it down (J2-B-14).
+          When the two groups do not fit together (a phone) the right one drops to its own row, at the right edge, and nothing is drawn over anything (I1). */}
+      <div className="flex min-h-8 flex-wrap items-start justify-between gap-x-2 gap-y-1">
+        <div className="flex min-h-8 min-w-min grow basis-0 flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-2">
             <h2>{t('analysis.title')}</h2>
             <AiMark />
@@ -113,14 +114,14 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
           {/* The history beside the title and «Volver a analizar» alone at the right edge: the step that drops the proposal is not one of the pair that takes a step back (J3-B-27); neither moves the other (J2-B-15). */}
           {input.status === 'proposed' && <UndoButtons stack={undo} />}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
             </Button>
           )}
-          {/* Deleting is not discarding: nothing comes back, and one click does it (UD-240, UD-253). */}
-          <DeleteSend input={input} onDeleted={onDeleted} />
+          {/* One way out of the send per block: a proposal and a failure already have «Descartar envío» at the foot, which can be taken back; the delete (UD-240, UD-253) stays where nothing else leaves the send (I4). */}
+          {input.status !== 'proposed' && input.status !== 'failed' && <DeleteSend input={input} onDeleted={onDeleted} />}
         </div>
       </div>
 
@@ -267,7 +268,7 @@ function ProposalEditor({
   /**
    * A part the analysis left without a message becomes one (J3-B-09), one part at a time: its text is the body, its first words the title (the person
    * edits it right there), the area is the one of the first message or, with none, the first of the catalog. Nobody is assigned and
-   * the template is the area's own: the person fills those in. The units leave «Partes sin mensaje» and go with the new message.
+   * the template is the area's own: the person fills those in. The units leave «Texto sin mensaje» and go with the new message.
    */
   const createFrom = async (at: number, unitId: number) => {
     const part = latest.current.discarded?.[at]
@@ -382,7 +383,7 @@ function ProposalEditor({
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="secondary" className="hit">
-                  {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
+                  {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge> <ChevronDown size={12} aria-hidden />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-96 p-3">
@@ -406,13 +407,14 @@ function ProposalEditor({
             </Popover>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+        {/* The action the screen asks for (gel, DISENO.md): it stays at the right edge on its own and its label is never split over two lines (I5). */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {missingTotal > 0 && (
             <span role="status" className="text-xs font-semibold text-danger">
               {t('proposal.missing', { n: missingTotal })}
             </span>
           )}
-          <Button variant="secondary" data-testid="proposal-send" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
+          <Button variant="primary" className="whitespace-nowrap" data-testid="proposal-send" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
             {t('proposal.sendN', { n: count })}
           </Button>
         </div>

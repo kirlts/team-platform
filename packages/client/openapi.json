@@ -304,6 +304,10 @@
                     "version": {
                       "type": "string"
                     },
+                    "contract_version": {
+                      "type": "integer",
+                      "description": "Version of the host contract this core implements (docs/CONTRATO-DE-ANFITRION.md)."
+                    },
                     "db": {
                       "type": "object",
                       "additionalProperties": true
@@ -328,6 +332,11 @@
                     "handoffs": {
                       "type": "object",
                       "additionalProperties": true
+                    },
+                    "machines": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "Machines of the execute job without a recorded destruction: `open` (the ones of running jobs included) and `failed`, those whose DESTROY did not exit 0 (the status turns degraded)."
                     }
                   }
                 }
@@ -5073,6 +5082,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "delivers": {
+                      "type": "boolean",
+                      "description": "La instancia declara una entrega aparte (`EXECUTE_DELIVER_COMMAND`): un trabajo que termine en un cambio pasa por ella. Si una sesión concreta termina en un cambio lo decide su resultado, no esta cifra."
+                    },
+                    "machine": {
+                      "type": "boolean",
+                      "description": "La sesión corre en una máquina creada para ella (`EXECUTE_RUNNER=machine`); con el ejecutor local no hay tramo de máquina."
                     },
                     "attempts": {
                       "type": "integer"

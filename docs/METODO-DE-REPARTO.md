@@ -47,13 +47,18 @@ Un área con más de la mitad de sus filas confidenciales (`--max-confidential-s
 ```json
 {
   "members": [{ "email": "ana@ejemplo.org", "name": "Ana", "kind": "person", "role": "Soy ... (una o dos oraciones propias)" }],
-  "limits": [{ "id": "money", "text": "mover dinero o fijar un precio", "person": true }]
+  "limits": [
+    { "id": "money", "text": "mover dinero o fijar un precio", "person": true },
+    { "id": "customer_data", "text": "datos personales de clientes", "person": false, "mechanism": "la credencial del asistente no lee la tabla de clientes" }
+  ]
 }
 ```
 
 `kind` es `person` o `agent`. `person` en un límite indica que lo levanta una persona. El `id` usa minúsculas, dígitos y `_`, porque nombra un campo booleano de salida.
 
-**Propósitos** (`purposes.json`): `{ "Título del área": "oración" }`. El propósito es del equipo y no se deduce del corpus; `propose` se detiene si falta.
+`mechanism` es el gancho, la credencial acotada o la prueba que sostiene un límite que no levanta una persona. Un límite de persona lo sostiene la plataforma, que retiene la entrega hasta que una persona lo levanta (sección 1). Un límite que no es de persona y no declara mecanismo depende de que el modelo lo recuerde. Eso es un pedido y no un límite. Se escribe igual. La descripción dice «sin mecanismo declarado» y `propose` avisa una vez por área. Nunca escribe que el sistema lo hace cumplir.
+
+**Propósitos** (`purposes.json`): `{ "Título del área": "oración" }`, o `{ "Título del área": { "purpose": "oración", "environment": "hechos que no cambian" } }`. El propósito y el entorno son del equipo y no se deducen del corpus; `propose` se detiene si falta el propósito.
 
 ### Filas
 
@@ -188,16 +193,18 @@ Cuándo cambia el conjunto. Dos corridas seguidas significan dos cortes distinto
 
 | Cláusula | Cómo se obtiene |
 |---|---|
-| Se maximiza | Hasta tres frases representativas de `maximize` de las filas no confidenciales: la palabra más repetida elige la frase más frecuente que la contiene, y esa palabra sale de la ronda siguiente |
-| Se sacrifica | Lo mismo con `sacrifice` |
-| Entorno | Los dos miembros que más piden, con su porcentaje, y la fracción que exige a una persona |
-| Límites | Hasta tres límites más tocados, cada uno con quién lo levanta |
+| Se maximiza | Una sola cualidad: la frase más representativa de `maximize` de las filas no confidenciales. Las otras dos más frecuentes quedan como candidatas en `candidates.maximize` del archivo de carga, para que el equipo elija |
+| Se sacrifica | Hasta tres frases representativas de `sacrifice`: la palabra más repetida elige la frase más frecuente que la contiene, y esa palabra sale de la ronda siguiente |
+| Entorno | Los hechos que el equipo declara en `environment` de `purposes.json`. Sin ellos la cláusula no se escribe. Cuánto pide cada persona es un dato del informe y no del entorno |
+| Límites | Hasta tres límites más tocados, cada uno con quién lo levanta o con su mecanismo, o «sin mecanismo declarado» |
 | Entra | Hasta tres resúmenes, uno por módulo frecuente, de filas no confidenciales |
 | No entra | Las áreas con que el reconocimiento por texto más la confunde |
 
 La descripción tiene a lo más 1.024 caracteres (`TEMPLATE_DESCRIPTION_MAX`). Si no cabe, se quitan primero los ejemplos, luego el borde y luego el entorno. Las cláusulas con propósito, qué se maximiza, qué se sacrifica y límites no se quitan: si ellas solas no caben, `propose` se detiene.
 
-Una descripción de cuatro cláusulas separa mejor los casos de borde que una línea: la línea no tiene espacio para la excepción. La corrección de una descripción nombra el borde con el vecino sólo cuando la medición muestra una confusión de dos casos o más.
+Una descripción más larga no es mejor por serlo. La medición del 2026-10-21 (`docs/investigaciones/mediciones/2026-10-21-descripciones-de-area-largas.md`) lo muestra. Las descripciones largas bajaron la exactitud de área de 82,6 % a 75,8 %, por dos frases y no por el largo. La corrección de una descripción nombra el borde con el vecino sólo cuando la medición muestra una confusión de dos casos o más (`--min-border-confusions`).
+
+`propose` deja cada área sin confirmar (`confirmed: false`). La cualidad que se maximiza y lo que se sacrifica salen de lo que la gente pidió, no de lo que el equipo decidió. El equipo lee las cláusulas de cada área, elige o reemplaza la cualidad entre los candidatos y marca `confirmed: true` con su correo en `confirmed_by`. El cargador rechaza un área sin confirmar (sección 12).
 
 ## 6. Plantillas por área
 
@@ -327,9 +334,14 @@ El límite del modelo liviano se fija con trabajos juzgados y no con una lista c
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "actor": "ana@ejemplo.org",
-  "areas": [{ "title": "Catálogo y precios", "description": "…", "position": 2, "templates": [{ "name": "Ajuste", "description": "…", "body_markdown": "---\nname: …\n---\n…" }] }],
+  "areas": [{
+    "title": "Catálogo y precios", "description": "…", "position": 2,
+    "confirmed": false, "candidates": { "maximize": ["precio exacto en cada ficha", "stock real publicado"], "sacrifice": ["orden de las fotos"] },
+    "guards": [{ "text": "mover dinero o fijar un precio", "mechanism": "", "person": true }, { "text": "datos personales de clientes", "mechanism": "la credencial del asistente no lee la tabla de clientes", "person": false }],
+    "templates": [{ "name": "Ajuste", "description": "…", "body_markdown": "---\nname: …\n---\n…" }]
+  }],
   "members": [{ "email": "ana@ejemplo.org", "profile": "…" }]
 }
 ```
@@ -337,9 +349,11 @@ El límite del modelo liviano se fija con trabajos juzgados y no con una lista c
 | Campo | Regla |
 |---|---|
 | `actor` | Correo del miembro que registra la auditoría; es opcional en la propuesta y obligatorio al cargar |
+| `areas[].confirmed` | Booleano obligatorio. `propose` lo escribe falso; el equipo lo marca verdadero al confirmar la cualidad y el sacrificio. El cargador rechaza un área con falso |
+| `areas[].guards[]` | `{ text, mechanism, person }`. Son todos los límites del equipo, en cada área: un límite es del equipo y no del área, y el analizador sólo lo detecta donde está instalado. La descripción nombra los más tocados. `mechanism` es texto, vacío si no hay |
 | `areas[].templates[]` | `body_markdown` es una plantilla válida (`src/analyze/templates.js`); `name` y `description` salen de su encabezado |
 | `members[]` | Un miembro existente, por correo |
-| `validateLoadFile` | Rechaza una plantilla que no se lee, un área o una plantilla repetidas y un miembro sin correo |
+| `validateLoadFile` | Rechaza una plantilla que no se lee, un área o una plantilla repetidas, un miembro sin correo, un área sin `confirmed` booleano, un límite sin texto, sin `person` booleano o sin `mechanism`, y una versión distinta de la 2 |
 
 La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`createArea`, `createTemplate`, `updateMember`) lo que describe una propuesta sobre el equipo inventado.
 
@@ -362,4 +376,5 @@ La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`cr
 | `--seed` | 7 | Semilla fija para repetir el informe |
 | `--max-confidential-share` | 0,5 | Definición: un área está sustentada por filas confidenciales cuando son más de la mitad de las suyas |
 | `--sample` (experimento) | 26 por área | La misma cuenta; `--sample` fija el total y no baja de 26 por área |
+| `--min-border-confusions` | 2 | Una confusión aislada puede venir de una fila mal extraída; dos casos ya son un patrón. Es del equipo |
 | `--holdout` (experimento) | 0,5 | Partición 50 / 25 / 25 de Hastie, Tibshirani y Friedman (2009), sección 7.2 |

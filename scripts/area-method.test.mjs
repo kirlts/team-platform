@@ -89,6 +89,7 @@ test('propose writes areas, templates and profiles that the product accepts, and
     assert.match(a.description, /Se maximiza: /)
     assert.match(a.description, /Se sacrifica: /)
     assert.match(a.description, /Entorno: /)
+    assert.equal(a.confirmed, false)
   }
   const catalog = spec.areas.find((a) => a.title === 'Catálogo y precios')
   assert.match(catalog.description, /Límites: mover dinero o fijar un precio \(lo levanta una persona\)/)
@@ -738,4 +739,72 @@ test('D4: the result says when the judge is the same model as the router', async
   const other = await runExperiment(rows, spec, team, { provider, judge: true, models: { router: 'm', judge: 'n' } })
   assert.equal(other.judge.same_model, false)
   assert.equal((await runExperiment(rows, spec, team, { provider })).judge, null)
+})
+
+// ---- Marco: limits with their mechanism, a draft until the team confirms, one quality to maximize, an environment of facts
+const noMechanism = { ...team, limits: team.limits.map(({ mechanism: _m, ...l }) => l) }
+
+test('Marco 3: a limit carries its mechanism, and nothing says the system enforces it when no mechanism is declared', () => {
+  const { spec, warnings } = propose(rows, noMechanism, { purposes })
+  const text = JSON.stringify(spec)
+  assert.ok(!/lo hace cumplir el sistema/.test(text), 'the old claim is gone')
+  const naming = spec.areas.filter((a) => a.description.includes('datos personales de clientes'))
+  assert.ok(naming.length >= 1)
+  for (const a of naming) assert.match(a.description, /datos personales de clientes \(sin mecanismo declarado\)/, a.title)
+  assert.deepEqual(warnings.map((w) => w.kind), spec.areas.map(() => 'guard_without_mechanism'))
+  const withMechanism = propose(rows, team, { purposes })
+  for (const a of withMechanism.spec.areas.filter((x) => x.description.includes('datos personales de clientes'))) assert.match(a.description, /datos personales de clientes \(lo sostiene: el asistente trabaja con una credencial que no lee la tabla de clientes\)/, a.title)
+  assert.deepEqual(withMechanism.warnings, [])
+  assert.throws(() => validateTeam({ ...team, limits: [{ id: 'x', text: 't', mechanism: 7 }] }), /mechanism/)
+})
+
+test('Marco 2: the load file carries the limits of the team as the guards of every area', () => {
+  const { spec } = propose(rows, team, { purposes })
+  for (const a of spec.areas) {
+    assert.deepEqual(a.guards.map((g) => g.text), team.limits.map((l) => l.text), `${a.title}: every limit of the team, not only the ones the area touched`)
+    assert.deepEqual(a.guards.map((g) => g.person), [true, false, true])
+    assert.equal(a.guards[1].mechanism, 'el asistente trabaja con una credencial que no lee la tabla de clientes')
+    assert.equal(a.guards[0].mechanism, '')
+  }
+  const broken = structuredClone(spec)
+  broken.areas[0].guards[0] = { text: '', person: 'sí' }
+  assert.throws(() => validateLoadFile(broken), /needs a text[\s\S]*boolean "person"[\s\S]*mechanism/)
+  assert.throws(() => validateLoadFile({ ...spec, version: 1 }), /version/)
+})
+
+test('Marco 4: an area is a draft until the team confirms it, and it maximizes one quality', () => {
+  const { spec } = propose(rows, team, { purposes })
+  for (const a of spec.areas) {
+    assert.equal(a.confirmed, false)
+    const maximize = a.description.match(/Se maximiza: ([^.]*)\./)[1]
+    assert.ok(!maximize.includes(';'), `one quality: ${maximize}`)
+    assert.ok(a.candidates.maximize.length >= 2 && a.candidates.maximize.length <= 3)
+    assert.ok(a.candidates.maximize.includes(maximize), 'the quality in the text is the first of the candidates')
+  }
+  const unconfirmed = structuredClone(spec)
+  delete unconfirmed.areas[0].confirmed
+  assert.throws(() => validateLoadFile(unconfirmed), /confirmed/)
+})
+
+test('Marco 13: the environment is a fact of the team and not a statistic of the corpus', () => {
+  const { spec } = propose(rows, team, { purposes })
+  for (const a of spec.areas) {
+    const environment = a.description.match(/Entorno: ([^.]*)\./)[1]
+    assert.ok(!/%|\d/.test(environment), `no frequencies in the environment: ${environment}`)
+  }
+  assert.match(spec.areas.find((a) => a.title === 'Pedidos y envíos').description, /Entorno: todos los despachos salen de una sola bodega/)
+  const plain = propose(rows, team, { purposes: Object.fromEntries(Object.entries(purposes).map(([k, v]) => [k, v.purpose])) }).spec
+  for (const a of plain.areas) assert.ok(!a.description.includes('Entorno'), 'without an environment of the team the clause is not invented from the corpus')
+})
+
+test('menor: a border with a neighbour is named only from two confusions', () => {
+  const { spec, report } = propose(rows, team, { purposes })
+  const confusions = Object.entries(report.partition.confusion)
+  assert.ok(confusions.some(([, n]) => n >= 2), 'the invented corpus has confusions of two cases or more')
+  for (const a of spec.areas) {
+    const clause = a.description.match(/No entra: lo propio de (.*?) \(va a su área\)/)?.[1] ?? ''
+    for (const other of spec.areas.map((x) => x.title).filter((t) => t !== a.title && clause.includes(t))) assert.ok((report.partition.confusion[`${a.title} -> ${other}`] ?? 0) >= 2, `${a.title} -> ${other}`)
+  }
+  const none = propose(rows, team, { purposes, minBorderConfusions: 1000 }).spec
+  for (const a of none.areas) assert.ok(!a.description.includes('No entra'), 'no pair reaches 1,000 confusions')
 })

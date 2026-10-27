@@ -56,6 +56,9 @@ export const DEFAULTS = Object.freeze({
   // Fixed seed so a report can be reproduced (any integer would do).
   seed: 7,
   // A description of an area holds at most three limits: the description is capped at TEMPLATE_DESCRIPTION_MAX characters.
+  // A border with a neighbour is named only when the text confuses the two in at least two requests: one confusion can come from a single row the extractor got wrong, two are a pattern.
+  // The team's to change.
+  minBorderConfusions: 2,
   maxLimitsListed: 3,
   maxTerms: 3,
   // Definition: an area is supported by its confidential rows when they are more than half of its rows. The title, the phrases and the examples of an
@@ -191,6 +194,7 @@ export function validateTeam (team) {
     if (ids.has(l.id)) problems.push(`Repeated limit id ${l.id}`)
     ids.add(l.id)
     if (!l.text) problems.push(`Limit ${l.id} needs a text`)
+    if (l.mechanism !== undefined && typeof l.mechanism !== 'string') problems.push(`Limit ${l.id}: mechanism must be a text`)
   }
   if ((team?.members ?? []).length === 0) problems.push('The team has no members')
   if (problems.length) throw new Error(problems.join('\n'))
@@ -272,7 +276,9 @@ export function profileOf (rows, team, opts = {}, totalRows = rows.length, weeks
     askers: share(rows.map((r) => r.who), 4),
     holders: share(rows.map((r) => (r.value_holder === 'person' ? r.holder || 'person' : 'model')), 4),
     limits: top(rows.flatMap((r) => r.limits ?? []), 5).map(([id, c]) => ({ id, n: c })),
-    maximize: topPhrases(open.map((r) => r.maximize).filter(Boolean)),
+    // One quality: what wins when two designs fulfil everything. The other frequent phrases are candidates for the team to choose from, not part of the description.
+    maximize: topPhrases(open.map((r) => r.maximize).filter(Boolean), 1),
+    maximize_candidates: topPhrases(open.map((r) => r.maximize).filter(Boolean), DEFAULTS.maxTerms),
     sacrifice: topPhrases(open.map((r) => r.sacrifice).filter(Boolean)),
     modules: top(open.map((r) => String(r.module ?? '').toLowerCase()), opts.mapSize ?? DEFAULTS.mapSize).map(([m]) => m),
     correction_share: round(rows.filter((r) => r.correction).length / n),
@@ -507,17 +513,27 @@ export function fitClauses (clauses, max = TEMPLATE_DESCRIPTION_MAX) {
   return text()
 }
 
-function areaClauses (entry, { team, purpose, examples, neighbours }) {
+/**
+ * What a limit says about how it is held. A limit of a person is held by the platform, which keeps the delivery until a person lifts it (UD-313). Any other limit is held by
+ * the mechanism the team names (a hook, a scoped credential, a test). Without one, the text says so: a limit with no mechanism is a request to the model, not a wall.
+ */
+export function limitHold (limit) {
+  if (limit.person) return 'lo levanta una persona'
+  return String(limit.mechanism ?? '').trim() ? `lo sostiene: ${String(limit.mechanism).trim()}` : 'sin mecanismo declarado'
+}
+
+/** The purpose and the environment of an area from `purposes.json`: a sentence, or `{ purpose, environment }`. The environment is a fact of the team, not a statistic of the corpus. */
+export const purposeOf = (entry) => (typeof entry === 'string' ? { purpose: entry, environment: '' } : { purpose: String(entry?.purpose ?? ''), environment: String(entry?.environment ?? '').trim() })
+
+function areaClauses (entry, { team, purpose, environment = '', examples, neighbours }) {
   const p = entry.profile
   const limits = limitById(team)
   const listed = p.limits.slice(0, DEFAULTS.maxLimitsListed).map((l) => limits.get(l.id)).filter(Boolean)
-  const lifted = (l) => (l.person ? 'lo levanta una persona' : 'lo hace cumplir el sistema')
   const clauses = [{ text: `Propósito: ${purpose}`, drop: 0 }]
-  if (p.maximize.length) clauses.push({ text: `Se maximiza: ${phrases(p.maximize)}.`, drop: 0 })
+  if (p.maximize.length) clauses.push({ text: `Se maximiza: ${p.maximize[0]}.`, drop: 0 })
   if (p.sacrifice.length) clauses.push({ text: `Se sacrifica: ${phrases(p.sacrifice)}.`, drop: 0 })
-  const askers = p.askers.slice(0, 2).map((a) => `${a.name} (${pct(a.share)})`)
-  clauses.push({ text: `Entorno: lo piden ${list(askers)}; el ${pct(p.person_share)} exige a una persona.`, drop: 1 })
-  if (listed.length) clauses.push({ text: `Límites: ${listed.map((l) => `${l.text} (${lifted(l)})`).join('; ')}.`, drop: 0 })
+  if (environment) clauses.push({ text: `Entorno: ${environment.replace(/[.\s]+$/, '')}.`, drop: 1 })
+  if (listed.length) clauses.push({ text: `Límites: ${listed.map((l) => `${l.text} (${limitHold(l)})`).join('; ')}.`, drop: 0 })
   if (examples.length) clauses.push({ text: `Entra: ${examples.map((e) => `«${e}»`).join(', ')}.`, drop: 3 })
   if (neighbours.length) clauses.push({ text: `No entra: lo propio de ${list(neighbours)} (va a su área).`, drop: 2 })
   return clauses
@@ -604,6 +620,7 @@ export function memberProfile (member, rows, team, opts = {}) {
 }
 
 // ---- the load file: areas with their templates, and member profiles
+export const LOAD_FILE_VERSION = 2
 /**
  * Builds the load file from the rows. `purposes` maps an area title to its purpose sentence (a purpose is the team's, not the corpus's);
  * `intents` maps an intent label to the name of its template; `intentFields` maps a template name to extra fields.
@@ -614,15 +631,17 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
   const hidden = hiddenAreas(rows, families, overrides.maxConfidentialShare ?? DEFAULTS.maxConfidentialShare)
   const tagged = withAreas(rows, families, hidden).map((r) => ({ ...r, intent: intents[r.intent] ?? r.intent }))
   const minTemplate = overrides.minTemplate ?? DEFAULTS.minTemplate
-  const missing = report.areas.filter((a) => a.keep && !purposes[a.title]).map((a) => a.title)
+  const missing = report.areas.filter((a) => a.keep && !purposeOf(purposes[a.title]).purpose).map((a) => a.title)
   if (missing.length) throw new Error(`A purpose sentence is needed for: ${missing.join(', ')}`)
   const areas = []
   const skipped = []
   report.areas.forEach((entry, index) => {
     if (!entry.keep) { skipped.push({ title: entry.title, merge_into: entry.merge_into, failed: Object.entries({ ...entry.criteria, public_support: entry.public_support }).filter(([, c]) => !c.pass).map(([k]) => k) }); return }
     // The areas the text most often confuses with this one are named as its borders.
-    const borders = Object.keys(report.partition.confusion).filter((k) => k.startsWith(`${entry.title} -> `)).slice(0, 2).map((k) => k.split(' -> ')[1])
-    const description = fitClauses(areaClauses(entry, { team, purpose: purposes[entry.title], examples: examplesOf(tagged, entry.title), neighbours: borders }))
+    const minBorder = overrides.minBorderConfusions ?? DEFAULTS.minBorderConfusions
+    const borders = Object.entries(report.partition.confusion).filter(([k, count]) => k.startsWith(`${entry.title} -> `) && count >= minBorder).slice(0, 2).map(([k]) => k.split(' -> ')[1])
+    const { purpose, environment } = purposeOf(purposes[entry.title])
+    const description = fitClauses(areaClauses(entry, { team, purpose, environment, examples: examplesOf(tagged, entry.title), neighbours: borders }))
     const mine = tagged.filter((r) => r.area === entry.title && !r.confidential) // a template is written with rows that can be quoted
     const templates = [...new Set(mine.map((r) => r.intent))]
       .map((label) => ({ label, n: mine.filter((r) => r.intent === label).length }))
@@ -633,12 +652,20 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
         const parsed = parseTemplate(markdown)
         return { name: parsed.name, description: parsed.description, body_markdown: markdown }
       })
-    areas.push({ title: entry.title, description, position: index + 1, templates })
+    // The limits belong to the team and not to an area: every area carries all of them as its guards, so that the analyzer can flag a request that touches one wherever it lands.
+    // The area is a draft until the team confirms it: the quality it maximizes and what it sacrifices come from what people asked for, not from what the team decided.
+    const guards = (team.limits ?? []).map((l) => ({ text: l.text, mechanism: String(l.mechanism ?? '').trim(), person: l.person === true }))
+    areas.push({ title: entry.title, description, position: index + 1, confirmed: false, candidates: { maximize: entry.profile.maximize_candidates, sacrifice: entry.profile.sacrifice }, guards, templates })
   })
   const members = team.members.filter((m) => m.role).map((m) => ({ email: m.email, profile: memberProfile(m, tagged, team, { areas: areas.map((a) => a.title) }) }))
-  const spec = { version: 1, ...(actor ? { actor } : {}), areas, members }
+  const spec = { version: LOAD_FILE_VERSION, ...(actor ? { actor } : {}), areas, members }
   validateLoadFile(spec)
-  return { spec, skipped, report }
+  return { spec, skipped, report, warnings: loadWarnings(spec) }
+}
+
+/** The guards that are not about a person and name no mechanism: a request to the model and not a wall. The loader reports them and the descriptions say «sin mecanismo declarado». */
+export function loadWarnings (spec) {
+  return (spec.areas ?? []).flatMap((a) => (a.guards ?? []).filter((g) => g.person === false && !String(g.mechanism ?? '').trim()).map((g) => ({ kind: 'guard_without_mechanism', area: a.title, guard: g.text })))
 }
 
 /** Throws when the load file has a shape the product would refuse: a template that does not parse, repeated names or a member without email. */
@@ -649,6 +676,12 @@ export function validateLoadFile (spec) {
     if (titles.has(a.title)) problems.push(`Repeated area ${a.title}`)
     titles.add(a.title)
     if (!a.description) problems.push(`Area ${a.title} has no description`)
+    if (typeof a.confirmed !== 'boolean') problems.push(`Area ${a.title} needs a boolean "confirmed": the team confirms an area before it is loaded`)
+    for (const g of a.guards ?? []) {
+      if (!String(g?.text ?? '').trim()) problems.push(`A guard of ${a.title} needs a text`)
+      if (typeof g?.person !== 'boolean') problems.push(`Guard "${g?.text}" of ${a.title} needs a boolean "person"`)
+      if (typeof g?.mechanism !== 'string') problems.push(`Guard "${g?.text}" of ${a.title} needs a "mechanism" text (empty when there is none)`)
+    }
     const names = new Set()
     for (const t of a.templates ?? []) {
       try {
@@ -659,6 +692,7 @@ export function validateLoadFile (spec) {
     }
   }
   for (const m of spec.members ?? []) if (!m.email || !m.profile) problems.push(`A member needs email and profile: ${m.email}`)
+  if (spec.version !== LOAD_FILE_VERSION) problems.push(`The load file has version ${spec.version} and this method writes version ${LOAD_FILE_VERSION}`)
   if (problems.length) throw new Error(problems.join('\n'))
   return spec
 }
@@ -680,7 +714,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')
@@ -700,6 +734,7 @@ function main (argv) {
     if (command === 'analyze') out({ ...analyze(rows, team, common), ...(rest.includes('--cut') ? { stability: analyzeWindows(rows, team, { ...common, cut: option('--cut') && !option('--cut').startsWith('--') ? option('--cut') : null }) } : {}) })
     else {
       const result = propose(rows, team, { ...common, purposes: load('--purposes', {}), intents: load('--intents', {}), intentFields: load('--intent-fields', {}), actor: option('--actor') })
+      for (const w of result.warnings) console.error(`Aviso: el límite «${w.guard}» del área ${w.area} no tiene mecanismo declarado: queda como un pedido al modelo.`)
       if (result.skipped.length) console.error(`Áreas que no cumplen los criterios: ${result.skipped.map((s) => `${s.title} (${s.failed.join(', ')}; se uniría a ${s.merge_into})`).join('; ')}`)
       out(result.spec)
     }

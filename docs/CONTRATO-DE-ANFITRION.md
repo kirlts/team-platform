@@ -223,9 +223,9 @@ En verde, la respuesta final es el `summary` de la sesión con «En producción 
 
 ## Guardias de la sesión
 
-Una regla que el modelo tiene que recordar falla el día que no la recuerda. El núcleo trae los ganchos de Claude Code que la hacen cumplir y el anfitrión sólo escribe la lista. Los ganchos son parte del núcleo (`src/execute/hooks/`), están escritos en Node y no usan nada más que sus módulos propios, porque la máquina sólo garantiza `bash`, `node` y `claude`. El trabajador los copia a `bin/hooks/` del directorio del trabajo, los declara en la configuración de la sesión (`--settings`, junto a los ganchos que ya declara) y los llama como `team hook <commands|tools|close>`. Esto vale para cualquier modelo y cualquier runner. Un anfitrión no copia ni registra nada.
+Una regla que el modelo tiene que recordar falla el día que no la recuerda. El núcleo trae los ganchos de Claude Code que la hacen cumplir y el anfitrión sólo escribe la lista. Los ganchos son parte del núcleo (`src/execute/hooks/`). Están escritos en Node y sólo usan módulos propios, porque la máquina trae `bash`, `node` y `claude` y nada más. El trabajador los copia a `bin/hooks/` del directorio del trabajo. Los declara en la configuración de la sesión (`--settings`), junto a los ganchos que ya declara, y los llama como `team hook <commands|tools|close>`. Vale para cualquier modelo y cualquier runner. Un anfitrión no copia ni registra nada.
 
-`EXECUTE_GUARDS_FILE` es un JSON. El trabajador lo lee al empezar cada trabajo. Un archivo que no se lee, que no es JSON o que tiene una clave desconocida, una expresión regular inválida o una regla sin mensaje hace fallar el trabajo con `guards_file_invalid` y el motivo en la respuesta; no se reintenta. Un error de tipeo no puede dejar una sesión sin guardia. Una copia del archivo viaja con el directorio del trabajo y `TEAM_GUARDS_FILE` la señala. Sin esa variable, o con la copia ilegible, cada gancho deja pasar la llamada: una guardia rota no detiene la sesión.
+`EXECUTE_GUARDS_FILE` es un JSON. El trabajador lo lee al empezar cada trabajo. Estos errores hacen fallar el trabajo con `guards_file_invalid` y el motivo en la respuesta, sin reintento: el archivo no se lee, no es JSON, tiene una clave desconocida, trae una expresión regular inválida o una regla sin mensaje. Un error de tipeo no puede dejar una sesión sin guardia. Una copia del archivo viaja con el directorio del trabajo y `TEAM_GUARDS_FILE` la señala. Sin esa variable, o con la copia ilegible, cada gancho deja pasar la llamada: una guardia rota no detiene la sesión.
 
 Ningún bloque es obligatorio y un bloque vacío no declara su gancho.
 
@@ -272,7 +272,7 @@ Gancho `PreToolUse` sobre los nombres que aparezcan en la lista (el `matcher` es
 
 ### `close`: qué debe cumplirse al terminar
 
-Gancho `Stop`. Es la mitad de la exigencia de cierre que sólo la sesión puede corregir. La otra mitad no necesita gancho y ya está en el trabajador: una sesión sin salida estructurada o con una que no cumple la plantilla hace fallar el trabajo con `invalid_output`, y una sin línea `result`, con `execute_no_result`; en ambos casos con el motivo en el hilo. El gancho devuelve la sesión al trabajo **una vez** (con `stop_hook_active` la deja terminar) y le da las órdenes exactas de lo que falta. No hace nada si el repositorio no tiene un cambio: la respuesta va en el hilo.
+Gancho `Stop`. Es la mitad de la exigencia de cierre que sólo la sesión puede corregir. La otra mitad no necesita gancho y ya está en el trabajador. Una sesión sin salida estructurada, o con una que no cumple la plantilla, hace fallar el trabajo con `invalid_output`. Una sin línea `result` lo hace fallar con `execute_no_result`. Ambos dejan el motivo en el hilo. El gancho devuelve la sesión al trabajo **una vez** (con `stop_hook_active` la deja terminar) y le da las órdenes exactas de lo que falta. No hace nada si el repositorio no tiene un cambio: la respuesta va en el hilo.
 
 | Clave | Qué exige |
 |---|---|
@@ -281,7 +281,7 @@ Gancho `Stop`. Es la mitad de la exigencia de cierre que sólo la sesión puede 
 | `pushed_branch` | `true`: con commits propios, la rama está empujada con su último commit (`@{u}` igual a `HEAD`), porque el sistema entrega lo que hay en `origin` |
 | `review` | Un cambio que lo requiere lleva la marca de un revisor distinto de su autor sobre el árbol final |
 
-`review` es `{ paths?, except?, only?, only_except?, trailer, not_by?, message }`. El cambio la requiere si algún archivo cambiado coincide con `paths` y no con `except`, o si todos los archivos cambiados coinciden con `only` y no con `only_except` (un cambio que sólo toca documentos, por ejemplo). La marca es una línea de un mensaje de commit `<trailer>: <revisor> <sha del árbol>` con el árbol de `HEAD`. No vale si el revisor es autor de alguno de los commits de la sesión ni si está en `not_by` (por ejemplo el nombre de la propia sesión; no distingue mayúsculas). Un cambio posterior a la marca la invalida. En `message`, `{tree}`, `{job}` y `{branch}` se reemplazan por el árbol de `HEAD`, `TEAM_JOB_ID` y `TEAM_BRANCH`: ahí va la orden exacta que deja la marca.
+`review` es `{ paths?, except?, only?, only_except?, trailer, not_by?, message }`. El cambio la requiere en dos casos. Uno: algún archivo cambiado coincide con `paths` y no con `except`. Otro: todos los archivos cambiados coinciden con `only` y no con `only_except`, por ejemplo un cambio que sólo toca documentos. La marca es una línea de un mensaje de commit `<trailer>: <revisor> <sha del árbol>` con el árbol de `HEAD`. No vale si el revisor es autor de algún commit de la sesión. Tampoco vale si está en `not_by`, por ejemplo el nombre de la propia sesión; no distingue mayúsculas. Un cambio posterior a la marca la invalida. En `message`, `{tree}`, `{job}` y `{branch}` se reemplazan por el árbol de `HEAD`, `TEAM_JOB_ID` y `TEAM_BRANCH`: ahí va la orden exacta que deja la marca.
 
 Ejemplo mínimo:
 

@@ -13,6 +13,9 @@ export interface PendingUpload {
   text: string
   /** Names of the files and addresses of the links that go with the text. */
   names: string[]
+  /** Who the send was addressed to and in whose name, so a send that did not go says where it was going (UD-291, UD-255). */
+  recipientIds?: string[]
+  asMemberId?: string
   at: string
   progress: number
   error?: string

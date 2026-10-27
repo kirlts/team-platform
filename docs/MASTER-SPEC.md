@@ -926,3 +926,5 @@ La misma medición corresponde a cada extractor candidato (UD-009), a video y au
 **Ubicación de las reglas:** `docs/RULES.md`
 
 **Alcance:** Todas las operaciones del agente sobre el repositorio: código, documentación, dependencias y despliegue.
+
+**Registro de batería:** cada commit que pasa la batería completa deja una nota de git en `refs/notes/battery` del canónico (`scripts/battery-record.mjs`; la deja `scripts/publish-main.sh` al publicar), que un anfitrión consulta por sha antes de repetir esas pruebas en su imagen; cómo se consulta, en `docs/INSTALACION.md`.

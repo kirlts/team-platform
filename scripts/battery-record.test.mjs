@@ -1,0 +1,191 @@
+// scripts/battery-record.mjs on toy repositories with a local remote and doubles for the four orders (BATTERY_*_CMD).
+// Nothing here touches the real remote: every repository lives under .cache/ of the checkout (never /tmp, which is memory).
+import { before, after, test } from 'node:test'
+import assert from 'node:assert/strict'
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { join, resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { buildRecord, externalBases, failedNames, imageBase, parseCounts, readNote, writeNote } from './battery-record.mjs'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const GIT_ENV = { GIT_AUTHOR_NAME: 'author', GIT_AUTHOR_EMAIL: 'a@t', GIT_COMMITTER_NAME: 'author', GIT_COMMITTER_EMAIL: 'a@t', GIT_CONFIG_NOSYSTEM: '1' }
+let base
+let counter = 0
+
+const sh = (cwd, cmd, args, env = {}) => spawnSync(cmd, args, { cwd, encoding: 'utf8', env: { ...process.env, ...GIT_ENV, ...env } })
+const ok = (cwd, cmd, args, env) => { const r = sh(cwd, cmd, args, env); assert.equal(r.status, 0, `${cmd} ${args.join(' ')}: ${r.stderr}`); return r.stdout.trim() }
+
+// A toy canonical: a bare remote and a repository with the script copied in and two commits pushed.
+function makeToy () {
+  const dir = join(base, `t${++counter}`)
+  mkdirSync(dir, { recursive: true })
+  const remote = join(dir, 'remote.git')
+  const repo = join(dir, 'repo')
+  ok(dir, 'git', ['init', '-q', '--bare', 'remote.git'])
+  ok(dir, 'git', ['init', '-q', '-b', 'desarrollo', 'repo'])
+  mkdirSync(join(repo, 'scripts'))
+  cpSync(join(root, 'scripts/battery-record.mjs'), join(repo, 'scripts/battery-record.mjs'))
+  ok(repo, 'git', ['remote', 'add', 'origin', remote])
+  const commit = (name) => { writeFileSync(join(repo, name), name); ok(repo, 'git', ['add', name]); ok(repo, 'git', ['commit', '-q', '-m', name]); return ok(repo, 'git', ['rev-parse', 'HEAD']) }
+  const first = commit('first')
+  const second = commit('second')
+  ok(repo, 'git', ['push', '-q', 'origin', 'desarrollo'])
+  const doubles = (over = {}) => ({ TMPDIR: join(dir, 'tmp'), BATTERY_TEST_CMD: 'echo "# tests 3"; echo "# pass 3"; echo "# fail 0"', BATTERY_PANEL_CMD: 'echo "Tests  7 passed (7)"', BATTERY_CLIENT_CMD: 'echo client', BATTERY_STATIC_CMD: 'echo static', ...over })
+  const run = (sha, over = {}, args = []) => sh(repo, 'node', ['scripts/battery-record.mjs', 'run', sha, ...args], doubles(over))
+  const notesRef = () => sh(repo, 'git', ['ls-remote', 'origin', 'refs/notes/battery']).stdout.trim()
+  return { dir, remote, repo, first, second, run, notesRef, doubles }
+}
+
+// Any other repository: it has none of the commits of the canonical.
+function makeElsewhere (t) {
+  const other = join(t.dir, 'elsewhere')
+  ok(t.dir, 'git', ['init', '-q', 'elsewhere'])
+  return other
+}
+
+before(() => {
+  mkdirSync(join(root, '.cache'), { recursive: true })
+  base = mkdtempSync(join(root, '.cache', 'battery-test-'))
+})
+after(() => rmSync(base, { recursive: true, force: true }))
+
+test('the counts of an order are read from node --test (TAP and spec) and vitest, and the last summary wins', () => {
+  assert.deepEqual(parseCounts('# tests 12\n# pass 10\n# fail 2\n'), { tests: 12, pass: 10, fail: 2 })
+  assert.deepEqual(parseCounts('ℹ tests 4\nℹ pass 4\nℹ fail 0\n'), { tests: 4, pass: 4, fail: 0 })
+  assert.deepEqual(parseCounts('\u001b[2m Tests \u001b[22m 1 failed | 11 passed (12)\n'), { tests: 12, pass: 11, fail: 1 })
+  assert.deepEqual(parseCounts('Tests  5 passed (5)\n'), { tests: 5, pass: 5, fail: 0 })
+  assert.deepEqual(parseCounts('nothing to count\n'), {})
+  assert.deepEqual(failedNames('✖ the first (1.2ms)\n  ✖ nested one\nok 1 - fine\nnot ok 2 - the second\nℹ fail 2\n'), ['the first', 'nested one', 'the second'])
+})
+
+test('the external bases of a Dockerfile are the FROM lines that do not name an earlier stage', () => {
+  const df = 'FROM node:24-alpine AS panel\nFROM alpine:3.24 AS base\nFROM base AS extract\nFROM node:24-alpine AS deps\nFROM base\n'
+  assert.deepEqual(externalBases(df), ['node:24-alpine', 'alpine:3.24'])
+  const lookup = (ref) => (ref.startsWith('node') ? { digest: `sha256:${'a'.repeat(64)}` } : { digest: null, reason: 'offline' })
+  assert.deepEqual(imageBase(df, lookup), [
+    { ref: 'node:24-alpine', digest: `sha256:${'a'.repeat(64)}` },
+    { ref: 'alpine:3.24', digest: null, reason: 'offline' },
+  ])
+  assert.deepEqual(imageBase(null)[0].digest, null)
+})
+
+test('a record is built only from orders that all exited 0', () => {
+  const sha = 'a'.repeat(40)
+  const good = { name: 'complete', cmd: 'x', exit: 0, seconds: 1.5, tests: 3, pass: 3, fail: 0, log_sha256: 'b'.repeat(64) }
+  const rec = buildRecord({ sha, tree: 'c'.repeat(40), results: [good], bases: [], runner: 'u@h' })
+  assert.equal(rec.schema, 1)
+  assert.match(rec.date, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$/)
+  assert.deepEqual(rec.commands[0], { name: 'complete', cmd: 'x', exit: 0, seconds: 1.5, tests: 3, pass: 3, fail: 0, log_sha256: 'b'.repeat(64) })
+  assert.throws(() => buildRecord({ sha, tree: 't', results: [good, { ...good, name: 'panel', exit: 1 }], bases: [] }), /did not exit 0: panel \(1\)/)
+  assert.throws(() => buildRecord({ sha, tree: 't', results: [], bases: [] }), /nothing to record/)
+})
+
+test('run writes the note only when every order exits 0, and then show finds it from another repository that lacks the commit', () => {
+  const t = makeToy()
+  const r = t.run(t.second)
+  assert.equal(r.status, 0, r.stdout + r.stderr)
+  const record = JSON.parse(r.stdout)
+  assert.deepEqual(record.commands.map((c) => c.name), ['complete', 'panel', 'client', 'static'])
+  assert.deepEqual([record.commands[0].tests, record.commands[0].pass, record.commands[0].fail], [3, 3, 0])
+  assert.equal(record.commands[1].tests, 7)
+  assert.equal(record.sha, t.second)
+  assert.equal(record.tree, ok(t.repo, 'git', ['rev-parse', `${t.second}^{tree}`]))
+  assert.equal(record.image_base[0].digest, null) // the toy has no Dockerfile
+  assert.match(record.image_base[0].reason, /no Dockerfile/)
+  assert.match(t.notesRef(), /refs\/notes\/battery$/)
+  assert.equal(ok(t.repo, 'git', ['worktree', 'list']).split('\n').length, 1, 'the worktree of the run is removed')
+
+  const elsewhere = makeElsewhere(t)
+  assert.notEqual(sh(elsewhere, 'git', ['cat-file', '-e', t.second]).status, 0, 'the other repository does not have the commit')
+  const show = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second, '--remote', t.remote])
+  assert.equal(show.status, 0, show.stderr)
+  assert.deepEqual(JSON.parse(show.stdout), record)
+  const short = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second.slice(0, 8), '--remote', t.remote])
+  assert.equal(short.status, 0, short.stderr)
+  // The one line of git of the documentation gives the same note without the script.
+  const line = sh(elsewhere, 'bash', ['-c', `git fetch -q ${t.remote} +refs/notes/battery:refs/notes/tp-battery && git notes --ref=tp-battery show ${t.second}`])
+  assert.equal(line.status, 0, line.stderr)
+  assert.deepEqual(JSON.parse(line.stdout), record)
+  // A commit that did not pass has no record.
+  const none = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.first, '--remote', t.remote])
+  assert.equal(none.status, 1)
+  assert.equal(none.stdout, '')
+  // From no repository at all.
+  const outside = sh(t.dir, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second, '--remote', t.remote])
+  assert.equal(outside.status, 0, outside.stderr)
+})
+
+test('an order that exits non-zero writes nothing and the failures are listed one per line', () => {
+  const t = makeToy()
+  const r = t.run(t.second, { BATTERY_PANEL_CMD: 'echo "✖ the broken one (3.1ms)"; echo "✖ another one"; exit 1' })
+  assert.equal(r.status, 1)
+  assert.match(r.stderr, /failed: the broken one/)
+  assert.match(r.stderr, /failed: another one/)
+  assert.match(r.stderr, /nothing written/)
+  assert.equal(t.notesRef(), '', 'the reference does not exist on the remote')
+  assert.doesNotMatch(r.stderr, /==> client/, 'the orders after the failure do not run')
+})
+
+test('a note written by hand is a commit in the history of the reference, and a note under the wrong sha is not valid', () => {
+  const t = makeToy()
+  assert.equal(t.run(t.second).status, 0)
+  const hand = join(t.dir, 'hand')
+  ok(t.dir, 'git', ['clone', '-q', t.remote, 'hand'])
+  ok(hand, 'git', ['fetch', '-q', 'origin', 'refs/notes/battery:refs/notes/battery'])
+  const forged = JSON.stringify({ schema: 1, sha: t.second, tree: 'f'.repeat(40), date: 'x', node: 'v0', runner: 'x@y', commands: [{ name: 'complete', cmd: 'true', exit: 0, seconds: 0, log_sha256: '0' }], skipped: [], image_base: [] })
+  const byHand = { GIT_AUTHOR_NAME: 'someone by hand', GIT_COMMITTER_NAME: 'someone by hand' }
+  ok(hand, 'git', ['notes', '--ref=battery', 'add', '-f', '-m', forged, t.first], byHand) // under the wrong sha: says it is for `second`
+  ok(hand, 'git', ['push', '-q', 'origin', 'refs/notes/battery'])
+  const history = ok(t.repo, 'git', ['ls-remote', 'origin', 'refs/notes/battery']).split('\t')[0]
+  ok(t.repo, 'git', ['fetch', '-q', 'origin', 'refs/notes/battery:refs/notes/tp-battery'])
+  assert.equal(history, ok(t.repo, 'git', ['rev-parse', 'refs/notes/tp-battery']))
+  assert.equal(ok(t.repo, 'git', ['rev-list', '--count', 'refs/notes/tp-battery']), '2', 'one commit per write, the automatic one and the manual one')
+  const wrong = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.first])
+  assert.equal(wrong.status, 3, wrong.stderr)
+  assert.match(wrong.stderr, /stored under/)
+  const trace = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.first, '--trace'])
+  assert.equal(trace.status, 3)
+  assert.match(trace.stderr, /someone by hand/, 'the trace names who wrote it')
+  // Rewriting the note of the commit that did pass with a different tree is caught against the commit when it is at hand.
+  ok(hand, 'git', ['notes', '--ref=battery', 'add', '-f', '-m', forged, t.second])
+  ok(hand, 'git', ['push', '-q', 'origin', 'refs/notes/battery'])
+  const swapped = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.second])
+  assert.equal(swapped.status, 3, swapped.stderr)
+  assert.match(swapped.stderr, /the tree of the commit is/)
+})
+
+test('a writer that finds the reference moved applies its note again on top of the new head and loses none', () => {
+  const t = makeToy()
+  const mk = (sha) => buildRecord({ sha, tree: ok(t.repo, 'git', ['rev-parse', `${sha}^{tree}`]), results: [{ name: 'complete', cmd: 'x', exit: 0, seconds: 1, log_sha256: 'e'.repeat(64) }], bases: [] })
+  const other = join(t.dir, 'other')
+  ok(t.dir, 'git', ['clone', '-q', t.remote, 'other'])
+  // The first lap: another writer (a different clone) lands its note between our fetch and our push.
+  const w = writeNote(t.repo, 'origin', mk(t.first), {
+    beforePush: (lap) => { if (lap === 1) writeNote(other, 'origin', mk(t.second)) },
+  })
+  assert.equal(w.lap, 2)
+  for (const sha of [t.first, t.second]) assert.equal(readNote(null, t.remote, sha).status, 'found', sha)
+})
+
+test('several writers at the same time lose no note', async () => {
+  const t = makeToy()
+  const shas = [t.first, t.second]
+  // One more commit per writer; each writer is a clone of its own, as two hosts would be.
+  const writers = []
+  for (let i = 0; i < 4; i++) {
+    const dir = join(t.dir, `w${i}`)
+    ok(t.dir, 'git', ['clone', '-q', t.remote, `w${i}`])
+    mkdirSync(join(dir, 'scripts'))
+    cpSync(join(root, 'scripts/battery-record.mjs'), join(dir, 'scripts/battery-record.mjs'))
+    writeFileSync(join(dir, `f${i}`), 'x'); ok(dir, 'git', ['add', `f${i}`]); ok(dir, 'git', ['commit', '-q', '-m', `w${i}`])
+    shas.push(ok(dir, 'git', ['rev-parse', 'HEAD']))
+    writers.push(dir)
+  }
+  const codes = await Promise.all(writers.map((dir, i) => new Promise((done) => {
+    const c = spawn('node', ['scripts/battery-record.mjs', 'run', shas[i + 2], '--remote', 'origin'], { cwd: dir, env: { ...process.env, ...GIT_ENV, ...t.doubles({ TMPDIR: join(t.dir, `tmp${i}`) }) }, stdio: 'ignore' })
+    c.on('close', done)
+  })))
+  assert.deepEqual(codes, [0, 0, 0, 0])
+  for (let i = 0; i < 4; i++) assert.equal(readNote(null, t.remote, shas[i + 2]).status, 'found', `writer ${i}`)
+})

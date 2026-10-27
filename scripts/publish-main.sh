@@ -19,7 +19,11 @@
 #   5. client    `npm run test:client` only if packages/client/ changed between `origin/main` and the sha.
 #   6. conformance   `node scripts/host-conformance.mjs --driver drivers/docker-local`: the contract (docs/CONTRATO-DE-ANFITRION.md)
 #                is what an installation depends on, and the reference driver is the one that needs no cloud (principle 4 of the plan).
-#   7. push      only if all of the above exited 0: tag `vX.Y.Z` and `<sha>:main`, in one atomic push, with RELEASE_PUBLISHES_MAIN=<sha>.
+#   7. record    only if all of the above exited 0: the battery record of the sha (`scripts/battery-record.mjs write`): what steps 3 to 6
+#                ran, with their seconds and the hash of their output, in the note `refs/notes/battery` of the remote, so that a host
+#                that installs this commit does not repeat the battery in its own image. The door does not run anything twice: it hands
+#                over what it ran. A record that cannot be written is reported in the summary and does not stop the publication.
+#   8. push      only if all of the above exited 0: tag `vX.Y.Z` and `<sha>:main`, in one atomic push, with RELEASE_PUBLISHES_MAIN=<sha>.
 #
 # Not part of a publication, on purpose: `test:image` (it builds the production image; the host that installs builds it), `test:bench`
 # (it measures models and spends calls), the browser tests of the panel and the walkthrough (per change, UD-265). The steps run one after
@@ -64,6 +68,7 @@ CMD_CLIENT="${PUBLISH_CLIENT_CMD:-npm run test:client}"
 CMD_CONF="${PUBLISH_CONFORMANCE_CMD:-node scripts/host-conformance.mjs --driver drivers/docker-local}"
 
 SUMMARY=(); WT=""; TAG_MADE=""; FAILED=0
+RESULTS="$TMPDIR/publish-results-$$.jsonl"; LOGS="$TMPDIR/publish-logs-$$"; : > "$RESULTS"; mkdir -p "$LOGS"
 now() { date +%s.%N; }
 dt() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", b - a }'; }
 note() { echo "publish-main: $*"; }
@@ -74,6 +79,7 @@ finish() { # <code>
     git -C "$AQUI" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
     git -C "$AQUI" worktree prune >/dev/null 2>&1
   fi
+  rm -rf "$RESULTS" "$LOGS"
   if [ "${#SUMMARY[@]}" -gt 0 ]; then
     echo; echo "publish-main: steps"; printf '  %s\n' "${SUMMARY[@]}"
   fi
@@ -149,10 +155,12 @@ t0=$(now)
 prepare_modules ""; prepare_modules panel; prepare_modules packages/client
 SUMMARY+=("modules       ok    $(dt "$t0" "$(now)")s")
 
-run() { # <name> <command>
-  local name="$1" cmd="$2" t rc
+run() { # <name> <command> [<name in the battery record>]
+  local name="$1" cmd="$2" rec="${3:-$1}" t rc log="$LOGS/$1.log"
   t=$(now); echo; echo "==> $name: $cmd"
-  (cd "$WT" && bash -c "$cmd"); rc=$?
+  (cd "$WT" && bash -c "$cmd") 2>&1 | tee "$log"; rc=${PIPESTATUS[0]}
+  node "$AQUI/scripts/battery-record.mjs" result --name "$rec" --exit "$rc" --seconds "$(dt "$t" "$(now)")" --log "$log" --cmd "$cmd" >> "$RESULTS" 2>/dev/null \
+    || note "could not describe the result of $name for the battery record" >&2
   if [ "$rc" = 0 ]; then SUMMARY+=("$(printf '%-12s' "$name") ok    $(dt "$t" "$(now)")s   $cmd"); return 0; fi
   SUMMARY+=("$(printf '%-12s' "$name") FAILED (exit $rc)  $(dt "$t" "$(now)")s   $cmd")
   note "$name failed (exit $rc)" >&2
@@ -166,17 +174,24 @@ changed() { # <prefix>
 }
 
 # 3 to 6. the checks ---------------------------------------------------------------------------------------------------------
-run battery "$CMD_TEST"
-if changed panel/; then run panel "$CMD_PANEL"; else SUMMARY+=("panel        skipped (panel/ did not change since main)"); fi
-if changed packages/client/; then run client "$CMD_CLIENT"; else SUMMARY+=("client       skipped (packages/client/ did not change since main)"); fi
+run battery "$CMD_TEST" complete
+if changed panel/; then run panel "$CMD_PANEL"; else SUMMARY+=("panel        skipped (panel/ did not change since main)"); echo '{"name":"panel","skipped":"panel/ did not change since main"}' >> "$RESULTS"; fi
+if changed packages/client/; then run client "$CMD_CLIENT"; else SUMMARY+=("client       skipped (packages/client/ did not change since main)"); echo '{"name":"client","skipped":"packages/client/ did not change since main"}' >> "$RESULTS"; fi
 run conformance "$CMD_CONF"
 
-# 7. push --------------------------------------------------------------------------------------------------------------------
+# 7. record, 8. push --------------------------------------------------------------------------------------------------------
 if [ "$DRY" = 1 ]; then
   [ "$FAILED" = 0 ] || { note "dry run: a step failed, nothing would be published"; finish 1; }
   note "dry run: would publish $TAG at $SHA; nothing was tagged or pushed"
   [ -z "$RELEASE_PROBLEM" ] && finish 0
   finish 3
+fi
+t0=$(now)
+if node "$AQUI/scripts/battery-record.mjs" write "$SHA" --from "$RESULTS" --remote "$REMOTE" >/dev/null; then
+  SUMMARY+=("record        ok    $(dt "$t0" "$(now)")s   refs/notes/battery $SHA")
+else
+  SUMMARY+=("record        FAILED  $(dt "$t0" "$(now)")s   the publication goes on; a host will repeat the battery")
+  note "the battery record was not written" >&2
 fi
 if [ -z "$(git tag --list "$TAG")" ]; then
   git tag -a "$TAG" -m "$TAG" "$SHA" || refuse "cannot create the tag $TAG"; TAG_MADE=1

@@ -6,6 +6,7 @@ import { afterEach, before, after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { readNote } from './battery-record.mjs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -29,6 +30,7 @@ function makeToy(name) {
   git('checkout', '-q', '-b', 'desarrollo')
   for (const d of ['scripts', '.githooks', 'docs']) mkdirSync(join(repo, d), { recursive: true })
   cpSync(join(root, 'scripts/publish-main.sh'), join(repo, 'scripts/publish-main.sh'))
+  cpSync(join(root, 'scripts/battery-record.mjs'), join(repo, 'scripts/battery-record.mjs'))
   cpSync(join(root, 'scripts/main-solo-desde-desarrollo.sh'), join(repo, 'scripts/main-solo-desde-desarrollo.sh'))
   cpSync(join(root, '.githooks/pre-push'), join(repo, '.githooks/pre-push'))
   const release = (version) => {
@@ -83,6 +85,12 @@ test('a publication runs the checks on the sha of desarrollo in its own worktree
   assert.deepEqual(t.leftover(), [], 'the temporary worktree is removed')
   assert.match(r.stdout, /battery\s+ok\s+\d+\.\ds/)
   assert.match(r.stdout, /conformance\s+ok\s+\d+\.\ds/)
+  // The door hands over what it ran: the battery record of the sha, with the orders it skipped and why.
+  const note = readNote(null, join(t.dir, 'remote.git'), sha)
+  assert.equal(note.status, 'found', r.stdout + r.stderr)
+  assert.deepEqual(note.record.commands.map((c) => c.name), ['complete', 'conformance'])
+  assert.deepEqual(note.record.skipped.map((c) => c.name), ['panel', 'client'])
+  assert.match(r.stdout, /record\s+ok/)
 })
 
 test('--dry-run does everything except tag and push', () => {
@@ -94,6 +102,7 @@ test('--dry-run does everything except tag and push', () => {
   assert.equal(t.ran().length, 2)
   assert.notEqual(t.remoteRef('refs/heads/main'), sha)
   assert.equal(t.remoteRef('refs/tags/v0.2.0'), '')
+  assert.equal(t.remoteRef('refs/notes/battery'), '', 'a dry run writes no record')
   assert.equal(sh(t.repo, 'git', ['tag', '--list']).stdout.trim(), '')
   assert.deepEqual(t.leftover(), [])
   assert.match(r.stdout, /dry run: would publish v0\.2\.0/)
@@ -117,6 +126,7 @@ test('a failing battery stops the publication: no conformance, no tag, main stay
   assert.match(r.stdout, /battery\s+FAILED \(exit 7\)/)
   assert.match(r.stdout, /1 fail: algo\.test\.js/, 'the output of the failing check is shown')
   assert.deepEqual(t.ran(), [])
+  assert.equal(t.remoteRef('refs/notes/battery'), '', 'what failed has no record')
   assert.equal(t.remoteRef('refs/heads/main'), before)
   assert.equal(t.remoteRef('refs/tags/v0.2.0'), '')
   assert.deepEqual(t.leftover(), [])

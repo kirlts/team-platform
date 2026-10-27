@@ -1,5 +1,18 @@
 # Método de reparto
 
+Versión 1.0, 2026-10-27. Cambios desde la versión anterior. Sección 11: meta del eje por media redondeada, aviso de límite verificado por forma, calibración por eje, intentos del modelo liviano y `closed` guardado. Sección 9: ciclo de reasignación. Esta tabla de estado.
+
+| Parte | Estado de la evidencia |
+|---|---|
+| Extracción, áreas, reparto, carga | Verificado con corpus inventados (`bench/fixtures/area-method/`) |
+| Filas | Sin validar con personas |
+| Juez de trabajos | Sin calibrar contra personas (`calibrated: false`); ninguna corrida sobre material real |
+| Anclas de los indicadores | Reescritas para trabajo sin supervisión; no elicitadas ni validadas con personas |
+| Metas por cuadrante | Las del instrumento de evaluación del producto; sin medir |
+| Indicador 4.3 | Sin puntuar: la plataforma no entrega la primera propuesta |
+| Indicador 3.2 | Adaptado: mide la comprensibilidad del resultado y no el bienestar de quien trabaja |
+| Límites del modelo liviano | Sin fijar: parten en `create=1 irreversibility=1 certainty=0` |
+
 Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo que ese equipo ya escribió y dijo. Incluye cómo juzgar después si el reparto y el trabajo fueron adecuados. Un procedimiento con guion tiene su prueba con un equipo inventado (`bench/fixtures/area-method/`). Los que no tienen guion se marcan «manual» y traen su procedimiento.
 
 | Paso | Guion | Entrada | Salida | Automatizado |
@@ -18,7 +31,7 @@ Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo
 | Fijar los límites del modelo liviano | `scripts/light-limits.mjs` | trabajos del modelo liviano con su resultado | `EXECUTE_LIGHT_LIMITS` | En parte, sección 11 |
 | Leer las anclas de los indicadores | `scripts/anchors.mjs` | ninguna | las anclas de los cinco niveles | Sí |
 
-Nivel de evidencia. Todas las mediciones de este documento usan corpus inventados con dimensiones independientes, y ninguna corrida del método sobre material real está documentada. Lo que se afirma de los umbrales vale para esos corpus. Antes de confiar en un número sobre material de un equipo, las filas se validan con personas (sección 3).
+Nivel de evidencia (detalle de la tabla de arriba). Todas las mediciones de este documento usan corpus inventados con dimensiones independientes, y ninguna corrida del método sobre material real está documentada. Lo que se afirma de los umbrales vale para esos corpus. Antes de confiar en un número sobre material de un equipo, las filas se validan con personas (sección 3).
 
 El proveedor de texto de la extracción y del experimento es `claude -p`, con la suscripción de quien corre el guion y el modelo `claude-haiku-5-5` por omisión (`--model`). Con `--provider ./modulo.mjs` es cualquier módulo que exporte un proveedor. La extracción hace una llamada por lote de 18.000 caracteres. El experimento hace una llamada por pedido, y dos con `--judge`. El método no fija un costo: la cuota se lee en el informe de uso del proveedor.
 
@@ -26,7 +39,7 @@ El proveedor de texto de la extracción y del experimento es `claude -p`, con la
 
 Una descripción dice dónde puede moverse quien la lee y deja la decisión a su criterio. Cumple dos funciones a la vez. Da forma: límites con su mecanismo y una medida de lo que se maximiza. Deja espacio: el propósito y lo que puede quedar apenas suficiente. Una descripción que sólo da forma produce trámite. Una que sólo deja espacio no produce nada comprobable.
 
-Dos fuerzas actúan a la vez. Una reduce a una propuesta que se puede verificar. La otra mantiene abierta la pregunta mientras la idea sea frágil. Cuando lo pedido es explorar una idea, la sesión construye y muestra una propuesta con sus alternativas descartadas y una recomendación, y no publica nada. Sólo la respuesta de una persona la publica. El analizador decide si el pedido es una idea (`idea_guard`). Esa decisión se mide como la de los límites, con `row-validation.mjs analyzer` (sección 3). La espera de la publicación exige una orden de entrega o la lista de órdenes del anfitrión. Un trabajo se lee en dos lealtades a la vez. Una es lo que quedó hecho (ejes 1 y 2 de la sección 11). La otra es lo que la persona queda en condición de entender y decidir (ejes 3 y 4).
+Dos fuerzas actúan a la vez. Una reduce a una propuesta que se puede verificar. La otra deja espacio mientras la idea sea frágil. El modelo ofrece alternativas y pregunta lo que sólo la persona sabe. El sistema sólo impide que algo se publique sin el visto de una persona. Cuando lo pedido es explorar una idea, la sesión construye y muestra una propuesta con sus alternativas descartadas y una recomendación, y no publica nada. Sólo la respuesta de una persona la publica. El analizador decide si el pedido es una idea (`idea_guard`). Esa decisión se mide como la de los límites, con `row-validation.mjs analyzer` (sección 3). La espera de la publicación exige una orden de entrega o la lista de órdenes del anfitrión. Un trabajo se lee en dos lealtades a la vez. Una es lo que quedó hecho (ejes 1 y 2 de la sección 11). La otra es lo que la persona queda en condición de entender y decidir (ejes 3 y 4).
 
 Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento baja en los modelos que midieron Liu et al. (2023, arXiv:2307.03172, consultado el 2026-10-27). No se midió con el modelo del método. Una descripción con su tensión nombrada obliga a entender cada polo por el otro. El método usa un vocabulario único para áreas, plantillas, perfiles y proyecto.
 
@@ -38,15 +51,15 @@ Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento
 | Entorno | Hechos que no cambian y acotan las soluciones: herramientas obligatorias, plazos, presupuesto, qué está en producción, qué se deshace y qué no. Cuánto pide cada persona es un dato del informe y no del entorno | No |
 | Límites | Lo que nunca se cruza, con el mecanismo que lo sostiene | Sí |
 
-Los límites son booleanos. El producto los guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Hay dos decisiones categóricas más, y son del analizador. `value_holder` es `person` o `model`, dice de quién es el valor que falta y, si es de una persona, suma a una persona a los asignados. `idea_guard` es un booleano que dice si el pedido es explorar una idea y, si lo es, retiene la publicación. La clase del trabajo en el juicio (cuatro cuadrantes) sólo fija las metas de evaluación. Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`): `understand_vs_create` e `irreversibility` van de 0 a 1.
+Los límites son booleanos. El producto los guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Sólo un límite impide algo. Hay dos decisiones categóricas más, del analizador, que asignan sin prohibir. `value_holder` es `person` o `model`, dice de quién es el valor que falta y, si es de una persona, suma a una persona a los asignados. `idea_guard` es un booleano que dice si el pedido es explorar una idea y, si lo es, retiene la publicación. La clase del trabajo en el juicio (cuatro cuadrantes) sólo fija las metas de evaluación. Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`): `understand_vs_create` e `irreversibility` van de 0 a 1.
 
-Levantar un límite de una persona sigue este orden (UD-313 y su enmienda del 2026-10-27):
+Levantar un límite de una persona sigue este orden (UD-313 y su enmienda del 2026-10-27). El anfitrión es la aplicación que instala el producto y declara sus órdenes de entrega y sus listas (`EXECUTE_DELIVER_COMMAND`, `EXECUTE_GUARDS_FILE`; `docs/CONTRATO-DE-ANFITRION.md`):
 
 | Paso | Qué ocurre |
 |---|---|
 | 1 | Un límite de una persona, tocado y sin levantar, retiene la entrega. Con `EXECUTE_DELIVER_COMMAND` la plataforma retiene el trabajo `deliver` (`pending_delivery`, el mismo efecto del código 76) y traspasa el mensaje a quien decide en el área. Sin esa orden, el anfitrión lista en su archivo de límites (`EXECUTE_GUARDS_FILE`) las órdenes que ponen trabajo en producción (`commands.deliveries`): la sesión nace con ellas negadas y lo que deja en la rama va a quien decide como entrega retenida (`delivery_held`, `message.limit_held`) |
-| 2 | La sesión nombra el límite que toca y el riesgo si se cruza, y propone una alternativa que hace lo pedido sin cruzarlo. Puede preparar el trabajo en la rama. Es una instrucción: el sistema no la verifica |
-| 3 | Una persona activa lo levanta con un acto explícito: aprobar la entrega a mano o `review: approve` en el hilo. En el hilo, un modelo interpreta la respuesta de la persona. La aprobación de antemano y la de un agente no lo levantan. Sin trabajo `deliver`, el sistema levanta los límites abiertos y lanza una pasada nueva que no lleva las órdenes negadas |
+| 2 | Una sesión que termina con un límite de una persona abierto entrega `limit_notice` con `consequence` (el riesgo si se cruza) y `alternative` (lo que hace lo pedido sin cruzarlo). Sin los dos campos no vacíos la salida no pasa y el trabajo falla con `invalid_output`, como `decision_check`. El sistema comprueba la forma y no el sentido. Arma con ellos el aviso que lee la persona, igual con orden de entrega y con lista de órdenes, y registra `message.limit_notice`. Puede preparar el trabajo en la rama |
+| 3 | Una persona activa lo levanta, sólo si el aviso del paso 2 quedó registrado, con un acto explícito: aprobar la entrega a mano o `review: approve` en el hilo. En el hilo, un modelo interpreta la respuesta de la persona. La aprobación de antemano y la de un agente no lo levantan. Sin trabajo `deliver`, el sistema levanta los límites abiertos y lanza una pasada nueva que no lleva las órdenes negadas |
 | 4 | Queda en la auditoría como `message.guard_lifted` (quién, qué límites y qué trabajo) y, sin orden de entrega, como `message.hold_released`. La auditoría no guarda la frase de la persona |
 | 5 | Vale para ese mensaje y no para los siguientes |
 
@@ -79,13 +92,13 @@ Un área con más de la mitad de sus filas confidenciales (`--max-confidential-s
 {
   "members": [{ "email": "ana@ejemplo.org", "name": "Ana", "kind": "person", "role": "Soy ... (una o dos oraciones propias)" }],
   "limits": [
-    { "id": "money", "text": "mover dinero o fijar un precio", "person": true },
+    { "id": "price", "text": "fijar un precio publicado", "person": true },
     { "id": "customer_data", "text": "datos personales de clientes", "person": false, "mechanism": "la credencial del asistente no lee la tabla de clientes" }
   ]
 }
 ```
 
-`kind` es `person` o `agent`. `person` en un límite indica que lo levanta una persona. El `id` usa minúsculas, dígitos y `_`, porque nombra un campo booleano de salida.
+`kind` es `person` o `agent`. `person` en un límite indica que lo levanta una persona. El `id` usa minúsculas, dígitos y `_`, porque nombra un campo booleano de salida. Un límite de persona sostiene sólo lo que se entrega (sección 1, «Alcance»): el ejemplo fija un precio publicado, que sale por la entrega. Mover dinero, enviar o borrar mientras la sesión trabaja no pasa por la entrega. Ese límite declara además su `mechanism`, como uno que no es de persona.
 
 `mechanism` es el gancho, la credencial acotada o la prueba que sostiene un límite que no levanta una persona. Un límite de persona lo sostiene la plataforma, que retiene la entrega hasta que una persona lo levanta (sección 1). Un límite que no es de persona y no declara mecanismo depende de que el modelo lo recuerde. Eso es un pedido y no un límite. Se escribe igual. La descripción dice «sin mecanismo declarado» y `propose` avisa una vez por área. Nunca escribe que el sistema lo hace cumplir.
 
@@ -97,6 +110,7 @@ Un mecanismo es verificable cuando existe una acción que lo ejercita y falla si
 | Una credencial acotada | Con esa credencial se intenta la acción que no debe poder hacer, y falla |
 | Una prueba automática | En una rama se rompe el límite y la prueba falla |
 | Una protección de rama | Se intenta empujar a la rama protegida y se rechaza |
+| La lista de órdenes del anfitrión (`commands.deliveries`) | En un mensaje que toca un límite de persona sin levantar, la sesión corre la orden de entrega del anfitrión y el gancho la rechaza con el `message` del anfitrión. Se repite sin la copia del archivo (`TEAM_GUARDS_FILE` sin declarar): ahí el gancho deja pasar la orden, y por eso `GET /health` informa el modo en `limits` |
 
 **Propósitos** (`purposes.json`): `{ "Título del área": "oración" }`, o `{ "Título del área": { "purpose": "oración", "environment": "hechos que no cambian" } }`. El propósito y el entorno son del equipo y no se deducen del corpus; `propose` se detiene si falta el propósito.
 
@@ -403,7 +417,7 @@ Comparar dos versiones. `--versus otro-resultado.json` empareja los pedidos que 
 
 `--judge` usa por omisión el mismo modelo que enruta. Un modelo favorece lo que genera (sección 3). Por eso el resultado trae `judge.same_model`, el guion lo imprime y, mientras sea verdadero, los indicadores se leen con esa reserva. `--judge-model` fija otro modelo. Con `--labels` el juez lee la referencia de las personas y no la de la extracción. Los indicadores de un reparto miden su coherencia con el acuerdo. Son los 1.1, 1.2, 2.3 y 3.3 de la sección 11, con sus cinco anclas en el prompt. Cada puntaje lleva una cita que debe estar en el pedido, la referencia o el encargo. Las anclas están escritas para un trabajo y no para un reparto, y no están validadas contra personas (`judge.validated_against_people`). Hasta validarlas, el juez del reparto es una indicación y no se usa para decidir; la sección 11 trae el procedimiento.
 
-Después de cargar. La señal más barata de la verdad es la tasa con que una persona reasigna un mensaje a otra área. El método no la mide. Una tasa alta en un área apuntaría a su descripción.
+Después de cargar. La señal más barata de la verdad es la tasa con que una persona reasigna un mensaje a otra área. Cada edición queda en `message_edits` con los nombres de los campos que cambiaron (`src/domain/messages.js`), y un cambio de área lleva `area_id`. `node scripts/reassignment-rate.mjs --db /data/team.db [--since 2026-10-01]` cuenta los mensajes con al menos un cambio de área sobre los publicados, con su intervalo de Wilson, y los reparte por área de destino. La auditoría no guarda el valor anterior: se sabe a qué área llegó un mensaje reasignado y no de cuál salió. Una tasa alta hacia un área indica que otra no describe lo que le llega. Se corrige como una confusión de la sección 9. Con esa tasa el ciclo se cierra: lo que se midió antes de cargar se compara con lo que las personas corrigen después.
 
 `--accept <proporción>` compara el límite inferior del intervalo de Wilson de área y de persona. Pide además que el límite inferior supere al mejor enrutador sin modelo de `baselines`. Un valor puntual que apenas toca el umbral pasa la mitad de las veces cuando la tasa verdadera es el umbral. Sin `--labels` la única referencia es la extracción. El comando sale con código 2, o con `--allow-unvalidated` compara contra las filas y marca el resultado como no válido. Sin `--accept` sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
 
@@ -439,15 +453,15 @@ Cómo se lee:
 |---|---|
 | Escala | −2 inaceptable, −1 bajo, 0 esperado, +1 fuerte, +2 excepcional. El 0 es el mínimo aceptable y no un punto medio |
 | Anclas | Cada indicador trae cinco anclas, una por nivel (`KPIS[].levels`), escritas para un trabajo sin supervisión. Van en el prompt del juez. `node scripts/anchors.mjs` las imprime, para quien puntúa a mano |
-| Evidencia | El juez recibe el mensaje, lo esperado, los límites tocados, la idea del pedido (`idea`), el resultado, la salida técnica, la descripción del área y la del proyecto. Cada puntaje lleva una cita de esa evidencia, una afirmación y su razonamiento |
+| Evidencia | El juez recibe el mensaje, lo esperado, los límites tocados, la idea del pedido (`idea`), el perfil de quien pidió el trabajo (`perfil_de_quien_pidio`), el resultado, la salida técnica, la descripción del área y la del proyecto. Cada puntaje lleva una cita de esa evidencia, una afirmación y su razonamiento. El perfil permite leer 3.2 y 3.3 contra lo que esa persona entiende y decide |
 | Validación | Cada indicador aparece una vez y cada cita está en la evidencia entregada. Una respuesta que no valida no se guarda como juicio y queda en la auditoría como `job.judge_rejected` |
 | Lo que no aplica | Un indicador que no se puede observar en un trabajo sin supervisión lleva `applies: false` y queda fuera de su eje; nunca se rellena con 0 |
-| Meta del eje | La da el cuadrante de la tarea: un eje cumple cuando su media alcanza la meta de ese cuadrante |
+| Meta del eje | La da el cuadrante de la tarea. Un eje cumple cuando su media, redondeada al nivel más cercano, alcanza el nivel de la tabla: media de 1,5 o más para +2, de 0,5 o más para +1, de −0,5 o más para 0. Sin el redondeo, una meta de 2 pedía +2 en cada indicador del eje, y el +2 del 2.3 («detecta una imprecisión que nadie había visto») lo hace inalcanzable |
 | Sin total | No hay puntaje único por trabajo. Se compara eje por eje y entre trabajos del mismo cuadrante |
 
 Tres indicadores se adaptan a un trabajo que nadie supervisó, y su redacción lo dice. El 3.2 juzga lo que se le entrega a la persona y cuánto se entiende, porque su experiencia durante la sesión no existe. El 4.2 puntúa sólo las intervenciones que la respuesta final y la salida técnica dejan ver. El 4.3 necesita la primera propuesta como evidencia y la plataforma todavía no la entrega, así que queda sin puntuar. En un trabajo sin supervisión el eje 4 se apoya en el 4.1 y el 4.2. Un eje sin indicadores observables no cumple ni incumple su meta.
 
-El cuadrante clasifica la tarea para fijar la meta de cada eje (McGrath, 1984, *Groups: Interaction and Performance*). Las metas son la media mínima: 0 esperado, 1 fuerte, 2 excepcional. McGrath da la clasificación de las tareas; los valores de la tabla son los del instrumento de evaluación del producto y no de McGrath.
+El cuadrante clasifica la tarea para fijar la meta de cada eje (McGrath, 1984, *Groups: Interaction and Performance*). Las metas son el nivel mínimo de la media redondeada: 0 esperado, 1 fuerte, 2 excepcional. McGrath da la clasificación de las tareas; los valores de la tabla son los del instrumento de evaluación del producto y no de McGrath. Qué es categórico en el juicio: el cuadrante (cuatro valores) y, por indicador, `applies`. Los puntajes son ordinales de −2 a +2. El cuadrante lo elige el juez. La calibración compara puntajes y no cuadrantes, así que en la versión 1.0 ningún archivo de referencia lo valida. Quien lee un eje contra su meta lee antes el `quadrant` y el `summary` del juicio. Un cuadrante que no calza con la tarea invalida esa lectura.
 
 | Cuadrante | La tarea | Eje 1 | Eje 2 | Eje 3 | Eje 4 |
 |---|---|---|---|---|---|
@@ -456,28 +470,36 @@ El cuadrante clasifica la tarea para fijar la meta de cada eje (McGrath, 1984, *
 | Negociar | Resolver un conflicto de puntos de vista o de intereses | 1 | 1 | 0 | 2 |
 | Ejecutar | Cumplir un plan con un resultado medible | 0 | 2 | 1 | 0 |
 
-Usos al configurar. Ninguno tiene guion: son lecturas manuales de los juicios guardados (`GET /api/messages/:id/timing` trae el juicio de un mensaje).
+Usos al configurar. Ninguno tiene guion: son lecturas manuales de los juicios guardados. `GET /api/messages/:id/timing` trae tres campos. `judgment` es el último. `judgments` son todos los intentos del mensaje, del más antiguo al más nuevo, con `worked_with` y `closed`, y incluyen el del modelo liviano que falló. `decision_judgments` son los mismos, limitados a los ejes calibrados. Quien mueve un área o fija un límite lee `decision_judgments`; ninguna función del producto mueve un área por sí sola.
 
 | Pregunta | Dónde se lee |
 |---|---|
-| ¿El modelo liviano alcanza en esta área? | Los ejes de los trabajos juzgados por área y por modelo. Un eje bajo la meta en el modelo liviano y sobre ella en el mayor mueve el área al mayor |
+| ¿El modelo liviano alcanza en esta área? | Los ejes de todos los intentos juzgados por área y por modelo (`judgments`, no sólo `judgment`). Un eje bajo la meta en el modelo liviano y sobre ella en el mayor mueve el área al mayor |
 | ¿Una descripción de área genera trabajo adecuado? | Los indicadores 1.1 y 1.2 de los trabajos del área antes y después de cambiar la descripción. La sesión recibe la descripción del área (`area_description`) y el juez la mide contra ella |
 | ¿Un límite se respeta? | El indicador 2.3, que lee los límites del mensaje, y el campo `touches_<id>` de la salida, que la plataforma cruza con el analizador (sección 1) |
 
-Escalada. La escalada al modelo mayor ocurre por falla declarada o comprobada. Declarada: el modelo liviano dice que no pudo cerrar o termina bloqueado. Comprobada: la verificación de la entrega queda en rojo (`src/execute/handler.js`, `src/execute/deliver.js`). Una falla silenciosa, como terminar sin cambiar nada o con un juicio bajo el mínimo aceptable, no escala hoy. La ve el control de cierre del anfitrión, que la instalación debe declarar. Cada escalada registra su disparador en la auditoría: `declared` cuando la sesión dice `cannot_close` o termina `blocked`, y `checked` cuando la verificación de la entrega quedó en rojo. Sólo el segundo es comprobado. Todo intento se juzga, también el del modelo liviano que falló (con la nota `no_cerro`), así que la comparación entre modelos cuenta los fallos del liviano. Escalar también cuando un intento liviano deja un eje 1 o 2 bajo 0 queda para cuando el juicio esté validado.
+Escalada. La escalada al modelo mayor ocurre por falla declarada o comprobada. Declarada: el modelo liviano dice que no pudo cerrar o termina bloqueado (`trigger: declared`). Comprobada (`trigger: checked`): la verificación de la entrega queda en rojo (`src/execute/deliver.js`). También lo es el fin silencioso. La sesión termina `done` sin commits en la rama ni en `origin` y sin `investigated`. El sistema lo lee en el repositorio del anfitrión (`why: no_changes`, `src/execute/handler.js`). Esa lectura exige `EXECUTE_REPO_DIR`. Con la sesión en una máquina aparte el sistema no ve la rama, y sólo el control de cierre del anfitrión detecta el fin silencioso. Todo intento se juzga, también el del modelo liviano que falló. El sistema guarda por trabajo si cerró (`execute_judgments.closed`). Vale 0 si declaró no poder cerrar, terminó bloqueado, terminó sin cambios o su entrega quedó en rojo. Así la comparación entre modelos cuenta los fallos del liviano. Escalar también cuando un intento liviano deja un eje 1 o 2 bajo 0 queda para cuando el juicio esté validado.
 
-Los límites del modelo liviano (`EXECUTE_LIGHT_LIMITS`) nacen sin valor: `create=1 irreversibility=1 certainty=0`. Por eso todo mensaje con estimaciones parte en el modelo liviano. Se fijan con `node scripts/light-limits.mjs jobs.jsonl`: el punto medio entre la mayor estimación de lo que cerró y la menor de lo que no cerró, en cada dimensión. Eso exige 20 trabajos juzgados y que los rangos no se crucen (`docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md`). Con menos trabajos, o con rangos cruzados, el guion deja el valor de origen y dice por qué. Armar `jobs.jsonl` es manual: una línea `{ job, closed, understand_vs_create, irreversibility, certainty }` por trabajo del modelo liviano, con `closed` tomado de la nota `no_cerro` que pone el sistema y con las estimaciones del mensaje. No usa los puntajes del juez, que no están validados.
+Los límites del modelo liviano (`EXECUTE_LIGHT_LIMITS`) nacen sin valor: `create=1 irreversibility=1 certainty=0`. Por eso todo mensaje con estimaciones parte en el modelo liviano. La medición de `docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md` mostró que las estimaciones no separan el fallo de los cierres. Por eso el criterio no exige rangos separados. Exige que el modelo liviano cierre a una tasa mayor que el cociente de costos entre modelos (UD-295). Ir primero al liviano cuesta c_l + (1 − p) c_s contra c_s directo, y conviene si p > c_l / c_s. En cada dimensión el límite es la mayor estimación con esta propiedad. Los trabajos hasta ella (desde ella, en certeza) cierran con un extremo inferior de Wilson sobre ese cociente. Hacen falta 20 trabajos juzgados. El cociente es 0,05 por omisión (precios publicados el 2026-10-25) y se cambia con `--cost-ratio`. El costo medido de la CLI fue mayor para el liviano: una instalación que mide el suyo lo pasa.
 
-Validación del juicio. Los doce indicadores no están validados contra personas, a diferencia de las filas. El producto lo hace cumplir. `EXECUTE_JUDGE_REFERENCE_FILE` nombra un archivo con puntajes de al menos dos personas, dados sin ver los del juez, a trabajos que el juez también juzgó. El alfa de Krippendorff ordinal se calcula por eje entre el juez y las personas, con un intervalo por remuestreo de trabajos. Un eje está calibrado con alfa de 0,80 o más y el extremo inferior del intervalo en 0,667 o más. Son los umbrales de Krippendorff (2004, *Content Analysis*, 2.ª ed., p. 241). El juez está calibrado si lo están todos los ejes que el archivo cubre. Mientras no, sus juicios salen con `calibrated: false` y `judgmentsForDecisions` no entrega ninguno: no mueven un área al modelo mayor ni fijan los límites del modelo liviano. `GET /health` publica el estado en `judge`.
+`jobs.jsonl` sale de la base de la instalación: `node scripts/light-jobs.mjs --db /data/team.db --light claude-haiku-5-5 > jobs.jsonl`. Escribe una línea `{ job, closed, understand_vs_create, irreversibility, certainty }` por intento del modelo liviano juzgado, con `closed` tomado de `execute_judgments.closed` y las estimaciones del mensaje. Los intentos juzgados antes de que existiera el campo (`closed` nulo) quedan fuera, porque nada dice cómo terminaron. Después `node scripts/light-limits.mjs jobs.jsonl`. Con menos trabajos, o con una tasa que no pasa el cociente, el guion deja el valor de origen y dice por qué. No usa los puntajes del juez, que no están validados.
 
-Para el juez del reparto, que corre en el método, el mismo procedimiento va por indicador:
+Validación del juicio. Los doce indicadores no están validados contra personas, a diferencia de las filas. `EXECUTE_JUDGE_REFERENCE_FILE` nombra un archivo JSON con puntajes de al menos dos personas, dados sin ver los del juez, a trabajos que el juez también juzgó:
+
+```json
+{ "version": 1, "units": [ { "job_id": 12, "ratings": { "ana": { "1.1": 1, "1.2": null, "2.1": 0 }, "luis": { "1.1": 1, "2.1": -1 } } } ] }
+```
+
+`job_id` es el id del trabajo juzgado (`GET /api/messages/:id/timing`, `judgments[].job_id`). Cada puntaje es un entero de −2 a +2, o `null` si esa persona juzgó que el indicador no aplica al trabajo. Un trabajo no se repite y lleva al menos una persona. El producto no fija cuántos trabajos hacen falta: el intervalo del alfa dice si los que hay alcanzan. El alfa de Krippendorff ordinal se calcula por eje entre el juez y las personas, con un intervalo por remuestreo de trabajos. Un eje está calibrado con alfa de 0,80 o más y el extremo inferior del intervalo en 0,667 o más. Son los umbrales de Krippendorff (2004, *Content Analysis*, 2.ª ed., p. 241). El juez está calibrado sólo si lo están los cuatro ejes: un archivo que puntúa los ejes 1 y 2 deja el juez sin calibrar. Mientras no, sus juicios salen con `calibrated: false`. El producto marca cada juicio como calibrado o sin calibrar. Entrega en `decision_judgments` sólo los ejes cuyo alfa y extremo inferior pasaron. Ninguna función del producto decide a partir de ellos. `GET /health` publica el estado en `judge`.
+
+Para el juez del reparto, que corre en el método, el procedimiento va por indicador. Los dos jueces usan estadísticos distintos, y la razón es ésta. El del producto es el alfa ordinal por eje con intervalo. Admite más de dos puntuadores y valores ausentes, y reúne a las personas y al juez en un archivo. El del reparto es el kappa ponderado cuadrático por indicador. Este procedimiento tiene dos puntuadores y se lee por indicador, y `row-validation.mjs judge` no calcula intervalo. Un kappa no es un alfa: el 0,80 y el 0,667 son umbrales del alfa y no se trasladan. Los 26 trabajos salen de la cuenta de Wilson de la sección 3. Es la cuenta de una proporción y no de un alfa. El equipo fija su umbral en el paso 4:
 
 | Paso | Qué se hace | Automatizado |
 |---|---|---|
 | 1 | Dos personas puntúan, sin ver el juicio del modelo, 26 trabajos con las anclas que imprime `scripts/anchors.mjs`. Es la misma cuenta de la sección 3. Cada una escribe líneas `{ job, id, score }` | No, lo hacen personas |
 | 2 | `row-validation.mjs judge --first persona.jsonl --second modelo.jsonl` da, por indicador, el kappa ponderado cuadrático (Cohen, 1968) y la proporción de pares a un punto o menos | Sí |
 | 3 | Lo mismo entre dos lecturas del juez sobre el mismo trabajo, que mide cuánto cambia de una vez a otra | Sí |
-| 4 | El equipo fija el umbral antes de medir; el del producto es 0,80 de alfa. Un indicador bajo el umbral no se usa | No, lo decide el equipo |
+| 4 | El equipo fija el umbral de kappa antes de medir. Un indicador bajo el umbral no se usa | No, lo decide el equipo |
 
 El juez de trabajos usa el modelo del analizador (`TEXT_MODEL`) y lo registra en `judge_model`. Cuando coincide con el modelo que hizo el trabajo, el juicio se lee con la reserva de la sección 3. La meta de un eje se calcula sobre los indicadores puntuados. Con el 4.3 sin puntuar, el eje 4 de «elegir» y «negociar» pide +2 en el 4.1 y en el 4.2. El eje informa los indicadores definidos y `partial: true`, y un eje parcial se compara con ejes de la misma forma y no con uno completo.
 

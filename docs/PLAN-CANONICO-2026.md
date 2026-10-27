@@ -131,7 +131,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | C2 Gancho `pre-push` | Acepta el sello de C1 en vez de `DEPLOY_PUBLISHES_MAIN`; lo demás igual: `desarrollo` o ancestro, avance rápido, nunca borrar | hecho (`d2250ba6`): acepta `RELEASE_PUBLISHES_MAIN`; la marca vieja sigue aceptada hasta su retiro, C5 (línea `RETIRO-DEPLOY`) |
 | C3 Flujo de GitHub Actions | Queda como espejo opcional de la misma regla; no es requisito: la verificación corre en la máquina que publica. Nada del canónico depende de tener presupuesto en GitHub | hecho (`d2250ba6`): el flujo sólo mide avance rápido, espejo opcional |
 | C4 Versión y etiqueta | Cada publicación de `main` lleva etiqueta `vX.Y.Z` y una línea en `CHANGELOG.md`; el anfitrión fija la que instala por sha o digest | hecho (`d2250ba6`): `prepare-release.mjs` y etiqueta `vX.Y.Z` |
-| C5 Retiro de la marca heredada | El gancho deja de aceptar `DEPLOY_PUBLISHES_MAIN` (se borra la línea `RETIRO-DEPLOY`); quien instala fija la versión del canónico como fija la de cualquier dependencia | por hacer, tras la primera publicación con `publish-main.sh` |
+| C5 Retiro de la marca heredada | El gancho deja de aceptar `DEPLOY_PUBLISHES_MAIN` (se borra la línea `RETIRO-DEPLOY`); quien instala fija la versión del canónico como fija la de cualquier dependencia | hecho (`640cbcd4`): el gancho rechaza la marca vieja; `publish-main.sh` publicó v0.1.0 y v0.1.1 y el anfitrión dejó de exportarla y fija su versión por sha |
 
 ### D. Núcleo 1.0
 
@@ -192,7 +192,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 
 | Se retira | Cuándo | Qué lo traería de vuelta |
 |---|---|---|
-| `DEPLOY_PUBLISHES_MAIN` como marca aceptada por el gancho | tras la primera publicación con `publish-main.sh` | Que la puerta no pueda correr la batería en la máquina que publica |
+| `DEPLOY_PUBLISHES_MAIN` como marca aceptada por el gancho (retirada, C5) | tras la primera publicación con `publish-main.sh` | Que la puerta no pueda correr la batería en la máquina que publica |
 | El flujo de GitHub Actions como requisito | con C3 | Ninguna: queda como espejo |
 | Las 54 piezas duplicadas en el primer anfitrión | una por una, cuando su canario pasa con la canónica | Que una pieza necesite algo que el contrato no da; entonces se cambia el contrato |
 | Los worktrees sin agente vivo | con D5 | Ninguna: un worktree se recrea con un comando |

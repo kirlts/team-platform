@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- El gancho `pre-push` rechaza la marca heredada `DEPLOY_PUBLISHES_MAIN` (pieza C5 del plan canónico): `main` sólo avanza con la marca de `scripts/publish-main.sh`, y quien instala fija la versión por sha o etiqueta.
 ## [0.1.1] - 2026-10-27
 
 - La imagen base del Dockerfile se fija por digest (`node:24-alpine` y `alpine:3.24`, consultados el 2026-10-27 con `docker buildx imagetools inspect`), y la etapa `battery` parte de la misma imagen que la de producción.

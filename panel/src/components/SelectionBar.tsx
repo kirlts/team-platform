@@ -15,11 +15,11 @@ export function SelectionBar({ selection, onAll, onDelete, busy }: { selection: 
       <span className="pl-1 text-xs font-semibold tabular-nums sm:pl-0 sm:text-sm" aria-live="polite">
         {t('bulk.marked', { n: selection.marked.size })}
       </span>
-      <Button size="sm" variant="ghost" className="px-2 text-xs sm:px-3" onClick={onAll}>
+      <Button size="sm" variant="secondary" className="px-2 text-xs sm:px-3" onClick={onAll}>
         {t('bulk.all')}
       </Button>
       <span className="ml-auto flex items-center gap-1 sm:gap-2">
-        <Button size="sm" variant="ghost" className="px-2 text-xs text-muted sm:px-3" onClick={() => selection.clear()}>
+        <Button size="sm" variant="secondary" className="px-2 text-xs sm:px-3" onClick={() => selection.clear()}>
           {t('common.cancel')}
         </Button>
         <Button size="sm" variant="danger" disabled={busy} data-testid="selection-delete" onClick={onDelete}>

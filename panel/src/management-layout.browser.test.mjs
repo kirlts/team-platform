@@ -264,6 +264,8 @@ test('on a touch screen the controls of the management views are as tall as a fi
           if (!r.width || !r.height) continue
           // A link inside running text is exempt (WCAG 2.5.8, inline); so are the rows of the message list, which belong to Mensajes.
           if (el.closest('p, li > p, [data-prose], [data-message-card], article, [data-slot-result]')) continue
+          // A link of a row whose frame (an ::after box) reaches 44 px for a finger keeps the height of its text: Áreas counts.
+          if (el.tagName === 'A' && getComputedStyle(el, '::after').position === 'absolute') continue
           if (r.height < 43.5 || r.width < 43.5) out.push(`${el.tagName.toLowerCase()} «${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 30)}» ${Math.round(r.width)}x${Math.round(r.height)}`)
         }
         return out
@@ -336,5 +338,181 @@ test('the example server resets after members were deleted', async () => {
   } finally {
     await context.close()
     await panel.control.reset()
+  }
+})
+
+// ---- Third review of the management views, 2026-10-27: the three medium findings and the eleven low ones. ----
+
+
+test('Equipo: the editable name and address are 24 px tall, the tags sit against the name and opening the name does not move them, and «Ver más» never splits', async () => {
+  const { page, context } = await open('/team')
+  try {
+    const row = page.locator('main [data-member-row]').first()
+    const hs = await row.locator('[data-editable]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))
+    assert.ok(hs.length >= 2 && hs.every((h) => h >= 23.5), `editable targets of ${hs.map(Math.round)} px`)
+    const name = row.getByRole('button', { name: /^Nombre:/ })
+    const tag = row.locator('span', { hasText: /^Editor$/ }).first()
+    const gap = (await tag.boundingBox()).x - ((await name.boundingBox()).x + (await name.evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width })))
+    assert.ok(gap <= 24, `the tag is ${gap} px from the name`)
+    const before = (await tag.boundingBox()).x
+    await name.click()
+    await row.getByRole('textbox', { name: 'Nombre' }).waitFor()
+    assert.ok(Math.abs((await tag.boundingBox()).x - before) <= 1, 'the tag moved when the name opened')
+    await page.keyboard.press('Escape')
+    const nowrap = await page.evaluate(() => [...document.querySelectorAll('main [data-profile-extract] > span > span')].every((s) => getComputedStyle(s).whiteSpace === 'nowrap'))
+    assert.ok(nowrap, '«Ver más» can split across lines')
+  } finally {
+    await context.close()
+  }
+})
+
+test('a failing provider is named on the folded row of Proveedores, and a read that did not arrive is too', async () => {
+  const { page, context } = await open('/settings')
+  try {
+    const row = page.locator('[data-providers] h2 button')
+    assert.equal(await row.getAttribute('aria-expanded'), 'false')
+    await page.locator('[data-providers-alert]').waitFor()
+    assert.match(await row.innerText(), /Fallando/)
+    await page.route(/\/api\/settings\/connections/, (r) => r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'internal', message: 'boom' }) }))
+    await page.reload()
+    await page.locator('[data-providers-alert]').waitFor({ timeout: 20_000 })
+    assert.match(await page.locator('[data-providers] h2 button').innerText(), /No se pudo cargar/)
+  } finally {
+    await context.close()
+  }
+})
+
+test('Publicación exists while it loads and when it fails, and what is under it does not move when the answer arrives', async () => {
+  const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+  try {
+    const page = await context.newPage()
+    await login(page, panel.origin, 'ana')
+    let release
+    const gate = new Promise((r) => { release = r })
+    await page.route(/\/api\/settings\/publication/, async (r) => { await gate; await r.continue() })
+    await page.goto(`${panel.origin}/settings`)
+    await page.locator('[data-publication]').waitFor()
+    const telemetry = page.locator('section', { has: page.getByRole('heading', { name: 'Telemetría de uso' }) }).first()
+    const waiting = (await telemetry.boundingBox()).y
+    release()
+    await page.getByRole('radio', { name: 'Al analizar' }).waitFor()
+    assert.ok(Math.abs((await telemetry.boundingBox()).y - waiting) <= 1, `Telemetría moved ${(await telemetry.boundingBox()).y - waiting} px`)
+    await page.unroute(/\/api\/settings\/publication/)
+    await page.route(/\/api\/settings\/publication/, (r) => r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'internal', message: 'boom' }) }))
+    await page.reload()
+    const failed = page.locator('[data-publication]')
+    await failed.getByText('No se pudo cargar').waitFor({ timeout: 20_000 })
+    await failed.getByRole('button', { name: 'Reintentar' }).waitFor()
+  } finally {
+    await context.close()
+  }
+})
+
+test('Áreas on a phone: the counts keep the height of their text with a 44 px frame, the selection bar takes the place of the column labels and the rows do not move', async () => {
+  const { page, context } = await openTouch('/areas')
+  try {
+    // The counts keep the height of their text (the row does not grow) and their frame reaches 44 px for a finger.
+    const m = await page.evaluate(() => {
+      const links = [...document.querySelectorAll('main a[aria-label^="Plantillas de"], main a[aria-label*="abiertos"], main a[aria-label*="respondidos"]')]
+      return links.map((a) => {
+        const r = a.getBoundingClientRect()
+        const cx = r.left + r.width / 2
+        const frame = getComputedStyle(a, '::after')
+        return { h: r.height, framed: frame.position === 'absolute', reach: parseFloat(frame.top) < -7 || parseFloat(frame.bottom) < -7 }
+      })
+    })
+    assert.ok(m.length > 0)
+    for (const x of m) assert.ok(x.h <= 30 && x.framed && x.reach, `a count is ${x.h} px tall and ${x.framed ? 'its frame does not reach' : 'has no frame'}: the row grew or the finger misses`)
+  } finally {
+    await context.close()
+  }
+  const d = await open('/areas')
+  try {
+    const first = d.page.locator('main section.grid').first()
+    const top = (await first.boundingBox()).y
+    await d.page.getByTestId('row-check').first().click()
+    await d.page.getByTestId('selection-bar').waitFor()
+    assert.ok(Math.abs((await first.boundingBox()).y - top) <= 1, 'the rows moved when the bar appeared')
+    const filled = await d.page.getByRole('button', { name: 'Marcar todos' }).evaluate((e) => getComputedStyle(e).borderTopWidth)
+    assert.notEqual(filled, '0px', '«Marcar todos» is a label with no button')
+  } finally {
+    await d.context.close()
+  }
+})
+
+test('the selectors of the fields of a template are in one column whether the field is required or not', async () => {
+  const { page, context } = await open('/areas/a-error')
+  try {
+    await page.getByTestId('template-open').first().click()
+    const dialog = page.getByRole('dialog')
+    await dialog.waitFor()
+    const xs = await dialog.locator('select').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().x)))
+    const boxes = await dialog.locator('[role="checkbox"]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().x)))
+    assert.ok(xs.length >= 2 && new Set(xs).size === 1, `selects at ${xs}`)
+    assert.ok(boxes.length >= 2, 'no check boxes')
+    // Rows of the same kind share the x of their check box: «Obligatorio» is drawn the same width filled or not.
+    const widths = await dialog.locator('label', { hasText: 'Obligatorio' }).evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)))
+    assert.equal(new Set(widths).size, 1, `Obligatorio of ${widths} px`)
+  } finally {
+    await context.close()
+  }
+})
+
+test('the telemetry figures fill their row in cells and none is left alone on a second line', async () => {
+  const { page, context } = await open('/settings')
+  try {
+    const tops = await page.locator('[data-ui-summary] dt').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
+    assert.equal(tops.length, 5)
+    const rows = new Map()
+    for (const y of tops) rows.set(y, (rows.get(y) ?? 0) + 1)
+    assert.ok([...rows.values()].every((n) => n > 1) || rows.size === 1, `rows of ${[...rows.values()]}`)
+  } finally {
+    await context.close()
+  }
+})
+
+test('the thumbnail of a message can be zoomed from a frame of 44 px on a touch screen', async () => {
+  const { page, context } = await openTouch('/areas/a-error')
+  try {
+    const hit = await page.evaluate(() => {
+      const b = document.querySelector('main button[aria-label^="Ampliar"]')
+      if (!b) return null
+      const r = b.getBoundingClientRect()
+      const cx = r.left + r.width / 2
+      return [-21, 21].map((dx) => document.elementFromPoint(cx + dx, r.top + r.height / 2) === b)
+    })
+    if (hit) assert.ok(hit.every(Boolean), 'the frame around the thumbnail does not reach 44 px')
+  } finally {
+    await context.close()
+  }
+})
+
+test('in the dark theme Configuración keeps to three equal saturated fills', async () => {
+  const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL', colorScheme: 'dark' })
+  try {
+    const page = await context.newPage()
+    await login(page, panel.origin, 'ana')
+    await page.goto(`${panel.origin}/settings`)
+    await page.locator('main h1').first().waitFor()
+    await settled(page)
+    const worst = await page.evaluate(() => {
+      const groups = new Map()
+      for (const el of document.body.querySelectorAll('*')) {
+        const r = el.getBoundingClientRect()
+        if (!r.width || !r.height || el.closest('[aria-hidden="true"]')) continue
+        const m = getComputedStyle(el).backgroundColor.match(/rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)/)
+        if (!m || (m[4] !== undefined && Number(m[4]) < 0.6)) continue
+        const [rr, g, b] = [m[1], m[2], m[3]].map(Number)
+        const mx = Math.max(rr, g, b)
+        if (!mx || (mx - Math.min(rr, g, b)) / mx < 0.5 || mx / 255 < 0.3) continue
+        if (!el.textContent.trim() && !el.querySelector('svg')) continue
+        const key = `${rr},${g},${b}`
+        groups.set(key, [...(groups.get(key) ?? []), el])
+      }
+      return Math.max(0, ...[...groups.values()].map((els) => els.filter((e) => !els.some((o) => o !== e && e.contains(o))).length))
+    })
+    assert.ok(worst <= 3, `${worst} elements share one saturated fill`)
+  } finally {
+    await context.close()
   }
 })

@@ -65,7 +65,7 @@ const COUNT_WORD: Record<'open' | 'answered', MessageKey> = { open: 'state.open'
 function AreaColumns() {
   const t = useT()
   return (
-    <div aria-hidden data-testid="area-columns" className={`rotulo hidden min-h-8 items-center gap-x-3 border-b border-line pl-10 pr-4 sm:grid ${GRID}`}>
+    <div aria-hidden data-testid="area-columns" className={`rotulo hidden min-h-8 sm:min-h-12 items-center gap-x-3 border-b border-line pl-10 pr-4 sm:grid ${GRID}`}>
       <span className="col-span-2">{t('areas.columnArea')}</span>
       <span className="pr-2 text-right">{t('areas.columnOpen')}</span>
       <span className="pr-2 text-right">{t('areas.columnAnswered')}</span>
@@ -145,10 +145,7 @@ function AreaList() {
           renderRow={(x) => (x.kind === 'live' ? <AreaRow area={x.area} selection={selection} /> : <DeletedAreaRow area={x.area} />)}
           onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('live-')).map((k) => k.slice(5)))}
           header={
-            <>
-              {marked.length > 0 && <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} />}
-              <AreaColumns />
-            </>
+            marked.length > 0 ? <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} /> : <AreaColumns />
           }
           empty={areas.isPending || areas.isError ? <LoadState query={areas} /> : <EmptyState action={create}>{t('areas.none')}</EmptyState>}
         />
@@ -228,7 +225,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
       <span className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 sm:contents">
         {(['open', 'answered'] as const).map((status) =>
           counts[status] > 0 ? (
-            <Link key={status} to={areaMessagesPath(area.id, status)} aria-label={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} title={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} className="justify-self-end rounded-full hover:bg-hover pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">
+            <Link key={status} to={areaMessagesPath(area.id, status)} aria-label={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} title={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} className="justify-self-end rounded-full hover:bg-hover [@media(pointer:coarse)]:relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-y-[9px] [@media(pointer:coarse)]:after:inset-x-0">
               <Figure status={status} n={counts[status]} />
             </Link>
           ) : (
@@ -237,7 +234,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
             </span>
           ),
         )}
-        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11">
+        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline [@media(pointer:coarse)]:relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-y-[10px] [@media(pointer:coarse)]:after:inset-x-0">
           <span className="tabular-nums">{templateCount}</span>
           <span className="sm:sr-only"> {t('areas.templateCount', { n: templateCount }).replace(/^\S+\s*/, '')}</span>
         </Link>

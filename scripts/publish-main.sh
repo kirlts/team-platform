@@ -44,6 +44,8 @@
 #   PUBLISH_TEST_CMD          step 3 (default `npm run test:completa`)
 #   PUBLISH_PANEL_CMD         step 4 (default `npm run test:panel`)
 #   PUBLISH_CLIENT_CMD        step 5 (default `npm run test:client`)
+#   PUBLISH_HOST_COMPOSE      the compose file of the host the publication is for; with it, step 7 also writes the verification a host
+#                             reads (refs/notes/verificaciones); without it, only the detailed record (refs/notes/battery)
 #   PUBLISH_CONFORMANCE_CMD   step 6 (default `node scripts/host-conformance.mjs --driver drivers/docker-local`)
 #   TMPDIR                    where the steps write (default $HOME/.cache: /tmp is memory)
 set -u -o pipefail
@@ -187,7 +189,8 @@ if [ "$DRY" = 1 ]; then
   finish 3
 fi
 t0=$(now)
-if node "$AQUI/scripts/battery-record.mjs" write "$SHA" --from "$RESULTS" --remote "$REMOTE" >/dev/null; then
+HOSTARG=(); [ -z "${PUBLISH_HOST_COMPOSE:-}" ] || HOSTARG=(--compose "$PUBLISH_HOST_COMPOSE")
+if node "$AQUI/scripts/battery-record.mjs" write "$SHA" --from "$RESULTS" --remote "$REMOTE" ${HOSTARG[@]+"${HOSTARG[@]}"} >/dev/null; then
   SUMMARY+=("record        ok    $(dt "$t0" "$(now)")s   refs/notes/battery $SHA")
 else
   SUMMARY+=("record        FAILED  $(dt "$t0" "$(now)")s   the publication goes on; a host will repeat the battery")

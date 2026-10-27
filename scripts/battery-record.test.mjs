@@ -2,11 +2,11 @@
 // Nothing here touches the real remote: every repository lives under .cache/ of the checkout (never /tmp, which is memory).
 import { before, after, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn, spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildRecord, externalBases, failedFiles, failedNames, imageBase, parseCounts, readNote, writeNote } from './battery-record.mjs'
+import { buildRecord, buildVerification, externalBases, failedFiles, failedNames, finalBase, hostFingerprint, imageBase, parseCounts, readNote, verificationProblems, writeNote } from './battery-record.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_ENV = { GIT_AUTHOR_NAME: 'author', GIT_AUTHOR_EMAIL: 'a@t', GIT_COMMITTER_NAME: 'author', GIT_COMMITTER_EMAIL: 'a@t', GIT_CONFIG_NOSYSTEM: '1' }
@@ -98,21 +98,21 @@ test('run writes the note only when every order exits 0, and then show finds it 
 
   const elsewhere = makeElsewhere(t)
   assert.notEqual(sh(elsewhere, 'git', ['cat-file', '-e', t.second]).status, 0, 'the other repository does not have the commit')
-  const show = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second, '--remote', t.remote])
+  const show = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second, '--ref', 'battery', '--remote', t.remote])
   assert.equal(show.status, 0, show.stderr)
   assert.deepEqual(JSON.parse(show.stdout), record)
-  const short = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second.slice(0, 8), '--remote', t.remote])
+  const short = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second.slice(0, 8), '--ref', 'battery', '--remote', t.remote])
   assert.equal(short.status, 0, short.stderr)
   // The one line of git of the documentation gives the same note without the script.
   const line = sh(elsewhere, 'bash', ['-c', `git fetch -q ${t.remote} +refs/notes/battery:refs/notes/tp-battery && git notes --ref=tp-battery show ${t.second}`])
   assert.equal(line.status, 0, line.stderr)
   assert.deepEqual(JSON.parse(line.stdout), record)
   // A commit that did not pass has no record.
-  const none = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.first, '--remote', t.remote])
+  const none = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.first, '--ref', 'battery', '--remote', t.remote])
   assert.equal(none.status, 1)
   assert.equal(none.stdout, '')
   // From no repository at all.
-  const outside = sh(t.dir, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second, '--remote', t.remote])
+  const outside = sh(t.dir, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.second, '--ref', 'battery', '--remote', t.remote])
   assert.equal(outside.status, 0, outside.stderr)
 })
 
@@ -141,16 +141,16 @@ test('a note written by hand is a commit in the history of the reference, and a 
   ok(t.repo, 'git', ['fetch', '-q', 'origin', 'refs/notes/battery:refs/notes/tp-battery'])
   assert.equal(history, ok(t.repo, 'git', ['rev-parse', 'refs/notes/tp-battery']))
   assert.equal(ok(t.repo, 'git', ['rev-list', '--count', 'refs/notes/tp-battery']), '2', 'one commit per write, the automatic one and the manual one')
-  const wrong = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.first])
+  const wrong = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.first, '--ref', 'battery'])
   assert.equal(wrong.status, 3, wrong.stderr)
   assert.match(wrong.stderr, /stored under/)
-  const trace = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.first, '--trace'])
+  const trace = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.first, '--ref', 'battery', '--trace'])
   assert.equal(trace.status, 3)
   assert.match(trace.stderr, /someone by hand/, 'the trace names who wrote it')
   // Rewriting the note of the commit that did pass with a different tree is caught against the commit when it is at hand.
   ok(hand, 'git', ['notes', '--ref=battery', 'add', '-f', '-m', forged, t.second])
   ok(hand, 'git', ['push', '-q', 'origin', 'refs/notes/battery'])
-  const swapped = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.second])
+  const swapped = sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', t.second, '--ref', 'battery'])
   assert.equal(swapped.status, 3, swapped.stderr)
   assert.match(swapped.stderr, /the tree of the commit is/)
 })
@@ -210,7 +210,81 @@ test('an order that fails naming its test files is repeated once, only on those 
   ok(t.repo, 'git', ['commit', '-q', '-am', 'broken']); const bad = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
   const r2 = t.run(bad, { BATTERY_TEST_CMD: failing })
   assert.equal(r2.status, 1)
-  assert.equal(sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', bad]).status, 1)
+  assert.equal(sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', bad, '--ref', 'battery']).status, 1)
   // --no-retry keeps the first result.
   assert.equal(t.run(sha, { BATTERY_TEST_CMD: failing }, ['--no-retry']).status, 1)
+})
+
+const DIGEST = `sha256:${'d'.repeat(64)}`
+
+test('the host fingerprint is the one the reader computes: the compose without its shas, SHA-256, 16 hex', () => {
+  const compose = 'image: reg/app:${V:-48a684af79c77ec05b7faab46750c2de5a17cbf5}\nworker: reg/w:${W:-48a684af79c77ec05b7faab46750c2de5a17cbf5-ccfa2077d636}\npin: x@sha256:4c1ca296ef525f108f5d3552cc337c0c09587cf8dae7f0067fd93349e47dc1cd\n\n'
+  // The reader's own pipeline, in the shell: printf of the text without trailing newlines, sed, sha256sum, first 16.
+  const sh_ = spawnSync('bash', ['-c', "printf '%s\\n' \"$(cat)\" | sed -E 's/[0-9a-f]{40}(-[0-9a-z]+)?/V/g' | sha256sum | cut -c1-16"], { input: compose, encoding: 'utf8' })
+  assert.equal(hostFingerprint(compose), sh_.stdout.trim())
+  // Another sha in the same places gives the same host; another line gives another.
+  assert.equal(hostFingerprint(compose.replaceAll('48a684af79c77ec05b7faab46750c2de5a17cbf5', 'f'.repeat(40)).replace('-ccfa2077d636', '-aaaaaaaaaaaa')), hostFingerprint(compose))
+  assert.notEqual(hostFingerprint(`${compose}extra: 1\n`), hostFingerprint(compose))
+})
+
+test('the base of the production image is the external root of the last stage', () => {
+  assert.equal(finalBase('FROM node:24-alpine AS panel\nFROM alpine:3.24 AS base\nFROM base AS extract\nFROM base\n'), 'alpine:3.24')
+  assert.equal(finalBase('FROM alpine:3.24\n'), 'alpine:3.24')
+})
+
+test('a verification has exactly the fields the reader needs and is built only from orders that exited 0', () => {
+  const sha = 'a'.repeat(40)
+  const results = [{ name: 'complete', cmd: 'npm run test:completa', exit: 0 }, { name: 'panel', cmd: 'npm run test:panel', exit: 0 }]
+  const v = buildVerification({ sha, host: '0123456789abcdef', results, baseDigest: DIGEST, date: new Date('2026-10-26T23:00:00.123Z') })
+  assert.deepEqual(v, { formato: 1, sha, resultado: 'verde', anfitrion: '0123456789abcdef', imagen_base: DIGEST, comandos: [{ orden: 'npm run test:completa', codigo: 0 }, { orden: 'npm run test:panel', codigo: 0 }], momento: '2026-10-26T23:00:00Z' })
+  assert.deepEqual(verificationProblems(v, sha), [])
+  assert.throws(() => buildVerification({ sha, host: '0123456789abcdef', results: [{ ...results[0], exit: 1 }], baseDigest: DIGEST }), /did not exit 0/)
+  assert.throws(() => buildVerification({ sha, host: '0123456789abcdef', results, baseDigest: null, baseReason: 'offline' }), /digest of the image base is unknown \(offline\)/)
+  assert.throws(() => buildVerification({ sha, host: 'xyz', results, baseDigest: DIGEST }), /16 hex/)
+  assert.ok(verificationProblems({ ...v, resultado: 'rojo' }, sha).length > 0)
+  assert.ok(verificationProblems({ ...v, comandos: [{ orden: 'x', codigo: 1 }] }, sha).length > 0)
+  assert.ok(verificationProblems(v, 'b'.repeat(40)).length > 0)
+  // An order repeated on its failed files is named so, and never claims the first run passed.
+  const retried = buildVerification({ sha, host: '0123456789abcdef', results: [{ ...results[0], retried: { files: ['x.test.mjs'] } }], baseDigest: DIGEST })
+  assert.match(retried.comandos[0].orden, /first run failed; repeated only: x\.test\.mjs/)
+})
+
+test('run with a host writes the verification a reader accepts, from another repository, with the one line of git', () => {
+  const t = makeToy()
+  writeFileSync(join(t.repo, 'Dockerfile'), 'FROM node:24-alpine AS panel\nFROM alpine:3.24 AS base\nFROM base\n')
+  ok(t.repo, 'git', ['add', 'Dockerfile']); ok(t.repo, 'git', ['commit', '-q', '-m', 'dockerfile'])
+  const sha = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
+  const compose = join(t.dir, 'compose.yml')
+  writeFileSync(compose, 'image: reg/app:${V:-48a684af79c77ec05b7faab46750c2de5a17cbf5}\n')
+  const digests = JSON.stringify({ 'alpine:3.24': DIGEST, 'node:24-alpine': `sha256:${'e'.repeat(64)}` })
+  const r = t.run(sha, { BATTERY_TEST_DIGESTS: digests }, ['--compose', compose])
+  assert.equal(r.status, 0, r.stdout + r.stderr)
+  const v = JSON.parse(r.stdout)
+  assert.deepEqual(Object.keys(v), ['formato', 'sha', 'resultado', 'anfitrion', 'imagen_base', 'comandos', 'momento'])
+  assert.equal(v.imagen_base, DIGEST)
+  assert.equal(v.anfitrion, hostFingerprint(readFileSync(compose, 'utf8')))
+  assert.deepEqual(v.comandos.map((c) => c.codigo), [0, 0, 0, 0])
+  const elsewhere = makeElsewhere(t)
+  const line = sh(elsewhere, 'bash', ['-c', `git fetch -q ${t.remote} +refs/notes/verificaciones:refs/notes/verificaciones && git notes --ref=verificaciones show ${sha}`])
+  assert.equal(line.status, 0, line.stderr)
+  assert.deepEqual(JSON.parse(line.stdout), v)
+  const show = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', sha, '--remote', t.remote])
+  assert.equal(show.status, 0, show.stderr)
+  assert.deepEqual(JSON.parse(show.stdout), v)
+  const detail = sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', sha, '--ref', 'battery', '--remote', t.remote])
+  assert.equal(JSON.parse(detail.stdout).image_base.length, 2)
+  // The verification of a commit that did not pass does not exist.
+  assert.equal(sh(elsewhere, 'node', [join(t.repo, 'scripts/battery-record.mjs'), 'show', t.first, '--remote', t.remote]).status, 1)
+})
+
+test('without the digest of the image base nothing is written: neither the verification nor the detailed record', () => {
+  const t = makeToy()
+  writeFileSync(join(t.repo, 'Dockerfile'), 'FROM alpine:3.24\n')
+  ok(t.repo, 'git', ['add', 'Dockerfile']); ok(t.repo, 'git', ['commit', '-q', '-m', 'dockerfile'])
+  const sha = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
+  const r = t.run(sha, { BATTERY_TEST_DIGESTS: '{}' }, ['--anfitrion', '0123456789abcdef'])
+  assert.equal(r.status, 1)
+  assert.match(r.stderr, /digest of the image base is unknown/)
+  assert.equal(t.notesRef(), '')
+  assert.equal(sh(t.repo, 'git', ['ls-remote', 'origin', 'refs/notes/verificaciones']).stdout.trim(), '')
 })

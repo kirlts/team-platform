@@ -1,25 +1,29 @@
 #!/usr/bin/env node
-// The battery record: for every commit that passed the complete battery, one git note in `refs/notes/battery` of the canonical's
-// remote. A host that installs that commit reads it with one command instead of repeating, in its own image, tests the canonical
-// already passed.
+// The battery record: for every commit that passed the complete battery, git notes in the canonical's remote. A host that installs
+// that commit reads them with one command instead of repeating, in its own image, tests the canonical already passed. Two references:
+//   refs/notes/verificaciones  the record a host reads (format 1, exactly these fields: formato, sha, resultado «verde», anfitrion,
+//                              imagen_base, comandos [{orden, codigo}], momento). `anfitrion` is the fingerprint of the host's
+//                              compose file, given with --compose <path> or --anfitrion <16 hex>; the file is named generically here.
+//   refs/notes/battery         the same facts and more (seconds, counts, hash of each output, tree, runner, what was skipped), for
+//                              whoever audits. Written first; the verification is written last, once everything else is in place.
 //
-//   node scripts/battery-record.mjs run <sha> [--remote origin] [--no-push] [--no-retry]
+//   node scripts/battery-record.mjs run <sha> [--remote origin] [--no-push] [--no-retry] [--compose <file> | --anfitrion <16 hex>]
 //        runs the four orders on <sha> in a worktree of its own (removed at the end) and writes the note only if all exited 0.
 //        An order that fails and names its failing test files is repeated once, only on those files (the rule of the repository for a
 //        failure); if they pass, the order is recorded with exit 0 plus `first_run` and `retried`, so the note says it happened.
-//   node scripts/battery-record.mjs write <sha> --from <results.jsonl> [--remote origin]
+//   node scripts/battery-record.mjs write <sha> --from <results.jsonl> [--remote origin] [--compose <file> | --anfitrion <16 hex>]
 //        writes the note from the results of orders somebody else ran (scripts/publish-main.sh, which runs the battery as the door
 //        to `main` and hands over what it ran instead of running it twice). Same rule: nothing is written unless all exited 0.
 //   node scripts/battery-record.mjs result --name N --exit E --seconds S --log FILE --cmd CMD
 //        prints the line of results.jsonl for an order somebody else ran (counts and hash come from its log).
-//   node scripts/battery-record.mjs show <sha> [--remote <url>] [--trace]
-//        prints the note of <sha> (any prefix of 4 or more hex digits) and exits 0; exits 1 when there is none, 3 when there is one
+//   node scripts/battery-record.mjs show <sha> [--remote <url>] [--ref verificaciones|battery] [--trace]
+//        prints the note of <sha> (default reference: verificaciones) (any prefix of 4 or more hex digits) and exits 0; exits 1 when there is none, 3 when there is one
 //        that is not valid for that commit. Works from any repository, or from none, and does not need the commit object.
 //
 // The same read as one line of git, from any repository, with the full sha:
-//   git fetch -q https://github.com/kirlts/team-platform.git +refs/notes/battery:refs/notes/tp-battery && git notes --ref=tp-battery show <full sha>
+//   git fetch -q https://github.com/kirlts/team-platform.git +refs/notes/verificaciones:refs/notes/verificaciones && git notes --ref=verificaciones show <full sha>
 //
-// Why a git note and not a file: every write is a commit of the reference `refs/notes/battery`, so writing one by hand leaves the
+// Why a git note and not a file: every write is a commit of the reference, so writing one by hand leaves the
 // author, the date and the parent in the history of the reference (`show --trace`). Writes are fast-forward pushes, never forced.
 // If the remote advanced between the fetch and the push (another writer), the note is applied again on top of the new head and the
 // push is repeated: one note per sha means two writers never touch the same entry, so none is lost.
@@ -32,6 +36,8 @@
 //   schema, sha, tree, date (ISO with offset), node, runner (user@host), commands[] (name, cmd, exit, seconds, tests/pass/fail when
 //   the order prints them, log_sha256 = SHA-256 of the whole output), skipped[] (name, reason: an order the door did not run), and
 //   image_base[] (ref and digest of each external `FROM` of the Dockerfile at that sha; digest null with the reason when unknown).
+// The `imagen_base` of the verification is the digest of the base the production image is built on: the external root of the last
+// stage of the Dockerfile. A verification is not written without it.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
@@ -41,8 +47,12 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const SCHEMA = 1
-export const NOTES_REF = 'refs/notes/battery'
-export const MIRROR_REF = 'refs/notes/tp-battery'
+// Each kind of note: the reference it lives in, the local mirror `show` fetches it into (never the name a host may use for its own
+// copy), and its validator.
+export const KINDS = {
+  battery: { ref: 'refs/notes/battery', mirror: 'refs/notes/tp-battery' },
+  verificaciones: { ref: 'refs/notes/verificaciones', mirror: 'refs/notes/tp-verificaciones' },
+}
 // Ceiling of laps of the write loop so that a remote that rejects forever cannot hold the door. A lap is repeated only because
 // another writer advanced the reference, so the loop ends when the writers do; the ceiling is a guard, not a tuned value.
 const WRITE_LAPS = 8 // guard against a remote that always rejects; not a measured value
@@ -158,6 +168,11 @@ export function externalBases (dockerfile) {
 
 // The digest of an image reference: the registry's (what a build pulls) when it answers, else the local copy's. `lookup` is injectable.
 export function lookupDigest (ref) {
+  // Test seam: BATTERY_TEST_DIGESTS = JSON {ref: digest} answers without a registry.
+  if (process.env.BATTERY_TEST_DIGESTS) {
+    const known = JSON.parse(process.env.BATTERY_TEST_DIGESTS)[ref]
+    return known ? { digest: known } : { digest: null, reason: 'not in BATTERY_TEST_DIGESTS' }
+  }
   const reasons = []
   const remote = spawnSync('docker', ['buildx', 'imagetools', 'inspect', ref], { encoding: 'utf8' })
   const m = remote.status === 0 ? /^Digest:\s+(sha256:[0-9a-f]{64})/m.exec(remote.stdout) : null
@@ -197,11 +212,80 @@ export function buildRecord ({ sha, tree, results, skipped = [], bases, date = n
   }
 }
 
+// The base the production image is built on: the external image at the root of the last stage of the Dockerfile.
+export function finalBase (dockerfile) {
+  const from = new Map() // stage name -> what it starts from
+  let last = null
+  for (const line of dockerfile.split('\n')) {
+    const m = /^\s*FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?/i.exec(line)
+    if (!m) continue
+    last = m[1]
+    if (m[2]) from.set(m[2], m[1])
+  }
+  const seen = new Set()
+  while (last && from.has(last) && !seen.has(last)) { seen.add(last); last = from.get(last) }
+  return last
+}
+
+// The fingerprint of a host's compose file: its text with every 40-hex sha (and the `-<suffix>` after it) replaced by `V`, SHA-256,
+// first 16 hex digits. The text is taken without its trailing newlines and closed with one, as the reader does.
+export function hostFingerprint (composeText) {
+  const text = `${composeText.replace(/\n+$/, '')}\n`
+  return createHash('sha256').update(text.replace(/[0-9a-f]{40}(-[0-9a-z]+)?/g, 'V')).digest('hex').slice(0, 16)
+}
+
+// The verification a host reads (format 1). Throws unless every order exited 0 and the base digest is known.
+export function buildVerification ({ sha, host, results, baseDigest, baseReason, date = new Date() }) {
+  if (!/^[0-9a-f]{16}$/.test(host ?? '')) throw new Error(`the host fingerprint must be 16 hex digits, got ${host}`)
+  if (!/^sha256:[0-9a-f]{64}$/.test(baseDigest ?? '')) throw new Error(`no verification: the digest of the image base is unknown${baseReason ? ` (${baseReason})` : ''}`)
+  const ran = results.filter((r) => !r.skipped)
+  const bad = ran.filter((r) => r.exit !== 0)
+  if (ran.length === 0 || bad.length > 0) throw new Error('no verification: an order did not exit 0, or none ran')
+  return {
+    formato: 1,
+    sha,
+    resultado: 'verde',
+    anfitrion: host,
+    imagen_base: baseDigest,
+    // An order repeated only on its failed files is named with what was repeated: the note must not say the first run exited 0.
+    comandos: ran.map((r) => ({ orden: r.retried ? `${r.cmd} (first run failed; repeated only: ${r.retried.files.join(' ')})` : r.cmd, codigo: r.exit })),
+    momento: `${date.toISOString().slice(0, 19)}Z`,
+  }
+}
+
+// The problems of a verification read from a note (the same checks as its reader). Empty when it is valid for `sha`.
+export function verificationProblems (r, sha) {
+  const problems = []
+  if (r.formato !== 1) problems.push(`formato ${r.formato}`)
+  if (!/^[0-9a-f]{40}$/.test(r.sha ?? '') || r.sha !== sha) problems.push(`the note says it is for ${r.sha}, it is stored under ${sha}`)
+  if (r.resultado !== 'verde') problems.push(`resultado ${r.resultado}`)
+  if (!/^[0-9a-f]{16}$/.test(r.anfitrion ?? '')) problems.push('anfitrion is not 16 hex digits')
+  if (!/^sha256:[0-9a-f]{64}$/.test(r.imagen_base ?? '')) problems.push('imagen_base is not a sha256 digest')
+  if (!Array.isArray(r.comandos) || r.comandos.length === 0 || r.comandos.some((c) => !c || typeof c.orden !== 'string' || c.codigo !== 0)) problems.push('comandos is empty or has a code other than 0')
+  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(r.momento ?? '')) problems.push('momento is not a UTC ISO date')
+  return problems
+}
+
+// The problems of a battery record read from a note.
+export function batteryProblems (r, sha, repo) {
+  const problems = []
+  if (r.schema !== SCHEMA) problems.push(`schema ${r.schema} (this reader knows ${SCHEMA})`)
+  if (r.sha !== sha) problems.push(`the note says it is for ${r.sha}, it is stored under ${sha}`)
+  if (!Array.isArray(r.commands) || r.commands.length === 0 || r.commands.some((c) => c.exit !== 0)) problems.push('it lists no command, or one that did not exit 0')
+  // The tree is checked when the commit is at hand; a host that only fetched the notes does not have it and relies on the sha.
+  if (repo) {
+    const tree = git(repo, ['rev-parse', '--verify', '-q', `${sha}^{tree}`])
+    if (tree.status === 0 && tree.out !== r.tree) problems.push(`the tree of the commit is ${tree.out}, the note says ${r.tree}`)
+  }
+  return problems
+}
+
 // A push the remote refused because the reference moved (another writer), as opposed to a refusal of policy or of the network.
 const isRejection = (err) => /\[rejected\]|non-fast-forward|fetch first|stale info|failed to update ref|failed to lock|cannot lock ref/i.test(err)
 
 // Writes the note of record.sha into `refs/notes/battery` of `remote` (a name or a URL), from the repository `repo`, which has the commit.
-export function writeNote (repo, remote, record, { beforePush } = {}) {
+export function writeNote (repo, remote, record, { beforePush, kind = 'battery' } = {}) {
+  const NOTES_REF = KINDS[kind].ref
   const work = mkdtempSync(join(process.env.TMPDIR || join(process.env.HOME, '.cache'), 'battery-note-'))
   const file = join(work, 'note.json')
   const tmpRef = `refs/notes/battery-w-${process.pid}-${randomBytes(3).toString('hex')}`
@@ -246,8 +330,10 @@ function notePath (repo, ref, wanted) {
 }
 
 // Reads the note of `wanted` (a full sha or a prefix) from `remote`. `repo` is any repository (it receives the mirror reference
-// `refs/notes/tp-battery`), or null to use a throwaway one. Returns { status: 'found'|'missing'|'invalid', ... }.
-export function readNote (repo, remote, wanted, { trace = false } = {}) {
+// `refs/notes/tp-<kind>`), or null to use a throwaway one. Returns { status: 'found'|'missing'|'invalid', ... }.
+export function readNote (repo, remote, wanted, { trace = false, kind = 'battery' } = {}) {
+  const NOTES_REF = KINDS[kind].ref
+  const MIRROR_REF = KINDS[kind].mirror
   let dir = null
   let cwd = repo
   if (!cwd) {
@@ -267,15 +353,7 @@ export function readNote (repo, remote, wanted, { trace = false } = {}) {
     const text = git(cwd, ['cat-file', 'blob', `${MIRROR_REF}:${hit.path}`]).out
     let record
     try { record = JSON.parse(text) } catch { return { status: 'invalid', reason: 'the note is not JSON', sha: hit.sha } }
-    const problems = []
-    if (record.schema !== SCHEMA) problems.push(`schema ${record.schema} (this reader knows ${SCHEMA})`)
-    if (record.sha !== hit.sha) problems.push(`the note says it is for ${record.sha}, it is stored under ${hit.sha}`)
-    if (!Array.isArray(record.commands) || record.commands.length === 0 || record.commands.some((c) => c.exit !== 0)) problems.push('it lists no command, or one that did not exit 0')
-    // The tree is checked when the commit is at hand; a host that only fetched the notes does not have it and relies on the sha.
-    if (repo) {
-      const tree = git(repo, ['rev-parse', '--verify', '-q', `${hit.sha}^{tree}`])
-      if (tree.status === 0 && tree.out !== record.tree) problems.push(`the tree of the commit is ${tree.out}, the note says ${record.tree}`)
-    }
+    const problems = kind === 'verificaciones' ? verificationProblems(record, hit.sha) : batteryProblems(record, hit.sha, repo)
     const out = { status: problems.length ? 'invalid' : 'found', record, sha: hit.sha, problems }
     if (trace) out.trace = git(cwd, ['log', '--format=%H %an <%ae> %aI %s', MIRROR_REF, '--', hit.path]).out.split('\n').filter(Boolean)
     return out
@@ -291,7 +369,7 @@ function parseArgs (argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--no-push' || a === '--trace' || a === '--no-retry') opts[a.slice(2)] = true
-    else if (['--remote', '--from', '--name', '--exit', '--seconds', '--log', '--cmd'].includes(a)) opts[a.slice(2)] = argv[++i]
+    else if (['--remote', '--ref', '--anfitrion', '--compose', '--from', '--name', '--exit', '--seconds', '--log', '--cmd'].includes(a)) opts[a.slice(2)] = argv[++i]
     else if (a.startsWith('--')) { console.error(`battery-record: unknown option ${a}`); process.exit(2) }
     else opts._.push(a)
   }
@@ -315,10 +393,40 @@ function resolveCommit (root, wanted, remote) {
   return r.out
 }
 
-function recordFor (root, sha, results, skipped) {
+// The fingerprint of the host the tests ran against: given as 16 hex digits or computed from its compose file. Null when neither is given.
+function hostOf (opts) {
+  if (opts.anfitrion) return opts.anfitrion
+  if (opts.compose) return hostFingerprint(readFileSync(opts.compose, 'utf8'))
+  return null
+}
+
+// Both notes of a commit from the results of its orders. The verification is null (with a warning) when no host was given.
+function recordsFor (root, sha, results, skipped, opts) {
   const tree = git(root, ['rev-parse', `${sha}^{tree}`]).out
   const dockerfile = git(root, ['show', `${sha}:Dockerfile`])
-  return buildRecord({ sha, tree, results, skipped, bases: imageBase(dockerfile.status === 0 ? dockerfile.raw : null) })
+  const bases = imageBase(dockerfile.status === 0 ? dockerfile.raw : null)
+  const battery = buildRecord({ sha, tree, results, skipped, bases })
+  const host = hostOf(opts)
+  if (!host) {
+    console.error('battery-record: no --compose or --anfitrion given: only the detailed record is written, not the verification a host reads')
+    return { battery, verification: null }
+  }
+  const root_ = dockerfile.status === 0 ? finalBase(dockerfile.raw) : null
+  const entry = bases.find((b) => b.ref === root_)
+  const verification = buildVerification({ sha, host, results, baseDigest: entry?.digest, baseReason: entry?.reason ?? 'no Dockerfile or no FROM at that commit' })
+  return { battery, verification }
+}
+
+// Writes the detailed record first and the verification last: the verification is the signal a host acts on.
+function persist (root, remote, { battery, verification }) {
+  const written = []
+  const w = writeNote(root, remote, battery, { kind: 'battery' })
+  written.push(`${KINDS.battery.ref} (lap ${w.lap})`)
+  if (verification) {
+    const v = writeNote(root, remote, verification, { kind: 'verificaciones' })
+    written.push(`${KINDS.verificaciones.ref} (lap ${v.lap})`)
+  }
+  console.error(`battery-record: wrote ${written.join(' and ')} for ${battery.sha} on ${remote}`)
 }
 
 function prepareModules (root, common, wt, rel) {
@@ -367,11 +475,9 @@ async function commandRun (opts) {
       console.error(`battery-record: nothing written for ${sha}; logs in ${logs}`)
       return 1
     }
-    const record = recordFor(root, sha, results, [])
-    if (opts['no-push']) { console.log(JSON.stringify(record)); return 0 }
-    const w = writeNote(root, remote, record)
-    console.error(`battery-record: wrote ${NOTES_REF} for ${sha} on ${remote} (lap ${w.lap})`)
-    console.log(JSON.stringify(record))
+    const records = recordsFor(root, sha, results, [], opts)
+    if (!opts['no-push']) persist(root, remote, records)
+    console.log(JSON.stringify(records.verification ?? records.battery))
     rmSync(logs, { recursive: true, force: true })
     return 0
   } finally {
@@ -389,10 +495,9 @@ function commandWrite (opts) {
   const lines = readFileSync(opts.from, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
   const results = lines.filter((l) => !l.skipped)
   const skipped = lines.filter((l) => l.skipped).map((l) => ({ name: l.name, reason: l.skipped }))
-  const record = recordFor(root, sha, results, skipped)
-  const w = writeNote(root, remote, record)
-  console.error(`battery-record: wrote ${NOTES_REF} for ${sha} on ${remote} (lap ${w.lap})`)
-  console.log(JSON.stringify(record))
+  const records = recordsFor(root, sha, results, skipped, opts)
+  persist(root, remote, records)
+  console.log(JSON.stringify(records.verification ?? records.battery))
   return 0
 }
 
@@ -405,13 +510,15 @@ function commandResult (opts) {
 }
 
 function commandShow (opts) {
-  if (!opts._[1]) { console.error('usage: battery-record show <sha> [--remote <url>] [--trace]'); return 2 }
+  if (!opts._[1]) { console.error('usage: battery-record show <sha> [--remote <url>] [--ref verificaciones|battery] [--trace]'); return 2 }
   const inside = git(process.cwd(), ['rev-parse', '--git-dir']).status === 0
   const bare = git(process.cwd(), ['rev-parse', '--is-bare-repository']).out === 'true'
   const repo = inside && !bare ? process.cwd() : null
   const remote = opts.remote ?? (repo ? 'origin' : null)
   if (!remote) { console.error('battery-record show: outside a repository the remote is required (--remote <url>)'); return 2 }
-  const r = readNote(repo, remote, opts._[1].toLowerCase(), { trace: opts.trace })
+  const kind = opts.ref ?? 'verificaciones'
+  if (!KINDS[kind]) { console.error(`battery-record show: --ref is one of ${Object.keys(KINDS).join(', ')}`); return 2 }
+  const r = readNote(repo, remote, opts._[1].toLowerCase(), { trace: opts.trace, kind })
   if (r.status === 'missing') { console.error(`battery-record: ${r.reason}`); return 1 }
   if (r.status === 'invalid') {
     console.error(`battery-record: invalid record: ${r.problems?.join('; ') ?? r.reason}`)

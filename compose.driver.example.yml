@@ -1,0 +1,12 @@
+# Adds to the image the programs a driver of the `execute` machines needs next to the worker (docs/INSTALACION.md, «Un driver dentro del contenedor»).
+#
+#   COMPOSE_FILE=compose.yml:compose.driver.example.yml scripts/install.sh
+#
+# DRIVER_PACKAGES is the list of Alpine packages (the build argument of the Dockerfile). `bash` and `git` are what drivers/fly-machines asks of the worker;
+# drivers/docker-local asks for `bash` and `docker-cli` (and the host's Docker socket mounted, which this file does not do). Change the list in the host's
+# own override, or set DRIVER_PACKAGES in the environment of the build.
+services:
+  team-platform:
+    build:
+      args:
+        DRIVER_PACKAGES: ${DRIVER_PACKAGES:-bash git}

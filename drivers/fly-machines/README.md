@@ -20,7 +20,7 @@ EXECUTE_MACHINE_DESTROY=bash /opt/team-platform/drivers/fly-machines/destroy.sh 
 EXECUTE_DELIVER_COMMAND=bash /opt/team-platform/drivers/fly-machines/deliver.sh {message_id} {job_id} {branch} {workdir}
 ```
 
-El trabajador necesita `node` 22 o superior (usa `fetch`), `bash`, `flock`, `tar` y `git`. La imagen de la máquina necesita `bash`, `node`, `git`, `tar`, `base64` y `runuser` (todos están en la imagen base del `Dockerfile`).
+El trabajador necesita `node` 22 o superior (usa `fetch`), `bash`, `flock`, `tar` y `git`. La imagen del servicio trae `node`, `flock` y `tar`; `bash` y `git` los agrega `compose.driver.example.yml`, y los guiones de este driver viajan en `/app/drivers/fly-machines` (recorrido completo y comprobación en `docs/INSTALACION.md`, «Un driver dentro del contenedor»). Instalado así, el trabajador lee el token de un archivo montado (`TP_FLY_TOKEN_FILE`) y guarda su estado en el volumen (`TP_FLY_STATE=/data/driver-state`). La imagen de la máquina necesita `bash`, `node`, `git`, `tar`, `base64` y `runuser` (todos están en la imagen base del `Dockerfile`).
 
 | Variable del trabajador | Omisión | Efecto |
 |---|---|---|

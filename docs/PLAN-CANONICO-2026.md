@@ -104,18 +104,18 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| A1 `docs/CONTRATO-DE-ANFITRION.md` | El contrato entero en un solo documento: variables, cinco órdenes, marcadores, entorno, códigos 0/75/76, `##team phase` y `##team wait`, entrega repetible, `contract_version`. Sale de MASTER-SPEC §7.5 y de lo que el primer anfitrión documentó por su lado | por hacer |
-| A2 `drivers/docker-local` | Driver de referencia: CREATE levanta un contenedor desde `drivers/docker-local/Dockerfile`, RUN copia `{workdir}` y corre `bash run.sh`, COLLECT saca la transcripción, DESTROY borra siempre, DELIVER de ejemplo que empuja la rama a un remoto local | en rama `wt-driver-local` (`4062f77d`), 11 pruebas contra Docker real; la imagen con Claude real sin construir |
-| A3 `scripts/host-conformance.mjs` | Prueba de conformidad: con un driver y un trabajo de prueba ejercita las cinco órdenes, verifica el NDJSON de la sesión, que DESTROY corre tras un fallo y tras un plazo vencido, que 75 no gasta intento, que 76 deja `delivery_held`, y que DELIVER es repetible. Sale 0 sólo si todo pasa; imprime la `contract_version` que cumple | por hacer |
+| A1 `docs/CONTRATO-DE-ANFITRION.md` | El contrato entero en un solo documento: variables, cinco órdenes, marcadores, entorno, códigos 0/75/76, `##team phase` y `##team wait`, entrega repetible, `contract_version`. Sale de MASTER-SPEC §7.5 y de lo que el primer anfitrión documentó por su lado | hecho (`702e0eaa`, UD-311) |
+| A2 `drivers/docker-local` | Driver de referencia: CREATE levanta un contenedor desde `drivers/docker-local/Dockerfile`, RUN copia `{workdir}` y corre `bash run.sh`, COLLECT saca la transcripción, DESTROY borra siempre, DELIVER de ejemplo que empuja la rama a un remoto local | hecho (`b76ea305`): 19 pruebas contra Docker real; la imagen con Claude Code 2.1.311 se construye y `claude --version` responde dentro |
+| A3 `scripts/host-conformance.mjs` | Prueba de conformidad: con un driver y un trabajo de prueba ejercita las cinco órdenes, verifica el NDJSON de la sesión, que DESTROY corre tras un fallo y tras un plazo vencido, que 75 no gasta intento, que 76 deja `delivery_held`, y que DELIVER es repetible. Sale 0 sólo si todo pasa; imprime la `contract_version` que cumple | hecho (`cbea03c2`): 13 casos; sale 0 en un clon limpio de `desarrollo` instalado con `INSTALACION.md`, 2026-10-26 21:17 |
 | A4 `drivers/fly-machines` | Driver de máquinas bajo demanda sobre la API de Fly Machines: CREATE crea una máquina desde una imagen declarada con `auto_destroy`, RUN ejecuta por `exec`, COLLECT lee la transcripción, DESTROY la destruye; cada máquina nace con vida máxima declarada. Sin nombrar al anfitrión que lo usará | por hacer |
 | A5 Driver de máquinas efímeras en nube del primer anfitrión | Sigue en su repositorio porque nombra su proyecto y su cuota; en el canónico se cita como ejemplo externo, sin nombre, en `drivers/README.md` | hecho en el anfitrión; cita por hacer |
-| A6 `contract_version` en `/health` y en la salida del trabajador al arrancar | El trabajador rechaza arrancar con un driver que declare otra versión mayor | por hacer |
+| A6 `contract_version` en `/health` y en la salida del trabajador al arrancar | El trabajador rechaza arrancar con un driver que declare otra versión mayor | hecho (`cbea03c2`) |
 
 ### B. Piezas que vuelven del anfitrión al núcleo
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| B1 `scripts/canary.mjs` | Un envío con destinatario agente, análisis, publicación, `execute`, respuesta «OK» en el hilo; todo por evento; sale 0 sólo con la respuesta; cierra y borra su mensaje. Corre tras instalar y tras cada despliegue del anfitrión | en rama `wt-driver-local` (`4062f77d`), 8 pruebas contra servidor y trabajador reales; identidad por cabecera firmada sin probar |
+| B1 `scripts/canary.mjs` | Un envío con destinatario agente, análisis, publicación, `execute`, respuesta «OK» en el hilo; todo por evento; sale 0 sólo con la respuesta; cierra y borra su mensaje. Corre tras instalar y tras cada despliegue del anfitrión | en `desarrollo` (`b76ea305`), 8 pruebas contra servidor y trabajador reales; identidad por cabecera firmada sin probar (fase 1) |
 | B2 `src/execute/captures/` | Capturador de pantallas del arnés: navegador sin cabeza, máscara de datos, zona abierta (`EXECUTE_CAPTURES_OPEN_ZONE`), declaración de qué muestra cada captura (UD-268). Hoy vive en el anfitrión como `vista/` | por hacer |
 | B3 `src/execute/hooks/` | Guardias de órdenes y de herramientas que el anfitrión configura por lista, y la exigencia de cierre: una sesión termina con salida válida o el trabajo falla con motivo | por hacer; la exigencia de cierre existe en parte (Guardia de la idea, retoma) |
 | B4 Barrido de máquinas huérfanas | Al arrancar, el trabajador llama DESTROY de toda `execute_runs` con máquina creada y sin destruir; nada queda sin atender (UD de 2026-10-25) | por hacer |
@@ -141,7 +141,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | D2 Pruebas e2e por capacidad | Con `scripts/walkthrough.mjs` y `scripts/test-dirigido`, contra una instancia con `docker-local` | parcial: existen para análisis, execute y entrega |
 | D3 Jueces de interfaz por vista | Método de `docs/investigaciones/10`; cada vista con su encargo, capturas en escritorio y teléfono, claro y oscuro; los mismos jueces al cerrar, sin decirles qué cambió | por hacer |
 | D4 Cierre del TODO | Lo que exige dominio o servidor limpio se cierra en el segundo anfitrión; lo que exige un aparato o una llave queda como límite externo con dueño y comando | por hacer |
-| D5 `scripts/clean-worktrees.sh` | Lista y retira worktrees sin agente vivo; corre al abrir sesión | por hacer |
+| D5 `scripts/clean-worktrees.sh` | Lista y retira worktrees sin agente vivo; corre al abrir sesión | hecho (`2f82a21f`): retiró 131 worktrees sin agente vivo, 1,9 GB |
 
 ### E. La estética del panel canónico se conserva
 
@@ -167,7 +167,7 @@ La auditoría y las tres direcciones de `wt-identidad` quedan como medición (`d
 
 | Fase | Piezas | Criterio de salida, medido con un comando |
 |---|---|---|
-| 0 Contrato | A1, A2, A3, A6 | `node scripts/host-conformance.mjs --driver drivers/docker-local` sale 0 en una instalación limpia |
+| 0 Contrato | A1, A2, A3, A6 | `node scripts/host-conformance.mjs --driver drivers/docker-local` sale 0 en una instalación limpia. Cumplido el 2026-10-26 a las 21:17, en un clon limpio de `desarrollo` (`40d710fc`) |
 | 1 Traer lo genérico | B1 a B7 | El primer anfitrión borra su copia de cada pieza y su canario pasa con la del canónico |
 | 2 Segundo anfitrión | A4, F1, F2, D4 | `scripts/canary.mjs` sale 0 contra el segundo anfitrión, con `drivers/fly-machines`, instalado siguiendo `INSTALACION.md` sin un paso a mano fuera del documento |
 | 3 Publicación propia | C1 a C5 | `main` avanza una vez por `publish-main.sh`; el gancho rechaza la marca vieja; el primer anfitrión fija versión por sha |

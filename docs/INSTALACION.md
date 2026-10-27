@@ -494,6 +494,22 @@ El trabajador pone cada marcador entre comillas simples de shell antes de correr
 
 4. Comprobación: asignar un mensaje al agente y mirar la Cola. La primera respuesta del agente llega al hilo al empezar y la final al terminar. La traza del trabajo (`GET /api/jobs/:id/trace`) trae `team.session_id` y `team.cost_usd`.
 
+### Conectar un driver y comprobar que cumple
+
+Un driver es un directorio con las cinco órdenes del contrato (`docs/CONTRATO-DE-ANFITRION.md`) como guiones: `create.sh`, `run.sh`, `collect.sh`, `destroy.sh` y `deliver.sh`. El de referencia es `drivers/docker-local`, que corre cada trabajo en un contenedor de la misma máquina; `drivers/README.md` explica cómo escribir otro.
+
+La prueba de conformidad corre en el clon del repositorio, fuera del contenedor del servicio. No usa la instancia instalada ni llama a Anthropic: crea su propia base efímera y pone un doble de Claude Code dentro de la máquina. Requisitos: Node 24.15 o superior y `TMPDIR` en disco si `/tmp` es memoria. Los drivers que usan Docker piden además un Docker que responda al usuario que corre la prueba.
+
+```sh
+npm ci --no-audit --no-fund
+curl -fsS 127.0.0.1:3000/health          # trae "contract_version": 1, la versión del contrato que implementa el núcleo
+TMPDIR=$HOME/.cache node scripts/host-conformance.mjs --driver drivers/docker-local
+```
+
+Imprime un caso por línea (`ok` o `FAIL` con el motivo) y termina con `contract_version: 1 met`. Sale con 0 sólo si todos pasan; con 1 si alguno falló; con 2 si el driver no existe. Con `drivers/docker-local` construye una imagen sin Claude Code (`team-platform-agent:conformance`) y tarda cerca de 45 s (medido el 2026-10-26 en un clon limpio de `desarrollo`). `--help` lista los casos.
+
+Las líneas de `.env` que conectan el driver al trabajador, la imagen de la máquina y sus ajustes están en `drivers/README.md`, sección «Driver `docker-local`». `drivers/docker-local` llama a `docker` desde el trabajador. El trabajador corre entonces donde `docker` responda: en la misma máquina con `npm run worker`, o en un contenedor con el socket de Docker montado. Si declara otra versión mayor que la del núcleo, el trabajador no arranca y dice cuál esperaba.
+
 ### La entrega aparte
 
 Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por las reglas del anfitrión y espera el despliegue. Con la orden declarada, la sesión termina al empujar la rama `tp/<id>` y la máquina se destruye. Después, un trabajo `deliver` hace la entrega en el host del trabajador, sin IA. El autor recibe una sola respuesta final cuando la entrega termina.

@@ -21,6 +21,8 @@
 # Settings (all optional): BATTERY_MEMORY, BATTERY_CPUS,
 # BATTERY_IMAGE_TAG (default team-platform-battery:<hash of Dockerfile and lockfiles>), TMPDIR (default $HOME/.cache: /tmp is memory).
 set -u -o pipefail
+# A shell function named docker inherited from the caller's profile would shadow the binary on PATH; the script talks to the binary only.
+unset -f docker 2>/dev/null || true
 
 TREE="$PWD"
 while [ $# -gt 0 ]; do

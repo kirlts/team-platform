@@ -5,6 +5,7 @@ Team Platform no conoce ninguna nube. El trabajo `execute` corre la sesión desa
 | Directorio | Infraestructura | Estado |
 |---|---|---|
 | `docker-local/` | Docker en la misma máquina del trabajador | Probado en `src/execute/drivers-docker-local.test.js` |
+| `fly-machines/` | Máquinas bajo demanda de la API de Fly Machines | Probado en `src/execute/drivers-fly-machines.test.js` y con `scripts/host-conformance.mjs`; ver su `README.md` |
 
 El contrato vive en `src/execute/runners.js` (máquina) y `src/execute/deliver.js` (entrega). Lo que sigue es su resumen. Si difiere del código, manda el código.
 
@@ -100,20 +101,11 @@ Un driver son cuatro guiones que cumplen la tabla de arriba. Se prueba con el `r
 3. Cuál es su 75: la cuota o el stock que la nube niega, y dónde se cuenta para no pasarse.
 4. Qué retira la máquina si el trabajador muere sin llamar a destroy: una vida máxima declarada en la propia nube.
 
-### Esbozo para Fly Machines
+### Fly Machines
 
-Documentación consultada el 2026-10-26. [`fly machine run`](https://docs.fly.io/machines/flyctl/fly-machine-run), [`fly machine destroy`](https://docs.fly.io/flyctl/machine-destroy), [`fly machine exec`](https://docs.fly.io/flyctl/machine-exec) y [Fly Volumes](https://docs.fly.io/volumes/overview). Los flags citados están en esas páginas; el esbozo no se ejecutó contra una cuenta de Fly.
-
-| Gancho | Esbozo |
-|---|---|
-| create | `fly machine run <imagen con claude, node y bash> --app <app> --name tp-job-{job_id} --region <región> --vm-size <tamaño> --restart no --metadata team_platform=job sleep infinity`. `--restart no` evita que Fly reviva una máquina que ya terminó. Se imprime el nombre como última línea. Si Fly responde que no hay capacidad en la región, el guion sale 75 |
-| run | Copia `{workdir}` con `--file-local` al crear la máquina para los archivos chicos, o con `fly ssh sftp` para el resto, y corre `fly machine exec <máquina> 'bash /job/run.sh' --app <app> --timeout <EXECUTE_TIMEOUT_MS en segundos>`. La salida de `exec` es la del comando; hay que comprobar que llega línea a línea y sin mezcla con stderr. La página de `exec` no documenta stdin, y `run.sh` lee `prompt.md` de un archivo, así que no lo necesita |
-| collect | `fly ssh sftp get` de `/job/claude/projects`, `/job/captures` y `/job/attachments`, y la transcripción se sube al almacenamiento del anfitrión (un depósito de objetos, o el volumen de Team Platform si corre en Fly) |
-| destroy | `fly machine destroy tp-job-{job_id} --app <app> --force`, idempotente. `--force` hace que funcione con la máquina corriendo, como exige el contrato. Un `not found` sale 0 |
+Está escrito y probado en `drivers/fly-machines/`; su `README.md` trae las variables, los límites de la API medidos contra una cuenta real (el `exec` no entrega salida en vivo, se corta a los 65 s y admite 16 KiB por solicitud) y cómo el driver los resuelve. El esbozo que estuvo aquí se reemplazó por esa medición: suponía una vida máxima que Fly no documenta y salida de `exec` en vivo, y ninguna de las dos cosas vale.
 
 Si Team Platform mismo corre en Fly, su `/data` (la base SQLite, los adjuntos y `{workdir}`) va en un volumen. Un volumen se monta en una sola Machine y vive en una sola región. El trabajador y su volumen son una unidad: no hay dos trabajadores sobre el mismo `/data`. Las máquinas de las sesiones no montan ese volumen. Reciben `{workdir}` por copia y devuelven capturas y transcripción por collect, igual que con Docker.
-
-El tope de máquinas lo hace cumplir create, contando las máquinas vivas con la metadata `team_platform=job` bajo un candado (regla 3). Para un trabajador muerto, `--restart no` detiene la máquina al terminar el comando. La documentación consultada no menciona una vida máxima por máquina, así que el barrido de las que queden queda a cargo del anfitrión.
 
 ## El canario
 
@@ -122,5 +114,7 @@ El tope de máquinas lo hace cumplir create, contando las máquinas vivas con la
 ```sh
 TEAM_URL=https://team.ejemplo.cl TEAM_EMAIL=… TEAM_PASSWORD=… CANARY_AREA="Canario" node scripts/canary.mjs
 ```
+
+Con una identidad por cabecera firmada (`IDENTITY_PROVIDER=delegated`, `DELEGATED_MODE=signed-header`) no hay clave de persona: `CANARY_DELEGATED_SECRET` y `CANARY_USER_EMAIL` firman cada petición como Editor. En una instalación nueva, `CANARY_CREATE=1` crea el área y el miembro agente que falten (`CANARY_AGENT` es entonces su correo), y `CANARY_AREA_MODEL` fija el modelo del área para que la corrida cueste lo que el anfitrión declaró. Sin `CANARY_CREATE`, un área o un agente ausentes dejan el canario en rojo, que es lo que una instancia de producción tiene que decir.
 
 Las variables y los códigos están en la cabecera del guion.

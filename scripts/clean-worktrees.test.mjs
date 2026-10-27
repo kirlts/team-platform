@@ -48,6 +48,13 @@ before(() => {
   writeFileSync(join(wt('unpushed'), 'b.txt'), 'b\n')
   git(wt('unpushed'), 'add', 'b.txt')
   git(wt('unpushed'), 'commit', '-q', '-m', 'local only')
+  // Pushed but not in main: the work in progress of someone else.
+  git(repo, 'worktree', 'add', '-q', '-b', 'br-unmerged', wt('unmerged'), 'main')
+  writeFileSync(join(wt('unmerged'), 'c.txt'), 'c\n')
+  git(wt('unmerged'), 'add', 'c.txt')
+  git(wt('unmerged'), 'commit', '-q', '-m', 'pushed, not landed')
+  git(wt('unmerged'), 'push', '-q', 'origin', 'br-unmerged')
+  git(repo, 'fetch', '-q', 'origin')
   // A process whose cwd is inside "live".
   children.push(spawn('sleep', ['600'], { cwd: wt('live'), stdio: 'ignore' }))
   // A process that only holds a file open under "open", with its cwd elsewhere.
@@ -68,14 +75,15 @@ test('--list classifies each worktree and removes nothing', () => {
   assert.equal(rows[wt('open')], 'live')
   assert.equal(rows[wt('dirty')], 'dirty')
   assert.equal(rows[wt('unpushed')], 'unpushed')
-  for (const name of ['clean', 'live', 'open', 'dirty', 'unpushed']) assert.ok(existsSync(wt(name)), name)
-  assert.match(run('--list').trim().split('\n').at(-1), /^live 2, nested 0, dirty 1, unpushed 1, unknown 0, removable 1$/)
+  assert.equal(rows[wt('unmerged')], 'unmerged')
+  for (const name of ['clean', 'live', 'open', 'dirty', 'unpushed', 'unmerged']) assert.ok(existsSync(wt(name)), name)
+  assert.match(run('--list').trim().split('\n').at(-1), /^live 2, nested 0, dirty 1, unpushed 1, unmerged 1, unknown 0, removable 1$/)
 })
 
 test('without --list only the removable worktree goes and every branch stays', () => {
   const out = run()
   assert.ok(!existsSync(wt('clean')))
-  for (const name of ['live', 'open', 'dirty', 'unpushed']) assert.ok(existsSync(wt(name)), name)
+  for (const name of ['live', 'open', 'dirty', 'unpushed', 'unmerged']) assert.ok(existsSync(wt(name)), name)
   assert.ok(existsSync(join(wt('dirty'), 'new.txt')))
   const branches = git(repo, 'branch', '--format=%(refname:short)').split('\n')
   for (const name of ['clean', 'live', 'open', 'dirty', 'unpushed']) assert.ok(branches.includes(`br-${name}`), name)

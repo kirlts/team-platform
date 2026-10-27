@@ -880,10 +880,10 @@ function control(path, query) {
     // B7: one message per state of the work of an agent in the sheet: waiting, creating the machine, in the session, failed session (the retry runs the work again), failed delivery (the retry only publishes).
     if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
     const phase = (name, duration_ms, status = 'unset') => ({ name, duration_ms, offset_ms: null, status })
-    const timing = (message_id, over) => ({ message_id, job_id: `j-work-${message_id}`, job_status: 'running', trace_id: null, phase: null, attempts: 1, elapsed_ms: null, first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null, total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null, ...over })
+    const timing = (message_id, over) => ({ message_id, machine: true, delivers: true, job_id: `j-work-${message_id}`, job_status: 'running', trace_id: null, phase: null, attempts: 1, elapsed_ms: null, first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null, total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null, ...over })
     const failure = (action) => [{ author_id: 'u-claude', kind: 'answer', created_at: ago(2), body: action === 'publish' ? 'Claude no pudo entregar el cambio: se acabó el tiempo.' : 'Claude no pudo responder: se acabó el tiempo.', retryable: true, retry_action: action, replaced_by_job_id: null, retrying: false }]
     const make = (title, over, rs = []) => {
-      const msg = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title, body: 'Mensaje trabajado por Claude.', created_at: ago(30), assignee_ids: ['u-claude'], attachment_ids: [] }, rs)
+      const msg = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title, body: `${title}: mensaje que trabaja Claude.`, created_at: ago(30), assignee_ids: ['u-claude'], attachment_ids: [] }, rs)
       workTimings.set(msg.id, timing(msg.id, over))
       return msg.id
     }

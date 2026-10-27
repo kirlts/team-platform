@@ -65,7 +65,10 @@ async function routes(page) {
   const withReplies = ids.find((m) => /Agregar exportación/.test(m.title))
   assert.ok(long, 'the sample data lacks the long thread')
   const detail = [long, gallery, voice, withReplies].filter(Boolean).map((m) => `/messages/${m.id}`)
-  return ['/', '/messages', ...detail, '/areas', '/connections', '/team', '/settings']
+  // The work of an agent in the sheet (B7): the session running and a delivery that failed, which adds the retry button to the panel on a phone.
+  panel.work ??= await panel.control.agentWork()
+  const work = [panel.work.session, panel.work.failed_delivery].map((id) => `/messages/${id}`)
+  return ['/', '/messages', ...detail, ...work, '/areas', '/connections', '/team', '/settings']
 }
 
 describe('no horizontal overflow on a phone', () => {
@@ -80,6 +83,8 @@ describe('no horizontal overflow on a phone', () => {
           await page.goto(`${panel.origin}${path}`)
           await page.locator('main#main').waitFor()
           await settled(page)
+          // The routes of the work of an agent must show its panel, or they prove nothing about it.
+          if (path === `/messages/${panel.work.session}` || path === `/messages/${panel.work.failed_delivery}`) await page.getByTestId('agent-work').first().waitFor({ timeout: 10000 })
           if (BREAK) await page.evaluate(() => document.querySelector('main#main').insertAdjacentHTML('beforeend', '<div id="break" style="width:900px;height:20px">x</div>'))
           const m = await page.evaluate(measure)
           if (m.scrollWidth > m.vw || m.bodyScrollWidth > m.vw) failures.push(`${path}: scrollWidth ${m.scrollWidth}/${m.bodyScrollWidth} > ${m.vw}`)

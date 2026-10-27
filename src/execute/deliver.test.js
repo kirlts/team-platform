@@ -116,6 +116,7 @@ describe('deliver job', () => {
     assert.deepEqual(replies(messageId).length, 1, 'only the first reply exists while the delivery runs')
     const running = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: editor } })).json()
     assert.deepEqual([running.job_status, running.phase, running.deliver.job_id], ['running', 'deliverDeploy', String(delivery.id)])
+    assert.equal(running.delivers, true, 'the instance declares a delivery apart: the panel shows the stretch from the start (B7)')
 
     writeFileSync(gate, '')
     assert.equal((await waitJob(delivery.id)).status, 'done')

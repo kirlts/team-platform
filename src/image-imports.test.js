@@ -46,6 +46,7 @@ test('every companion of team.mjs is in the build context', async () => {
   const imported = [...team.matchAll(/(?:from |import\()\s*['"]\.\/([^'"]+)['"]/g)].map((m) => m[1])
   const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
   const runtime = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '))
+  assert.deepEqual(imported.filter((f) => !TEAM_COMPANIONS.includes(f)), [], 'team.mjs imports a module that does not travel with it to the session\'s bin/')
   const missing = [...new Set([...TEAM_COMPANIONS, ...imported])]
     .filter((f) => !ignore.includes(`!scripts/${f}`) || !runtime.includes(`COPY scripts/${f} `))
   assert.deepEqual(missing, [])
@@ -61,3 +62,17 @@ test('every COPY scripts/<file> in the Dockerfile is allowed by .dockerignore', 
   const missing = [...new Set(copied)].filter((f) => !ignore.includes(`!scripts/${f}`))
   assert.deepEqual(missing, [], `.dockerignore must allow: ${missing.join(', ')}`)
 })
+
+// The canary is what a host runs inside the worker after a deploy to know that an unattended session still answers; an image without it leaves the host
+// with a command that fails with «Cannot find module» exactly when it is needed.
+test('the canary is in the image, outside .dockerignore, and imports nothing that is not a Node module', () => {
+  const ignore = readFileSync(path.join(root, '.dockerignore'), 'utf8').split('\n')
+  const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
+  const runtime = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '))
+  assert.ok(ignore.includes('!scripts/canary.mjs'), '.dockerignore excludes the canary')
+  assert.ok(runtime.includes('COPY scripts/canary.mjs ./scripts/canary.mjs'), 'the runtime stage does not copy the canary')
+  const source = readFileSync(path.join(root, 'scripts', 'canary.mjs'), 'utf8')
+  const imported = [...source.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1])
+  assert.deepEqual(imported.filter((m) => !m.startsWith('node:')), [], 'the canary imports something the image may not carry')
+})
+

@@ -500,6 +500,10 @@ export interface MessageTiming {
   total_ms: number | null
   queue_wait_ms: number | null
   phases: { name: string; duration_ms: number; offset_ms: number | null; status: string }[]
+  /** The instance declares a delivery apart from the session: work that ends in a change goes through it. Whether a given session ends in one is its result's (B7). */
+  delivers?: boolean
+  /** The session runs on a machine created for it; with the local runner there is no machine stretch (B7). */
+  machine?: boolean
   /** The delivery that followed the run (UD-263), when there is one. */
   deliver?: { job_id: string; job_status: string; phase: string | null; attempts: number }
   slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]

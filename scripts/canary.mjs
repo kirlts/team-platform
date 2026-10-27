@@ -23,6 +23,11 @@
 //   CANARY_MAX_COST_USD       optional: red when the session costs more (the cost of the run is the host's to declare; there is no default)
 //   CANARY_STATE              optional: file where the result is written as one line of JSON (what a watcher reads)
 //   CANARY_DELETE             `1` deletes the message after a green run
+//   CANARY_AREA_MODEL         optional: a model of the closed list of the areas (`claude-haiku-5-5`, …) the canary sets as the model and the light model of its area when they
+//                             differ, so the run costs what the host declared and not what the area was left with
+//   CANARY_CREATE             `1` creates what a new instance lacks: the area titled CANARY_AREA and, when no agent matches, the agent member whose email is CANARY_AGENT
+//                             (named CANARY_AGENT_NAME, `Claude` by default). Without it a missing area or agent is red, which is what a production instance must say
+//   CANARY_AREA_DESCRIPTION   optional: the description of the area it creates
 import { createHmac } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
@@ -102,7 +107,7 @@ async function readEvents (response, onEvent) {
 /**
  * Runs the path. Resolves { ok: true, ... } or throws `Red`. `deadlines` ({ analysis, session }) narrows the waits in tests.
  */
-export async function runCanary ({ base, identity, area: areaRef, agent: agentRef = null, fetchFn = fetch, now = Date.now, deadlines = {}, log = () => {}, maxCostUsd = null, text = null }) {
+export async function runCanary ({ base, identity, area: areaRef, agent: agentRef = null, fetchFn = fetch, now = Date.now, deadlines = {}, log = () => {}, maxCostUsd = null, text = null, create = null, areaModel = null }) {
   const analysisMs = deadlines.analysis ?? DEFAULT_ANALYSIS_TIMEOUT_MS
   const sessionMs = deadlines.session ?? DEFAULT_SESSION_TIMEOUT_MS
   const api = createClient({ base, identity, fetchFn, now })
@@ -120,14 +125,20 @@ export async function runCanary ({ base, identity, area: areaRef, agent: agentRe
   const agents = list.filter((m) => m.kind === 'agent' && m.active !== false)
   const wanted = agentRef === null ? null : String(agentRef).toLowerCase()
   const candidates = wanted === null ? agents : agents.filter((m) => String(m.email).toLowerCase() === wanted || String(m.name).toLowerCase() === wanted || String(m.id) === wanted)
+  // `create` ({ agentName, areaDescription }) is for an instance that was just installed and has neither: the secret the API shows once for a new agent is read by the worker's vault, not by this script.
+  if (candidates.length === 0 && create && /^[^@\s]+@[^@\s]+$/.test(String(agentRef ?? ''))) candidates.push(await api.json('POST', '/members', { email: agentRef, name: create.agentName, kind: 'agent' }, leg))
   if (candidates.length === 0) throw new Red(leg, wanted === null ? 'the team has no active agent member' : `no active agent member matches «${agentRef}»`)
   if (candidates.length > 1) throw new Red(leg, `${candidates.length} active agents and CANARY_AGENT does not say which one`)
   const agentMember = candidates[0]
 
   enter('area')
   const areas = await api.json('GET', '/areas', undefined, leg)
-  const area = (Array.isArray(areas) ? areas : (areas?.items ?? [])).find((a) => a.title === areaRef || String(a.id) === String(areaRef))
+  let area = (Array.isArray(areas) ? areas : (areas?.items ?? [])).find((a) => a.title === areaRef || String(a.id) === String(areaRef))
+  if (!area && create && !/^\d+$/.test(String(areaRef))) area = await api.json('POST', '/areas', { title: areaRef, description: create.areaDescription }, leg)
   if (!area) throw new Red(leg, `no area titled or numbered «${areaRef}»`)
+  if (areaModel !== null && (area.execute_model !== areaModel || area.execute_model_light !== areaModel)) {
+    area = await api.json('PATCH', `/areas/${area.id}`, { execute_model: areaModel, execute_model_light: areaModel }, leg)
+  }
 
   // The stream is opened before anything is sent: an event that arrives before the send is never confused with one after it.
   const abort = new AbortController()
@@ -227,7 +238,7 @@ export async function main (env = process.env, { fetchFn = fetch, now = Date.now
     session: number('CANARY_SESSION_TIMEOUT_MS', number('EXECUTE_TIMEOUT_MS', DEFAULT_SESSION_TIMEOUT_MS))
   }
   try {
-    const r = await runCanary({ base, identity, area: env.CANARY_AREA, agent: env.CANARY_AGENT ?? null, fetchFn, now, deadlines: limits, log: (l) => err(l), maxCostUsd: number('CANARY_MAX_COST_USD', null) })
+    const r = await runCanary({ base, identity, area: env.CANARY_AREA, agent: env.CANARY_AGENT ?? null, fetchFn, now, deadlines: limits, log: (l) => err(l), maxCostUsd: number('CANARY_MAX_COST_USD', null), areaModel: env.CANARY_AREA_MODEL || null, create: env.CANARY_CREATE === '1' ? { agentName: env.CANARY_AGENT_NAME || 'Claude', areaDescription: env.CANARY_AREA_DESCRIPTION || 'Mensajes de prueba que el despliegue envía al agente para comprobar que una sesión arranca y responde. Se cierran solos.' } : null })
     if (env.CANARY_DELETE === '1') {
       const api = createClient({ base, identity, fetchFn, now })
       try { await api.json('DELETE', `/messages/${r.message_id}?confirm=true`, undefined, 'cleanup') } catch (e) { err(`the test message ${r.message_id} could not be deleted: ${e.message}`) }

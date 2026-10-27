@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 export function SelectionBar({ selection, onAll, onDelete, busy, className }: { selection: Selection; onAll: () => void; onDelete: () => void; busy?: boolean; className?: string }) {
   const t = useT()
   return (
-    <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className={cn('flex min-h-12 flex-wrap items-center gap-x-1 gap-y-1 border-b border-line bg-selected py-2 pl-2 pr-2 sm:gap-x-3 sm:pl-10 sm:pr-4', className)}>
+    <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className={cn('flex min-h-12 flex-wrap items-center gap-x-1 gap-y-1 border-b border-line bg-selected py-1 pl-2 pr-2 sm:gap-x-3 sm:py-2 sm:pl-10 sm:pr-4', className)}>
       <span className="pl-1 text-xs font-semibold tabular-nums sm:pl-0 sm:text-sm" aria-live="polite">
         {t('bulk.marked', { n: selection.marked.size })}
       </span>
@@ -35,11 +35,11 @@ export function SelectionBar({ selection, onAll, onDelete, busy, className }: { 
 /**
  * Where the strip sits: under the list, never over it. Over it, marking the first row pushed every row down by the height of the strip and the
  * next click fell on the row that had moved. Under it nothing above the pointer moves. On a phone the foot of a list is far from the row that was
- * just marked, so there the strip floats over the foot of the window and the list keeps the room it takes (`max-md:h-14`).
+ * just marked, so there the strip floats over the foot of the window and the list keeps the room it takes (`max-md:h-16`).
  */
 export function SelectionFoot({ children }: { children: ReactNode }) {
   return (
-    <div className="pt-2 max-md:h-14">
+    <div className="pt-2 max-md:h-16">
       <div className="glass leaf overflow-hidden max-md:fixed max-md:inset-x-3 max-md:bottom-3 max-md:z-20 max-md:shadow-[var(--shadow-pop)]">{children}</div>
     </div>
   )

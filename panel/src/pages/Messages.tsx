@@ -28,7 +28,7 @@ export function Messages() {
         onClear={() => change({ ...query, q: '', filters: [] })}
         none={t('home.noMessages')}
         noneAction={
-          <Button asChild>
+          <Button asChild size="lg">
             <Link to="/">{t('compose.label')}</Link>
           </Button>
         }

@@ -12,22 +12,24 @@ import { useLookups } from './lookups'
 /**
  * «[Nombre] TEAM» header with the status bar (what is pending, UD-100) and the notice bell. Configuración, the theme and the sign-out live in the sidebar and in
  * Configuración, which on a phone is the drawer this bar opens: a menu here would be a second way to each of them (J2-A-38, J2-A-40).
+ * On a phone the menu button, the three marks and the bell are drawn smaller than their 44 px touch area (a frame that `after` extends beyond the box,
+ * as the × of the chips does), so the brand keeps the room for its longest word at 360 px.
  */
 export function Header({ projectName, panelHidden = false, onOpenNav }: { projectName?: string; panelHidden?: boolean; onOpenNav: () => void }) {
   const t = useT()
 
   return (
-    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-2 md:pl-5 md:pr-3">
+    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-1 py-1 pl-1 pr-2 md:gap-2 md:pl-5 md:pr-3">
       <div className="flex min-w-0 items-center gap-1">
         {/* A phone opens the menu with it; from 768 px it only appears while the side panel is hidden, and shows it again. */}
-        <Button variant="ghost" size="icon" data-testid="nav-open" aria-label={panelHidden ? t('sidebar.show') : t('nav.open')} className={cn('h-11 w-11', !panelHidden && 'md:hidden')} onClick={onOpenNav}>
+        <Button variant="ghost" size="icon" data-testid="nav-open" aria-label={panelHidden ? t('sidebar.show') : t('nav.open')} className={cn("relative h-9 w-9 after:absolute after:-inset-[5px] after:content-[''] md:h-11 md:w-11 md:after:hidden", !panelHidden && 'md:hidden')} onClick={onOpenNav}>
           <PanelLeft size={18} aria-hidden />
         </Button>
         <Link to="/" className="min-w-0">
           <Wordmark project={projectName} name={t('brand.name')} />
         </Link>
       </div>
-      <div className="flex shrink-0 items-center justify-end gap-1 md:pl-2">
+      <div className="flex shrink-0 items-center justify-end gap-1.5 md:gap-1 md:pl-2">
         <StatusBar />
         <NotificationBell />
       </div>
@@ -48,13 +50,14 @@ function NotificationBell() {
   return (
     <Popover onOpenChange={(open) => open && store.markRead()}>
       <PopoverTrigger asChild>
+        {/* The box is 36 px so the brand keeps its room; the touch area is 44 px (the frame drawn by `after`), as in the × of the chips. */}
         <button
           type="button"
           data-testid="bell"
           data-unread={snap.unread}
           aria-label={snap.unread > 0 ? t('bell.unread', { n: snap.unread }) : t('bell.label')}
           title={t('bell.label')}
-          className="relative inline-flex h-11 w-11 items-center justify-center md:h-10 md:w-10 rounded-full text-fg hover:bg-glass"
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-fg after:absolute after:-inset-1 after:content-[''] hover:bg-glass md:h-10 md:w-10 md:after:inset-0"
         >
           <Bell size={22} aria-hidden strokeWidth={2} />
           {snap.unread > 0 && (

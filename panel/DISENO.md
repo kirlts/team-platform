@@ -169,7 +169,7 @@ UD-241. Una sola grilla para toda fila de Inicio, Mensajes y la vista de un áre
 | Columna de acciones | 12 rem desde 42 rem de ancho de la fila (borrar, Responder y Cerrar caben en una línea); bajo ese ancho las acciones van al pie |
 | Casilla de selección (UD-253) | 20 px, a 12 px del borde izquierdo y a la altura del título, en un canal de 40 px que toda fila de una lista con selección conserva aunque no lleve casilla, para que el texto empiece a la misma x. La lleva la fila que la persona puede borrar. La fila marcada toma el fondo `selected`. Al marcar, bajo la lista aparece la barra «N marcados · Marcar todos · Cancelar · Borrar» (una línea también en 390 px): bajo la lista, nada de lo que está sobre el puntero se mueve al marcar la primera fila; en teléfono flota sobre el pie de la ventana y la lista conserva su largo. Áreas y plantillas usan la misma casilla y la misma barra, también bajo su lista |
 | Separación entre líneas | 4 px; relleno de fila 16 px a los lados y 12 px arriba y abajo |
-| Alto resultante | 157 px en Mensajes, 152 px en la vista de un área (sin chip) y 166 px en la disposición apilada de Inicio, medidos en 1440×900 con los datos de ejemplo |
+| Alto resultante | 136 px en Mensajes y 134 px en la vista de un área (sin chip); en la disposición apilada de Inicio entre 149 y 171 px, según si el nombre de un área o una marca de guardia ocupa una línea más. Medidos el 2026-10-27 en 1440×900 con los datos de ejemplo |
 
 Lo mide `src/flows-tarjetas-vistazo.browser.test.mjs` (alto igual por lista, extracto de una línea, misma x de estado, quién y miniatura) y `src/components/MessageCard.test.tsx` (clases y tooltip del extracto).
 

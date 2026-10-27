@@ -88,8 +88,92 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
       const more = await page.locator('article [data-testid="card-foot"] button[aria-label^="Ver los"]').evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) } }))
       assert.ok(more.length > 0, 'a row folds its recipients')
       for (const m of more) assert.ok(m.w >= 44 && m.h >= 44, `the control of the folded recipients is ${m.w}x${m.h} px`)
-      const bell = await page.getByTestId('bell').boundingBox()
-      assert.ok(bell && bell.width >= 44 && bell.height >= 44, `Avisos is ${bell?.width}x${bell?.height} px`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('on a touch phone no word of the brand breaks and the controls of the bar are still 44 px targets, at 360, 390 and 430 px', async () => {
+    for (const width of [360, 390, 430]) {
+      const context = await panel.browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, locale: 'es-CL', colorScheme: 'light' })
+      const page = await context.newPage()
+      try {
+        await login(page, origin, 'ana')
+        await page.goto(`${origin}/messages`)
+        await page.getByTestId('status-bar').waitFor()
+        await settled(page)
+        const bar = await page.evaluate(() => {
+          const mark = document.querySelector('.wordmark')
+          const words = []
+          const walker = document.createTreeWalker(mark, NodeFilter.SHOW_TEXT)
+          for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+            for (const m of n.textContent.matchAll(/\S+/g)) {
+              const range = document.createRange()
+              range.setStart(n, m.index)
+              range.setEnd(n, m.index + m[0].length)
+              words.push({ word: m[0], lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size })
+            }
+          }
+          // The touch area of a control: the 44 px square around its center answers to it, which the box alone does not say.
+          const targets = [...document.querySelectorAll('[data-testid="bell"], [data-testid="state-button"]')].map((el) => {
+            const r = el.getBoundingClientRect()
+            const cx = r.x + r.width / 2
+            const cy = r.y + r.height / 2
+            const corners = [[-21, -21], [21, -21], [-21, 21], [21, 21]].map(([dx, dy]) => el.contains(document.elementFromPoint(cx + dx, cy + dy)))
+            return { name: el.getAttribute('aria-label'), corners }
+          })
+          return { words, targets }
+        })
+        for (const w of bar.words) assert.equal(w.lines, 1, `«${w.word}» breaks inside the word at ${width} px`)
+        assert.ok(bar.words.length >= 2)
+        for (const t of bar.targets) assert.ok(t.corners.every(Boolean), `«${t.name}» does not answer to a 44 px square at ${width} px`)
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('on a phone the number of a row sits beside its state, never alone on a line, and the thumbnail and the filter options are 44 px targets', async () => {
+    const { page, context } = await session(PHONE)
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.locator('[data-testid="card-state"]').first().waitFor()
+      await settled(page)
+      const rows = await page.locator('article').evaluateAll((cards) =>
+        cards.map((c) => {
+          const state = c.querySelector('[data-testid="card-state"]')
+          const mark = state.firstElementChild.getBoundingClientRect()
+          const number = c.querySelector('[data-testid="card-number"]').getBoundingClientRect()
+          const thumb = c.querySelector('[data-testid="card-thumb"] button')?.getBoundingClientRect()
+          return { top: Math.round(number.top - mark.top), height: Math.round(mark.height), thumb: thumb ? { w: Math.round(thumb.width), h: Math.round(thumb.height) } : null }
+        }),
+      )
+      for (const r of rows) assert.ok(r.top >= -2 && r.top <= r.height, `the number is ${r.top} px under the top of the state (${r.height} px high)`)
+      for (const r of rows.filter((x) => x.thumb)) assert.ok(r.thumb.w >= 44 && r.thumb.h >= 44, `the thumbnail is ${r.thumb.w}x${r.thumb.h} px`)
+      await page.getByRole('button', { name: /^Filtro/ }).click()
+      const items = await page.locator('[role="menuitem"], [role="menuitemcheckbox"]').evaluateAll((els) => els.map((el) => ({ name: el.textContent.trim(), h: Math.round(el.getBoundingClientRect().height), box: !!el.querySelector('span[aria-hidden].border') })))
+      assert.ok(items.length >= 5, 'the filter menu lists its filters')
+      for (const i of items) assert.ok(i.h >= 44, `«${i.name}» is ${i.h} px high`)
+      assert.ok(items.some((i) => i.box), 'the option that is on or off draws its box at rest')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Cerrar and Reabrir of a row leave the notice with Deshacer, as Borrar does', async () => {
+    const { page, context } = await session(DESKTOP)
+    try {
+      await page.goto(`${origin}/messages`)
+      const row = page.locator('article').filter({ hasText: 'Confirmar el formato' })
+      await row.waitFor()
+      await row.getByRole('button', { name: 'Cerrar', exact: true }).click()
+      await page.getByText('Mensaje cerrado').first().waitFor()
+      await page.getByRole('button', { name: 'Deshacer' }).first().click()
+      await row.getByRole('button', { name: 'Cerrar', exact: true }).waitFor()
+      await row.getByRole('button', { name: 'Cerrar', exact: true }).click()
+      await row.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
+      await row.getByRole('button', { name: 'Reabrir', exact: true }).click()
+      await page.getByText('Mensaje reabierto').first().waitFor()
     } finally {
       await context.close()
     }

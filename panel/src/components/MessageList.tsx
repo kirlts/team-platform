@@ -73,7 +73,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
           ) : query.q || query.filters.length > 0 ? (
             <EmptyState
               action={
-                <Button onClick={onClear}>
+                <Button size="lg" onClick={onClear}>
                   {t('messages.clearSearch')}
                 </Button>
               }

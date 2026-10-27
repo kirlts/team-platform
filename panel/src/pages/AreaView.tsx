@@ -161,7 +161,11 @@ export function AreaNotFound({ loading, query }: { loading: boolean; query: Para
         </Link>
         {!loading && <h1 className="min-w-0 break-words">{t('areas.notFound')}</h1>}
       </header>
-      {loading && <LoadState query={query} />}
+      {loading && (
+        <div className="glass leaf">
+          <LoadState query={query} />
+        </div>
+      )}
     </Page>
   )
 }

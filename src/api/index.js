@@ -45,6 +45,7 @@ import { installAgentAuth } from '../execute/agent-auth.js'
 import { CONTRACT_VERSION } from '../execute/contract-version.js'
 import { registerExecuteRoutes } from '../execute/routes.js'
 import { isActivePerson } from '../domain/members.js'
+import { machineHealth } from '../execute/machines.js'
 
 
 const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', ops: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
@@ -259,7 +260,9 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     if (!migrated) throw new AppError(503, 'unavailable', 'La base no está migrada.')
     // UD-269 invariant: a message whose latest result from the agent asks for a person and that nobody holds. Zero when healthy; the probe turns `degraded`.
     const buried = buriedHandoffs(db)
-    const basic = { status: buried.length === 0 ? 'ok' : 'degraded', version, contract_version: CONTRACT_VERSION }
+    // B4 invariant: a machine whose DESTROY ran and did not exit 0 is still alive and costing. Zero when healthy; the probe turns `degraded` (it is tried again when the worker starts).
+    const machines = machineHealth(db)
+    const basic = { status: buried.length === 0 && machines.failed.length === 0 ? 'ok' : 'degraded', version, contract_version: CONTRACT_VERSION }
     // The detail (database, queue, providers) is for an active person of the team: an anonymous probe only sees whether the service is alive.
     let caller = null
     try { caller = await identity.provider.identify(request) } catch { /* no identity: basic response */ }
@@ -271,7 +274,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       worker: config.worker.mode,
       providers: (modules.getProviders?.()?.describe?.() ?? []).map((s) => ({ slot: s.slot, provider: s.provider, model: s.model, available: s.available, reason: s.reason })),
       analyzer: getProviderSettings(db, config).analyzer,
-      handoffs: { buried: buried.length, messages: buried.map((b) => ({ message_id: String(b.message_id), result: b.result })) }
+      handoffs: { buried: buried.length, messages: buried.map((b) => ({ message_id: String(b.message_id), result: b.result })) },
+      machines: { open: machines.open, destroy_failed: machines.failed.length, failed: machines.failed }
     }
   }
   const healthSchema = {
@@ -282,7 +286,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
         properties: {
           status: { type: 'string' }, version: { type: 'string' }, contract_version: { type: 'integer', description: 'Version of the host contract this core implements (docs/CONTRATO-DE-ANFITRION.md).' },
           db: { type: 'object', additionalProperties: true }, queue: { type: 'object', additionalProperties: true }, worker: { type: 'string' },
-          providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }, handoffs: { type: 'object', additionalProperties: true }
+          providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }, handoffs: { type: 'object', additionalProperties: true },
+          machines: { type: 'object', additionalProperties: true, description: 'Machines of the execute job without a recorded destruction: `open` (the ones of running jobs included) and `failed`, those whose DESTROY did not exit 0 (the status turns degraded).' }
         }
       },
       503: { description: 'The database is not migrated or does not respond.', ...errorSchema }

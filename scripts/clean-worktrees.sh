@@ -10,12 +10,16 @@
 #   2. It has no uncommitted changes (`git status --porcelain` is empty).
 #   3. Its HEAD (the branch tip, or the detached commit) has no commit that is in no remote
 #      (`git log HEAD --not --remotes` is empty).
+#   4. Its HEAD is already in an integration branch: every commit of it is in a remote `desarrollo` or `main`
+#      (`git log HEAD --not refs/remotes/*/desarrollo refs/remotes/*/main` is empty). A pushed branch that has not
+#      landed is work in progress, and whose it is cannot be told from the worktree: another session may own it.
 # Anything else is never touched. Classes, in this order of precedence:
 #   live       condition 1 fails, or the worktree is locked
 #   nested     another registered worktree lives inside its directory; removing it would delete
 #              that one's files too, so it is kept until the inner ones are gone (reported, never touched)
 #   dirty      condition 2 fails ("with changes")
 #   unpushed   condition 3 fails
+#   unmerged   condition 4 fails (pushed, not yet in desarrollo or main)
 #   unknown    git could not answer; an error is never read as "clean", so it is not touched
 #   removable  all three hold
 # Removing is `git worktree remove` without --force and nothing else: the branch stays, so the
@@ -54,12 +58,14 @@ in_use() { # in_use <dir>: succeeds if some process has <dir> or something below
 
 fmt_kb() { awk -v k="$1" 'BEGIN { if (k >= 1048576) printf "%.1f GB", k / 1048576; else printf "%.1f MB", k / 1024 }'; }
 
-n_nested=0 n_live=0 n_dirty=0 n_unpushed=0 n_unknown=0 n_removable=0 n_removed=0 n_failed=0 freed_kb=0
+n_nested=0 n_live=0 n_dirty=0 n_unpushed=0 n_unmerged=0 n_unknown=0 n_removable=0 n_removed=0 n_failed=0 freed_kb=0
 RECORDS=$(git -C "$MAIN" worktree list --porcelain) || { echo "git worktree list failed" >&2; exit 2; }
 ALL_PATHS=$(printf '%s\n' "$RECORDS" | sed -n 's/^worktree //p')
+# The integration branches every remote knows: what has landed. Empty when there is none (then nothing is removable).
+INTEGRATION=$(git -C "$MAIN" for-each-ref --format='%(refname)' 'refs/remotes/*/desarrollo' 'refs/remotes/*/main' | tr '\n' ' ')
 
 process() { # process <path> <head> <branch> <locked>
-  local inner wt=$1 head=$2 branch=$3 locked=$4 class detail ref st unp
+  local inner wt=$1 head=$2 branch=$3 locked=$4 class detail ref st unp unm
   [ -d "$wt" ] || return 0
   case "$wt" in "$DIR"/*) ;; *) return 0 ;; esac
   ref=${branch:-"detached@${head:0:10}"}
@@ -77,6 +83,12 @@ process() { # process <path> <head> <branch> <locked>
     class=unknown; detail="git rev-list failed"
   elif [ -n "$unp" ]; then
     class=unpushed; detail="$(printf '%s\n' "$unp" | wc -l) commits in no remote"
+  elif [ -z "$INTEGRATION" ]; then
+    class=unknown; detail="no remote desarrollo or main to compare with"
+  elif ! unm=$(git -C "$wt" rev-list HEAD --not $INTEGRATION 2>/dev/null); then
+    class=unknown; detail="git rev-list failed"
+  elif [ -n "$unm" ]; then
+    class=unmerged; detail="$(printf '%s\n' "$unm" | wc -l) commits not in desarrollo or main"
   else
     class=removable; detail=""
   fi
@@ -85,6 +97,7 @@ process() { # process <path> <head> <branch> <locked>
     nested) n_nested=$((n_nested + 1)) ;;
     dirty) n_dirty=$((n_dirty + 1)) ;;
     unpushed) n_unpushed=$((n_unpushed + 1)) ;;
+    unmerged) n_unmerged=$((n_unmerged + 1)) ;;
     unknown) n_unknown=$((n_unknown + 1)) ;;
     removable)
       n_removable=$((n_removable + 1))
@@ -120,9 +133,9 @@ done <<< "$RECORDS
 "
 
 if [ "$MODE" = list ]; then
-  echo "live $n_live, nested $n_nested, dirty $n_dirty, unpushed $n_unpushed, unknown $n_unknown, removable $n_removable"
+  echo "live $n_live, nested $n_nested, dirty $n_dirty, unpushed $n_unpushed, unmerged $n_unmerged, unknown $n_unknown, removable $n_removable"
   exit 0
 fi
 git -C "$MAIN" worktree prune
-echo "removed $n_removed of $n_removable removable, freed $(fmt_kb "$freed_kb"); kept live $n_live, nested $n_nested, dirty $n_dirty, unpushed $n_unpushed, unknown $n_unknown; failed $n_failed"
+echo "removed $n_removed of $n_removable removable, freed $(fmt_kb "$freed_kb"); kept live $n_live, nested $n_nested, dirty $n_dirty, unpushed $n_unpushed, unmerged $n_unmerged, unknown $n_unknown; failed $n_failed"
 [ "$n_failed" -eq 0 ]

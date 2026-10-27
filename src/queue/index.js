@@ -14,6 +14,7 @@ import { all, get, run, tx } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { pruneSpans } from '../telemetry/index.js'
 import { pruneExecuteRuns } from '../telemetry/execute-runs.js'
+import { pruneExecuteMachines } from '../execute/machines.js'
 import { jobDefaults, queueWake } from './wake.js'
 
 export { queueWake } from './wake.js'
@@ -263,6 +264,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       const nonces = run(db, 'DELETE FROM sso_nonces WHERE created_at < ?', cap).changes
       const spans = pruneSpans(db, { now: now(), retentionDays: w.retentionDays }) // same retention as the events (§7.10 bis)
       const runs = config.execute ? pruneExecuteRuns(db, { now: now(), retentionDays: config.execute.runsRetentionDays }) : 0 // its own retention: EXECUTE_RUNS_RETENTION_DAYS (UD-262)
+      if (config.execute) pruneExecuteMachines(db, { now: now(), retentionDays: config.execute.runsRetentionDays }) // the destroyed machines go with the runs
       return { jobs, events: eventsDeleted, sessions, nonces, spans, runs }
     })
   }

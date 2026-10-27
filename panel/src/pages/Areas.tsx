@@ -243,7 +243,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
         </Link>
       </span>
       <div className="col-start-2 col-span-2 min-w-0 sm:col-auto">
-        <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-sm text-muted" />
+        <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-sm text-muted pointer-coarse:min-h-11" />
       </div>
       <Button size="sm" variant="ghost" className="max-sm:col-start-3 max-sm:row-start-1 justify-self-end text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" data-repeat-ok="per-area" onClick={() => void remove()}>
         <Trash2 size={16} aria-hidden /> {t('bulk.delete')}

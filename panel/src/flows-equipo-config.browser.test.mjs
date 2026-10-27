@@ -66,7 +66,7 @@ describe('Equipo', () => {
         // The longest name of the seeds needs two lines on a phone: its row is taller than the others, and none is shorter than a line of text.
         const long = await page.locator('main [data-member-row]').filter({ hasText: 'maria.de.los' }).first().locator('[data-editable]').first().evaluate((e) => e.getBoundingClientRect().height)
         assert.ok(long > 0)
-        assert.ok((await page.getByRole('button', { name: 'Ver más' }).count()) === 0, 'Ver más is text of the extract, not a second control')
+        assert.ok((await page.getByRole('button', { name: 'Ver más' }).count()) === 0, 'the fold is text of the extract, not a second control')
       } finally {
         await context.close()
       }

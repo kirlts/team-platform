@@ -185,7 +185,7 @@ describe('the evaluation and the work of an agent say what each figure is', () =
       assert.match(await details.locator('[data-span="execute.machine.create"]').innerText(), /Crear máquina\s+1 min 35 s/)
       // A failed order says «Falló» in words and with a cross, in its place in the tree: the list of the slowest steps does not repeat it while the tree stands (UD-262).
       assert.equal(await details.locator('[data-timing-slow]').count(), 0, 'the tree is shown, so the list of the slowest does not repeat the step')
-      assert.equal(await tree.locator('[data-failed-mark]').count(), 1, 'the failure is a mark with a word, not a color')
+      assert.equal(await details.locator('[data-span] [data-failed-mark]').count(), 1, 'the failure is a mark with a word, not a color')
       for (const mark of await details.locator('[data-failed-mark]').all()) assert.equal((await mark.innerText()).trim(), 'Falló')
       // The indicator has its name and its sign, and the scale is said once.
       const kpi = details.getByTestId('judgment-kpi').first()

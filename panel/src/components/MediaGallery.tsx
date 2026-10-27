@@ -82,7 +82,11 @@ export function MediaGallery({
   useLayoutEffect(() => {
     const slide = slides.current[current]
     if (!slide || typeof ResizeObserver === 'undefined') return setViewerHeight(null)
-    const measure = () => setViewerHeight(slide.offsetHeight || null)
+    // The viewer is a border-box with a border (`.frame`): its height is the slide's plus what the border takes, or the slide's last rows are cut.
+    const measure = () => {
+      const box = slide.parentElement
+      setViewerHeight(slide.offsetHeight ? slide.offsetHeight + (box ? box.offsetHeight - box.clientHeight : 0) : null)
+    }
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(slide)

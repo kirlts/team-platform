@@ -81,6 +81,7 @@ export async function startFlyDouble ({ app = 'double-app' } = {}) {
       let stderr = ''
       child.stdout.on('data', (c) => { stdout += c })
       child.stderr.on('data', (c) => { stderr += c })
+      // 408 and its body: what the real API answers when an exec overruns (measurement 2026-10-27, drivers/fly-machines/lib/fly.mjs:39); 30 s: declared courtesy, the same default as exec() of drivers/fly-machines/lib/fly.mjs for a caller that sends no timeout
       const timer = setTimeout(() => { child.kill('SIGKILL'); resolve({ status: 408, body: { error: 'deadline_exceeded: Post "http://unix/v1/exec": context deadline exceeded' } }) }, (body.timeout ?? 30) * 1000)
       child.on('close', (code) => {
         clearTimeout(timer)

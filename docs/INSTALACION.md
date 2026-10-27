@@ -276,6 +276,10 @@ node scripts/sembrar.mjs --url https://team.ejemplo.com --email <correo> --passw
 
 `--ejemplo` siembra los siete envíos de `ejemplos/` del repositorio. `--paralelo N` fija cuántos envíos corren a la vez (3 por omisión; con 1 corren uno por uno, para distinguir una falla de una competencia). `--token <cookie>` reemplaza al correo y la clave. `--borrador` deja las propuestas en revisión en vez de publicarlas. Medido el 2026-10-21 contra un servidor local con Claude Haiku 5.5 y `--paralelo 3`: los siete envíos de `ejemplos/` tardan de 4 a 8 s cada uno. Producen 14 mensajes y cuestan 0,0106 USD.
 
+## Configurar áreas y perfiles desde lo que el equipo escribió
+
+[docs/METODO-DE-REPARTO.md](METODO-DE-REPARTO.md) describe el procedimiento: extraer pedidos de los textos del equipo, validarlos con personas, proponer áreas, límites, plantillas y perfiles, y medir el reparto. `node scripts/apply-load-file.mjs load.json --db <DATA_DIR>/team.db` carga el resultado confirmado en esta instalación.
+
 ## Respaldo
 
 `scripts/backup.sh` copia la base en caliente con `VACUUM INTO` y `rename`, la comprueba con `integrity_check` y la deja en `./backups/team-<fecha UTC>.db`. Con un escritor activo tarda 123 ms (informe 03, 2026-10-20). `cp` sobre la base en uso puede dejar una copia inconsistente.

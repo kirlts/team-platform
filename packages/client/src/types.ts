@@ -499,6 +499,10 @@ export interface MessageTiming {
   cost_usd?: number | null
   /** The judgement of the latest finished job (UD-295), or null. */
   judgment?: Judgment | null
+  /** Every judgement of the message, oldest first: the attempt of the light model that did not close and the one of the larger model both. */
+  judgments?: Judgment[]
+  /** The judgements cut to the axes whose calibration passed: the only ones a decision may read. */
+  decision_judgments?: Judgment[]
   elapsed_ms: number | null
   first_reply_ms: number | null
   final_reply_ms: number | null

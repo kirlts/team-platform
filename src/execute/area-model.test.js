@@ -246,6 +246,10 @@ describe('model by area and by estimates', () => {
     const judged = judgmentsOfMessage(env.db, id)
     assert.deepEqual(judged.map((j) => [j.job_id, j.worked_with]), [[String(first.id), 'claude-haiku-5-5'], [String(second.id), 'claude-sonnet-5-5']])
     assert.ok(judgePrompts.some((p) => p.includes('no_cerro: sí')), 'the judge is told that the light attempt did not close')
+    // Third audit, H-4: the endpoint of the times returns every attempt, the failed one of the light model included, and the judge is not calibrated so no judgement counts for a decision.
+    assert.deepEqual(timing.judgments.map((j) => [j.job_id, j.worked_with]), [[String(first.id), 'claude-haiku-5-5'], [String(second.id), 'claude-sonnet-5-5']])
+    assert.equal(timing.judgment.job_id, String(second.id), 'the field of always is still the latest one')
+    assert.deepEqual(timing.decision_judgments, [])
   })
 
   it('a retry of a failed session on the light model runs with the area larger model', async () => {

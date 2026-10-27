@@ -9,8 +9,9 @@
 // A score is an integer from -2 to +2, or null when that person judged the indicator does not apply to that job. The judge's side comes from `execute_judgments`, by `job_id`: `applies: false` is null.
 //
 // The measure is Krippendorff's alpha (ordinal, the scale being ordered), per axis, over the people and the judge as raters. The interval is a bootstrap over jobs (a job's indicators are
-// not independent of each other). An axis is calibrated when alpha reaches ALPHA_MIN and the lower end of its interval reaches ALPHA_FLOOR; the judge is calibrated when every axis the reference covers is,
-// and the reference has at least two people (the agreement among people is the ceiling of what a judge can be asked: with one person there is no ceiling to read).
+// not independent of each other). An axis is calibrated when alpha reaches ALPHA_MIN and the lower end of its interval reaches ALPHA_FLOOR; the judge is calibrated when ALL FOUR axes are (third audit of
+// the method, 2026-10-27, H-3: when only the axes the file covered counted, a file that scored axes 1 and 2 made the judge «calibrated» and the four axes were believed), and the reference has at least
+// two people (the agreement among people is the ceiling of what a judge can be asked: with one person there is no ceiling to read).
 import { readFileSync, statSync } from 'node:fs'
 import { all } from '../db/index.js'
 import { AXES, KPIS } from './judge.js'
@@ -151,10 +152,14 @@ export function calibrationOf (db, reference) {
   })
   const covered = axes.filter((a) => a.covered)
   const failing = covered.filter((a) => !a.calibrated)
-  const calibrated = covered.length > 0 && failing.length === 0
+  const uncovered = axes.filter((a) => !a.covered)
+  const calibrated = axes.every((a) => a.calibrated)
   const reason = calibrated ? null : covered.length === 0
     ? 'No indicator of the reference was scored by two raters at once.'
-    : `Alpha stays under ${ALPHA_MIN} (or its interval under ${ALPHA_FLOOR}) in the axes ${failing.map((a) => a.axis).join(', ')}.`
+    : [
+        ...(failing.length ? [`Alpha stays under ${ALPHA_MIN} (or its interval under ${ALPHA_FLOOR}) in the axes ${failing.map((a) => a.axis).join(', ')}.`] : []),
+        ...(uncovered.length ? [`The reference does not cover the axes ${uncovered.map((a) => a.axis).join(', ')}: no two raters scored any of their indicators.`] : [])
+      ].join(' ')
   return { ...result, axes: axes.map(({ covered: _covered, ...a }) => a), calibrated, reason }
 }
 
@@ -181,9 +186,14 @@ export function judgeCalibration (db, config) {
 }
 
 /**
- * The judgements that may move an area to the larger model or fix the limits of the light one: all of them while the judge is calibrated, none otherwise. Every consumer that decides something
- * from judgements goes through here; the ones that only show them take them as they are, marked.
+ * The judgements that may move an area to the larger model or fix the limits of the light one, cut by axis (third audit of the method, H-3): of each judgement only the axes whose alpha and
+ * lower end of the interval passed, with their indicators, and none while the calibration says nothing of an axis. The endpoint of the times of a message returns them as `decision_judgments`,
+ * next to `judgments` (all of them, marked): that is the consumer in the product. Nothing moves an area by itself; whoever does reads these.
  */
 export function judgmentsForDecisions (judgments, calibration) {
-  return calibration?.calibrated === true ? judgments : []
+  const usable = new Set((Array.isArray(calibration?.axes) ? calibration.axes : []).filter((a) => a.calibrated === true).map((a) => a.axis))
+  if (usable.size === 0) return []
+  return judgments
+    .map((j) => ({ ...j, calibrated: true, axes: (j.axes ?? []).filter((a) => usable.has(a.axis)), kpis: (j.kpis ?? []).filter((k) => usable.has(AXIS_OF[k.id])) }))
+    .filter((j) => j.axes.length > 0)
 }

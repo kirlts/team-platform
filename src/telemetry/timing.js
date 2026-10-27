@@ -1,7 +1,8 @@
 // Where the time of a message went (UD-262): reads the trace of its latest `execute` job and returns the figures the
 // panel and `team timing` show. Times are milliseconds; `null` means the span or event does not exist (yet).
 import { get } from '../db/index.js'
-import { judgmentOfMessage } from '../execute/judge.js'
+import { judgmentOfMessage, judgmentsOfMessage } from '../execute/judge.js'
+import { judgmentsForDecisions } from '../execute/judge-calibration.js'
 import { traceOfJob } from './trace.js'
 
 const flatten = (nodes) => nodes.flatMap((n) => [n, ...flatten(n.children)])
@@ -54,6 +55,10 @@ export function timingOfMessage(db, messageId, { now = Date.now, calibration = n
     // UD-295: the job judgement of the job, or null while there is none.
     // B3 of the second audit: marked «sin calibrar» (`calibrated: false`) until the judge has been compared with people (judge-calibration.js).
     judgment: judgmentOfMessage(db, messageId, { calibrated: calibration?.calibrated === true }),
+    // Third audit of the method (H-4, H-3): EVERY judgement of the message, oldest first, the attempts of the light model that did not close included (before, only the last one was read and the
+    // comparison between models favoured the light one), and the ones that count for a decision: only the axes that passed the calibration.
+    judgments: judgmentsOfMessage(db, messageId, { calibrated: calibration?.calibrated === true }),
+    decision_judgments: judgmentsForDecisions(judgmentsOfMessage(db, messageId, { calibrated: true }), calibration),
     elapsed_ms: job.status === 'running' ? Math.max(0, now() - job.run_at) : null,
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,
     total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null,

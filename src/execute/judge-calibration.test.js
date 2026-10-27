@@ -188,7 +188,26 @@ describe('the calibration of the judge', () => {
     assert.ok(shown.every((j) => j.calibrated === false))
     assert.deepEqual(judgmentsForDecisions(shown, { calibrated: false }), [])
     assert.deepEqual(judgmentsForDecisions(shown, null), [])
-    assert.equal(judgmentsForDecisions(judgmentsOfMessage(env.db, 1, { calibrated: true }), { calibrated: true }).length, jobs)
+    const calibration = calibrationOf(env.db, reference([['ana', 0.02], ['luis', 0.02]]))
+    assert.equal(judgmentsForDecisions(judgmentsOfMessage(env.db, 1, { calibrated: true }), calibration).length, jobs)
+    assert.deepEqual(judgmentsForDecisions(judgmentsOfMessage(env.db, 1, { calibrated: true }), { calibrated: true }), [], 'a calibration with no axes decides nothing')
+  })
+
+  it('third audit, H-3: a reference that scores only some axes does not calibrate the judge, and a decision reads only the axes that passed', () => {
+    store(noisy(0.02))
+    run(env.db, 'UPDATE execute_judgments SET message_id = 1')
+    const full = reference([['ana', 0.02], ['luis', 0.02]])
+    const onlyOneAndTwo = { ...full, units: full.units.map((u) => ({ ...u, ratings: Object.fromEntries(Object.entries(u.ratings).map(([person, scores]) => [person, Object.fromEntries(Object.entries(scores).filter(([id]) => id.startsWith('1.') || id.startsWith('2.')))])) })) }
+    const result = calibrationOf(env.db, onlyOneAndTwo)
+    assert.equal(result.calibrated, false, 'axes 3 and 4 were never compared with people')
+    assert.match(result.reason, /does not cover the axes 3, 4/)
+    assert.deepEqual(result.axes.filter((a) => a.calibrated).map((a) => a.axis), [1, 2])
+    const read = judgmentsForDecisions(judgmentsOfMessage(env.db, 1, { calibrated: false }), result)
+    assert.equal(read.length, jobs)
+    for (const j of read) {
+      assert.deepEqual(j.axes.map((a) => a.axis), [1, 2])
+      assert.ok(j.kpis.every((k) => k.id.startsWith('1.') || k.id.startsWith('2.')))
+    }
   })
 
   it('the target of an axis is read over the indicators that were scored, and the axis says how many', () => {

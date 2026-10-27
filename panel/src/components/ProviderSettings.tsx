@@ -20,10 +20,20 @@ import { useCheckSlot, useConnections, useProviders, useRememberedModels, useSav
  */
 export function ProviderSettings() {
   const t = useT()
+  return (
+    <SettingsBox fold data-providers title={t('settings.providers')}>
+      <ProviderBody />
+    </SettingsBox>
+  )
+}
+
+/** The reads start when the section is opened: the folded row asks the server for nothing. */
+function ProviderBody() {
+  const t = useT()
   const settings = useProviders(true)
   const connections = useConnections()
   return (
-    <SettingsBox data-providers title={t('settings.providers')}>
+    <>
       <div className="flex flex-col gap-1">
         <h3 className="rotulo flex h-8 items-center border-b border-line">{t('providers.slots')}</h3>
         {settings.data && connections.data ? (
@@ -44,7 +54,7 @@ export function ProviderSettings() {
         </div>
         <ProviderConnections />
       </div>
-    </SettingsBox>
+    </>
   )
 }
 
@@ -142,12 +152,15 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
         </datalist>
       </label>
       <div className="flex flex-wrap items-end gap-2">
-        <Button size="sm" onClick={() => void apply()} disabled={!dirty || !model.trim() || save.isPending}>
-          {save.isPending ? t('providers.testing') : t('providers.apply')}
-        </Button>
         <Button size="sm" variant="ghost" onClick={() => void diagnose()} disabled={check.isPending}>
           {check.isPending ? t('providers.diagnosing') : t('providers.diagnose')}
         </Button>
+        {/* «Aplicar» exists while there is something to apply: a button that is always drawn and off says nothing about what is missing. It comes after «Diagnosticar», so that one does not move. */}
+        {dirty && model.trim() !== '' && (
+          <Button size="sm" onClick={() => void apply()} disabled={save.isPending}>
+            {save.isPending ? t('providers.testing') : t('providers.apply')}
+          </Button>
+        )}
       </div>
       <div className="-mt-3 md:col-span-full [&>*:not(:empty)]:pt-3">
         <div role="status" aria-live="polite" data-slot-result>

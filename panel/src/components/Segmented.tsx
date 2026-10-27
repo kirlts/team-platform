@@ -32,6 +32,7 @@ export function Segmented<T extends string>({
             'font-semibold transition-colors duration-[var(--duration-hover)]',
             quiet ? 'rounded-[var(--quiet-tab-radius)] border-b-2 px-2' : 'rounded-full border px-3',
             size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
+            'pointer-coarse:h-11',
             quiet
               ? value === o.value
                 ? 'border-[var(--quiet-tab-edge)] bg-[var(--quiet-tab-bg)] text-fg shadow-[var(--quiet-tab-shadow)]'

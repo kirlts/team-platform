@@ -149,6 +149,8 @@ afterEach(cleanup)
 
 async function ready() {
   mount()
+  // The section is a fold (Configuración): its content, and its reads, begin when it is opened.
+  fireEvent.click(screen.getByRole('button', { name: L('settings.providers') }))
   await screen.findByRole('group', { name: 'Anthropic' })
 }
 
@@ -334,7 +336,7 @@ describe('functions', () => {
       expect(group.getByRole('combobox', { name: L('settings.providerOf', { slot: name }) })).toBeTruthy()
       // A field with suggestions is a combobox for assistive technology.
       expect(group.getByRole('combobox', { name: L('settings.modelOf', { slot: name }) })).toBeTruthy()
-      expect(group.getByRole('button', { name: L('providers.apply') })).toBeTruthy()
+      expect(group.queryByRole('button', { name: L('providers.apply') })).toBeNull() // «Aplicar» exists only while there is a change to apply
       expect(group.getByRole('button', { name: L('providers.diagnose') })).toBeTruthy()
     }
     // Transcripción only offers the transcription provider.
@@ -345,11 +347,10 @@ describe('functions', () => {
   it('Aplicar saves a change that passes', async () => {
     await ready()
     const text = slotRow('text')
-    const apply = text.getByRole('button', { name: L('providers.apply') }) as HTMLButtonElement
-    expect(apply.disabled).toBe(true)
+    expect(text.queryByRole('button', { name: L('providers.apply') })).toBeNull()
     fireEvent.change(text.getByRole('combobox', { name: L('settings.providerOf', { slot: L('settings.slot.text') }) }), { target: { value: 'gateway' } })
     fireEvent.change(text.getByRole('combobox', { name: L('settings.modelOf', { slot: L('settings.slot.text') }) }), { target: { value: 'model-ok' } })
-    fireEvent.click(apply)
+    fireEvent.click(text.getByRole('button', { name: L('providers.apply') }))
     await text.findByText(L('providers.applied'))
     expect(server.slots.find((s) => s.slot === 'text')).toMatchObject({ provider: 'gateway', model: 'model-ok' })
   })

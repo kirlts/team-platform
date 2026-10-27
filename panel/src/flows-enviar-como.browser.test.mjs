@@ -51,10 +51,14 @@ describe('send as another member (UD-255)', () => {
         await picker.waitFor()
         assert.equal(await picker.inputValue(), 'u-ana', 'the picker starts on the member of the session')
         assert.equal(await page.getByLabel('Enviar como').inputValue(), 'u-ana')
-        // On a desk the picker shares the row of the send button; on a phone it is on a row of its own above it.
+        // On a desk the picker shares the row of «Para», right-aligned and above the tools and the send button (that row does not split when «Para» grows); on a phone it is on a row above the send button.
         const pick = await picker.boundingBox()
         const sendBox = await page.getByTestId('compose-send').boundingBox()
-        if (viewport === DESKTOP) assert.ok(Math.abs((pick.y + pick.height / 2) - (sendBox.y + sendBox.height / 2)) < 4, 'same row on a desk')
+        if (viewport === DESKTOP) {
+          const toBox = await page.getByTestId('compose-to').boundingBox()
+          assert.ok(Math.abs((pick.y + pick.height / 2) - (toBox.y + toBox.height / 2)) < 12, 'same row as «Para» on a desk')
+          assert.ok(pick.y + pick.height <= sendBox.y, 'above the send button on a desk')
+        }
         else assert.ok(pick.y + pick.height <= sendBox.y, 'its own row on a phone')
         assert.ok(pick.x >= 0 && pick.x + pick.width <= viewport.width, 'inside the window')
         await settled(page)
@@ -64,6 +68,10 @@ describe('send as another member (UD-255)', () => {
         const text = `Revisar la caldera del piso dos (${name})`
         await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill(text)
         await page.getByTestId('compose-send').click()
+        // The sender sees their send and its analysis as any other (UD-273): the drawer opens and the tray lists it.
+        await page.getByTestId('send-drawer').waitFor()
+        const tray = await api(page, '/inputs?mine=1')
+        assert.ok(tray.items.some((i) => i.text === text && i.author_id === 'u-bruno' && i.sent_by_id === 'u-ana'), 'the tray of the sender lists what was sent on behalf of someone')
 
         let message
         for (;;) {

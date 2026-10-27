@@ -2,6 +2,7 @@ import { ChevronDown, UserPlus, MoreVertical } from '@/components/icons'
 import { useMemo, useRef, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
 import { EditableText } from '@/components/EditableText'
+import { EmptyState } from '@/components/EmptyState'
 import { FitList } from '@/components/FitList'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { FormDialog } from '@/components/FormDialog'
@@ -21,9 +22,8 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
-/** Identity, profile extract, actions: every cell is one line high, so every row is as tall as the others (UD-241). */
+/** Identity, profile extract, actions. A name, an address or an extract that does not fit takes another line: nothing in a row is cut (UD-016, «Grilla» rule 5; UD-241 only amends the cards of the message lists). */
 const COLUMNS = 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_7.5rem]'
-const ONE_LINE = 'truncate whitespace-nowrap' // justified: UD-241 amends UD-016 for the name, address and profile extract of a row of a list; the whole text is in the title and the window
 
 /** Members with their responsibilities and domains. Each one edits their own; any person adds, and changes name, email and role of the others; the Editor also writes the profile of an agent. */
 export function Team() {
@@ -40,10 +40,11 @@ export function Team() {
     <UndoProvider stack={undo}>
       <Page cols={12}>
         <PageHeader
+          reserve
           title={t('nav.team')}
           aside={
-            <div className="flex items-center gap-2">
-              <UndoButtons stack={undo} />
+            <div className="flex flex-wrap items-center gap-2">
+              <UndoButtons stack={undo} compact />
               {me && (
                 <Button variant="primary" size="lg" onClick={() => setAdding(true)}>
                   <UserPlus size={16} aria-hidden /> {t('team.add')}
@@ -64,7 +65,7 @@ export function Team() {
             </div>
           }
           renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} />}
-          empty={<LoadState query={members} />}
+          empty={members.isPending || members.isError ? <LoadState query={members} /> : <EmptyState>{t('team.none')}</EmptyState>}
         />
         <FormDialog
           open={adding}
@@ -141,27 +142,31 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
 
   const canEditProfile = self || viewerIsEditor // UD-288, UD-287: the Editor writes the profile of any member
   const profile = member.profile ?? ''
-  const extract = profile.replace(/\s+/g, ' ').trim()
+  const paragraphs = profile.split(/\n\s*\n/).filter((x) => x.trim())
+  const extract = (paragraphs[0] ?? '').replace(/\s+/g, ' ').trim()
+  const more = paragraphs.length > 1
 
   return (
-    <div data-member-row className={`grid shrink-0 items-center gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 max-lg:grid-cols-[minmax(0,1fr)_auto] ${COLUMNS}`}>
-      <div className="flex min-w-0 items-center gap-3">
+    <div data-member-row className={`grid shrink-0 items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 max-lg:grid-cols-[minmax(0,1fr)_auto] ${COLUMNS}`}>
+      <div className="flex min-w-0 items-start gap-3">
         <Avatar name={member.name} size={32} />
         <div className="min-w-0 flex-1">
-          <div className="flex h-6 min-w-0 items-center gap-2">
-            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`${ONE_LINE} text-sm font-semibold leading-snug ${member.active ? '' : 'text-muted'}`} className="block min-w-0 shrink" />
-            {member.role === 'editor' && (
-              <Badge tone="accent" className="shrink-0" title={roleHint.editor}>
-                {roleLabel.editor}
-              </Badge>
-            )}
-            {self && <Badge className="shrink-0">{t('team.me')}</Badge>}
-            {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
-            {!member.active && <Badge tone="outline" className="shrink-0">{t('team.inactive')}</Badge>}
+          {/* The name has a column of its own and the tags another, at the right: the name keeps its width when it is edited, and a long one takes a second line without moving the tags. */}
+          <div className="grid min-h-6 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 pointer-coarse:min-h-11 pointer-coarse:items-center">
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold leading-snug pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center ${member.active ? '' : 'text-muted'}`} className="block min-w-0" />
+            <span className="flex flex-wrap items-center justify-end gap-1 pt-px pointer-coarse:min-h-11">
+              {member.role === 'editor' && (
+                <Badge tone="accent" className="shrink-0" title={roleHint.editor}>
+                  {roleLabel.editor}
+                </Badge>
+              )}
+              {self && <Badge className="shrink-0">{t('team.me')}</Badge>}
+              {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
+              {!member.active && <Badge tone="outline" className="shrink-0">{t('team.inactive')}</Badge>}
+            </span>
           </div>
-          {/* Each line has a fixed height: editing the name or the address in place does not move the row by a pixel. */}
-          <div className="h-5">
-            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName={`${ONE_LINE} text-xs leading-snug text-muted`} className="block" />
+          <div className="min-h-5">
+            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-all text-xs leading-snug text-muted pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center" className="block min-w-0 flex-1" />
           </div>
         </div>
       </div>
@@ -176,18 +181,18 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           </Button>
         </form>
       ) : (
-        /* The profile reads as one line with an ellipsis, so every row is as tall as the others (UD-241); the whole text opens in a window over the list, which does not move (Martín, 2026-10-24). */
+        /* The profile reads as its first paragraph, whole and wrapped; «Ver más» says there is more and the whole text opens in a window over the list, which does not move (Martín, 2026-10-24). */
         <button
           type="button"
           data-profile-extract
           aria-haspopup="dialog"
           aria-label={t('team.profileOf', { name: member.name })}
-          title={extract || undefined}
           onClick={() => setProfileOpen(true)}
-          className="-mx-1.5 min-w-0 rounded-md px-1.5 py-1 text-left text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent max-lg:col-span-2 max-lg:row-start-2 max-lg:ml-[38px]"
+          className="-mx-1.5 min-w-0 rounded-md px-1.5 py-1 text-left text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent max-lg:col-span-2 max-lg:row-start-2 max-lg:ml-[38px] pointer-coarse:min-h-11"
         >
-          <span data-ellipsis-ok="UD-241" className={`${ONE_LINE} block ${extract ? 'text-fg' : 'text-faint'}`}>
+          <span className={`block break-words ${extract ? 'text-fg' : 'text-faint'}`}>
             {extract || t('team.noProfile')}
+            {more && <span className="ml-1.5 font-semibold text-accent-deep">{t('team.profileMore')}</span>}
           </span>
         </button>
       )}
@@ -214,7 +219,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
             >
               {/* The role changes here: the row only marks the Editor, the exception (Martín, 2026-10-24). */}
               <DropdownMenuLabel>{t('team.role')}</DropdownMenuLabel>
-              <DropdownMenuRadioGroup aria-label={t('team.roleOf', { name: member.name })} value={member.role} onValueChange={(role) => void change('role', role as Role)}>
+              <DropdownMenuRadioGroup aria-label={t('team.roleOf', { name: member.name })} value={member.role} onValueChange={(role) => void change('role', role as Role, t('team.roleDone', { name: member.name, role: roleLabel[role as Role] }))}>
                 <DropdownMenuRadioItem value="member" title={roleHint.member} aria-label={`${roleLabel.member}. ${roleHint.member}`}>
                   {roleLabel.member}
                 </DropdownMenuRadioItem>

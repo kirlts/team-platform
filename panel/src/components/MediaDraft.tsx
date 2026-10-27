@@ -151,7 +151,11 @@ export function LinkRow({ draft }: { draft: MediaDraft }) {
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? 'compose-link-error' : undefined}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value)
+            // Correcting the text takes the reproach away: the next check is the one that counts.
+            if (invalid) draft.setProblem(null)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') close()
             if (e.key === 'Enter') {
@@ -204,7 +208,7 @@ function LocalChip({ local: l, busy, onRemove }: { local: LocalFile; busy?: bool
     <li className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md bg-surface py-0.5 pl-1 pr-0.5">
       <Thumb item={{ kind, src: l.url, name: l.file.name, size: l.file.size }} px={28} />
       <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
-      <span className="shrink-0 text-xs tabular-nums text-muted">{[seconds === undefined ? '' : mmss(seconds), format.fileSize(l.file.size)].filter(Boolean).join(' · ')}</span>
+      <span className="shrink-0 text-xs leading-tight tabular-nums text-muted">{[seconds === undefined ? '' : mmss(seconds), format.fileSize(l.file.size)].filter(Boolean).join(' · ')}</span>
       {!busy && (
         <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger pointer-coarse:min-h-11 pointer-coarse:min-w-11" onClick={onRemove}>
           <X size={13} aria-hidden />

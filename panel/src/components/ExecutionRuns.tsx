@@ -35,7 +35,7 @@ export function ExecutionRuns() {
   const id = useId()
   return (
     <div data-execution-runs className="flex flex-col gap-2">
-      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className="flex min-h-8 items-center gap-2 self-start text-left text-sm hover:text-accent">
+      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className="flex min-h-8 pointer-coarse:min-h-11 items-center gap-2 self-start text-left text-sm hover:text-accent">
         <ChevronRight size={16} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
         <span>{t('runs.title')}</span>
       </button>

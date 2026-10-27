@@ -14,8 +14,8 @@ await main(async () => {
   if (!job || !workdir) throw new DriverError('usage: create.sh <job_id> <workdir>')
   const s = loadSettings()
   if (!s.image) throw new DriverError('TP_FLY_IMAGE is not set: the image of the machine (see drivers/fly-machines/Dockerfile)')
-  const name = machineName(job)
-  if (!/^tp-job-[a-z0-9][a-z0-9-]*$/.test(name)) throw new DriverError(`job id without valid characters: ${job}`)
+  const name = machineName(s, job)
+  if (!/^tp-[a-z0-9]+-job-[a-z0-9][a-z0-9-]*$/.test(name)) throw new DriverError(`job id without valid characters: ${job}`)
 
   const mine = await findMachine(s, job)
   if (mine && ALIVE_STATES.has(mine.state)) { console.log(name); return }
@@ -23,7 +23,7 @@ await main(async () => {
   if (mine) await call(s, 'DELETE', `/v1/apps/${encodeURIComponent(s.app)}/machines/${mine.id}?force=true`)
 
   if (s.maxMachines) {
-    const alive = (await listMachines(s, { team_platform_driver: DRIVER_LABEL })).filter((m) => ALIVE_STATES.has(m.state)).length
+    const alive = (await listMachines(s, { team_platform_driver: DRIVER_LABEL, team_platform_instance: s.instance })).filter((m) => ALIVE_STATES.has(m.state)).length
     if (alive >= s.maxMachines) {
       console.error(`${alive} machines alive of ${s.maxMachines} allowed`)
       console.error(`##team quota machines=${s.maxMachines}`)
@@ -38,7 +38,7 @@ await main(async () => {
     auto_destroy: true,
     restart: { policy: 'no' },
     guest: { cpu_kind: s.cpuKind, cpus: s.cpus, memory_mb: s.memoryMb },
-    metadata: { team_platform_driver: DRIVER_LABEL, team_platform_job: safeJob(job) }
+    metadata: { team_platform_driver: DRIVER_LABEL, team_platform_instance: s.instance, team_platform_job: safeJob(job) }
   }
   const res = await call(s, 'POST', `/v1/apps/${encodeURIComponent(s.app)}/machines`, { name, ...(s.region ? { region: s.region } : {}), config })
   if (res.status !== 200 && res.status !== 201) {

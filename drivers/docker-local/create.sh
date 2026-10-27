@@ -6,7 +6,8 @@
 # The last stdout line is the machine name (the {machine} of the other hooks); everything else goes to stderr.
 # Exit 0 created; 75 not now (Docker does not answer, or TP_DOCKER_MAX_CONTAINERS machines are alive; then stderr carries
 # `##team quota machines=<N>`); any other code is a permanent fault (the image does not exist, the repository path is wrong).
-# Repeating it for a job whose machine is alive answers with that machine.
+# Repeating it for a job whose machine is alive answers with that machine. The machine is named tp-<instance>-job-<id> (TP_DOCKER_INSTANCE, common.sh) and
+# the cap counts the machines of this instance only.
 set -Eeuo pipefail
 . "$(dirname "$0")/common.sh"
 
@@ -31,15 +32,15 @@ if tp_machine_state "$NAME"; then
 fi
 
 if [ -n "${TP_DOCKER_MAX_CONTAINERS:-}" ]; then
-  ALIVE="$(docker ps -q --filter "label=$TP_DRIVER_LABEL" | wc -l)"
+  ALIVE="$(docker ps -q --filter "label=$TP_DRIVER_LABEL" --filter "label=$TP_INSTANCE_LABEL" | wc -l)"
   if [ "$ALIVE" -ge "$TP_DOCKER_MAX_CONTAINERS" ]; then
-    echo "$ALIVE machines alive of $TP_DOCKER_MAX_CONTAINERS allowed" >&2
+    echo "$ALIVE machines of this instance alive of $TP_DOCKER_MAX_CONTAINERS allowed" >&2
     echo "##team quota machines=$TP_DOCKER_MAX_CONTAINERS" >&2
     exit 75
   fi
 fi
 
-ARGS=(run -d --name "$NAME" --label "$TP_DRIVER_LABEL" --label "team-platform.job=$(tp_safe "$JOB")"
+ARGS=(run -d --name "$NAME" --label "$TP_DRIVER_LABEL" --label "$TP_INSTANCE_LABEL" --label "team-platform.job=$(tp_safe "$JOB")"
   --network "$TP_DOCKER_NETWORK" --add-host host.docker.internal:host-gateway)
 [ -z "${TP_DOCKER_MEMORY:-}" ] || ARGS+=(--memory "$TP_DOCKER_MEMORY")
 [ -z "${TP_DOCKER_CPUS:-}" ] || ARGS+=(--cpus "$TP_DOCKER_CPUS")

@@ -17,6 +17,9 @@
 //                            brings the branch back into this repository, which is where deliver.sh looks for it. Empty: the session works in the job directory.
 //   TP_FLY_BASE_REF          ref the branch starts from (default: what HEAD of the clone points to)
 //   TP_FLY_STATE             directory of the driver's own state: the creation lock and the transcripts
+//   TP_FLY_INSTANCE          identity of this instance of the driver when other instances use the same Fly app (1 to 20 lower case letters or digits). It is in the
+//                            name of every machine (tp-<instance>-job-<id>) and in the metadata the driver lists, counts and checks by, so two instances whose job ids
+//                            coincide never take each other's machine. Default: the first 8 hex digits of the sha256 of TP_FLY_STATE, which is already one per instance.
 //   TP_FLY_API               base URL of the Machines API (default https://api.machines.dev)
 //   TP_FLY_START_TIMEOUT_S   seconds create waits for the machine to start (default 60, the default of the wait endpoint)
 //   TP_FLY_POLL_WAIT_S       seconds one exec waits for new output of the session (default 45, see POLL_WAIT_DEFAULT_S)
@@ -71,7 +74,13 @@ export const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 /** A job id is interpolated into names and paths: only letters, digits, dot, dash and underscore. */
 export const safeJob = (job) => String(job).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '')
 /** The name of a machine: Fly names are lower case letters, digits and dashes. */
-export const machineName = (job) => `tp-job-${safeJob(job).toLowerCase().replace(/[^a-z0-9-]+/g, '-')}`
+export const machineName = (s, job) => `tp-${s.instance}-job-${safeJob(job).toLowerCase().replace(/[^a-z0-9-]+/g, '-')}`
+/**
+ * Whether the {machine} an order received is the machine of the job of this instance. Three names mean it: its own; the default of the core
+ * (team-job-<job_id>), which the register holds when the worker died before CREATE answered; and the name before instances existed (tp-job-<id>), whose
+ * machine carries no instance metadata and so is never found here: it ends by itself at its maximum life.
+ */
+export const isMachineOfJob = (s, job, machine) => [machineName(s, job), `team-job-${job}`, `tp-job-${safeJob(job).toLowerCase().replace(/[^a-z0-9-]+/g, '-')}`].includes(machine)
 
 export function loadSettings (env = process.env) {
   const int = (name, fallback, min = 0) => {
@@ -83,6 +92,7 @@ export function loadSettings (env = process.env) {
   }
   let token = env.FLY_API_TOKEN || ''
   if (!token && env.TP_FLY_TOKEN_FILE) token = readFileSync(env.TP_FLY_TOKEN_FILE, 'utf8').trim()
+  const state = env.TP_FLY_STATE || join(env.XDG_STATE_HOME || join(homedir(), '.local', 'state'), 'team-platform-fly')
   const s = {
     api: (env.TP_FLY_API || 'https://api.machines.dev').replace(/\/+$/, ''),
     app: env.TP_FLY_APP || '',
@@ -98,12 +108,14 @@ export function loadSettings (env = process.env) {
     passEnv: (env.TP_FLY_PASS_ENV ?? 'ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN').split(/\s+/).filter(Boolean),
     repo: env.TP_FLY_REPO || '',
     baseRef: env.TP_FLY_BASE_REF || '',
-    state: env.TP_FLY_STATE || join(env.XDG_STATE_HOME || join(homedir(), '.local', 'state'), 'team-platform-fly'),
+    state,
+    instance: env.TP_FLY_INSTANCE || sha256(state).slice(0, 8),
     startTimeoutS: int('TP_FLY_START_TIMEOUT_S', 60, 1),
     pollWaitS: int('TP_FLY_POLL_WAIT_S', POLL_WAIT_DEFAULT_S, 1),
     execGapMs: int('TP_FLY_EXEC_GAP_MS', EXEC_GAP_DEFAULT_MS, 0),
     uploadParallel: int('TP_FLY_UPLOAD_PARALLEL', UPLOAD_PARALLEL_DEFAULT, 1)
   }
+  if (!/^[a-z0-9]{1,20}$/.test(s.instance)) throw new DriverError(`TP_FLY_INSTANCE must be 1 to 20 lower case letters or digits: «${s.instance}»`)
   if (!s.app) throw new DriverError('TP_FLY_APP is not set: the Fly app whose machines this driver manages')
   if (!s.token) throw new DriverError('no token: set FLY_API_TOKEN (or TP_FLY_TOKEN_FILE)')
   return s
@@ -152,10 +164,10 @@ export async function listMachines (s, metadata) {
 
 export const ALIVE_STATES = new Set(['created', 'starting', 'started', 'replacing'])
 
-/** The machine of a job, found by the metadata this driver wrote at create (never by name pattern). null when there is none. */
+/** The machine of a job of this instance, found by the metadata this driver wrote at create (never by name pattern). null when there is none. */
 export async function findMachine (s, job) {
-  const found = await listMachines(s, { team_platform_driver: DRIVER_LABEL, team_platform_job: safeJob(job) })
-  return found.find((m) => m.name === machineName(job)) ?? null
+  const found = await listMachines(s, { team_platform_driver: DRIVER_LABEL, team_platform_instance: s.instance, team_platform_job: safeJob(job) })
+  return found.find((m) => m.name === machineName(s, job)) ?? null
 }
 
 /**

@@ -61,7 +61,9 @@ describe('session and errors', () => {
 
   it('a missing thing is 404 not_found and a role refusal is 403', async () => {
     expect(await failure(ana.messages.get('999999'))).toMatchObject({ status: 404, code: 'not_found' })
-    expect((await failure(ana.jobs.trace('1'))).status).toBe(403)
+    // The Editor only changes configured texts (UD-287): a member is refused there, and the trace is any person's.
+    expect((await failure(ana.areas.save({ title: 'Área de una persona sin rol', description: 'no', color: '#336699' }))).status).toBe(403)
+    expect((await failure(ana.jobs.trace('999999'))).status).toBe(404)
   })
 
   it('the code is one the generated list knows', async () => {
@@ -87,7 +89,7 @@ describe('reads', () => {
     expect((await ana.members.list()).map((m) => m.email)).toContain('ed@x.org')
     expect((await ana.project.get()).name).toBeTruthy()
     expect((await ed.providers.list()).length).toBeGreaterThan(0)
-    expect((await failure(ana.providers.list())).status).toBe(403)
+    expect((await ana.providers.list()).length).toBeGreaterThan(0) // any person sees the providers (UD-287)
     expect((await ed.connections.list()).presets.length).toBeGreaterThan(0)
     expect(typeof (await ed.publication.get()).auto_publish).toBe('boolean')
     expect((await ed.analysis.get()).framing).toBeTruthy()
@@ -138,19 +140,18 @@ describe('sends, multipart and «enviar como»', () => {
     expect(err).toMatchObject({ status: 400, code: 'recipient_invalid' })
   })
 
-  it('reprocess of a published send is the Editor\'s: the member gets 403 and the Editor sets the messages aside', async () => {
+  it('reprocess of a published send is any person\'s (UD-287): its messages are set aside', async () => {
     const { input_id } = await ana.inputs.create({ text: 'para reprocesar', files: [], links: [] })
     await until(async () => (await ana.inputs.get(input_id)).status === 'published')
-    expect((await failure(ana.inputs.reprocess(input_id))).status).toBe(403)
-    const result = await ed.inputs.reprocess(input_id)
+    const result = await ana.inputs.reprocess(input_id)
     expect(result.input_id).toBe(input_id)
     expect(result.set_aside?.messages).toBeGreaterThan(0)
   })
 
-  it('the queue lists the sends of everybody to the Editor only', async () => {
+  it('the queue lists the sends of everybody to any person (UD-287)', async () => {
     const page = await ed.inputs.queue(1, 50)
     expect(page.total).toBeGreaterThan(0)
-    expect((await failure(ana.inputs.queue(1, 50))).status).toBe(403)
+    expect((await ana.inputs.queue(1, 50)).total).toBe(page.total)
   })
 })
 
@@ -234,9 +235,11 @@ describe('deletions and their undo', () => {
     expect((await ana.messages.get(two)).id).toBe(two)
   })
 
-  it('a batch of somebody else\'s messages is refused whole', async () => {
+  it('any person deletes and restores a batch of somebody else\'s messages (UD-287)', async () => {
     const id = await publishedMessage(ana, 'de Ana')
-    expect((await failure(beto.messages.deleteMany([id]))).status).toBe(403)
+    expect((await beto.messages.deleteMany([id])).ids).toEqual([id])
+    expect((await failure(ana.messages.get(id))).status).toBe(404)
+    expect((await beto.messages.restoreMany([id])).ids).toEqual([id])
     expect((await ana.messages.get(id)).id).toBe(id)
   })
 
@@ -308,20 +311,22 @@ describe('settings and team', () => {
     expect(await ed.members.delete({ id: created.id })).toMatchObject({ member_id: created.id })
   })
 
-  it('deleting a member with history is refused with 409 member_has_history and its details; purge takes the history too', async () => {
+  it('deleting a member with history keeps what they published under «Miembro eliminado» (UD-292); purge takes the history too', async () => {
     const created = await ed.members.create({ email: 'historia@x.org', name: 'Historia', password: 'una clave larga de prueba 1' })
     const own = await server.as('historia@x.org')
     await publishedMessage(own, 'deja historial')
-    const err = await failure(ed.members.delete({ id: created.id }))
-    expect(err).toMatchObject({ status: 409, code: 'member_has_history' })
-    const purged = await ed.members.delete({ id: created.id, purge: true })
+    const kept = await ed.members.delete({ id: created.id })
+    expect(kept.kept?.messages).toBeGreaterThan(0)
+    const second = await ed.members.create({ email: 'historia2@x.org', name: 'Historia dos', password: 'una clave larga de prueba 1' })
+    await publishedMessage(await server.as('historia2@x.org'), 'deja historial también')
+    const purged = await ed.members.delete({ id: second.id, purge: true })
     expect(purged.deleted.inputs).toBeGreaterThan(0)
   })
 
-  it('jobs, audit and the trace are for the Editor', async () => {
+  it('jobs, audit and the trace are any person\'s (UD-287)', async () => {
     expect((await ed.jobs.list('done')).total).toBeGreaterThan(0)
     expect((await ed.audit.list(1, 5)).items.length).toBeGreaterThan(0)
-    expect((await failure(ana.audit.list(1, 5))).status).toBe(403)
+    expect((await ana.audit.list(1, 5)).items.length).toBeGreaterThan(0)
   })
 })
 

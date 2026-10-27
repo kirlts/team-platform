@@ -83,12 +83,17 @@ EXECUTE_DELIVER_COMMAND=bash /opt/team-platform/drivers/docker-local/deliver.sh 
 | `TP_DOCKER_IMAGE` | Imagen de la máquina. Omisión `team-platform-agent:local` |
 | `TP_DOCKER_REPO` | Ruta del repositorio del anfitrión. Se monta en la máquina, la sesión lo clona, trabaja en `tp/<id>` y empuja la rama de vuelta. `deliver.sh` la busca ahí |
 | `TP_DOCKER_BASE_REF` | De dónde nace la rama. Omisión: el HEAD del repositorio |
-| `TP_DOCKER_MAX_CONTAINERS` | Máquinas vivas a la vez. Pasado ese número create responde 75 con `##team quota`. Vacío: sin tope, porque el tope lo declara el anfitrión |
+| `TP_DOCKER_MAX_CONTAINERS` | Máquinas vivas de esta instancia a la vez (las de otra instancia del mismo demonio no cuentan). Pasado ese número create responde 75 con `##team quota`. Vacío: sin tope, porque el tope lo declara el anfitrión |
 | `TP_DOCKER_MEMORY`, `TP_DOCKER_CPUS` | Límites de `docker run` |
 | `TP_DOCKER_PASS_ENV` | Variables que pasan del trabajador a la sesión, por nombre. Omisión `ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN` |
 | `TP_DOCKER_STATE` | Candado de creación y transcripciones (`transcripts/<job_id>`) |
+| `TP_DOCKER_INSTANCE` | Identidad de esta instancia en un demonio que comparten otras: 1 a 20 letras minúsculas o dígitos. Va en el nombre de cada máquina, `tp-<instancia>-job-<id>`, y en la etiqueta `team-platform.instance` con que el driver cuenta y valida las suyas. Omisión: los 8 primeros dígitos hexadecimales del sha256 de `TP_DOCKER_STATE`, que ya es uno por instancia, así que sin configurar nada dos instancias (o dos corridas de `scripts/host-conformance.mjs`) no se ven. Una instancia que se declara a mano debe ser única en el demonio |
 
-Si el trabajador corre dentro de un contenedor, necesita el cliente `docker` y el socket del host montado. `EXECUTE_TEAM_URL` tiene que ser una dirección que la máquina alcance: `127.0.0.1` es el contenedor mismo, por eso el ejemplo usa `host.docker.internal`, que create.sh agrega a cada máquina.
+Identidad de instancia. El id de trabajo sale de la base de cada instancia, así que dos instancias, o dos corridas de la conformidad, sobre el mismo demonio de Docker parten del mismo id. Hasta que el nombre llevó la instancia, ambas nombraban `tp-job-<id>`, la segunda recibía la máquina de la primera y el destroy de una retiraba la de la otra. Ahora cada gancho sólo toca contenedores con su nombre y su etiqueta de instancia; `destroy.sh` rechaza (código 1) cualquier otro, y `create.sh` cuenta sólo los suyos contra el tope.
+
+Máquinas anteriores a la instancia. Una máquina creada como `tp-job-<id>` no lleva etiqueta de instancia y sigue anotada con ese nombre en `execute_machines` (el barrido del núcleo la busca por lo que CREATE devolvió, no por patrón). `destroy.sh` la retira si el contenedor tiene la etiqueta del driver y ninguna de instancia; si tiene la de otra instancia, la rechaza. `create.sh`, `run.sh` y `collect.sh` nunca la direccionan: un trabajo que estaba en vuelo durante la actualización y vuelve a pasar por CREATE obtiene una máquina nueva y la vieja se retira cuando su fila se barre. `destroy.sh` también lee el nombre por omisión del núcleo (`team-job-<id>`, la fila que queda si el trabajador murió antes de que CREATE contestara) como la máquina que este driver habría creado para ese trabajo; antes ese nombre se rechazaba y la máquina quedaba sin barrer.
+
+Si el trabajador corre dentro de un contenedor, necesita el cliente `docker` y el socket del host montado. `compose.driver.example.yml` agrega el cliente con `DRIVER_PACKAGES="bash docker-cli"`; el socket lo monta el archivo de compose del anfitrión. `EXECUTE_TEAM_URL` tiene que ser una dirección que la máquina alcance: `127.0.0.1` es el contenedor mismo, por eso el ejemplo usa `host.docker.internal`, que create.sh agrega a cada máquina.
 
 Diferencias con un anfitrión de producción. run.sh no se reengancha: si el trabajador se reinicia con una sesión en curso, el trabajo siguiente vuelve a copiar y a empezar. La entrega de ejemplo sólo comprueba que la rama existe y sale 0 con el commit como referencia. El anfitrión reemplaza lo que hay entre `##team phase deploy` y la última línea.
 
@@ -96,7 +101,7 @@ Diferencias con un anfitrión de producción. run.sh no se reengancha: si el tra
 
 Un driver son cuatro guiones que cumplen la tabla de arriba. Se prueba con el `runMachine` real del trabajador y un `claude` falso dentro de la máquina; `src/execute/drivers-docker-local.test.js` es la plantilla. Las preguntas que cada nube resuelve:
 
-1. Cómo se nombra una máquina por trabajo y cómo se vuelve a encontrar por ese nombre en run, collect y destroy.
+1. Cómo se nombra una máquina por trabajo y por instancia (el id de trabajo no es único entre instancias que comparten nube) y cómo se vuelve a encontrar por ese nombre en run, collect y destroy.
 2. Cómo llega el directorio `{workdir}` y cómo salen las capturas y la transcripción.
 3. Cuál es su 75: la cuota o el stock que la nube niega, y dónde se cuenta para no pasarse.
 4. Qué retira la máquina si el trabajador muere sin llamar a destroy: una vida máxima declarada en la propia nube.

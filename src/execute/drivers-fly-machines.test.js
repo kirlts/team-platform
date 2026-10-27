@@ -17,6 +17,8 @@ import { TOKEN, startFlyDouble } from './fly-api-double.js'
 
 const DRIVER = fileURLToPath(new URL('../../drivers/fly-machines/', import.meta.url))
 const IMAGE = 'team-platform-agent:fly-test'
+const INSTANCE = `ft${process.pid}` // TP_FLY_INSTANCE of this run
+const nameOf = (id, instance = INSTANCE) => `tp-${instance}-job-${id}`
 const HOOKS = {
   machineCreate: `bash ${DRIVER}create.sh {job_id} {workdir}`,
   machineRun: `bash ${DRIVER}run.sh {job_id} {workdir} {machine}`,
@@ -101,7 +103,7 @@ describe('drivers/fly-machines', () => {
     execFileSync('docker', ['build', '-q', '--build-arg', 'CLAUDE_PACKAGE=', '-t', IMAGE, DRIVER], { stdio: ['ignore', 'ignore', 'inherit'], timeout: 600_000 })
     flyApi = await startFlyDouble()
     setEnv({
-      TP_FLY_API: flyApi.url, TP_FLY_APP: flyApi.app, FLY_API_TOKEN: TOKEN, TP_FLY_TOKEN_FILE: undefined, TP_FLY_IMAGE: IMAGE, TP_FLY_STATE: state, TP_FLY_REPO: repo,
+      TP_FLY_API: flyApi.url, TP_FLY_APP: flyApi.app, FLY_API_TOKEN: TOKEN, TP_FLY_TOKEN_FILE: undefined, TP_FLY_IMAGE: IMAGE, TP_FLY_STATE: state, TP_FLY_INSTANCE: INSTANCE, TP_FLY_REPO: repo,
       TP_FLY_MAX_MACHINES: undefined, TP_FLY_MAX_LIFE_S: '600', TP_FLY_EXEC_GAP_MS: '0', TP_FLY_POLL_WAIT_S: undefined, TP_FLY_PASS_ENV: undefined, ANTHROPIC_API_KEY: 'valor-de-prueba'
     })
   })
@@ -119,7 +121,7 @@ describe('drivers/fly-machines', () => {
     const result = await runJob(id, workdir, {}, (chunk) => { streamed += chunk })
     assert.equal(result.code, 0, result.stderr)
     assert.equal(result.phase, 'run')
-    assert.equal(result.machine, `tp-job-${id}`, 'the last stdout line of create is the machine')
+    assert.equal(result.machine, nameOf(id), 'the last stdout line of create is the machine')
     assert.equal(result.destroy.code, 0)
     assert.equal(result.collect.code, 0, result.collect?.stderr)
     assert.ok(![...flyApi.machines.values()].some((m) => m.name === result.machine), 'destroy removed the machine')
@@ -134,6 +136,7 @@ describe('drivers/fly-machines', () => {
     assert.deepEqual(create.body.config.restart, { policy: 'no' })
     assert.deepEqual(create.body.config.guest, { cpu_kind: 'shared', cpus: 1, memory_mb: 256 })
     assert.equal(create.body.config.metadata.team_platform_driver, 'fly-machines')
+    assert.equal(create.body.config.metadata.team_platform_instance, INSTANCE)
     // The transcript left the machine before it was destroyed, and `transcript_ref` is where it went.
     const ref = result.collect.ref
     assert.equal(ref, join(state, 'transcripts', id))
@@ -202,7 +205,7 @@ describe('drivers/fly-machines', () => {
     assert.equal(result.code, 3)
     assert.match(result.stderr, /session not started/)
     assert.equal(result.destroy.code, 0)
-    assert.ok(![...flyApi.machines.values()].some((m) => m.name === `tp-job-${id}`))
+    assert.ok(![...flyApi.machines.values()].some((m) => m.name === nameOf(id)))
   })
 
   it('a call of the API cut with 408 is asked again with the same offsets and loses nothing', async () => {
@@ -225,11 +228,11 @@ describe('drivers/fly-machines', () => {
     const b = await sh(fillCommand(HOOKS.machineCreate, { job_id: second, workdir: dir }), { env })
     assert.equal(b.code, 75)
     assert.ok(new RegExp(`^##team quota machines=${alive + 1}\\s*$`, 'm').test(b.stderr), b.stderr)
-    assert.ok(![...flyApi.machines.values()].some((m) => m.name === `tp-job-${second}`), 'the refused job has no machine')
+    assert.ok(![...flyApi.machines.values()].some((m) => m.name === nameOf(second)), 'the refused job has no machine')
     const again = await sh(fillCommand(HOOKS.machineCreate, { job_id: first, workdir: dir }), { env })
     assert.equal(again.code, 0)
-    assert.equal(lines(again.stdout).at(-1), `tp-job-${first}`)
-    assert.equal([...flyApi.machines.values()].filter((m) => m.name === `tp-job-${first}`).length, 1, 'no second machine')
+    assert.equal(lines(again.stdout).at(-1), nameOf(first))
+    assert.equal([...flyApi.machines.values()].filter((m) => m.name === nameOf(first)).length, 1, 'no second machine')
 
     flyApi.inject(/^POST .*\/machines$/, 429, { error: 'rate limit exceeded' }, { headers: { 'retry-after': '0' }, times: 20 })
     const limited = await sh(fillCommand(HOOKS.machineCreate, { job_id: second, workdir: dir }))
@@ -244,7 +247,7 @@ describe('drivers/fly-machines', () => {
     assert.match(wrong.stderr, /image not found/)
     const down = await sh(fillCommand(HOOKS.machineCreate, { job_id: third, workdir: dir }), { env: { ...process.env, TP_FLY_API: 'http://127.0.0.1:1' } })
     assert.equal(down.code, 75, 'an API that does not answer is a «not now»')
-    const d = await sh(fillCommand(HOOKS.machineDestroy, { job_id: first, workdir: dir, machine: `tp-job-${first}` }))
+    const d = await sh(fillCommand(HOOKS.machineDestroy, { job_id: first, workdir: dir, machine: nameOf(first) }))
     assert.equal(d.code, 0)
   })
 
@@ -252,7 +255,7 @@ describe('drivers/fly-machines', () => {
     const id = jobId()
     const created = await sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }), { env: { ...process.env, TP_FLY_MAX_LIFE_S: '3' } })
     assert.equal(created.code, 0, created.stderr)
-    const machine = [...flyApi.machines.values()].find((m) => m.name === `tp-job-${id}`)
+    const machine = [...flyApi.machines.values()].find((m) => m.name === nameOf(id))
     assert.deepEqual(machine.config.init.exec, ['sleep', '3'])
     // `docker wait` returns when the container stops: the event, not a timer of the test.
     execFileSync('docker', ['wait', machine.container], { stdio: 'ignore', timeout: 60_000 })
@@ -262,16 +265,51 @@ describe('drivers/fly-machines', () => {
 
   it('destroy is idempotent and touches only machines this driver made', async () => {
     const id = jobId()
-    const gone = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: `tp-job-${id}` }))
+    const gone = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id) }))
     assert.equal(gone.code, 0, 'a machine that does not exist is already destroyed')
     // A machine of the same app that the driver did not make (no metadata): it is not found by the driver, so it is left alone.
-    const foreign = await sh(`curl -s -X POST -H "authorization: Bearer ${TOKEN}" -H 'content-type: application/json' -d '{"name":"tp-job-${id}","config":{"image":"${IMAGE}","init":{"exec":["sleep","60"]}}}' "${flyApi.url}/v1/apps/${flyApi.app}/machines"`)
+    const foreign = await sh(`curl -s -X POST -H "authorization: Bearer ${TOKEN}" -H 'content-type: application/json' -d '{"name":"${nameOf(id)}","config":{"image":"${IMAGE}","init":{"exec":["sleep","60"]}}}' "${flyApi.url}/v1/apps/${flyApi.app}/machines"`)
     assert.match(foreign.stdout, /"id"/)
-    const left = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: `tp-job-${id}` }))
+    const left = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id) }))
     assert.equal(left.code, 0)
-    assert.ok([...flyApi.machines.values()].some((m) => m.name === `tp-job-${id}`), 'a machine without the metadata of the driver is not removed')
+    assert.ok([...flyApi.machines.values()].some((m) => m.name === nameOf(id)), 'a machine without the metadata of the driver is not removed')
     const notOurs = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: 'postgres' }))
     assert.equal(notOurs.code, 1, 'a name that is not the one of the job is refused before the API is asked')
+  })
+
+  it('two instances on the same app with the same job id make two machines, count their own, and the destroy of one never touches the other', async () => {
+    const id = jobId()
+    const other = `${INSTANCE}b`
+    const asOther = (extra = {}) => ({ env: { ...process.env, TP_FLY_INSTANCE: other, TP_FLY_STATE: join(dir, 'state-other'), ...extra } })
+    const [a, b] = await Promise.all([
+      sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir })),
+      sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }), asOther())
+    ])
+    assert.equal(a.code, 0, a.stderr)
+    assert.equal(b.code, 0, b.stderr)
+    assert.equal(lines(a.stdout).at(-1), nameOf(id))
+    assert.equal(lines(b.stdout).at(-1), nameOf(id, other))
+    const named = (name) => [...flyApi.machines.values()].filter((m) => m.name === name).length
+    assert.equal(named(nameOf(id)), 1)
+    assert.equal(named(nameOf(id, other)), 1)
+    // The cap counts the machines of the instance that asks.
+    const capped = await sh(fillCommand(HOOKS.machineCreate, { job_id: jobId(), workdir: dir }), asOther({ TP_FLY_MAX_MACHINES: '1' }))
+    assert.equal(capped.code, 75, 'the other instance has one machine and a cap of one')
+    const untouched = await sh(fillCommand(HOOKS.machineCreate, { job_id: jobId(), workdir: dir }), asOther({ TP_FLY_INSTANCE: `${INSTANCE}c`, TP_FLY_MAX_MACHINES: '1' }))
+    assert.equal(untouched.code, 0, 'a third instance sees none of the two machines alive')
+    const refused = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id, other) }))
+    assert.equal(refused.code, 1, 'the name of another instance is not a machine of this one')
+    assert.equal(named(nameOf(id, other)), 1)
+    const d = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id, other) }), asOther())
+    assert.equal(d.code, 0, d.stderr)
+    assert.equal(named(nameOf(id, other)), 0)
+    assert.equal(named(nameOf(id)), 1, 'only the machine of the instance that asked is gone')
+    const mine = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: `team-job-${id}` }))
+    assert.equal(mine.code, 0, 'the default name of the core reaches the machine of the job of this instance')
+    assert.equal(named(nameOf(id)), 0)
+    const bad = await sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }), asOther({ TP_FLY_INSTANCE: 'Bad_1' }))
+    assert.equal(bad.code, 1)
+    assert.match(bad.stderr, /TP_FLY_INSTANCE must be/)
   })
 
   it('collect: exit 3 and no reference when the session left no transcript', async () => {
@@ -292,11 +330,11 @@ describe('drivers/fly-machines', () => {
     const created = await sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }))
     assert.equal(created.code, 0, created.stderr)
     const { exec, loadSettings } = await import('../../drivers/fly-machines/lib/fly.mjs')
-    const machine = [...flyApi.machines.values()].find((m) => m.name === `tp-job-${id}`)
+    const machine = [...flyApi.machines.values()].find((m) => m.name === nameOf(id))
     try {
       await assert.rejects(() => exec(loadSettings(), machine.id, ['bash', '-c', 'true', '_', 'a'.repeat(20_000)]), /refused by the machine agent/)
       assert.equal((await exec(loadSettings(), machine.id, ['bash', '-c', 'exit 7'])).code, 7)
-    } finally { await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: `tp-job-${id}` })) }
+    } finally { await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id) })) }
   })
 
   it('the example delivery: 0 with the commit when the branch is in the host repository, 1 when it is not, 75 in-machine without a repository', async () => {

@@ -121,6 +121,7 @@ export const routes = {
  * operation is in `routes` or here, so a new route of the server cannot go unnoticed by the client.
  */
 export const NOT_IN_CLIENT: Readonly<Record<string, string>> = {
+  'GET /api/host/notices': 'Question of the host site about one of its people, with the host\'s signed token and no session of ours (UD-301); no interface of the team calls it.',
   'POST /api/jobs/{id}/marks': 'Callback of the worker that runs an `execute` job: the time of one part of the work, with that job agent as the only caller.',
   'POST /api/jobs/{id}/mentions/take': 'Callback of the session that runs an `execute` job: takes the mentions written while it works (UD-285), with that job agent as the only caller.',
   'POST /api/jobs/{id}/progress': 'Callback of the worker that runs an `execute` job, with that job agent as the only caller; no interface reports progress.',

@@ -509,7 +509,82 @@ TMPDIR=$HOME/.cache node scripts/host-conformance.mjs --driver drivers/docker-lo
 
 Imprime un caso por línea (`ok` o `FAIL` con el motivo) y termina con `contract_version: 1 met`. Sale con 0 sólo si todos pasan; con 1 si alguno falló; con 2 si el driver no existe. Con `drivers/docker-local` construye una imagen sin Claude Code (`team-platform-agent:conformance`) y tarda cerca de 45 s (medido el 2026-10-26 en un clon limpio de `desarrollo`). `--help` lista los casos.
 
-Las líneas de `.env` que conectan el driver al trabajador, la imagen de la máquina y sus ajustes están en `drivers/README.md`, sección «Driver `docker-local`». `drivers/docker-local` llama a `docker` desde el trabajador. El trabajador corre entonces donde `docker` responda: en la misma máquina con `npm run worker`, o en un contenedor con el socket de Docker montado. Si declara otra versión mayor que la del núcleo, el trabajador no arranca y dice cuál esperaba.
+Las líneas de `.env` que conectan el driver al trabajador, la imagen de la máquina y sus ajustes están en `drivers/README.md`, sección «Driver `docker-local`». `drivers/docker-local` llama a `docker` desde el trabajador. El trabajador corre entonces donde `docker` responda: en la misma máquina con `npm run worker`, o en un contenedor con el socket de Docker montado. Si declara otra versión mayor que la del núcleo, el trabajador no arranca y dice cuál esperaba. Con `drivers/fly-machines`, o con cualquier driver que sólo pida `bash` y `git`, el trabajador queda dentro del contenedor: ver «Un driver dentro del contenedor».
+
+### Un driver dentro del contenedor
+
+Con `EXECUTE_RUNNER=machine` el trabajador llama a las órdenes del driver como programas de su propio sistema. En la instalación de `compose.yml` el trabajador corre dentro del contenedor (`WORKER_MODE=inline`, la omisión), y la imagen no trae `bash` ni `git`, que piden los drivers. Tres piezas lo resuelven sin tocar el contenedor a mano:
+
+| Pieza | Qué hace |
+|---|---|
+| `drivers/` en la imagen | Los guiones de cada driver viajan en `/app/drivers`. Las órdenes de `.env` apuntan ahí: `bash /app/drivers/fly-machines/create.sh {job_id} {workdir}` |
+| `compose.driver.example.yml` | Pasa `DRIVER_PACKAGES` (omisión `bash git`) como argumento de construcción. La imagen instala esos paquetes de Alpine. Sin el archivo no se instala ninguno. `flock` y `tar` ya son comandos de busybox |
+| Un archivo de compose del anfitrión | Monta de sólo lectura lo que no puede estar en `.env`: el token del driver (`TP_FLY_TOKEN_FILE=/run/secrets/fly-token`) y el archivo de `EXECUTE_HOST_INSTRUCTIONS` |
+
+Con Docker como driver (`drivers/docker-local`) se cambia `DRIVER_PACKAGES` a `bash docker-cli` y se monta el socket de Docker en el archivo del anfitrión.
+
+Recorrido con `drivers/fly-machines`, sobre una instalación hecha con `scripts/install.sh --no-start`:
+
+1. La imagen de la máquina lleva Claude Code fijado (`drivers/fly-machines/Dockerfile`). Se construye y se publica en el registro de la app de Fly. El token entra por la entrada estándar de `docker login`, y con `DOCKER_CONFIG` apuntando a un directorio temporal no llega a `~/.docker`:
+
+```sh
+export DOCKER_CONFIG="$(mktemp -d)"
+cat "$TOKEN_FILE" | docker login registry.fly.io -u x --password-stdin
+docker build -t registry.fly.io/<app>:tp-agent drivers/fly-machines
+docker push registry.fly.io/<app>:tp-agent
+rm -rf "$DOCKER_CONFIG"; unset DOCKER_CONFIG
+```
+
+2. Las variables, en `.env` (sin el token): las cinco órdenes de `drivers/fly-machines/README.md`, con las rutas `/app/drivers/...`, y
+
+```sh
+TP_FLY_APP=<app>
+TP_FLY_TOKEN_FILE=/run/secrets/fly-token
+TP_FLY_IMAGE=registry.fly.io/<app>:tp-agent
+TP_FLY_MEMORY_MB=1024
+TP_FLY_MAX_LIFE_S=1200
+TP_FLY_STATE=/data/driver-state
+EXECUTE_RUNNER=machine
+EXECUTE_CONTRACT_VERSION=1
+EXECUTE_TIMEOUT_MS=600000
+EXECUTE_TEAM_URL=https://<dirección pública de la instancia>
+ANTHROPIC_API_KEY=…
+```
+
+`TP_FLY_STATE` va en el volumen de datos. El directorio personal del usuario del contenedor no sobrevive a recrearlo, y ahí irían el candado de creación y las transcripciones. `TP_FLY_MEMORY_MB` sube de los 256 MB de la omisión, que no alcanzan para Claude Code. `TP_FLY_MAX_LIFE_S` es el doble de `EXECUTE_TIMEOUT_MS` (regla de `drivers/fly-machines/README.md`). `ANTHROPIC_API_KEY` ya está en `.env` por el instalador y el driver la pasa a la sesión por nombre de variable.
+
+3. `EXECUTE_TEAM_URL` es la dirección con que la máquina de Fly llama a la instancia (`team reply`, `team close`). `127.0.0.1` y los nombres internos de Docker no sirven. Una instancia en un servidor con dominio usa su dirección pública. Una instancia en una estación de trabajo publica el puerto con `tailscale funnel --bg --https=8443 localhost:$PUBLISH_PORT`, que devuelve `https://<máquina>.<tailnet>.ts.net:8443`, y se retira con `tailscale funnel --https=8443 off`. Funnel admite 443, 8443 y 10000; antes se mira `tailscale serve status` para no tomar uno ocupado.
+
+4. Tope de gasto. Con un tope diario por debajo de las omisiones se declaran los cuatro valores juntos. La reserva por sesión es de 10 USD mientras no hay una terminada y debe caber en el día:
+
+```sh
+EXECUTE_DAILY_BUDGET_USD=0.5
+EXECUTE_MAX_BUDGET_USD=0.25
+EXECUTE_SESSION_RESERVE_USD=0.25
+EXECUTE_MACHINE_COST_USD=0.001
+```
+
+5. Se compila y se levanta con los archivos de compose, y el nombre del proyecto fija el volumen y la red:
+
+```sh
+export COMPOSE_PROJECT_NAME=<proyecto> IMAGE_TAG=<proyecto>:local
+export COMPOSE_FILE=compose.yml:compose.driver.example.yml:/ruta/al/compose-del-anfitrion.yml
+scripts/install.sh
+```
+
+Arranca con `contract_version: core 1, driver declares 1` en el registro. Si el driver declarara otra versión mayor, el trabajador no arranca.
+
+### Comprobación con el canario, dentro de la instancia
+
+Un editor con contraseña conocida hace falta para el canario. `scripts/install.sh` genera la del primer Editor y la muestra una vez; para una instalación sin terminal se fija `ADMIN_PASSWORD` en `.env` (por ejemplo `openssl rand -hex 24`) antes del primer arranque. El canario corre en el contenedor. Ahí la API es `http://127.0.0.1:$PORT` y las credenciales ya están en el entorno, así que ninguna pasa por la línea de órdenes:
+
+```sh
+docker compose exec -T team-platform sh -c 'TEAM_URL="http://127.0.0.1:$PORT" TEAM_EMAIL="$ADMIN_EMAIL" TEAM_PASSWORD="$ADMIN_PASSWORD" CANARY_AREA=Canario CANARY_CREATE=1 CANARY_AGENT=agente@ejemplo.invalid CANARY_AREA_MODEL=claude-haiku-5-5 node scripts/canary.mjs'
+```
+
+`CANARY_CREATE=1` crea el área y el miembro agente que falten. Sale 0 y la última línea es `CANARY OK: the agent replied in …` cuando el agente responde «OK» en el hilo (medido el 2026-10-27 con Fly y Claude Haiku 5.5: 70 a 73 s de punta a punta, de ellos 51 a 54 s la sesión, y entre 0,001 y 0,002 USD cada sesión). Si sale 3, la última línea nombra el tramo (`session` es el driver y la máquina; `reply`, la dirección `EXECUTE_TEAM_URL`).
+
+Al terminar, `flyctl machines list -a <app>` no debe mostrar ninguna máquina `tp-job-*`: el trabajador destruye la suya y Fly retira cualquier otra al vencer `TP_FLY_MAX_LIFE_S`.
 
 ### La entrega aparte
 

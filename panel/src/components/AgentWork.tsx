@@ -1,4 +1,4 @@
-import { Check, Clock, X } from '@/components/icons'
+import { Check, Clock, Ring, X } from '@/components/icons'
 import { useLookups } from '@/components/lookups'
 import { Meter } from '@/components/Meter'
 import { RetryButton } from '@/components/RetryExecute'
@@ -10,12 +10,15 @@ import type { MessageDetail } from '@team-platform/client'
 import { useJobProgress, useMessageTiming, useRetryExecute } from '@team-platform/client/react'
 
 const STEP_LABEL: Record<StepKey, MessageKey> = { machine: 'work.machine', session: 'work.session', deliver: 'work.deliver' }
-const STATE_LABEL: Record<StepState, MessageKey> = { done: 'timing.state.done', running: 'timing.state.running', pending: 'work.pending', failed: 'timing.state.failed' }
+// A stretch that has not started has no word (UD-041 retired «pendiente»): its empty mark and the muted name already say it.
+const STATE_LABEL: Record<Exclude<StepState, 'pending'>, MessageKey> = { done: 'timing.state.done', running: 'timing.state.running', failed: 'timing.state.failed' }
 
 function Mark({ state }: { state: StepState }) {
   if (state === 'done') return <Check size={16} aria-hidden className="shrink-0 text-accent" />
   if (state === 'failed') return <X size={16} aria-hidden className="shrink-0 text-danger" />
-  return <Clock size={16} aria-hidden className={cn('shrink-0', state === 'running' ? 'text-accent' : 'text-faint')} />
+  if (state === 'running') return <Clock size={16} aria-hidden className="shrink-0 text-accent" />
+  // A stretch not started yet: an empty circle, a shape of its own, so it reads apart from the running one without its color (UD-041: no word).
+  return <Ring size={16} aria-hidden className="shrink-0 text-faint" />
 }
 
 /**
@@ -50,7 +53,7 @@ function Work({ message }: { message: MessageDetail }) {
           <li key={s.key} data-work-step={s.key} data-state={s.state} className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-0.5">
             <Mark state={s.state} />
             <span className={cn('min-w-0 break-words', s.state === 'pending' && 'text-muted')}>{t(STEP_LABEL[s.key])}</span>
-            <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : t(work.state === 'queued' && i === 0 ? 'timing.state.queued' : STATE_LABEL[s.state])}</span>
+            <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])}</span>
             {(s.state === 'failed' || s.repeats !== null) && (
               <span className="col-start-2 col-end-4 flex flex-wrap gap-x-3 text-xs text-muted">
                 {s.state === 'failed' && <span data-work-failed className="text-danger">{t('timing.state.failed')}</span>}

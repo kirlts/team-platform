@@ -339,6 +339,9 @@
 }
 
 :where(:root[data-theme='dark']) {
+  /* The sphere is the light blue of the primary button here (--color-gel-top): its initials take the ink of that button; white on it measured 2,15:1. */
+  --orb-ink: var(--color-gel-fg);
+  --orb-text-shadow: none;
   --btn-border: oklch(0.85 0.1 240 / 0.6);
   --btn-text-shadow: none;
 }
@@ -640,13 +643,6 @@
     line-height: 1.35;
     color: var(--color-muted);
     overflow-wrap: anywhere;
-  }
-  /* justified: UD-241. A chip cut to one line (`truncate`) is an inline block: text-overflow paints «…» only on a block's own text,
-     and an inline-flex chip clipped its name mid-letter with no ellipsis («Accesibilidad y exp», «Erro»). The full name is its tooltip. */
-  .area-chip.truncate,
-  .guard-mark.truncate {
-    display: inline-block;
-    vertical-align: middle;
   }
   .guard-mark[data-person] { border-color: var(--color-line-strong); color: var(--color-fg); }
 

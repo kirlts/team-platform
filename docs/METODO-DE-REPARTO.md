@@ -229,7 +229,7 @@ El mínimo de filas no hace estable el conjunto de áreas. La medición del 2026
 | 104 | 0 de 40 | 35 de 40 |
 | 120 | 0 de 40 | 36 de 40 |
 
-El criterio de tratamiento distinto es poco sensible a una diferencia mediana. Una dimensión desplazada media desviación se encuentra en 0,21 de los casos con 26 filas por área y en 0,48 con 104 (`bench/area-method-treatment.mjs`, permutación con Holm). El área del medio de una cadena de tres tiene que distinguirse de las dos vecinas, y casi siempre se pierde. Un área que sólo difiere por una dimensión y un efecto mediano se une a su vecina, salvo que difiera por límite dominante. Si el equipo la quiere separada, sube `--alpha` o baja `--min-effect` sabiendo que sube el error de tipo I de la tabla anterior.
+El criterio de tratamiento distinto es poco sensible a una diferencia mediana. Una dimensión desplazada media desviación se encuentra en 0,21 de los casos con 26 filas por área y en 0,48 con 104. Es la permutación con Holm de `bench/area-method-treatment.mjs`. El área del medio de una cadena de tres tiene que distinguirse de las dos vecinas, y casi siempre se pierde. Un área que sólo difiere por una dimensión y un efecto mediano se une a su vecina, salvo que difiera por límite dominante. Si el equipo la quiere separada, sube `--alpha` o baja `--min-effect` sabiendo que sube el error de tipo I de la tabla anterior.
 
 El informe avisa en `warnings` cuando no hay nada que repartir:
 

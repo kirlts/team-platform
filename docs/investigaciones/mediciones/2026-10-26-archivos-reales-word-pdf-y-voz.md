@@ -16,6 +16,6 @@ BENCH_PRIVATE_DIR=<carpeta con los manifiestos> node bench/run-private.mjs extra
 | Nota de voz A, WhatsApp Opus mono | 279.760 bytes, 107,2 s | 67,5 s con `medium` local | 8 | 262 palabras con marca de tiempo por segmento |
 | Nota de voz B, Opus mono | 128.524 bytes, 50,6 s | 45,6 s con `medium` local | 8 | 158 palabras con marca de tiempo por segmento |
 
-Los seis documentos salieron sin llamar a visión (`calls` vacío, `nativePageBatches` vacío). Los tiempos de documento coinciden con los de la extracción guardada del 2026-10-21 (PDF A 400 ms entonces y 253 ms ahora; Word C 386 ms; las dos notas de voz con Groq `whisper-large-v3-turbo` 1,8 s y 1,2 s, no comparables con la CPU local, que tarda de 0,4 a 0,9 veces la duración del audio).
+Los seis documentos salieron sin llamar a visión (`calls` vacío, `nativePageBatches` vacío). Los tiempos de documento coinciden con los de la extracción guardada del 2026-10-21 (PDF A 400 ms entonces y 253 ms ahora; Word C 386 ms; las dos notas de voz con Groq `whisper-large-v3-turbo` 1,8 s y 1,2 s, no comparables con la CPU local, que tarda de 0,6 a 0,9 veces la duración del audio).
 
 Límites: la voz de producción es Groq; la medición local sólo comprueba que la nota se decodifica, se troza y se transcribe, y que la salida lleva marcas de tiempo. Los Word con imágenes (de 1 a 28 por archivo en el banco) llaman a visión y quedan fuera de esta medición por costo.

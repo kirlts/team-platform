@@ -135,8 +135,8 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs/:id/restore', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Deshacer el descarte de un input propio',
-      description: 'Devuelve un input cancelado a `proposed` (con la propuesta y las ediciones que tenía) o, si no llegó a tener propuesta, a `failed`. No vuelve a analizar. 404 si no es suyo; 409 si no está cancelado (`not_cancelled`).',
+      summary: 'Deshacer el descarte o el borrado de un envío',
+      description: 'Un input cancelado vuelve a `proposed` (con la propuesta y las ediciones que tenía) o, si no llegó a tener propuesta, a `failed`; no vuelve a analizar. Sólo su emisor. Un input borrado (`DELETE /inputs/:id`) vuelve como estaba, con los mensajes que se fueron con él y el enlace de cada mensaje a él; lo restaura su emisor o una persona del equipo, y uno que estaba en vuelo vuelve como un descarte deshecho. 404 si no es suyo; 409 si no está cancelado ni borrado (`not_cancelled`).',
       params: idParams(),
       response: { 200: { type: 'object', properties: { input_id: { type: 'string' }, status: { type: 'string' } } } }
     }
@@ -145,15 +145,16 @@ export function registerInputRoutes (app, ctx) {
   app.delete('/inputs/:id', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o una persona del equipo; exige ?confirm=true)',
-      description: 'Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y quien pide no es una persona del equipo; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.',
+      summary: 'Borrar un envío, con Deshacer (su emisor o una persona del equipo; exige ?confirm=true)',
+      description: 'Borrado reversible (UD-240, UD-253): el envío deja de verse y `POST /inputs/:id/restore` lo trae de vuelta con su propuesta, sus adjuntos y los mensajes que se fueron con él. Cancela los trabajos en cola o corriendo (un envío en vuelo queda cancelado). Los mensajes publicados desde ese envío quedan, sin envío mientras éste siga borrado; con `with_messages=true` van a la papelera con él y vuelven con él. Con `purge=true` el borrado es real, sin restauración: borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta, y libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y quien pide no es una persona del equipo; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.',
       params: idParams(),
-      querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, with_messages: { type: 'boolean' } } },
+      querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, with_messages: { type: 'boolean' }, purge: { type: 'boolean' } } },
       response: {
         200: {
           type: 'object',
           properties: {
             input_id: { type: 'string' },
+            restorable: { type: 'boolean' },
             deleted: { type: 'object', properties: { attachments: { type: 'integer' }, jobs: { type: 'integer' }, messages: { type: 'integer' } } },
             freed_bytes: { type: 'integer' }
           }
@@ -162,9 +163,9 @@ export function registerInputRoutes (app, ctx) {
     }
   }, async (request) => {
     requireConfirm(request)
-    const r = deleteInput({ db, queue, events }, request.params.id, request.member, { withMessages: request.query.with_messages === true })
+    const r = deleteInput({ db, queue, events }, request.params.id, request.member, { withMessages: request.query.with_messages === true, purge: request.query.purge === true })
     const freed = await freeBlobs(db, config, r.hashes)
-    return { input_id: r.input_id, deleted: r.deleted, freed_bytes: freed }
+    return { input_id: r.input_id, restorable: r.restorable === true, deleted: r.deleted, freed_bytes: freed }
   })
 
   app.post('/inputs/:id/reprocess', {

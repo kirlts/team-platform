@@ -110,7 +110,14 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
   const sentBy = sentById === authorId ? null : sentById
   const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links, recipientIds })
   return events.transaction(() => {
-    const existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
+    let existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
+    // The same content sent again after its send was deleted is a new send: the deleted one was waiting for a Deshacer that this makes moot,
+    // and its row holds the hash. The messages published from it stay (their `input_id` goes to NULL by the foreign key).
+    if (existing && existing.deleted_at !== null) {
+      run(db, 'UPDATE messages SET unlinked_input_id = NULL WHERE unlinked_input_id = ?', existing.id)
+      run(db, 'DELETE FROM inputs WHERE id = ?', existing.id)
+      existing = undefined
+    }
     if (existing) {
       const jobRow = queue.latestJobForInput(existing.id)
       if (existing.status === 'failed' || existing.status === 'cancelled') {
@@ -169,8 +176,8 @@ export const isInputParty = (input, memberId) => input.author_id === memberId ||
 /** View of an input for its sender: attachments, status, current job, units and proposal if one exists. */
 export function getInputView ({ db, queue, events }, inputId, memberId) {
   const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-  // Someone else's input is indistinguishable from a nonexistent one.
-  if (!input || !isInputParty(input, memberId)) throw notFound('El input no existe.')
+  // Someone else's input is indistinguishable from a nonexistent one, and so is a deleted one (UD-253: it only comes back by restoring it).
+  if (!input || input.deleted_at !== null || !isInputParty(input, memberId)) throw notFound('El input no existe.')
   return buildInputView({ db, queue, events }, input)
 }
 
@@ -233,7 +240,7 @@ export function listInputs (ctx, memberId, { status = null, limit, offset, order
   const { db } = ctx
   const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
   // `everyone` (the team's queue): no author condition, and every item carries the name of its sender.
-  const clauses = []
+  const clauses = ['deleted_at IS NULL']
   const params = []
   // The sender sees what they sent on someone's behalf (`sent_by_id`, UD-255): with «Enviar como» the tray stayed empty while the input
   // was analyzed (Martín, 2026-10-24). Editing, cancelling and deleting still follow the author.
@@ -267,7 +274,7 @@ export function recentInputsFor ({ db, config, now = Date.now }, input) {
   const since = now() - maxAgeMinutes * 60 * 1000
   const rows = all(db,
     `SELECT id, text, created_at FROM inputs
-      WHERE author_id = ? AND id != ? AND status IN ('analyzing', 'proposed') AND created_at >= ?
+      WHERE author_id = ? AND id != ? AND deleted_at IS NULL AND status IN ('analyzing', 'proposed') AND created_at >= ?
       ORDER BY created_at DESC, id DESC LIMIT ?`, input.author_id, input.id, since, max)
   return rows.map((r) => {
     const extracted = all(db, 'SELECT extracted_text FROM attachments WHERE input_id = ? AND extracted_text IS NOT NULL ORDER BY id', r.id).map((a) => a.extracted_text)
@@ -292,7 +299,7 @@ export function recentInputsFor ({ db, config, now = Date.now }, input) {
 export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actor) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || (input.author_id !== actor.id && !isActivePerson(db, actor.id))) throw notFound('El input no existe.')
+    if (!input || input.deleted_at !== null || (input.author_id !== actor.id && !isActivePerson(db, actor.id))) throw notFound('El input no existe.')
     const published = input.status === 'published'
     if (!published && !['proposed', 'failed', 'cancelled'].includes(input.status)) {
       throw conflict(`El input está «${input.status}»; sólo se reprocesa uno publicado, con propuesta, fallido o cancelado.`, 'not_reprocessable')
@@ -332,7 +339,7 @@ export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, 
 export function editInputText ({ db, config, queue, events, now = Date.now }, inputId, memberId, text) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
+    if (!input || input.deleted_at !== null || input.author_id !== memberId) throw notFound('El input no existe.')
     if (!['proposed', 'failed'].includes(input.status)) {
       throw conflict(`El input está «${input.status}»; sólo se edita el texto de uno con propuesta o fallido.`, 'not_editable')
     }
@@ -360,15 +367,29 @@ export function editInputText ({ db, config, queue, events, now = Date.now }, in
 }
 
 /**
- * Undoes a discard (J1-B-26): a cancelled input goes back to the state it was in. With its saved proposal it
- * is `proposed` again, with the edits it had; without one (the analysis had failed) it is `failed`.
- * Nothing is analyzed again. Only the sender, and only while the input is `cancelled`.
+ * Undoes the last thing done to a send: a discard (`cancelled`, only its author) or a deletion (UD-253, its author or an active person of the team,
+ * the same who may delete it). A deleted send comes back as it was, with the messages that went with it and the link of every message to it; one that was
+ * in flight when it was deleted comes back like a discard is undone, `proposed` or `failed`.
  */
 export function restoreInput ({ db, events, now = Date.now }, inputId, memberId) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
-    if (input.status !== 'cancelled') throw conflict(`El input está «${input.status}»; sólo se restaura uno cancelado.`, 'not_cancelled')
+    if (!input) throw notFound('El input no existe.')
+    if (input.deleted_at !== null) {
+      if (input.author_id !== memberId && !isActivePerson(db, memberId)) throw notFound('El input no existe.')
+      const messages = run(db, 'UPDATE messages SET deleted_at = NULL WHERE unlinked_input_id = ? AND deleted_at = ?', inputId, input.deleted_at).changes
+      run(db, 'UPDATE messages SET input_id = unlinked_input_id, unlinked_input_id = NULL WHERE unlinked_input_id = ?', inputId)
+      run(db, 'UPDATE inputs SET deleted_at = NULL, deleted_status = NULL, updated_at = ? WHERE id = ?', now(), inputId)
+      let status = input.status
+      if (input.status === 'cancelled' && ['queued', 'extracting', 'analyzing'].includes(input.deleted_status)) {
+        status = get(db, 'SELECT 1 AS x FROM proposals WHERE input_id = ?', inputId) ? 'proposed' : 'failed'
+        transitionInput(db, inputId, status, { now, error: status === 'failed' ? 'Se borró antes de terminar el análisis.' : null, errorCode: null })
+      }
+      audit(db, { memberId, action: 'input.restore', entity: 'input', entityId: inputId, detail: { deletion: true, messages }, now })
+      return { input_id: inputId, status }
+    }
+    if (input.author_id !== memberId) throw notFound('El input no existe.')
+    if (input.status !== 'cancelled') throw conflict(`El input está «${input.status}»; sólo se restaura uno cancelado o borrado.`, 'not_cancelled')
     const hasProposal = !!get(db, 'SELECT 1 AS x FROM proposals WHERE input_id = ?', inputId)
     const to = hasProposal ? 'proposed' : 'failed'
     transitionInput(db, inputId, to, { now, error: hasProposal ? null : 'Se descartó antes de terminar el análisis.', errorCode: null })
@@ -390,7 +411,7 @@ function cancelJobsOf ({ queue, events }, inputId) {
 export function cancelInput ({ db, queue, events, now = Date.now }, inputId, memberId) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
+    if (!input || input.deleted_at !== null || input.author_id !== memberId) throw notFound('El input no existe.')
     if (input.status === 'published') throw conflict('El input ya se publicó; sus mensajes se cierran, no se cancelan.', 'already_published')
     if (input.status === 'cancelled') throw conflict('El input ya está cancelado.', 'already_cancelled')
     transitionInput(db, inputId, 'cancelled', { now })
@@ -400,18 +421,41 @@ export function cancelInput ({ db, queue, events, now = Date.now }, inputId, mem
   })
 }
 
+/** The reversible deletion of a send (see `deleteInput`). Inside a transaction. */
+function softDeleteInput ({ db, queue, events, now }, input, actor, withMessages) {
+  if (input.deleted_at !== null) throw notFound('El input no existe.')
+  const t = now()
+  const cancelled = cancelJobsOf({ queue, events }, input.id)
+  // A send in flight has no job any more: it is left cancelled, and restoring it decides what it becomes.
+  if (['queued', 'extracting', 'analyzing'].includes(input.status)) transitionInput(db, input.id, 'cancelled', { now })
+  const jobs = get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE input_id = ?', input.id).n
+  const live = all(db, 'SELECT id FROM messages WHERE input_id = ? AND deleted_at IS NULL', input.id).length
+  run(db, 'UPDATE messages SET unlinked_input_id = input_id, input_id = NULL, deleted_at = CASE WHEN ? AND deleted_at IS NULL THEN ? ELSE deleted_at END WHERE input_id = ?', withMessages ? 1 : 0, t, input.id)
+  run(db, 'UPDATE inputs SET deleted_at = ?, deleted_status = ? WHERE id = ?', t, input.status, input.id)
+  audit(db, { memberId: actor.id, action: 'input.delete', entity: 'input', entityId: input.id, detail: { reversible: true, jobs, cancelled_jobs: cancelled.length, messages: withMessages ? live : 0, with_messages: withMessages, author_id: input.author_id }, now })
+  // The author learns it without a job.
+  events.publish({ kind: 'done', memberId: input.author_id, data: { input_id: input.id, status: 'deleted' } })
+  return { input_id: input.id, deleted: { attachments: 0, jobs, messages: withMessages ? live : 0 }, hashes: [], restorable: true }
+}
+
 /**
- * Deletes an input for real (UD-240): its attachments, jobs (the queued or running ones are cancelled first), events
- * and proposal. Its sender or an active person of the team; for anybody else it does not exist (404). The messages published from it stay
- * (`messages.input_id` becomes NULL) and keep their attachments: an attachment row some message references is not
- * deleted, it only loses its input (migration 0011). With `withMessages` those messages go too, with their replies.
- * Returns the counts and the sha256 of every file that may now be unreferenced; the caller frees the volume
- * (`freeBlobs`) once the transaction is committed, never inside it.
+ * Deletes an input (UD-240, UD-253). By default it is reversible, like a message: the send is marked deleted and every read of the team's sends ignores it, its
+ * attachments, jobs and proposal stay, and `restoreInput` brings it back. Its queued or running jobs are cancelled (a send in flight is left `cancelled`).
+ * The messages published from it lose their link to it while it is deleted (as they did when it went for good) and are kept; with `withMessages` they are
+ * moved to the trash with it, and come back with it. Its sender or an active person of the team; for anybody else it does not exist (404).
+ *
+ * With `purge` it goes for good, as before: its attachments, jobs (with their events) and proposal are deleted, the messages stay with their files
+ * (`messages.input_id` becomes NULL; an attachment row some message references only loses its input, migration 0011) or, with `withMessages`, go too
+ * with their replies. Returns the counts and the sha256 of every file that may now be unreferenced; the caller frees the volume (`freeBlobs`) once the
+ * transaction is committed, never inside it. A reversible deletion frees nothing: `hashes` is empty.
  */
-export function deleteInput ({ db, queue, events, now = Date.now }, inputId, actor, { withMessages = false } = {}) {
+export function deleteInput ({ db, queue, events, now = Date.now }, inputId, actor, { withMessages = false, purge = false } = {}) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
     if (!input || (input.author_id !== actor.id && !isActivePerson(db, actor.id))) throw notFound('El input no existe.')
+    if (!purge) return softDeleteInput({ db, queue, events, now }, input, actor, withMessages)
+    // For good, also a send that was waiting for its Deshacer: the messages that went to the trash with it get their link back, so `withMessages` takes them.
+    run(db, 'UPDATE messages SET input_id = unlinked_input_id, unlinked_input_id = NULL WHERE unlinked_input_id = ?', inputId)
     const attachments = all(db, 'SELECT id, kind, sha256 FROM attachments WHERE input_id = ?', inputId)
     const messageIds = all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', inputId).map((m) => m.id)
     const jobs = get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE input_id = ?', inputId).n

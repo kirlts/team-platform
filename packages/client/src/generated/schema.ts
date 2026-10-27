@@ -651,14 +651,15 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o una persona del equipo; exige ?confirm=true)
-         * @description Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y quien pide no es una persona del equipo; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.
+         * Borrar un envío, con Deshacer (su emisor o una persona del equipo; exige ?confirm=true)
+         * @description Borrado reversible (UD-240, UD-253): el envío deja de verse y `POST /inputs/:id/restore` lo trae de vuelta con su propuesta, sus adjuntos y los mensajes que se fueron con él. Cancela los trabajos en cola o corriendo (un envío en vuelo queda cancelado). Los mensajes publicados desde ese envío quedan, sin envío mientras éste siga borrado; con `with_messages=true` van a la papelera con él y vuelven con él. Con `purge=true` el borrado es real, sin restauración: borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta, y libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y quien pide no es una persona del equipo; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.
          */
         delete: {
             parameters: {
                 query?: {
                     confirm?: boolean;
                     with_messages?: boolean;
+                    purge?: boolean;
                 };
                 header?: never;
                 path: {
@@ -676,6 +677,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             input_id?: string;
+                            restorable?: boolean;
                             deleted?: {
                                 attachments?: number;
                                 jobs?: number;
@@ -1285,8 +1287,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Deshacer el descarte de un input propio
-         * @description Devuelve un input cancelado a `proposed` (con la propuesta y las ediciones que tenía) o, si no llegó a tener propuesta, a `failed`. No vuelve a analizar. 404 si no es suyo; 409 si no está cancelado (`not_cancelled`).
+         * Deshacer el descarte o el borrado de un envío
+         * @description Un input cancelado vuelve a `proposed` (con la propuesta y las ediciones que tenía) o, si no llegó a tener propuesta, a `failed`; no vuelve a analizar. Sólo su emisor. Un input borrado (`DELETE /inputs/:id`) vuelve como estaba, con los mensajes que se fueron con él y el enlace de cada mensaje a él; lo restaura su emisor o una persona del equipo, y uno que estaba en vuelo vuelve como un descarte deshecho. 404 si no es suyo; 409 si no está cancelado ni borrado (`not_cancelled`).
          */
         post: {
             parameters: {

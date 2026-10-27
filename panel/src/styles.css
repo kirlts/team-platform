@@ -55,6 +55,9 @@
   --spacing-bar-pad: 24px;
   /* The text block of a row of a list (UD-241): two lines of heading (15 px × 1.375 × 2) and one of extract (12 px × 1.4) with 4 px between, rounded up to the 4 px unit. See «Tarjeta de lista» in DISENO.md. */
   --spacing-card-text: 44px;
+  /* The height a row of Mensajes takes on a phone, which the waiting rows of the list keep (J3-D3-03): the text block above, the state line, the line of the sender, the line of recipients and actions, three 4 px gaps and the 12 px of padding above and below.
+     Measured by the third judgment of the list (2026-10-27): 136 px; the phone row also holds the 8 px gap that keeps the folded-recipients target clear of the actions. A browser test compares both heights. */
+  --spacing-card-row: 136px;
   --container-inicio: 72rem;
 
   /* Sky: background of the whole application. */

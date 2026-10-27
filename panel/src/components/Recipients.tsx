@@ -36,7 +36,7 @@ export function Recipients({ ids, max, className, children, plain = false }: { i
         <li>
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-10 pl-2 font-semibold hover:bg-accent-soft/70 max-md:-mx-1 max-md:-my-3 max-md:min-h-11 max-md:min-w-11 max-md:justify-center', plain && 'px-0 md:min-h-0 hover:bg-transparent hover:underline')}>
+              <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-20 pl-2 font-semibold hover:bg-accent-soft/70 max-md:-mx-1 max-md:-my-3 max-md:min-h-11 max-md:min-w-11 max-md:justify-center', plain && 'px-0 md:min-h-0 hover:bg-transparent hover:underline')}>
                 {t('recipients.andMore', { n: hidden.length })}
               </button>
             </PopoverTrigger>

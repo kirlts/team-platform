@@ -25,7 +25,8 @@ export function Header({ projectName, panelHidden = false, onOpenNav }: { projec
         <Button variant="ghost" size="icon" data-testid="nav-open" aria-label={panelHidden ? t('sidebar.show') : t('nav.open')} className={cn("relative h-9 w-9 after:absolute after:-inset-[5px] after:content-[''] md:h-11 md:w-11 md:after:hidden", !panelHidden && 'md:hidden')} onClick={onOpenNav}>
           <PanelLeft size={18} aria-hidden />
         </Button>
-        <Link to="/" className="min-w-0">
+        {/* The brand is one line, so the box is short: the 44 px touch area is the frame that `after` draws around it, centered on the line (J3-D3-04). */}
+        <Link to="/" data-testid="brand-link" className="relative min-w-0 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']">
           <Wordmark project={projectName} name={t('brand.name')} />
         </Link>
       </div>

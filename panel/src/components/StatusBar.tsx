@@ -48,7 +48,7 @@ export function StatusBar() {
   const pulse = usePulse(total)
   if (!summary) return null
   return (
-    <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex shrink-0 items-center justify-end gap-1 md:gap-2">
+    <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex shrink-0 items-center justify-end gap-1 rounded-full md:gap-2">
       <ul aria-label={t('bar.mine')} className="flex shrink-0 items-center gap-1">
         {STATES_SHOWN.map((status) => (
           <li key={status}>

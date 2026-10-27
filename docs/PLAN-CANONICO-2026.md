@@ -1,9 +1,9 @@
 # Plan 2026 del Team Platform canónico
 
-Fecha: 2026-10-26, 23:40 (Chile); consolidado a las 00:50 del 27. Lo pidió Martín: «Quiero que todo lo que hemos hecho en Team Platform tratemos
+Fecha: 2026-10-26, 23:40 (Chile); consolidado a las 21:50 del 26. Lo pidió Martín: «Quiero que todo lo que hemos hecho en Team Platform tratemos
 de integrarlo en la versión canónica de Team Platform, que es el repositorio Team Platform, porque siempre fue
 conceptualizado como un sistema open source». Y fijó el límite del plan: «quiero que todo lo que tú recomendaste sea
-lo que implementemos, excepto esta cuestión de la identidad que te acabo de corregir». Y a las 00:45 del 27 cerró
+lo que implementemos, excepto esta cuestión de la identidad que te acabo de corregir». Y a las 21:45 del 26 cerró
 el punto de la identidad: «no perdamos tiempo en esto. Solo me importa que lo que vaya integrándose al canónico lo
 haga siguiendo su estética actual sin estropearla». No hay rediseño: `panel/DISENO.md` es el referente, y toda
 pantalla que entre se juzga contra él. Una implementación puede no usar el panel canónico y poner el suyo.
@@ -107,38 +107,38 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | A1 `docs/CONTRATO-DE-ANFITRION.md` | El contrato entero en un solo documento: variables, cinco órdenes, marcadores, entorno, códigos 0/75/76, `##team phase` y `##team wait`, entrega repetible, `contract_version`. Sale de MASTER-SPEC §7.5 y de lo que el primer anfitrión documentó por su lado | hecho (`702e0eaa`, UD-311) |
 | A2 `drivers/docker-local` | Driver de referencia: CREATE levanta un contenedor desde `drivers/docker-local/Dockerfile`, RUN copia `{workdir}` y corre `bash run.sh`, COLLECT saca la transcripción, DESTROY borra siempre, DELIVER de ejemplo que empuja la rama a un remoto local | hecho (`b76ea305`): 19 pruebas contra Docker real; la imagen con Claude Code 2.1.311 se construye y `claude --version` responde dentro |
 | A3 `scripts/host-conformance.mjs` | Prueba de conformidad: con un driver y un trabajo de prueba ejercita las cinco órdenes, verifica el NDJSON de la sesión, que DESTROY corre tras un fallo y tras un plazo vencido, que 75 no gasta intento, que 76 deja `delivery_held`, y que DELIVER es repetible. Sale 0 sólo si todo pasa; imprime la `contract_version` que cumple | hecho (`cbea03c2`): 13 casos; sale 0 en un clon limpio de `desarrollo` instalado con `INSTALACION.md`, 2026-10-26 21:17 |
-| A4 `drivers/fly-machines` | Driver de máquinas bajo demanda sobre la API de Fly Machines: CREATE crea una máquina desde una imagen declarada con `auto_destroy`, RUN ejecuta por `exec`, COLLECT lee la transcripción, DESTROY la destruye; cada máquina nace con vida máxima declarada. Sin nombrar al anfitrión que lo usará | por hacer |
-| A5 Driver de máquinas efímeras en nube del primer anfitrión | Sigue en su repositorio porque nombra su proyecto y su cuota; en el canónico se cita como ejemplo externo, sin nombre, en `drivers/README.md` | hecho en el anfitrión; cita por hacer |
+| A4 `drivers/fly-machines` | Driver de máquinas bajo demanda sobre la API de Fly Machines: CREATE crea una máquina desde una imagen declarada con `auto_destroy`, RUN ejecuta por `exec`, COLLECT lee la transcripción, DESTROY la destruye; cada máquina nace con vida máxima declarada. Sin nombrar al anfitrión que lo usará | hecho (`0f1490e3`): `host-conformance.mjs --driver drivers/fly-machines` sale 0 contra una app de desarrollo real, 13 casos; instancias que no se pisan (`d7e78819`) |
+| A5 Driver de máquinas efímeras en nube del primer anfitrión | Sigue en su repositorio porque nombra su proyecto y su cuota; en el canónico se cita como ejemplo externo, sin nombre, en `drivers/README.md` | hecho en el anfitrión; la cita en `drivers/README.md` queda como ejemplo externo sin nombre |
 | A6 `contract_version` en `/health` y en la salida del trabajador al arrancar | El trabajador rechaza arrancar con un driver que declare otra versión mayor | hecho (`cbea03c2`) |
 
 ### B. Piezas que vuelven del anfitrión al núcleo
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| B1 `scripts/canary.mjs` | Un envío con destinatario agente, análisis, publicación, `execute`, respuesta «OK» en el hilo; todo por evento; sale 0 sólo con la respuesta; cierra y borra su mensaje. Corre tras instalar y tras cada despliegue del anfitrión | en `desarrollo` (`b76ea305`), 8 pruebas contra servidor y trabajador reales; identidad por cabecera firmada sin probar (fase 1) |
-| B2 `src/execute/captures/` | Capturador de pantallas del arnés: navegador sin cabeza, máscara de datos, zona abierta (`EXECUTE_CAPTURES_OPEN_ZONE`), declaración de qué muestra cada captura (UD-268). Hoy vive en el anfitrión como `vista/` | por hacer |
-| B3 `src/execute/hooks/` | Guardias de órdenes y de herramientas que el anfitrión configura por lista, y la exigencia de cierre: una sesión termina con salida válida o el trabajo falla con motivo | por hacer; la exigencia de cierre existe en parte (Guardia de la idea, retoma) |
-| B4 Barrido de máquinas huérfanas | Al arrancar, el trabajador llama DESTROY de toda `execute_runs` con máquina creada y sin destruir; nada queda sin atender (UD de 2026-10-25) | por hacer |
-| B5 Instrucciones del arnés | Separar en dos: lo que toda sesión de Team Platform necesita (cómo responde, qué declara, cómo adjunta) va al núcleo; lo del anfitrión sigue en `EXECUTE_HOST_INSTRUCTIONS` | por hacer |
-| B6 Mapa del repositorio | Guion que resume al agente la estructura del repositorio del anfitrión al abrir sesión; genérico | por hacer |
-| B7 Vista de estado del agente | Lo que el anfitrión dibuja hoy aparte (trabajo, máquina, tramo, costo) entra al panel canónico como parte de la ficha del mensaje | por hacer; el panel ya muestra progreso y reintento |
+| B1 `scripts/canary.mjs` | Un envío con destinatario agente, análisis, publicación, `execute`, respuesta «OK» en el hilo; todo por evento; sale 0 sólo con la respuesta; cierra y borra su mensaje. Corre tras instalar y tras cada despliegue del anfitrión | hecho (`06d04d3c`): canario en el núcleo, en la imagen, con identidad por cabecera firmada probada; el anfitrión lo adopta con el lote de estabilización |
+| B2 `src/execute/captures/` | Capturador de pantallas del arnés: navegador sin cabeza, máscara de datos, zona abierta (`EXECUTE_CAPTURES_OPEN_ZONE`), declaración de qué muestra cada captura (UD-268). Hoy vive en el anfitrión como `vista/` | hecho (`d9887a69`): `look` en `src/execute/captures/`, sin dependencia nueva en `src/` |
+| B3 `src/execute/hooks/` | Guardias de órdenes y de herramientas que el anfitrión configura por lista, y la exigencia de cierre: una sesión termina con salida válida o el trabajo falla con motivo | hecho (`8f8c020f`): `EXECUTE_GUARDS_FILE`, ganchos en Node; el cierre extiende `invalid_output` |
+| B4 Barrido de máquinas huérfanas | Al arrancar, el trabajador llama DESTROY de toda `execute_runs` con máquina creada y sin destruir; nada queda sin atender (UD de 2026-10-25) | hecho (`b501edd8`): `execute_machines`, barrido al arrancar y al vencer un arriendo, `/health` `machines`; conserva la sesión en el apagado por omisión; prueba con `kill -9` real |
+| B5 Instrucciones del arnés | Separar en dos: lo que toda sesión de Team Platform necesita (cómo responde, qué declara, cómo adjunta) va al núcleo; lo del anfitrión sigue en `EXECUTE_HOST_INSTRUCTIONS` | hecho (`06d04d3c`) |
+| B6 Mapa del repositorio | Guion que resume al agente la estructura del repositorio del anfitrión al abrir sesión; genérico | hecho (`06d04d3c`): notas del anfitrión en `.team/map-notes.txt`; `team map` falla con código 1 |
+| B7 Vista de estado del agente | Lo que el anfitrión dibuja hoy aparte (trabajo, máquina, tramo, costo) entra al panel canónico como parte de la ficha del mensaje | hecho (`d77ce38d`, `07dc4bb4`, `072cf3de`, `45b2cf6a`): panel «Trabajo» en la ficha, tres jueces aprobados (4/5) |
 
 ### C. Publicación propia de `main`
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| C1 `scripts/publish-main.sh` | La única puerta: toma el sha de `desarrollo`, corre la batería dirigida sobre ese sha, corre la conformidad con `docker-local`, y emite el sello `RELEASE_PUBLISHES_MAIN=<sha>` para el gancho | por hacer |
-| C2 Gancho `pre-push` | Acepta el sello de C1 en vez de `DEPLOY_PUBLISHES_MAIN`; lo demás igual: `desarrollo` o ancestro, avance rápido, nunca borrar | por hacer |
-| C3 Flujo de GitHub Actions | Queda como espejo opcional de la misma regla; no es requisito: la verificación corre en la máquina que publica. Nada del canónico depende de tener presupuesto en GitHub | por hacer |
-| C4 Versión y etiqueta | Cada publicación de `main` lleva etiqueta `vX.Y.Z` y una línea en `CHANGELOG.md`; el anfitrión fija la que instala por sha o digest | por hacer |
-| C5 El anfitrión deja de mover `main` | Su despliegue ya no exporta la marca; fija versión del canónico como fija la de cualquier dependencia | por hacer en el anfitrión, tras C1 |
+| C1 `scripts/publish-main.sh` | La única puerta: toma el sha de `desarrollo`, corre la batería dirigida sobre ese sha, corre la conformidad con `docker-local`, y emite el sello `RELEASE_PUBLISHES_MAIN=<sha>` para el gancho | hecho (`d2250ba6`) |
+| C2 Gancho `pre-push` | Acepta el sello de C1 en vez de `DEPLOY_PUBLISHES_MAIN`; lo demás igual: `desarrollo` o ancestro, avance rápido, nunca borrar | hecho (`d2250ba6`): acepta `RELEASE_PUBLISHES_MAIN`; la marca vieja sigue aceptada hasta C5 (línea `RETIRO-DEPLOY`) |
+| C3 Flujo de GitHub Actions | Queda como espejo opcional de la misma regla; no es requisito: la verificación corre en la máquina que publica. Nada del canónico depende de tener presupuesto en GitHub | hecho (`d2250ba6`): el flujo sólo mide avance rápido, espejo opcional |
+| C4 Versión y etiqueta | Cada publicación de `main` lleva etiqueta `vX.Y.Z` y una línea en `CHANGELOG.md`; el anfitrión fija la que instala por sha o digest | hecho (`d2250ba6`): `prepare-release.mjs` y etiqueta `vX.Y.Z` |
+| C5 El anfitrión deja de mover `main` | Su despliegue ya no exporta la marca; fija versión del canónico como fija la de cualquier dependencia | por hacer en el anfitrión, con el lote de estabilización (versión fijada `45b2cf6a`) |
 
 ### D. Núcleo 1.0
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| D1 `docs/CAPACIDADES-1.0.md` | Una fila por capacidad: mensajes, respuestas e hilos, menciones, miembros y perfiles, roles de equipo, áreas y plantillas con bloque `output`, estados y cierre, adjuntos con extracción y medios visibles, envío que se reparte en varios mensajes, revisión por persona, reintentar y retomar, entrega aparte y en espera, Guardia de la idea, avisos al anfitrión, telemetría. Cada fila: ruta de la prueba e2e, veredicto del juez, sha | por hacer |
-| D2 Pruebas e2e por capacidad | Con `scripts/walkthrough.mjs` y `scripts/test-dirigido`, contra una instancia con `docker-local` | parcial: existen para análisis, execute y entrega |
+| D1 `docs/CAPACIDADES-1.0.md` | Una fila por capacidad: mensajes, respuestas e hilos, menciones, miembros y perfiles, roles de equipo, áreas y plantillas con bloque `output`, estados y cierre, adjuntos con extracción y medios visibles, envío que se reparte en varios mensajes, revisión por persona, reintentar y retomar, entrega aparte y en espera, Guardia de la idea, avisos al anfitrión, telemetría. Cada fila: ruta de la prueba e2e, veredicto del juez, sha | hecho (`b8e904bb`): 34 capacidades |
+| D2 Pruebas e2e por capacidad | Con `scripts/walkthrough.mjs` y `scripts/test-dirigido`, contra una instancia con `docker-local` | hecho (`8095df15`): 34 de 34 con e2e en verde; ninguna completa hasta su veredicto (D3) |
 | D3 Jueces de interfaz por vista | Método de `docs/investigaciones/10`; cada vista con su encargo, capturas en escritorio y teléfono, claro y oscuro; los mismos jueces al cerrar, sin decirles qué cambió | por hacer |
 | D4 Cierre del TODO | Lo que exige dominio o servidor limpio se cierra en el segundo anfitrión; lo que exige un aparato o una llave queda como límite externo con dueño y comando | por hacer |
 | D5 `scripts/clean-worktrees.sh` | Lista y retira worktrees sin agente vivo; corre al abrir sesión | hecho (`2f82a21f`): retiró 131 worktrees sin agente vivo, 1,9 GB |
@@ -147,9 +147,9 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| E1 `panel/DISENO.md` es el referente | Una línea al inicio lo dice, con la decisión de Martín del 27-10 textual. Un cambio de tokens o materiales que no esté en DISENO.md no entra; si hace falta, primero se cambia DISENO.md con su medición | por hacer |
-| E2 Juez contra DISENO.md en cada pantalla | Todo cambio de `panel/` que llegue a `desarrollo` lleva veredicto de un agente distinto, con capturas sin cabeza en escritorio y teléfono, claro y oscuro, que compara contra DISENO.md y contra la captura anterior de la misma vista | por hacer; las capturas de hoy en `wt-identidad` son la línea base |
-| E3 Reponer las dos derivas medidas | Orbitron en los títulos según DISENO.md (o DISENO.md actualizado si el cambio del 21-10 fue a propósito: se lee `cd001a46` antes de tocar) y las luces de estado con brillo y palabra en vez del contador de contorno | por hacer |
+| E1 `panel/DISENO.md` es el referente | Una línea al inicio lo dice, con la decisión de Martín del 26-10 textual. Un cambio de tokens o materiales que no esté en DISENO.md no entra; si hace falta, primero se cambia DISENO.md con su medición | hecho (`2fd93451`, UD-312) |
+| E2 Juez contra DISENO.md en cada pantalla | Todo cambio de `panel/` que llegue a `desarrollo` lleva veredicto de un agente distinto, con capturas sin cabeza en escritorio y teléfono, claro y oscuro, que compara contra DISENO.md y contra la captura anterior de la misma vista | hecho en uso: cada pantalla de B7 pasó por un juez contra DISENO.md antes de fusionarse |
+| E3 Reponer las dos derivas medidas | Orbitron en los títulos según DISENO.md (o DISENO.md actualizado si el cambio del 21-10 fue a propósito: se lee `cd001a46` antes de tocar) y las luces de estado con brillo y palabra en vez del contador de contorno | hecho (`2fd93451`): las dos derivas tenían decisión escrita (H-355, UD-036/041/100/130); se corrigió DISENO.md, no el panel |
 | E4 La piel del anfitrión no cambia | `THEME_CSS` sigue; un anfitrión con panel propio no nota nada | hecho por diseño |
 
 La auditoría y las tres direcciones de `wt-identidad` quedan como medición (`docs/investigaciones/identidad-2026-10-26/`); no se implementa ninguna.
@@ -158,8 +158,8 @@ La auditoría y las tres direcciones de `wt-identidad` quedan como medición (`d
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| F1 `docs/INSTALACION.md` probada | Instalación limpia con `docker-local`, de cero a canario verde, como guion repetible | por hacer |
-| F2 `README.md` en tres niveles | Instalar; conectar un driver; poner piel. Cada nivel con su comando y su prueba | por hacer |
+| F1 `docs/INSTALACION.md` probada | Instalación limpia con `docker-local`, de cero a canario verde, como guion repetible | hecho (`0f9a523b`, `8b0b53cd`): instalación limpia con `docker-local` y segunda instalación con `fly-machines`, canario en 0. El segundo anfitrión fue una instancia desechable; implantarlo en un producto es decisión del dueño |
+| F2 `README.md` en tres niveles | Instalar; conectar un driver; poner piel. Cada nivel con su comando y su prueba | hecho (`8b0b53cd`) |
 | F3 MASTER-SPEC y USER-DECISIONS | Cada pieza que entra cambia §7.5 y registra su decisión en el mismo commit | continuo |
 | F4 Regla 10 | Ningún documento nuevo nombra anfitriones; la prueba `public-names.test.js` lo mide | hecho; se mantiene |
 
@@ -203,7 +203,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | Decisión | Fuente |
 |---|---|
 | El canónico es open source bajo MIT; toda dependencia nueva compatible | UD-004 |
-| No hay rediseño: lo que entra sigue la estética actual sin estropearla; un anfitrión puede usar su propio panel | Martín, 2026-10-26 y 00:45 del 27 |
+| No hay rediseño: lo que entra sigue la estética actual sin estropearla; un anfitrión puede usar su propio panel | Martín, 2026-10-26, 21:45 |
 | Todo lo recomendado se implementa, salvo esa corrección | Martín, 2026-10-26: «quiero que todo lo que tú recomendaste sea lo que implementemos» |
 | Ningún archivo versionado nombra otros proyectos, clientes ni personas | Regla 10, 2026-10-20 |
 | Nada depende de tener presupuesto en GitHub | Martín, 2026-10-26 |
@@ -215,7 +215,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | Sin tope de máquinas ni sesiones simultáneas; el tope es el gasto del día | UD-304 |
 | Lo caído se relanza al arrancar; nunca lo relanza una persona | decisión del 2026-10-25 |
 | Nivel ligero a un modelo chico hasta su límite medido, con escalada | decisión del 2026-10-25 |
-| Ninguna pregunta queda abierta | las tres direcciones de identidad se descartaron el 27-10 |
+| Ninguna pregunta queda abierta | las tres direcciones de identidad se descartaron el 26-10 |
 
 ## 11. Falsación del plan
 

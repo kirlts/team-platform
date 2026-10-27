@@ -551,11 +551,11 @@ EXECUTE_TEAM_URL=https://<dirección pública de la instancia>
 ANTHROPIC_API_KEY=…
 ```
 
-`TP_FLY_STATE` va en el volumen de datos: el directorio personal del usuario del contenedor no sobrevive a recrearlo y ahí iría el candado de creación y las transcripciones. `TP_FLY_MEMORY_MB` sube de los 256 MB de la omisión, que no alcanzan para Claude Code. `TP_FLY_MAX_LIFE_S` es el doble de `EXECUTE_TIMEOUT_MS` (regla de `drivers/fly-machines/README.md`). `ANTHROPIC_API_KEY` ya está en `.env` por el instalador y el driver la pasa a la sesión por nombre de variable.
+`TP_FLY_STATE` va en el volumen de datos. El directorio personal del usuario del contenedor no sobrevive a recrearlo, y ahí irían el candado de creación y las transcripciones. `TP_FLY_MEMORY_MB` sube de los 256 MB de la omisión, que no alcanzan para Claude Code. `TP_FLY_MAX_LIFE_S` es el doble de `EXECUTE_TIMEOUT_MS` (regla de `drivers/fly-machines/README.md`). `ANTHROPIC_API_KEY` ya está en `.env` por el instalador y el driver la pasa a la sesión por nombre de variable.
 
 3. `EXECUTE_TEAM_URL` es la dirección con que la máquina de Fly llama a la instancia (`team reply`, `team close`). `127.0.0.1` y los nombres internos de Docker no sirven. Una instancia en un servidor con dominio usa su dirección pública. Una instancia en una estación de trabajo publica el puerto con `tailscale funnel --bg --https=8443 localhost:$PUBLISH_PORT`, que devuelve `https://<máquina>.<tailnet>.ts.net:8443`, y se retira con `tailscale funnel --https=8443 off`. Funnel admite 443, 8443 y 10000; antes se mira `tailscale serve status` para no tomar uno ocupado.
 
-4. Tope de gasto. Con un tope diario por debajo de las omisiones se declaran los cuatro valores juntos, porque la reserva por sesión (10 USD mientras no hay una terminada) debe caber en el día:
+4. Tope de gasto. Con un tope diario por debajo de las omisiones se declaran los cuatro valores juntos. La reserva por sesión es de 10 USD mientras no hay una terminada y debe caber en el día:
 
 ```sh
 EXECUTE_DAILY_BUDGET_USD=0.5
@@ -576,7 +576,7 @@ Arranca con `contract_version: core 1, driver declares 1` en el registro. Si el 
 
 ### Comprobación con el canario, dentro de la instancia
 
-Un editor con contraseña conocida hace falta para el canario. `scripts/install.sh` genera la del primer Editor y la muestra una vez; para una instalación sin terminal se fija `ADMIN_PASSWORD` en `.env` (por ejemplo `openssl rand -hex 24`) antes del primer arranque. El canario corre en el contenedor, donde la API es `http://127.0.0.1:$PORT` y las credenciales ya están en el entorno, de modo que ninguna pasa por la línea de órdenes:
+Un editor con contraseña conocida hace falta para el canario. `scripts/install.sh` genera la del primer Editor y la muestra una vez; para una instalación sin terminal se fija `ADMIN_PASSWORD` en `.env` (por ejemplo `openssl rand -hex 24`) antes del primer arranque. El canario corre en el contenedor. Ahí la API es `http://127.0.0.1:$PORT` y las credenciales ya están en el entorno, así que ninguna pasa por la línea de órdenes:
 
 ```sh
 docker compose exec -T team-platform sh -c 'TEAM_URL="http://127.0.0.1:$PORT" TEAM_EMAIL="$ADMIN_EMAIL" TEAM_PASSWORD="$ADMIN_PASSWORD" CANARY_AREA=Canario CANARY_CREATE=1 CANARY_AGENT=agente@ejemplo.invalid CANARY_AREA_MODEL=claude-haiku-5-5 node scripts/canary.mjs'

@@ -6,9 +6,9 @@ Quien envía revisa la propuesta y la confirma. Quien recibe responde, y cualqui
 
 ## Tres niveles de uso
 
-Cada nivel se prueba con un comando que sale 0 sólo si funciona. Los detalles de cada forma de instalar, el respaldo y la actualización están en [docs/INSTALACION.md](docs/INSTALACION.md).
+Cada nivel tiene una prueba: un comando que sale 0 sólo si funciona. Los detalles de cada forma de instalar, el respaldo y la actualización están en [docs/INSTALACION.md](docs/INSTALACION.md).
 
-### Nivel 1: instalar
+### 1. Instalar
 
 Requiere Docker 25 o superior con el plugin `compose`.
 
@@ -18,7 +18,7 @@ cd /opt/team-platform
 scripts/install.sh
 ```
 
-El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` (modo 600) y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`; `docs/INSTALACION.md` describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`.
+El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` (modo 600) y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. `docs/INSTALACION.md` describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`.
 
 Prueba:
 
@@ -28,7 +28,7 @@ curl -fsS http://127.0.0.1:3000/health
 
 Responde `"status":"ok"`. La contraseña del primer Editor aparece una vez en el registro: `docker compose logs team-platform | grep 'First editor'`. Para llenar la bandeja con el juego de `ejemplos/`: «Sembrar ejemplos» en Configuración, sección Datos, o `scripts/sembrar.mjs --ejemplo`.
 
-### Nivel 2: conectar un driver
+### 2. Conectar un driver
 
 Un mensaje asignado a un miembro agente lo trabaja una sesión desatendida de Claude Code en una máquina que el anfitrión pone. Esa máquina la crea un driver: cinco guiones que cumplen [docs/CONTRATO-DE-ANFITRION.md](docs/CONTRATO-DE-ANFITRION.md). El repositorio trae dos, `drivers/docker-local` (contenedores en la misma máquina) y `drivers/fly-machines` (máquinas bajo demanda de Fly); `drivers/README.md` explica cómo escribir otro.
 
@@ -46,7 +46,7 @@ Prueba del driver, sin instancia y sin llamar a Anthropic:
 TMPDIR=$HOME/.cache node scripts/host-conformance.mjs --driver drivers/docker-local
 ```
 
-Termina con `contract_version: 1 met`. Prueba de la instancia con el driver conectado, una sesión real de punta a punta (gasta unos centavos):
+Termina con `contract_version: 1 met`. Prueba de la instancia con el driver conectado, una sesión real completa (gasta unos centavos):
 
 ```sh
 docker compose exec -T team-platform sh -c 'TEAM_URL="http://127.0.0.1:$PORT" TEAM_EMAIL="$ADMIN_EMAIL" TEAM_PASSWORD="$ADMIN_PASSWORD" CANARY_AREA=Canario CANARY_CREATE=1 CANARY_AGENT=agente@ejemplo.invalid node scripts/canary.mjs'
@@ -54,7 +54,7 @@ docker compose exec -T team-platform sh -c 'TEAM_URL="http://127.0.0.1:$PORT" TE
 
 Sale 0 cuando el agente responde «OK» en el hilo; sale 3 y nombra el tramo donde se quedó si algo falla.
 
-### Nivel 3: poner piel
+### 3. Poner piel
 
 El color, la tipografía y el radio del panel se cambian con una hoja de tokens, sin recompilar. La hoja va en el volumen de datos y `THEME_CSS` la nombra:
 

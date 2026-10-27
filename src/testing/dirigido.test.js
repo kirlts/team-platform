@@ -15,3 +15,8 @@ test('every guard that always runs exists', () => {
 test('every test pattern of an area matches at least one file', () => {
   for (const [area, globs] of Object.entries(config.areas)) for (const g of globs) assert.ok(globSync(g, { cwd: root }).length > 0, `${area}: ${g} matches no file`)
 })
+
+test('the tests on the image exist and the paths that select them exist', () => {
+  for (const t of config.image.tests) assert.ok(globSync(t, { cwd: root }).length > 0, `${t} matches no file`)
+  for (const p of config.image.paths) assert.ok(globSync(p.endsWith('/') ? `${p}**` : p, { cwd: root }).length > 0, `${p} matches no file`)
+})

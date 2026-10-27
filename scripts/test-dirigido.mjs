@@ -54,10 +54,16 @@ if (panelCode.length) {
     for (const t of browserAll) { const text = readFileSync(path.join(root, t), 'utf8'); if ([...routes].some((r) => text.includes(r))) selected.add(t) }
   } else for (const t of browserAll) selected.add(t)
 }
-const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f)).sort()
+// Tests on the built image (src/testing/areas.json, «image»): selected by the paths they walk. They skip without TEAM_PLATFORM_IMAGE, so selecting
+// them costs nothing; building the image does (`npm run test:image`), and it is not part of this run.
+const imageTests = new Set(config.image.tests)
+const touchesImage = changed.some((file) => config.image.paths.some((p) => file === p || file.startsWith(p)))
+if (touchesImage) for (const t of imageTests) selected.add(t)
+const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f) || imageTests.has(f)).sort()
 const browserFiles = files.filter((f) => f.endsWith('.browser.test.mjs'))
 const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)
+if (touchesImage && !process.env.TEAM_PLATFORM_IMAGE) console.error('The change touches what the tests on the image walk and they are skipped here (TEAM_PLATFORM_IMAGE is not set): `npm run test:image` builds the image and runs them.')
 if (touchesPanel) console.error('The panel or the client package changed: its unit tests and browser tests run here; also `npm run test:panel` for tsc and `npm run test:client`.')
 if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
 // A selection with browser tests needs the browser of this Playwright version: it is asked once, before anything starts, and a machine

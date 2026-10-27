@@ -229,6 +229,27 @@ describe('the register of machines', () => {
     assert.ok(row(lost).destroyed_at > 0, 'the job ended: the sweep destroys the machine that nobody took over')
   })
 
+  it('two sweeps that overlap in one process call DESTROY once per machine: the one of the start and the one of the first expired lease, when DESTROY takes longer than the heartbeat', async () => {
+    // The class of 2026-10-26 (machines-sigkill.docker.test.js): both listed the same untried row, both ran `docker rm -f`, and the second answered «removal is already in progress».
+    const slow = `printf '%s|%s\\n' {job_id} {machine} >> '${log}'; sleep 0.4`
+    const config = configOf({ machineDestroy: slow })
+    const ids = [4020, 4021].map((jobId) => openMachine(env.db, { jobId, attempt: 1, machine: `team-job-${jobId}`, workdir: `/w/${jobId}` }))
+    const inFlight = new Set()
+    const start = sweepMachines({ db: env.db, config, concurrency: 1, inFlight })
+    const beat = sweepMachines({ db: env.db, config, concurrency: 1, untriedOnly: true, inFlight })
+    const both = await Promise.all([start, beat])
+    assert.equal(both.reduce((n, r) => n + r.destroyed, 0), 2, JSON.stringify(both))
+    assert.equal(both.reduce((n, r) => n + r.failed, 0), 0)
+    for (const jobId of [4020, 4021]) assert.equal(reads().filter((l) => l.startsWith(`${jobId}|`)).length, 1, `DESTROY of ${jobId} ran once`)
+    for (const id of ids) assert.deepEqual([row(id).destroy_attempts, row(id).destroy_error], [1, null])
+    assert.equal(inFlight.size, 0, 'the sweep gives back what it took')
+    // Without a set passed in the sweep still protects itself from an overlap.
+    const solo = openMachine(env.db, { jobId: 4022, attempt: 1, machine: 'team-job-4022', workdir: '/w/4022' })
+    await Promise.all([sweepMachines({ db: env.db, config, concurrency: 1 }), sweepMachines({ db: env.db, config, concurrency: 1 })])
+    assert.equal(reads().filter((l) => l.startsWith('4022|')).length, 1, 'the same holds without a set passed in: the database handle keeps its own')
+    assert.ok(row(solo).destroyed_at > 0)
+  })
+
   it('the destroyed rows go with the runs and an open one is never deleted', () => {
     const old = openMachine(env.db, { jobId: 4007, attempt: 1, machine: 'old', workdir: '/w', now: 1000 })
     const open = openMachine(env.db, { jobId: 4008, attempt: 1, machine: 'open', workdir: '/w', now: 1000 })

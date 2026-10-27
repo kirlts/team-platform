@@ -21,6 +21,11 @@ test('the tests on the image exist and the paths that select them exist', () => 
   for (const p of config.image.paths) assert.ok(globSync(p.endsWith('/') ? `${p}**` : p, { cwd: root }).length > 0, `${p} matches no file`)
 })
 
+test('the tests on a Docker daemon exist and the paths that select them exist', () => {
+  for (const t of config.daemon.tests) assert.ok(globSync(t, { cwd: root }).length > 0, `${t} matches no file`)
+  for (const p of config.daemon.paths) assert.ok(globSync(p.endsWith('/') ? `${p}**` : `${p}*`, { cwd: root }).length > 0, `${p} matches no file`)
+})
+
 // The class of 2026-10-26: the server changed a role and eight tests of the client turned red because no change of the client had been made and the
 // selection looked only there. Every file that registers a route or applies a role must be under a path that runs the client suite.
 test('every source file that registers routes or requires a role runs the suite of the client', () => {

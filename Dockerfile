@@ -172,6 +172,12 @@ COPY scripts/repo-map.mjs ./scripts/repo-map.mjs
 COPY scripts/tiempos.mjs ./scripts/tiempos.mjs
 # The canary runs inside the worker after a deploy (`docker exec <worker> node scripts/canary.mjs`); it imports only Node's own modules.
 COPY scripts/canary.mjs ./scripts/canary.mjs
+# The drivers of the `execute` machines (drivers/README.md). They are scripts the worker runs when the host declares them in .env; without that they do nothing.
+COPY drivers ./drivers
+# DRIVER_PACKAGES: Alpine packages the host's driver needs next to the worker, empty by default (nothing is added). `bash` and `git` for drivers/fly-machines,
+# `bash` and `docker-cli` for drivers/docker-local. `flock` and `tar` are busybox applets already in the image. compose.driver.example.yml sets it.
+ARG DRIVER_PACKAGES=
+RUN if [ -n "$DRIVER_PACKAGES" ]; then apk add --no-cache $DRIVER_PACKAGES; fi
 COPY --from=panel /out ./panel/dist
 RUN mkdir -p /data && chown node:node /data
 USER node

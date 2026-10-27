@@ -40,23 +40,39 @@ Qué significa cada número: el patch trae correcciones y cambios que nadie tien
 
 ### El registro de batería de un commit
 
-Cada commit que pasó la batería completa del canónico deja un registro. Un anfitrión lo consulta antes de repetir en su imagen las pruebas del canónico. El registro es una nota de git en la referencia `refs/notes/battery`: una nota por sha. Cada escritura es un commit de esa referencia, así que una nota escrita a mano deja autor, fecha y padre en su historia. Sólo existe para lo que pasó: si una orden salió distinto de 0, no se escribe nada.
+Cada commit que pasó la batería completa del canónico deja un registro. Un anfitrión lo consulta antes de repetir en su imagen las pruebas del canónico. Son notas de git, una por sha, en dos referencias. Cada escritura es un commit de la referencia, así que una nota escrita a mano deja autor, fecha y padre en su historia. Sólo existen para lo que pasó: si una orden salió distinto de 0, no se escribe nada.
 
-Consulta con el sha completo, desde cualquier repositorio y sin clonar el canónico. Sale 0 e imprime el JSON si hay registro, y 1 si no lo hay:
-
-```
-git fetch -q https://github.com/kirlts/team-platform.git +refs/notes/battery:refs/notes/tp-battery && git notes --ref=tp-battery show <sha completo>
-```
-
-Con el script del canónico, que acepta un prefijo del sha, comprueba que la nota corresponde al commit y funciona fuera de un repositorio. Sale 0 con el JSON, 1 sin registro y 3 con un registro que no corresponde al commit:
+`refs/notes/verificaciones` es la que lee el anfitrión. Consulta con el sha completo, desde cualquier repositorio y sin clonar el canónico. Sale 0 e imprime el JSON si hay registro, y 1 si no lo hay:
 
 ```
-node scripts/battery-record.mjs show <sha> --remote https://github.com/kirlts/team-platform.git [--trace]
+git fetch -q https://github.com/kirlts/team-platform.git +refs/notes/verificaciones:refs/notes/verificaciones && git notes --ref=verificaciones show <sha completo>
 ```
 
-`--trace` imprime los commits de la referencia que tocaron esa nota: quién la escribió y cuándo. El JSON de una línea lleva `schema`, `sha`, `tree`, `date`, `node`, `runner`, `commands`, `skipped` e `image_base`. Cada orden de `commands` trae `cmd`, `exit`, `seconds`, `tests`, `pass`, `fail` y `log_sha256`, la huella de su salida completa. `skipped` lista lo que la puerta no corrió y por qué. `image_base` trae referencia y digest de cada base externa del `Dockerfile`, con `null` y la razón si no se pudo resolver. Una orden que falló y nombra sus archivos de prueba se repite una vez, sólo en esos archivos. Si pasan, la orden queda con `exit` 0 y lleva `first_run` y `retried`, para que el registro diga que ocurrió. Un anfitrión compara `tree` con el de su commit y `image_base` con la base de su imagen. Si coinciden y `commands` trae `complete` con `exit` 0, no repite `test:completa`.
+La nota es un objeto JSON con estos campos, todos obligatorios:
 
-Quién lo escribe: `scripts/publish-main.sh` lo deja al publicar `main`, con lo que su batería ya corrió. `node scripts/battery-record.mjs run <sha>` lo genera para un commit que no se publicó. Sus órdenes son `test:completa`, `test:panel`, `test:client` y `node --test src/static.test.js`, una tras otra: la primera levanta contenedores y las demás abren puertos.
+| Campo | Valor |
+|---|---|
+| `formato` | `1` |
+| `sha` | Los 40 caracteres del commit probado; el de la nota |
+| `resultado` | `verde` |
+| `anfitrion` | Huella del compose del anfitrión contra el que pasaron las pruebas: su texto con cada sha de 40 caracteres (y su sufijo `-<huella>`) reemplazado por `V`, SHA-256, primeros 16 caracteres |
+| `imagen_base` | Digest de la imagen sobre la que se construye la imagen de producción: la base externa de la última etapa del `Dockerfile`. `sha256:` y 64 caracteres hexadecimales |
+| `comandos` | Lista no vacía de `{ "orden": "<comando corrido>", "codigo": <código de salida> }`, todos con código `0` |
+| `momento` | Fecha y hora UTC, ISO 8601 |
+
+La huella del anfitrión se entrega al escribir: `--compose <archivo>` la calcula del compose del anfitrión y `--anfitrion <16 hex>` la recibe hecha. Sin ninguna de las dos se escribe sólo el registro detallado. Si no se puede resolver el digest de la imagen base, no se escribe ninguno de los dos.
+
+`refs/notes/battery` guarda el registro detallado, para auditar: `tree`, `date`, `node`, `runner`, `commands` (`cmd`, `exit`, `seconds`, `tests`, `pass`, `fail` y `log_sha256`, la huella de su salida completa), `skipped` (lo que la puerta no corrió y por qué) e `image_base` (referencia y digest de cada base externa del `Dockerfile`). Con el script del canónico se lee con `--ref battery`:
+
+```
+node scripts/battery-record.mjs show <sha> --remote https://github.com/kirlts/team-platform.git [--ref verificaciones|battery] [--trace]
+```
+
+El script acepta un prefijo del sha, comprueba que la nota corresponde al commit y funciona fuera de un repositorio. Sale 0 con el JSON, 1 sin registro y 3 con un registro que no vale. `--trace` imprime los commits de la referencia que tocaron la nota: quién la escribió y cuándo.
+
+Una orden que falló y nombra sus archivos de prueba se repite una vez, sólo en esos archivos. Si pasan, el registro detallado la deja con `exit` 0 y lleva `first_run` y `retried`. La verificación nombra la orden con lo que se repitió, para que no diga que la primera corrida pasó.
+
+Quién lo escribe: `scripts/publish-main.sh` lo deja al publicar `main`, con lo que su batería ya corrió (con `PUBLISH_HOST_COMPOSE` escribe también la verificación). `node scripts/battery-record.mjs run <sha> --compose <archivo>` lo genera para un commit que no se publicó. Sus órdenes son `test:completa`, `test:panel`, `test:client` y `node --test src/static.test.js`, una tras otra: la primera levanta contenedores y las demás abren puertos.
 
 ## 1. Sola en un VPS
 

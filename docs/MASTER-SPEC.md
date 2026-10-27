@@ -927,4 +927,4 @@ La misma medición corresponde a cada extractor candidato (UD-009), a video y au
 
 **Alcance:** Todas las operaciones del agente sobre el repositorio: código, documentación, dependencias y despliegue.
 
-**Registro de batería:** cada commit que pasa la batería completa deja una nota de git en `refs/notes/battery` del canónico (`scripts/battery-record.mjs`; la deja `scripts/publish-main.sh` al publicar), que un anfitrión consulta por sha antes de repetir esas pruebas en su imagen; cómo se consulta, en `docs/INSTALACION.md`.
+**Registro de batería:** cada commit que pasa la batería completa deja notas de git en `refs/notes/verificaciones` (la que lee el anfitrión) y `refs/notes/battery` (el detalle) del canónico (`scripts/battery-record.mjs`; las deja `scripts/publish-main.sh` al publicar), que un anfitrión consulta por sha antes de repetir esas pruebas en su imagen; cómo se consulta, en `docs/INSTALACION.md`.

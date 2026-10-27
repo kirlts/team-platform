@@ -2,6 +2,7 @@ import { AlertTriangle, RotateCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { useLookups } from './lookups'
 import { Meter } from './Meter'
 import { OriginalFrame } from './InputPreview'
 import { ReviewPane } from './ReviewPane'
@@ -34,13 +35,27 @@ export function SendDrawer({ items, selectedId, onSelect, review }: { items: rea
 /** A send that is still going up: what was written and the progress of the upload, or why it did not go. The text is never lost. */
 function UploadPane({ upload }: { upload: PendingUpload }) {
   const t = useT()
+  const { memberName } = useLookups()
   const percent = Math.round(upload.progress * 100)
+  const addressing = [
+    upload.recipientIds?.length ? `${t('compose.to')}: ${upload.recipientIds.map(memberName).filter(Boolean).join(', ')}` : '',
+    upload.asMemberId ? `${t('compose.sendAs')}: ${memberName(upload.asMemberId)}` : '',
+  ].filter(Boolean)
   // A send of text alone has nothing to upload: it is being sent (the wording follows what travels).
   const sending = upload.names.length === 0
   return (
     <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-[minmax(0,1fr)]">
       <OriginalFrame>
         {upload.text && <p className="scroll-thin min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-1 text-sm">{upload.text}</p>}
+        {addressing.length > 0 && (
+          <ul aria-label={t('recipients.label')} className="flex flex-col gap-0.5 px-1 text-xs text-muted">
+            {addressing.map((line) => (
+              <li key={line} className="break-words">
+                {line}
+              </li>
+            ))}
+          </ul>
+        )}
         {upload.names.length > 0 && (
           <ul aria-label={t('media.attachments')} className="flex flex-col gap-0.5 text-xs text-muted">
             {upload.names.map((n, i) => (

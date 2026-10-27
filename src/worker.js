@@ -188,13 +188,13 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   // The safety net under every handler: a job that failed and left its message with no person (a restart between the failure and its handler, a handler
-  // that threw, a path that none covers) is handed to the handler again with `job_failed_unseen`, once. `unseenFailures` only lists messages that have
+  // that threw, a path that none covers) is handed to the handler again, once, with the code the queue recorded when it failed the job (`job_failed_unseen` when it recorded none). `unseenFailures` only lists messages that have
   // someone to hand them to, so a message nobody can take is not retried every cycle.
   function sweepUnseen () {
     for (const { job_id: id } of unseenFailures(db, { now: now(), graceMs: w.heartbeatMs })) {
       try {
         const job = queue.getJob(id)
-        const error = Object.assign(new Error(job.last_error ?? 'El trabajo falló y nadie recibió el mensaje.'), { code: 'job_failed_unseen' })
+        const error = Object.assign(new Error(job.last_error ?? 'El trabajo falló y nadie recibió el mensaje.'), { code: job.error_code ?? 'job_failed_unseen' })
         handlers[job.kind]?.onFailure?.(job, error, { state: 'failed' })
         logger.warn({ job_id: id, kind: job.kind }, 'a failed job had left its message with nobody: handed to a person')
       } catch (e) { logger.error({ err: e, job_id: id }, 'error while handing an unseen failure to a person') }

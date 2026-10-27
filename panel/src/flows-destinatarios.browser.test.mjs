@@ -61,7 +61,7 @@ describe('«Para» in the new message bar (UD-291)', () => {
         const text = `Corregir el espacio de la tabla (${name})`
         await field.fill(text)
         await to.getByRole('button', { name: 'Para' }).click()
-        await page.getByRole('menuitemcheckbox', { name: 'Claude' }).click()
+        await page.getByRole('option', { name: 'Claude' }).click()
         await page.keyboard.press('Escape')
         const chip = to.getByRole('listitem').filter({ hasText: 'Claude' })
         await chip.waitFor()
@@ -88,7 +88,7 @@ describe('«Para» in the new message bar (UD-291)', () => {
         const second = `Otro texto sin destinatarios (${name})`
         await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill(second)
         await to.getByRole('button', { name: 'Para' }).click()
-        await page.getByRole('menuitemcheckbox', { name: 'Claude' }).click()
+        await page.getByRole('option', { name: 'Claude' }).click()
         await page.keyboard.press('Escape')
         await chip.waitFor()
         await to.getByRole('button', { name: 'Quitar a Claude' }).click()

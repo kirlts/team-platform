@@ -207,6 +207,22 @@ describe('handoff to a person', () => {
     assert.match(lastReply(messageId).body, /Quien reciba este mensaje puede volver a lanzarlo/)
   })
 
+  it('an execute failed by its expired lease whose announcement nobody heard says the same cause when a sweep finds it: the process died between the queue and the handler', async () => {
+    const messageId = await runWith('Una sesión cuyo aviso de arriendo se perdió.', { outcome: 'done', summary: 'Listo.' })
+    env.db.prepare('DELETE FROM message_assignees WHERE message_id = ?').run(messageId)
+    env.db.prepare('INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)').run(messageId, agentId)
+    const jobId = enqueueExecute(env.db, { messageId, memberId: agentId, maxAttempts: 1 })
+    env.db.prepare("UPDATE jobs SET status = 'running', attempts = 2, worker_id = 'muerto', lease_until = ? WHERE id = ?").run(Date.now() - 60000, jobId)
+    env.queue.recoverExpiredLeases({ spare: 'nobody' }) // the queue fails the job; the announcement goes out with nobody listening, as if the process had died
+    await new Promise((resolve) => setImmediate(resolve))
+    env.db.prepare('UPDATE jobs SET finished_at = ? WHERE id = ?').run(Date.now() - 3_600_000, jobId) // the grace of the sweep has passed
+    assert.equal(env.db.prepare('SELECT error_code FROM jobs WHERE id = ?').get(jobId).error_code, 'lease_expired', 'the queue records the cause with the failure')
+    startWorker()
+    await until(() => /se interrumpió antes de terminar/.test(lastReply(messageId)?.body ?? ''), { timeoutMs: 10000 })
+    await worker.stop()
+    assert.deepEqual(env.db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ?').all(messageId).map((r) => r.member_id), [editorId], 'a person has it')
+  })
+
   it('the pieces of the check: the problem it names and the lines the person reads', () => {
     assert.equal(decisionCheckProblem({ outcome: 'done' }), null)
     assert.equal(decisionCheckProblem({ outcome: 'not_mine' }), null)

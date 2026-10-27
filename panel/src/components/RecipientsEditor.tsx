@@ -17,7 +17,7 @@ export function RecipientsEditor({ ids, onChange, max = 3, to, testId, authorId,
         <li key={id} data-repeat-ok="person" title={memberName(id)} className={`group/chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-line-strong bg-glass-strong pl-0.5 pr-0.5 leading-tight text-fg ${compact ? 'py-0' : 'py-0.5'}`}>
           <Avatar name={memberName(id) || '?'} size={compact ? 16 : 18} />
           {compact ? (memberName(id) || '?').split(' ')[0] : memberName(id)}
-          <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} title={t('recipients.remove', { name: memberName(id) })} className="hit relative inline-flex items-center justify-center rounded-full text-muted hover:bg-hover hover:text-fg [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2.5" onClick={() => onChange(ids.filter((x) => x !== id))}>
+          <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} title={t('recipients.remove', { name: memberName(id) })} className="hit relative inline-flex items-center justify-center rounded-full text-muted hover:bg-hover hover:text-fg max-md:-mx-2.5 max-md:-my-2.5 max-md:min-h-11 max-md:min-w-11 max-md:hover:bg-transparent [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2.5" onClick={() => onChange(ids.filter((x) => x !== id))}>
             <X size={16} aria-hidden />
           </button>
         </li>

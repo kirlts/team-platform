@@ -62,7 +62,7 @@ export function Assessment({ message, template, bare = false }: { message: Messa
             <label className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-56">
               <span className="rotulo">{t('assessment.holder')}</span>
               {canEdit ? (
-                <NativeSelect className={ON_PAGE_FIELD} value={a.estimates.value_holder} onChange={(e) => set.mutate({ id: message.id, value_holder: e.target.value as 'person' | 'model' })} aria-label={t('assessment.holder')} data-testid="value-holder">
+                <NativeSelect className={`${ON_PAGE_FIELD} max-md:h-11`} value={a.estimates.value_holder} onChange={(e) => set.mutate({ id: message.id, value_holder: e.target.value as 'person' | 'model' })} aria-label={t('assessment.holder')} data-testid="value-holder">
                   <option value="person">{t('assessment.holder.person')}</option>
                   <option value="model">{t('assessment.holder.model')}</option>
                 </NativeSelect>
@@ -111,11 +111,11 @@ export function Assessment({ message, template, bare = false }: { message: Messa
   )
 }
 
-/** The content of a fold drawn in the open, under its name, inside the one fold that holds it. */
+/** The content of a fold drawn in the open, under its name, inside the one fold that holds it. The name of the part is a heading; the small caps below it label what the part holds, so the two levels do not read as one. */
 export function Bare({ title, children }: { title: string; className?: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2 border-t border-line pt-3 first:border-t-0 first:pt-0">
-      <h3 className="rotulo">{title}</h3>
+      <h3 className="m-0 text-sm font-semibold text-fg">{title}</h3>
       {children}
     </section>
   )

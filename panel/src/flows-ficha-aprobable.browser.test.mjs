@@ -34,13 +34,13 @@ async function session(who, path, viewport = { width: 1440, height: 900 }, schem
 const shot = async (page, name) => { if (DIR) await page.screenshot({ path: `${DIR}/${name}.png` }) }
 
 describe('the Guard of the idea (UD-307)', () => {
-  test('the thread says «Lista para ver», the evaluation says the Guard applies and why, and the review has its control', async () => {
+  test('the thread says «Lista para ver», the evaluation says the Guard applies and why, and the review line has no button (UD-307)', async () => {
     const { message_id: id } = await panel.control.ideaGuard()
     const { page, context } = await session('ana', `/messages/${id}`)
     try {
       assert.match(await page.locator('section[aria-label="Respuestas"]').innerText(), /Lista para ver/)
       assert.equal(await page.getByTestId('review-reason').innerText(), 'Cambio listo para revisar')
-      await page.getByTestId('review-reply').waitFor()
+      assert.equal(await page.getByTestId('review-pending').getByRole('button').count(), 0, 'UD-307: no button')
       await page.getByRole('button', { name: 'Detalles', exact: true }).click()
       assert.equal((await page.getByTestId('idea-guard').innerText()).trim(), 'Aplica')
       assert.match(await page.getByTestId('idea-reason').innerText(), /comparte una posibilidad/)
@@ -61,6 +61,10 @@ describe('the handoff to a person (UD-269)', () => {
       assert.match(await page.locator('section[aria-label="Respuestas"]').innerText(), /Recomendación/)
       await page.locator('#reply-field').waitFor()
       assert.equal(await page.getByTestId('review-pending').count(), 0, 'a handoff has no held change')
+      // The state shows: who the question waits for, with nothing to press.
+      const waiting = page.getByTestId('handoff-waiting')
+      assert.match((await waiting.innerText()).trim(), /^Decide: Ana Prueba$/)
+      assert.equal(await waiting.locator('button, a').count(), 0)
       await shot(page, 'traspaso-escritorio')
     } finally {
       await context.close()
@@ -80,6 +84,82 @@ describe('the text read from what the message carries', () => {
       await shot(page, 'extraccion-escritorio')
       await gallery.locator('[data-gallery-thumb] button').nth(1).click()
       await gallery.locator('[data-gallery-transcript]').filter({ hasText: 'lista de pacientes' }).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('the text of a video and of a document', () => {
+  test('the transcript of a video clears the arrows of the gallery, and the text read from a document is shown under it', async () => {
+    const { message_id: id } = await panel.control.extraction()
+    const { page, context } = await session('ana', `/messages/${id}`)
+    try {
+      const gallery = page.locator('[data-gallery]').first()
+      await gallery.waitFor()
+      await gallery.locator('[data-gallery-thumb] button').nth(1).click()
+      const spoken = gallery.locator('[data-gallery-viewer] [data-gallery-transcript]').filter({ hasText: 'lista de pacientes' })
+      await spoken.waitFor()
+      // The arrows are 40 px wide at 8 px from the edge of the viewer: the text starts to the right of the left one.
+      const viewer = await gallery.locator('[data-gallery-viewer]').boundingBox()
+      const text = await spoken.boundingBox()
+      const label = await spoken.locator('xpath=preceding-sibling::h3').boundingBox()
+      assert.ok(label.x >= viewer.x + 48, `the label starts at ${label.x - viewer.x} px of the viewer, under the arrow`)
+      assert.ok(text.x >= viewer.x + 48, `the text starts at ${text.x - viewer.x} px of the viewer`)
+      assert.ok(text.x + text.width <= viewer.x + viewer.width - 48, 'and ends before the right arrow')
+      await gallery.locator('[data-gallery-thumb] button').nth(2).click()
+      const extracted = gallery.locator('[data-gallery-extracted]')
+      await extracted.waitFor()
+      assert.equal((await extracted.locator('h3').innerText()).trim(), 'Texto extraído')
+      assert.match(await extracted.innerText(), /Pedido: que abra en menos de dos segundos/)
+      await shot(page, 'texto-del-documento-escritorio')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('nothing of the header or of the form moves when something appears', () => {
+  test('the title does not drop when Deshacer appears, and «Responder» does not drop when the missing mention is said', async () => {
+    const { page, context } = await session('ana', '/messages')
+    try {
+      const mine = (await (await page.request.get(`${origin}/api/messages`)).json()).items.find((m) => m.title.startsWith('Confirmar el formato')).id
+      await page.goto(`${origin}/messages/${mine}`)
+      await page.locator('main h1').waitFor()
+      await settled(page)
+      const top = async () => Math.round((await page.locator('main h1').boundingBox()).y)
+      const before = await top()
+      const title = page.locator('main h1 [data-editable]')
+      await title.click()
+      await page.locator('main h1 textarea').fill('Confirmar el formato del informe')
+      await page.keyboard.press('Enter')
+      await page.getByRole('button', { name: 'Deshacer', exact: true }).waitFor()
+      assert.equal(await top(), before, 'the title stays where it was when the pair Deshacer and Rehacer appears')
+      const send = page.getByRole('button', { name: 'Responder', exact: true })
+      const sendY = Math.round((await send.boundingBox()).y)
+      await page.getByRole('textbox', { name: 'Respuesta' }).fill('Una consulta sin mencionar a nadie')
+      await page.getByText('Falta mencionar a alguien').waitFor()
+      assert.equal(Math.round((await send.boundingBox()).y), sendY, '«Responder» stays where it was when the notice about the mention appears')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('one definition of a stretch of the work', () => {
+  test('the session lasts the same in the panel «Trabajo» and in Detalles', async () => {
+    const work = await panel.control.agentWork()
+    const { page, context } = await session('ana', `/messages/${work.failed_delivery}`)
+    try {
+      const row = page.locator('[data-work-step="session"]')
+      await row.waitFor()
+      const inPanel = (await row.innerText()).match(/\d+ min \d+ s/)?.[0]
+      await page.getByRole('button', { name: 'Detalles', exact: true }).click()
+      const phase = page.locator('[data-timing-phase="run"]')
+      await phase.waitFor()
+      assert.equal((await phase.innerText()).match(/\d+ min \d+ s/)?.[0], inPanel, 'one session, one duration')
+      assert.equal(inPanel, '3 min 30 s')
+      await shot(page, 'sesion-una-duracion-escritorio')
     } finally {
       await context.close()
     }
@@ -179,6 +259,28 @@ describe('on a phone', () => {
       const first = await page.locator('section[aria-label="Respuestas"] article').first().boundingBox()
       assert.ok(first && first.y < 844 - 60, `the first reply starts at y ${first?.y} of 844`)
       await shot(page, 'telefono-cabecera')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the remove button of a recipient, an empty field to fill and the select of the missing value are targets of 44 px', async () => {
+    const { page, context } = await session('ana', '/messages', { width: 390, height: 844 })
+    try {
+      const mine = (await (await page.request.get(`${origin}/api/messages`)).json()).items.find((m) => m.title.startsWith('Confirmar el formato')).id
+      await page.goto(`${origin}/messages/${mine}`)
+      await page.locator('main h1').waitFor()
+      await settled(page)
+      const small = async () =>
+        page.evaluate(() => [...document.querySelectorAll('main button, main select, main [data-editable]')].filter((el) => !el.closest('[data-lane="transcript"]')).map((el) => ({ el, r: el.getBoundingClientRect(), name: (el.getAttribute('aria-label') || el.textContent || '').trim() })).filter(({ r }) => r.width > 0 && r.height > 0 && (r.width < 43.5 || r.height < 43.5)).map(({ r, name }) => `${name.slice(0, 40)} ${Math.round(r.width)}x${Math.round(r.height)}`))
+      const asked = (await small()).filter((s) => /^(Quitar a|Resumen|Valor faltante)/.test(s))
+      assert.deepEqual(asked, [], 'the controls the judge measured')
+      const { message_id: idea } = await panel.control.ideaGuard()
+      await page.goto(`${origin}/messages/${idea}`)
+      await page.locator('main h1').waitFor()
+      await page.getByRole('button', { name: 'Detalles', exact: true }).click()
+      await page.getByTestId('value-holder').waitFor()
+      assert.ok((await page.getByTestId('value-holder').boundingBox()).height >= 44)
     } finally {
       await context.close()
     }

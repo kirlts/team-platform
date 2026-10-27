@@ -73,9 +73,10 @@ export function TimingBody({ messageId }: { messageId: string }) {
         ))}
       </dl>}
       {d.job_status === 'running' && (
-        <p data-timing-running className="tabular-nums text-muted">
-          {d.phase ? t(`timing.phase.${d.phase}` as MessageKey) : t('timing.running')}
-          {d.elapsed_ms !== null && ` · ${duration(d.elapsed_ms)}`}
+        // The same shape as every other figure: the name, then the time.
+        <p data-timing-running className="m-0 flex items-baseline gap-1.5">
+          <span className="text-muted">{d.phase ? t(`timing.phase.${d.phase}` as MessageKey) : t('timing.running')}</span>
+          {d.elapsed_ms !== null && <span className="tabular-nums">{duration(d.elapsed_ms)}</span>}
         </p>
       )}
       {d.phases.length > 0 && (
@@ -88,7 +89,8 @@ export function TimingBody({ messageId }: { messageId: string }) {
           ))}
         </ul>
       )}
-      {d.slowest.length > 0 && (
+      {/* With the tree the slowest steps are in it, in their place: the list stands alone only when the spans are gone and the run row kept the slowest tools (UD-262). */}
+      {d.slowest.length > 0 && !d.tree && (
         <ol aria-label={t('timing.slowest')} className="flex flex-col gap-0.5">
           {d.slowest.slice(0, SLOWEST_SHOWN).map((s, i) => (
             <li key={i} data-timing-slow className="flex flex-wrap items-baseline gap-x-3">

@@ -933,12 +933,13 @@ function control(path, query) {
     return { message_id: msg.id }
   }
   if (path === '/_control/extraction') {
-    // UD-071: the text read from what the message carries: the speech of an audio and of a video, shown under each medium.
+    // UD-071: the text read from what the message carries: the speech of an audio and of a video, and the text of a document, shown with each medium.
     const voice = seedAttachment('audio', 'audio/wav', 'nota-con-texto.wav', silentWav(8))
     attachments.get(voice).transcript = 'Primero, el botón Enviar no se distingue en el tema oscuro. Segundo, la lista tarda en abrir cuando hay muchos mensajes.'
     const video = seedAttachment('video', 'video/webm', 'recorrido-con-voz.webm', readFileSync(new URL('./dev-fixtures/sample.webm', import.meta.url)))
     attachments.get(video).transcript = SPOKEN_SAMPLE
     const pdf = seedAttachment('document', 'application/pdf', 'informe-del-cliente.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'))
+    attachments.get(pdf).transcript = 'Informe del cliente. Resumen: la lista de pacientes tarda en abrir con más de mil filas. Pedido: que abra en menos de dos segundos.'
     const msg = seedMessage({ area_id: 'a-error', author_id: 'u-bruno', title: 'Nota de voz, video y un informe', body: 'Lo dije hablando y dejé la grabación y el informe del cliente.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [voice, video, pdf] })
     return { message_id: msg.id }
   }

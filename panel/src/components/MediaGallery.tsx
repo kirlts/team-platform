@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Link2, Plus } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -76,6 +76,18 @@ export function MediaGallery({
   /** Index the program is moving to: while it is set, the slides that pass by on the way do not count as the current one. */
   const heading = useRef<number | null>(null)
   const regionId = useId()
+  // The viewer is as tall as the slide in view, not as the tallest of its row: a video of 90 px does not float in a frame as high as the document next to it.
+  const slides = useRef<(HTMLDivElement | null)[]>([])
+  const [viewerHeight, setViewerHeight] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const slide = slides.current[current]
+    if (!slide || typeof ResizeObserver === 'undefined') return setViewerHeight(null)
+    const measure = () => setViewerHeight(slide.offsetHeight || null)
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(slide)
+    return () => watch.disconnect()
+  }, [current, total])
 
   const select = useCallback(
     (next: number, { smooth = false } = {}) => {
@@ -190,16 +202,20 @@ export function MediaGallery({
           tabIndex={0}
           aria-label={name}
           data-gallery-viewer
+          style={viewerHeight ? { height: viewerHeight } : undefined}
           className={cn(
             // No padding (`p-0` over the 2 px of `.frame`): in a scroller each slide is as wide as the content box, so the padding left 2 px of the next
             // slide in view, a dark line at the right edge when it was a video, and stepping by clientWidth drifted 4 px per slide.
-            'frame scroll-thin flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden rounded-md p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            'frame scroll-thin flex w-full snap-x snap-mandatory items-start overflow-x-auto overflow-y-hidden rounded-md p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             zoomed && 'overflow-x-hidden',
           )}
         >
           {items.map((it, i) => (
             <div
               key={it.id}
+              ref={(el) => {
+                slides.current[i] = el
+              }}
               role="group"
               aria-roledescription={t('gallery.roleSlide')}
               aria-label={t('gallery.count', { n: i + 1, total })}
@@ -234,6 +250,13 @@ export function MediaGallery({
           <DownloadLink href={item.download} name={item.name} />
         </span>
       </div>
+
+      {/* The text read from a photo, a document or a link goes under the viewer, not inside the slide: the slides keep the height of their medium. Its own short lane, so it never pushes the strip away. */}
+      {item.transcriptSrc && item.kind !== 'audio' && item.kind !== 'video' && (
+        <div data-gallery-extracted className="flex max-h-36 min-h-0 flex-col">
+          <Transcript key={item.id} src={item.transcriptSrc} kind={item.kind} />
+        </div>
+      )}
 
       {(total > 1 || onAdd) && (
         <ul ref={strip} aria-label={t('gallery.thumbs')} data-gallery-strip className="scroll-thin flex gap-2 overflow-x-auto pb-1.5">
@@ -434,10 +457,10 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
           className={cn('max-w-full', cap)}
         />
       </div>
-      {/* The speech the server read from a video, as from an audio: under the video, loaded when its slide is the current one. */}
+      {/* The speech the server read from a video, as from an audio: under the video, loaded when its slide is the current one. The side margins clear the arrows, as the audio's do (40 px at 8 px from the edge). */}
       {active && item.transcriptSrc && (
-        <div className="flex min-h-0 flex-col px-4 pb-2">
-          <Transcript src={item.transcriptSrc} />
+        <div className="flex min-h-0 flex-col px-14 pb-2">
+          <Transcript src={item.transcriptSrc} kind={item.kind} />
         </div>
       )}
       </div>
@@ -449,7 +472,7 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
     return (
       <div className="flex w-full min-w-0 flex-col gap-2 px-14 py-4">
         <AudioPlayer key={attempt} src={item.src} name={name} preload={near ? 'metadata' : 'none'} onError={wait} onReady={() => setState('ready')} />
-        {active && item.transcriptSrc && <Transcript src={item.transcriptSrc} />}
+        {active && item.transcriptSrc && <Transcript src={item.transcriptSrc} kind={item.kind} />}
       </div>
     )
   }
@@ -489,8 +512,8 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
   )
 }
 
-/** The text the server extracted from an audio: loaded when its slide is the current one, and drawn only if there is one. */
-function Transcript({ src }: { src: string }) {
+/** The text the server extracted from a medium: loaded when its slide is the current one, and drawn only if there is one. The speech of an audio or a video is a transcript; for a photo, a document or a link it is the text that was read. */
+function Transcript({ src, kind }: { src: string; kind: GalleryItem['kind'] }) {
   const t = useT()
   const [text, setText] = useState<string | null>(null)
   useEffect(() => {
@@ -504,8 +527,8 @@ function Transcript({ src }: { src: string }) {
   if (!text) return null
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1">
-      <h3 className="text-xs font-semibold text-muted">{t('gallery.transcript')}</h3>
-      {/* A transcript has no maximum length: its own lane, declared. */}
+      <h3 className="text-xs font-semibold text-muted">{t(kind === 'audio' || kind === 'video' ? 'gallery.transcript' : 'gallery.extracted')}</h3>
+      {/* An extracted text has no maximum length: its own lane, declared. */}
       <p data-lane="transcript" data-gallery-transcript className="scroll-thin min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words text-sm">
         {text}
       </p>

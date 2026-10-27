@@ -16,6 +16,7 @@ import { LoadState } from '@/components/LoadState'
 import { useLookups } from '@/components/lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { Page } from '@/components/Page'
+import { HandoffWaiting } from '@/components/HandoffWaiting'
 import { ReviewPending } from '@/components/ReviewPending'
 import { AgentWork } from '@/components/AgentWork'
 import { Recipients } from '@/components/Recipients'
@@ -33,6 +34,7 @@ import { useNotices } from '@/lib/notices'
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 import { useDesktop } from '@/lib/useDesktop'
+import { cn } from '@/lib/utils'
 
 /** The way back to the list: a target of 44 px on a phone and never under 24 (WCAG 2.5.8). */
 function BackLink() {
@@ -63,7 +65,7 @@ export function MessageDetail() {
             <LoadState query={message} rows={3} />
           </div>
           <div className="glass leaf max-md:hidden">
-            <LoadState query={message} rows={2} />
+            <LoadState query={message} rows={2} quiet />
           </div>
         </div>
       </Page>
@@ -75,15 +77,8 @@ export function MessageDetail() {
       <Page cols="fill">
         <BackLink />
         {missing ? (
-          <EmptyState
-            alert
-            className="glass leaf"
-            action={
-              <Button asChild>
-                <Link to="/messages">{t('detail.backToMessages')}</Link>
-              </Button>
-            }
-          >
+          // The way back is the one at the top: a second «Volver a mensajes» beside «Mensajes» said the same twice.
+          <EmptyState alert className="glass leaf">
             {t('detail.missing')}
           </EmptyState>
         ) : (
@@ -123,6 +118,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const closed = m.status === 'closed'
   // Only the sender edits a published message, the Editor included (UD-071).
   const canEdit = !!me && me.id === m.author_id
+  // The row of the way back is as tall as the pair Deshacer and Rehacer from the start: the pair appears with the first change and the title must not drop to make room for it.
+  const hasUndo = canEdit || (!!me && m.replies.some((r) => r.author_id === me.id))
   const canReply = canReplyTo(m, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
   // The sender or any person of the team deletes (UD-240, UD-287). No dialog: it is done, the list this came from is shown again, and the strip carries Deshacer.
   const canDelete = !!me
@@ -187,7 +184,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   return (
     <Page cols="fill">
       {/* The top row keeps the way back and what undoes; the actions on the message sit in the title row (UD-309). */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <div className={cn('flex flex-wrap items-center justify-between gap-x-3 gap-y-1', hasUndo && 'min-h-8')}>
         <Link to="/messages" className="inline-flex min-h-6 items-center gap-1 text-xs text-muted hover:text-fg max-md:min-h-11 pointer-coarse:min-h-11">
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
         </Link>
@@ -206,7 +203,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             </a>
           )}
           {/* The author of a reply edits it here too (UD-253): the history is theirs as well. */}
-          {(canEdit || (!!me && m.replies.some((r) => r.author_id === me.id))) && <UndoButtons stack={undo} compact={!desktop} />}
+          {hasUndo && <UndoButtons stack={undo} compact={!desktop} />}
         </div>
       </div>
 
@@ -281,6 +278,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
 
           <AgentWork message={m} />
           <ReviewPending message={m} />
+          <HandoffWaiting message={m} />
 
           {/* What was attached comes before the words (mockup: «Previsualización de»): the gallery shows the medium and its siblings. */}
           <div className="flex min-w-0 shrink-0 flex-col gap-2" onDragOver={canEdit ? (e) => e.preventDefault() : undefined} onDrop={onDrop} onPaste={onPaste}>

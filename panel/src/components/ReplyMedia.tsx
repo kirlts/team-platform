@@ -34,6 +34,8 @@ export function ReplyMedia({ items, tools, onRemove, removing }: { items: readon
   const gallery = toGalleryItems(items, 'reply')
   const pictures = gallery.map((g, index) => ({ g, index })).filter(({ g }) => g.kind === 'image' && g.src)
   const rest = items.filter((a) => a.kind !== 'image')
+  // Two pictures that carry the same role would both read «Propuesta»: then each says what it shows after the role.
+  const roleCount = (label: string) => pictures.filter(({ g }) => captureLabel(g.name)?.label === label).length
   return (
     <div className="@container flex flex-col gap-3 pt-1">
       {pictures.length > 0 && (
@@ -44,7 +46,7 @@ export function ReplyMedia({ items, tools, onRemove, removing }: { items: readon
             return (
               <li key={g.id} className="flex min-w-0 flex-col gap-1.5">
                 <div className="flex min-h-0 items-center justify-between gap-2">
-                  {named ? <span className="rotulo">{named.label}</span> : <span />}
+                  {named ? <span className="rotulo min-w-0 break-words">{roleCount(named.label) > 1 ? `${named.label} · ${named.alt.replace(/\.[a-z0-9]{2,4}$/i, '')}` : named.label}</span> : <span />}
                   <span className="inline-flex items-center">
                     <DownloadLink href={g.download} name={g.name} className="-my-1.5" />
                     {onRemove && <RemoveFile name={g.name} disabled={removing} onRemove={() => onRemove(items[index]!)} />}
@@ -60,7 +62,7 @@ export function ReplyMedia({ items, tools, onRemove, removing }: { items: readon
         </ul>
       )}
       {rest.length > 0 && <AttachmentStrip items={rest} scope="reply" px={48} named renderAction={onRemove ? (g) => <RemoveFile name={g.name} disabled={removing} onRemove={() => onRemove(items.find((a) => a.id === g.id)!)} /> : undefined} />}
-      {gallery.filter((g) => g.transcriptSrc).map((g) => <ReplyTranscript key={g.id} src={g.transcriptSrc as string} name={g.name} />)}
+      {gallery.filter((g) => g.transcriptSrc).map((g) => <ReplyTranscript key={g.id} src={g.transcriptSrc as string} name={g.name} kind={g.kind} />)}
       {tools}
       <MediaGalleryDialog items={gallery} open={open !== null} onOpenChange={(o) => !o && setOpen(null)} index={open ?? 0} />
     </div>

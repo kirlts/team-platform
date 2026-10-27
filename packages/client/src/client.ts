@@ -14,7 +14,7 @@ export interface TeamClient extends TeamResources {
   attachmentUrl(id: string): string
   /** The file attached to a reply: it has its own ids and its own route (`GET /replies/attachments/:id`). */
   replyAttachmentUrl(id: string): string
-  /** The text extracted from an audio or a video (`GET /attachments/:id/transcript`). */
+  /** The text extracted from an attachment: the speech of an audio or a video, the description of a photo, the text of a document or a link (`GET /attachments/:id/transcript`). */
   transcriptUrl(id: string): string
   /** The transcript of the audio or video of a reply (UD-279). */
   replyTranscriptUrl(id: string): string

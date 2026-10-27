@@ -16,6 +16,12 @@ export interface WorkStep {
 
 const ORDER: StepKey[] = ['machine', 'session', 'deliver']
 
+/**
+ * The phases that close the session without being it: they belong to its stretch for the state (a job that is destroying its machine is not on the machine again), but not to its time.
+ * A session is one thing with one duration wherever it is read: «Detalles › Tiempos» and the tree give the `run` phase as «Sesión», and so does this panel.
+ */
+const CLOSING_PHASES = new Set(['collect', 'destroy'])
+
 /** The stretch a phase code of the job belongs to: copying the transcript and destroying the machine close the session. */
 export function stepOfPhase(phase: string | null | undefined): StepKey | null {
   if (!phase) return null
@@ -43,7 +49,7 @@ export function workSteps(d: MessageTiming, retry: 'publish' | 'work' | null = n
     const key = stepOfPhase(p.name)
     if (!key) continue
     seen.add(key)
-    spent[key] = (spent[key] ?? 0) + (p.duration_ms ?? 0)
+    if (!CLOSING_PHASES.has(p.name)) spent[key] = (spent[key] ?? 0) + (p.duration_ms ?? 0)
     if (p.status === 'error') errored.add(key)
   }
   if (current) seen.add(current)

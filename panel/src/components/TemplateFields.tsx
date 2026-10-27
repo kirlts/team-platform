@@ -35,7 +35,8 @@ export function TemplateFields({
   /** The names the person asked to add: they are drawn, open, until they hold something or the edit ends empty. */
   const [adding, setAdding] = useState<string[]>([])
   const empty = (name: string) => !(values?.[name] ?? '').trim()
-  const pending = (f: { name: string; required: boolean }) => f.required && !closed && empty(f.name)
+  // A required field that is empty is flagged only to whoever can fill it: for a reader it would be a name with «Obligatorio» and nothing to do.
+  const pending = (f: { name: string; required: boolean }) => f.required && !closed && canEdit && empty(f.name)
   const shown = fields.filter((f) => isStated(values?.[f.name]) || pending(f) || adding.includes(f.name))
   const absent = canEdit && !closed ? fields.filter((f) => !shown.includes(f)) : []
   if (shown.length === 0 && absent.length === 0) return null

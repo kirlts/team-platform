@@ -19,7 +19,7 @@ const BARS = ['w-2/5', 'w-4/5', 'w-3/5'] as const
  * an icon and Reintentar (J2-A-46). While the first try fails and is tried again it says so, so a slow server is
  * not the same sight as a stuck page. It goes where the list's `empty` goes.
  */
-export function LoadState({ query, rows = 3 }: { query: Waiting; rows?: number }) {
+export function LoadState({ query, rows = 3, quiet = false }: { query: Waiting; rows?: number; /** The second block of a screen that is waiting: it keeps its bars and leaves the word to the first, so «Cargando» is not said twice. */ quiet?: boolean }) {
   const t = useT()
   const errorText = useErrorText()
   if (query.isError) {
@@ -34,14 +34,14 @@ export function LoadState({ query, rows = 3 }: { query: Waiting; rows?: number }
     )
   }
   return (
-    <div role="status" aria-label={t('common.loading')} className="flex flex-col">
+    <div role={quiet ? undefined : 'status'} aria-label={quiet ? undefined : t('common.loading')} aria-hidden={quiet || undefined} className="flex flex-col">
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} aria-hidden className="flex flex-col gap-2 border-b border-line px-4 py-4 last:border-b-0">
           <span className={`block h-3.5 rounded bg-line ${BARS[i % BARS.length]}`} />
           <span className="block h-3 w-full rounded bg-line/60" />
         </div>
       ))}
-      <span className="px-4 pb-3 text-sm text-muted">{query.failureCount > 0 ? t('common.retrying') : t('common.loading')}</span>
+      {!quiet && <span className="px-4 pb-3 text-sm text-muted">{query.failureCount > 0 ? t('common.retrying') : t('common.loading')}</span>}
     </div>
   )
 }

@@ -4,7 +4,7 @@
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -34,6 +34,7 @@ async function session(who = 'ana', viewport = DESKTOP, scheme = 'light') {
   await page.goto(`${origin}/settings`)
   await page.locator('main h1').first().waitFor()
   await settled(page)
+  await openFolds(page)
   return { page, context }
 }
 

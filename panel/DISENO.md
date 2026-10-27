@@ -85,6 +85,7 @@ El desenfoque se usa en pocas superficies grandes. Las filas no lo llevan, por c
 | Cuerpo (`text-sm`, `text-base`) | Source Sans 3 | 15 px | Títulos de fila, valores, controles |
 | Lectura (`text-read`) | Source Sans 3 | 17 px | El texto de una propuesta (UD-030) y, en peso 700, el título de cada mensaje propuesto (J3-B-02) |
 | Encabezado (`text-lg`) | Source Sans 3 | 18,75 px | Escala de razón 1,25: 12, 15, 18,75, 23,4 |
+| Identificador (`font-mono`) | Pila monoespaciada del sistema (`--font-mono`: `ui-monospace`, `SF Mono`, `Menlo`, `Consolas`) | 12 a 15 px | Sólo lo que se copia o se compara carácter a carácter: el modelo de una función, el final de una clave, el nombre y la dirección de un proveedor, el código de un bloque de Markdown. Nunca prosa: el editor de la descripción del proyecto usa Source Sans 3. No se empaqueta ni se pide a un servidor: un cero y una o se distinguen con la que trae el sistema |
 
 Los tamaños son tokens de `@theme` (`--text-xs`, `--text-sm`, `--text-read`, `--text-lg`). Ningún componente escribe un tamaño propio por debajo del encabezado: `src/type-scale.test.ts` lo exige en el código y `test:fit` mide cada texto visible en el navegador (las iniciales de un avatar son decoración y quedan exentas).
 
@@ -167,9 +168,9 @@ UD-241. Una sola grilla para toda fila de Inicio, Mensajes y la vista de un áre
 | Línea de destinatarios | «para A, B y N más», reservada aunque esté vacía; en la disposición apilada lleva también el ícono de borrar, Responder y Cerrar (28 px) |
 | Columna de miniatura | 2,5 rem (40 px) en toda fila, con o sin medios; canal de 16 px |
 | Columna de acciones | 12 rem desde 42 rem de ancho de la fila (borrar, Responder y Cerrar caben en una línea); bajo ese ancho las acciones van al pie |
-| Casilla de selección (UD-253) | 20 px, a 12 px del borde izquierdo y a la altura del título, en un canal de 40 px que toda fila de una lista con selección conserva aunque no lleve casilla, para que el texto empiece a la misma x. La lleva la fila que la persona puede borrar. La fila marcada toma el fondo `selected`. Al marcar, sobre la lista aparece la barra «N marcados · Marcar todos · Cancelar · Borrar» (48 px, una línea también en 390 px). Áreas y plantillas usan la misma casilla y la misma barra |
+| Casilla de selección (UD-253) | 20 px, a 12 px del borde izquierdo y a la altura del título, en un canal de 40 px que toda fila de una lista con selección conserva aunque no lleve casilla, para que el texto empiece a la misma x. La lleva la fila que la persona puede borrar. La fila marcada toma el fondo `selected`. Al marcar, bajo la lista aparece la barra «N marcados · Marcar todos · Cancelar · Borrar» (una línea también en 390 px): bajo la lista, nada de lo que está sobre el puntero se mueve al marcar la primera fila; en teléfono flota sobre el pie de la ventana y la lista conserva su largo. Áreas y plantillas usan la misma casilla y la misma barra, también bajo su lista |
 | Separación entre líneas | 4 px; relleno de fila 16 px a los lados y 12 px arriba y abajo |
-| Alto resultante | 157 px en Mensajes, 152 px en la vista de un área (sin chip) y 166 px en la disposición apilada de Inicio, medidos en 1440×900 con los datos de ejemplo |
+| Alto resultante | 136 px en Mensajes y 134 px en la vista de un área (sin chip); en la disposición apilada de Inicio entre 149 y 171 px, según si el nombre de un área o una marca de guardia ocupa una línea más. Medidos el 2026-10-27 en 1440×900 con los datos de ejemplo |
 
 Lo mide `src/flows-tarjetas-vistazo.browser.test.mjs` (alto igual por lista, extracto de una línea, misma x de estado, quién y miniatura) y `src/components/MessageCard.test.tsx` (clases y tooltip del extracto).
 
@@ -246,7 +247,7 @@ UD-050. El texto de la interfaz es el de un programa de gestión: sustantivo cor
 - Una fila de mensaje tiene tres niveles: título (15 px), extracto en una línea con puntos suspensivos (12 px, apagado; UD-241), y las líneas de metadatos (12 px: estado y área, quién y cuándo, destinatarios). Cada línea ocupa el mismo lugar en todas las filas. La fila se compone según su propio ancho (container query), no el de la ventana.
 - Menús y popovers son opacos (`.pop`): nada se transparenta bajo ellos (J1-A-09).
 - La fila elegida (Áreas) lleva relleno y barra de acento de 4 px, medidos en `npm run contraste` (J1-A-33).
-- Un campo editable vacío se dibuja con borde punteado y la palabra «Completar» (J1-A-23). El contador de lo que lista la vista va junto al título (J1-A-22). Un estado vacío o de error es un bloque en el cuerpo con su salida (`EmptyState`), y una dirección desconocida muestra «Página no encontrada» (J1-A-10).
+- Un campo editable vacío se dibuja con borde punteado y sin palabra dentro: «Completar» se retiró en UD-306 y `flows-pulido-mensajes.browser.test.mjs` lo prohíbe (J1-A-23). Un obligatorio vacío se dibuja para todos: a quien puede completarlo, «Obligatorio» en ámbar; a quien no, «Falta» en el color apagado, sin advertencia (UD-306). El contador de lo que lista la vista va junto al título (J1-A-22). Un estado vacío o de error es un bloque en el cuerpo con su salida (`EmptyState`), y una dirección desconocida muestra «Página no encontrada» (J1-A-10).
 - Deshacer y Rehacer no se dibujan mientras no haya nada que deshacer ni rehacer (J1-A-25).
 - Una plantilla se edita como formulario (campos con casilla «Obligatorio» e instrucciones al modelo en su propia sección); el archivo con su cabecera YAML se construye al guardar y no se muestra (J1-A-32).
 - El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado se dice con su forma y su palabra (ver «Estados y avisos»).
@@ -331,3 +332,15 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 - Los valores de Nombre, Correo y Rol de Configuración son texto plano porque no se editan ahí; su ayuda dice quién los cambia y dónde (UD-122).
 - En Equipo, la acción «Desactivar» comparte la fila del rol en teléfono. La lista mantiene en la página la fila cuyo perfil se abre (`reveal`).
 - En la entrada, el aviso de error va bajo la tarjeta y no reserva una fila dentro de ella: el margen bajo la nota es el del logo sobre la tarjeta (UD-170 para la nota).
+
+## Gestión: Equipo, Áreas, Área, Configuración y Conexiones (ronda del 2026-10-27)
+
+- La cabecera de estas cinco vistas reserva el alto del botón principal (`PageHeader reserve`) y centra el título en él: el título cae a la misma altura con o sin acción, con áreas o sin ellas. Deshacer y Rehacer van en su variante `compact` (sólo íconos, con nombre accesible): con el botón principal caben en 390 px sin empujarlo fuera de la pantalla, y el contenedor de acciones envuelve en vez de desbordar `<main>`.
+- Nombre, correo y extracto del perfil de una fila de Equipo se envuelven; ninguno se corta (UD-016: UD-241 enmendó sólo las tarjetas de las listas de mensajes). El extracto es el primer párrafo entero y «Ver más» avisa que hay más; el perfil completo se abre en la ventana.
+- Un cambio de rol se confirma bajo la barra superior con su Deshacer, igual que desactivar.
+- «Aplicar» de una función de Proveedores sólo se dibuja mientras haya un cambio por aplicar, a la derecha de «Diagnosticar», que no se mueve. Un control apagado todo el tiempo no dice qué falta.
+- Configuración no lleva ayuda visible por omisión (Voz de instrumento): la ayuda de cada ajuste la lee un lector de pantalla (`SettingHint`, `sr-only`) y se dibuja sólo donde sin ella la persona se equivoca, que son las tres acciones de Datos (borran, quitan, gastan). Proveedores y claves, Datos y Auditoría son filas plegadas (`SettingsBox fold`); su contenido se dibuja, y se lee del servidor, al abrirlas. La Cola queda abierta: «Ejecuciones» dentro de ella ya es un pliegue, y un pliegue no contiene otro.
+- Una cifra que no se pudo leer no es un cero: la Cola dibuja el error con Reintentar (`LoadState`) en lugar de los cinco conteos.
+- Con puntero táctil (`pointer: coarse`) todo control de estas vistas mide 44 px (`--touch-min`): botones, campos y selectores (`styles.css`), segmentos de `Segmented`, pestañas de `StateTabs`, enlaces de conteo de Áreas, botón del extracto, nombre y correo editables, cierre de ventana. La casilla de una fila mide 20 px y su marco invisible llega a 44.
+- Una ventana de contenido (Guardias, Perfil) lleva 20 px a los lados y 16 px arriba y abajo, y sus casillas son `ui/checkbox`.
+- Conexiones sigue visible y apagada, sin función por fila: lo fijan MASTER-SPEC §4.1, `idea.md`, UD-037 y UD-220 (3). Una dirección `/connections/<otra>` dice «Página no encontrada».

@@ -23,8 +23,8 @@ export function AreaChip({ areaId, title, className }: { areaId: string; title?:
   const name = title ?? areaTitle(areaId)
   return (
     <span data-testid="area-chip" data-repeat-ok="category" data-area-id={areaId} style={style} className={cn('area-tint area-chip', className)}>
-      {/* The text lives in its own box: an ellipsis is drawn only on a block, so a chip squeezed by its line cut the name mid-letter without one. */}
-      <span data-ellipsis-ok="UD-241" title={name || undefined} className="min-w-0 truncate">{name || t('area.none')}</span> {/* justified: UD-241, a chip on one line ends in an ellipsis; the whole name is in the row title and the detail */}
+      {/* A name that does not fit its line wraps inside the chip and makes the row taller: it is never cut (UD-016; DISENO.md, «Tarjeta de lista»: a name of an area is one of the two texts that lengthen the row). */}
+      <span title={name || undefined} className="min-w-0">{name || t('area.none')}</span>
     </span>
   )
 }

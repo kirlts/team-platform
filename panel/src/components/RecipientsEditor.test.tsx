@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
-import { NoticeProvider, useNotices } from '@/lib/notices'
+import { NoticeProvider } from '@/lib/notices'
 import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { ComposeBar } from './ComposeBar'
 import { RecipientsEditor } from './RecipientsEditor'
@@ -122,13 +122,9 @@ describe('the picker of «Para» is a listbox with the keyboard of one', () => {
   })
 })
 
-describe('changing «Enviar como» to someone in «Para» says so and offers the way back', () => {
-  it('shows a notice naming the member and Deshacer restores both fields', async () => {
-    function Probe() {
-      const notice = useNotices().current
-      return notice ? <div role="status" data-testid="notice">{notice.text}<button onClick={() => void notice.action?.run()}>{notice.action?.label}</button></div> : null
-    }
-    render(<Mount><ComposeBar onSubmit={() => {}} /><Probe /></Mount>)
+describe('changing «Enviar como» to someone in «Para» says so under the controls and offers the way back', () => {
+  it('names the member in a status line next to the control, and Deshacer restores both fields', async () => {
+    render(<Mount><ComposeBar onSubmit={() => {}} /></Mount>)
     const to = await screen.findByTestId('compose-to')
     fireEvent.click(within(to).getByRole('button'))
     await offered()
@@ -137,10 +133,44 @@ describe('changing «Enviar como» to someone in «Para» says so and offers the
     await waitFor(() => expect(within(to).getByRole('button', { name: 'Quitar a Ana' })).toBeTruthy())
     const select = screen.getByTestId('compose-send-as') as HTMLSelectElement
     fireEvent.change(select, { target: { value: '2' } })
-    expect((await screen.findByTestId('notice')).textContent).toContain('Ana sale de Para')
+    const line = await screen.findByTestId('compose-left-to')
+    expect(line.textContent).toContain('Ana sale de Para')
+    // It sits in the row of the control that caused it, never floating over another one.
+    expect(line.parentElement?.contains(select)).toBe(true)
     expect(within(to).queryByRole('button', { name: 'Quitar a Ana' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
+    fireEvent.click(within(line).getByRole('button', { name: 'Deshacer' }))
     await waitFor(() => expect(within(to).getByRole('button', { name: 'Quitar a Ana' })).toBeTruthy())
     expect(select.value).toBe('1')
+    expect(screen.queryByTestId('compose-left-to')).toBeNull()
+  })
+
+  it('leaves with the next thing the person does', async () => {
+    render(<Mount><ComposeBar onSubmit={() => {}} /></Mount>)
+    const to = await screen.findByTestId('compose-to')
+    fireEvent.click(within(to).getByRole('button'))
+    await offered()
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: /Ana/ }))
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(within(to).getByRole('button', { name: 'Quitar a Ana' })).toBeTruthy())
+    fireEvent.change(screen.getByTestId('compose-send-as'), { target: { value: '2' } })
+    await screen.findByTestId('compose-left-to')
+    fireEvent.change(screen.getByTestId('compose-text'), { target: { value: 'hola' } })
+    expect(screen.queryByTestId('compose-left-to')).toBeNull()
+  })
+})
+
+describe('chips of «Para» say the first name, and the whole one when another member shares it', () => {
+  it('Ana and Ana María are told apart', async () => {
+    mockApi(async (path: string) => {
+      if (path === '/me') return { id: '1', email: 'm@x.org', name: 'Martín', role: 'editor', language: 'es-419', active: true, provider: 'local' }
+      if (path === '/members') return { items: [...members, { id: '4', name: 'Ana Sofía Rojas', email: 'as@x.org', role: 'member', kind: 'person', active: true }] }
+      return { items: [] }
+    })
+    render(<Mount><RecipientsEditor ids={['2', '4', '3']} onChange={() => {}} max={3} to="Para" /></Mount>)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Quitar a Ana Sofía Rojas' })).toBeTruthy())
+    const chips = screen.getAllByRole('listitem').map((x) => x.getAttribute('title'))
+    expect(chips).toContain('Ana')
+    expect(screen.getByText('Ana Sofía Rojas', { exact: false, selector: 'li' })).toBeTruthy()
+    expect(screen.getByText('Claude', { selector: 'li' })).toBeTruthy()
   })
 })

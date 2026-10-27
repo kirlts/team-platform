@@ -12,7 +12,7 @@ import type { Area, Template } from '@team-platform/client'
 import { useDeletedTemplates, useDeleteTemplate, useDeleteTemplates, useRestoreTemplate, useRestoreTemplates, useSaveTemplate, useTemplates } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
 import { useSelection, type Selection } from '@/lib/selection'
-import { RowCheck, SelectionBar } from '@/components/SelectionBar'
+import { RowCheck, SelectionBar, SelectionFoot } from '@/components/SelectionBar'
 import { parseTemplateFields, parseTemplateOutput } from '@/lib/template'
 import { useUndo } from '@/lib/undo'
 
@@ -116,7 +116,6 @@ export function Templates({ area }: { area: Area }) {
       >
         {/* Every template is drawn: the list is not paged, so the count in the fold is the number of rows under it. */}
         <section aria-label={t('areas.templates')} className="flex min-w-0 flex-col border-y border-line">
-          {marked.length > 0 && <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />}
           {rows.length > 0 && <TemplateColumns />}
           {rows.length === 0
             ? templates.isPending || templates.isError
@@ -127,6 +126,11 @@ export function Templates({ area }: { area: Area }) {
                   {x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />}
                 </Fragment>
               ))}
+          {marked.length > 0 && (
+            <SelectionFoot>
+              <SelectionBar className="border-b-0" selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />
+            </SelectionFoot>
+          )}
         </section>
       </Fold>
       <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => { await save.mutateAsync(v) }} />
@@ -195,7 +199,7 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
     <article data-marked={selection.isMarked(template.id) || undefined} data-template-row className={`relative grid min-h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-line py-2 pl-10 pr-4 last:border-b-0 data-[marked]:bg-selected ${GRID}`}>
       <RowCheck id={template.id} title={template.name} selection={selection} align="row" />
       {/* The name opens the window; the chevron is glued to its last word, like the name of an area. */}
-      <button type="button" aria-label={t('areas.open', { title: template.name })} data-testid="template-open" data-repeat-ok="per-template" onClick={() => setOpen(true)} className="min-w-0 py-1 text-left text-sm font-semibold hover:text-accent-deep hover:underline max-sm:col-span-2">
+      <button type="button" aria-label={t('areas.open', { title: template.name })} data-testid="template-open" data-repeat-ok="per-template" onClick={() => setOpen(true)} className="min-w-0 py-1 text-left text-sm font-semibold pointer-coarse:min-h-11 hover:text-accent-deep hover:underline max-sm:col-span-2">
         {head}
         <span className="whitespace-nowrap">
           {tail}

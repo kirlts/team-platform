@@ -41,7 +41,7 @@ export function LoadState({ query, rows = 3 }: { query: Waiting; rows?: number }
           <span className="block h-3 w-full rounded bg-line/60" />
         </div>
       ))}
-      <span className="px-4 pb-3 text-sm text-muted">{query.failureCount > 0 ? t('common.retrying') : t('common.loading')}</span>
+      <span className="px-4 pb-3 pt-3 text-sm text-muted">{query.failureCount > 0 ? t('common.retrying') : t('common.loading')}</span>
     </div>
   )
 }

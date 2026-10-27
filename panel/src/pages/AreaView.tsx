@@ -103,18 +103,18 @@ function AreaViewBody({ area }: { area: Area }) {
     <Page cols={12}>
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3">
-          <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline">
+          <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11">
             <ChevronLeft size={16} aria-hidden />
             {t('areas.back')}
           </Link>
           {/* The same dot the list of areas and the sidebar carry: the title says which area this is by its color too (UD-045), and it is the control to change it. */}
           <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
           <h1 className="min-w-0 break-words">
-            <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} />
+            <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center" />
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <UndoButtons stack={undoStack} />
+        <div className="flex flex-wrap items-center gap-2">
+          <UndoButtons stack={undoStack} compact />
           {me?.role === 'editor' && <MoreMenu items={[{ key: 'delete', label: t('areas.deleteArea'), icon: <Trash2 size={16} aria-hidden />, danger: true, testId: 'area-delete', onSelect: () => void remove() }]} />}
         </div>
       </header>
@@ -136,7 +136,7 @@ function AreaViewBody({ area }: { area: Area }) {
               {/* The description edited in place on the left; the right side is the place of the area's color control. */}
               <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
                 <div className="min-w-0 flex-1 basis-80">
-                  <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm" />
+                  <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm pointer-coarse:min-h-11" />
                 </div>
                 <div data-slot="area-color" className="shrink-0 empty:hidden" />
               </div>
@@ -155,11 +155,11 @@ export function AreaNotFound({ loading, query }: { loading: boolean; query: Para
     <Page cols={12}>
       {/* A missing area says so where its name would be, as the screen's title; loading or failing, the list's state speaks. */}
       <header className="flex min-w-0 flex-wrap items-center gap-x-3">
-        <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline">
+        <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11">
           <ChevronLeft size={16} aria-hidden />
           {t('areas.back')}
         </Link>
-        {!loading && <h1 className="min-w-0 break-words text-muted">{t('areas.notFound')}</h1>}
+        {!loading && <h1 className="min-w-0 break-words">{t('areas.notFound')}</h1>}
       </header>
       {loading && <LoadState query={query} />}
     </Page>

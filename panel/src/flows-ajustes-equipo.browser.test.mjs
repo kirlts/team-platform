@@ -4,7 +4,7 @@
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -34,6 +34,7 @@ async function session(who, path, ready, { viewport = DESKTOP, colorScheme = 'li
   await page.goto(`${origin}${path}`)
   await ready(page).waitFor()
   await settled(page)
+  if (path === '/settings') await openFolds(page)
   return { page, context }
 }
 
@@ -142,6 +143,7 @@ describe('Settings: seed examples', () => {
       try {
         await panel.control.reset()
         await page.reload()
+        await openFolds(page)
         const section = page.locator('[data-data-reset]')
         await section.waitFor()
         const before = await page.evaluate(async () => (await (await fetch('/api/inputs?mine=1&status=queued,extracting,analyzing,proposed,published')).json()).total ?? 0)

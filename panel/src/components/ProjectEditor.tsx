@@ -160,7 +160,7 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
             e.stopPropagation()
           }
         }}
-        className={cn('well block w-full resize-y overflow-y-hidden rounded-field border px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:outline-none', over ? '!border-danger' : '!border-[var(--field-border)] focus:!border-accent')}
+        className={cn('well block w-full resize-y overflow-y-hidden rounded-field border px-4 py-3 text-sm leading-relaxed outline-none focus-visible:outline-none', over ? '!border-danger' : '!border-[var(--field-border)] focus:!border-accent')}
       />
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">

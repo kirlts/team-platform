@@ -102,7 +102,8 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
       assert.ok(m.y - (c.y + c.height) >= 7, `space between the clip and its menu: ${m.y - (c.y + c.height)} px`)
       await page.getByRole('menuitem', { name: 'Enlace' }).click()
       const add = page.getByRole('button', { name: 'Agregar', exact: true })
-      assert.match(await add.getAttribute('class'), /btn-gel/, '«Agregar» is the primary action of the row')
+      assert.match(await add.getAttribute('class'), /btn-glass/, '«Agregar» is glass: the gel is the action of the screen')
+      assert.doesNotMatch(await add.getAttribute('class'), /btn-gel/)
     } finally {
       await context.close()
     }

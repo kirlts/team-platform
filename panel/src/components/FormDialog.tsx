@@ -125,7 +125,7 @@ function FormBody({
                     aria-label={shown.has(f.name) ? t('password.hide') : t('password.show')}
                     aria-pressed={shown.has(f.name)}
                     onClick={() => setShown((set) => { const next = new Set(set); if (!next.delete(f.name)) next.add(f.name); return next })}
-                    className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center rounded-md text-muted hover:text-fg"
+                    className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center rounded-md text-muted hover:text-fg pointer-coarse:w-11"
                   >
                     {shown.has(f.name) ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
                   </button>

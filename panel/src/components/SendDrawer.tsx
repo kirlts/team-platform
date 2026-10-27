@@ -48,7 +48,7 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
       <OriginalFrame>
         {upload.text && <p className="scroll-thin min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-1 text-sm">{upload.text}</p>}
         {addressing.length > 0 && (
-          <ul aria-label={t('recipients.label')} className="flex flex-col gap-0.5 px-1 text-xs text-muted">
+          <ul aria-label={t('recipients.label')} className="flex flex-col gap-0.5 text-xs text-muted">
             {addressing.map((line) => (
               <li key={line} className="break-words">
                 {line}

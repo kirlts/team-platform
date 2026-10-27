@@ -38,7 +38,7 @@ export function Settings() {
   return (
     <UndoProvider stack={undo}>
       <div data-scrolling-page className="flex w-full max-w-[72rem] flex-col gap-5 px-5 py-6 md:px-10 md:py-5">
-        <PageHeader title={t('nav.settings')} aside={<UndoButtons stack={undo} />} />
+        <PageHeader reserve title={t('nav.settings')} aside={<UndoButtons stack={undo} compact />} />
         <div className="grid items-start gap-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Account />
@@ -54,10 +54,10 @@ export function Settings() {
         </div>
         <ProviderSettings />
         <DataReset />
-        {/* The queue draws its own rule at the top: inside the box it is not needed. */}
-        <div className="glass leaf p-5 [&>section]:border-t-0 [&>section]:pt-0">
+        {/* Not a fold: «Ejecuciones» inside it is one, and a fold holds no other fold. */}
+        <SettingsBox data-queue-box title={t('queue.title')}>
           <QueuePanel />
-        </div>
+        </SettingsBox>
         <AuditLog />
       </div>
     </UndoProvider>

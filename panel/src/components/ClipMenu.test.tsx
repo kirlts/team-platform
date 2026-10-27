@@ -90,4 +90,16 @@ describe('the link row', () => {
     )
     expect(screen.getByText('00:02 · 2 KB')).toBeTruthy()
   })
+
+  it('takes the error away as soon as the text is corrected', () => {
+    let problem: string | null = 'link'
+    const draft = { ...staleDraft, problem, setProblem: (p: string | null) => { problem = p }, addLink: () => false } as unknown as MediaDraft
+    render(
+      <I18nProvider language="es-419">
+        <LinkRow draft={draft} />
+      </I18nProvider>,
+    )
+    fireEvent.change(screen.getByLabelText('Enlace'), { target: { value: 'https://a.b/c' } })
+    expect(problem).toBeNull()
+  })
 })

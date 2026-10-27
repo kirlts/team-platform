@@ -46,6 +46,15 @@ export function touchedGuards (db, areaId, m) {
   return [...new Set((Array.isArray(m?.guards_touched) ? m.guards_touched : []).filter((id) => known.has(id)))].sort((a, b) => a - b)
 }
 
+/**
+ * The Guards of the area that the session says it touched: the booleans `touches_<key>` of its output (the name a template gives a Guard, `key` of the Guard, or its id: `touches_3`). A
+ * second reading next to the analyzer's `guards_touched`, taken from the work and not from the request. The system reads booleans and checks that each name is a Guard of the area; a field
+ * that names none is ignored.
+ */
+export function declaredGuards (guards, output) {
+  return guards.filter((g) => [`touches_${g.id}`, ...(typeof g.key === 'string' && g.key ? [`touches_${g.key}`] : [])].some((name) => output?.[name] === true)).map((g) => g.id).sort((a, b) => a - b)
+}
+
 /** Whether the work belongs, also, to a person: a Guard that is about a person (irreversible, money, a conflict) is touched, or the missing value is the person's. */
 export function touchesPerson (db, areaId, { guards = [], estimates = null } = {}) {
   const person = new Set(guardsOf(db, areaId).filter((g) => g.person === true).map((g) => g.id))

@@ -117,6 +117,7 @@ function compactStable ({ agent, project, deliver, autoClose, template, hostInst
     block('your_profile', agent.profile),
     '## Rules',
     `- Branch: the one in \`job\`; never push \`main\`. ${deliver ? 'Push it when done: the system delivers it after you finish.' : 'Leave the branch: a person delivers it.'}`,
+    '- The `area_description` block, when present, is what the area exists for and what it maximizes: the work is judged against it.',
     '- Smallest change that does what the message asks. Subagents and parallel tool calls for independent reads; no series of what does not depend on a result.',
     '- Before you finish, the checks of the repository for the files you changed must pass; a hook of this session blocks the end until they do. Write the missing test first.',
     '- First look, changing nothing. Not yours (see `your_profile`): end `not_mine`, no reply. Otherwise one `team reply` in two or three plain sentences for someone who is not technical (what you saw, where you start), after that look.',
@@ -144,7 +145,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null, exploration = null, capturesUnmasked = false }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false, escalation = null, assessment = null, exploration = null, hold = null, release = null, capturesUnmasked = false }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   const stable = compact ? compactStable({ agent, project, deliver, autoClose, template, hostInstructions, forwardedOrMentioned: forward !== null || mention !== null }) : [
@@ -158,6 +159,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
       ? '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`. When the work and the checks are done, push the branch: the system delivers it to production after you finish.'
       : '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`: leave the branch; a person delivers it.',
     '- Run the checks the repository asks for the parts you touched before you finish.',
+    '- The `area_description` block, when the message has one, is the agreement the work is measured against: what the area exists for, what it maximizes, what it accepts to lose and where it stops. Follow it where the rules of the host say nothing.',
     '- Checks (UD-295). You may be the light model: the checks are the whole safeguard. Before you push, run the tests that cover every file you changed and the ones the repository calls critical (its CLAUDE.md and rules say which). Do not end with `outcome` `done` while one of them fails or none covers the change: write the missing test first. A change that draws a screen carries its walkthrough video and screenshots, and `summary` says what to look at. If you cannot finish it with what you have (the checks stay red after your own attempts, the change is bigger than the message says, or you are guessing), end with `cannot_close` true and say what you did in `summary`: the system continues on a stronger model, on the same branch.',
     '## Working well',
     '- Every turn of the session re-reads the whole context, so its cost grows with the square of its turns. Read several files per call and run every test of the change in one command; write each file once, complete; hand a read of more than five files to an `Explore` subagent that returns paths and lines; cut the output of a command to what fails (`grep` the failures; `tail` the summary when everything passes) before it reaches your context. Open a screenshot again only when the code it shows changed.',
@@ -188,6 +190,8 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     // -- What changes with the message --
     block('sender', `${author.name}\n\n${author.profile ?? ''}`),
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
+    // B4 of the second audit of the method: the work is judged against the description of the area (what it exists for, what it maximizes, what it accepts to lose, where it stops), so the session reads it.
+    ...(String(message.areaDescription ?? '').trim() ? [block('area_description', message.areaDescription)] : []),
     // UD-295: what the analyzer says is expected of this session, in its own words, and the walls of the area this message touches (the mechanism that holds each is the system's).
     ...(assessment ? [block('expectation', assessment)] : []),
     // UD-307: the analyzer read this message as an idea to explore. Nothing the session builds is published until a person sees it; what the session does with that is its own judgement.
@@ -198,9 +202,15 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
       'Offer the alternatives that really differ when there are some, and end the summary with the question about what truly is missing and only the person has (for example which content they want). Do not ask what you can decide yourself.',
       'Do not write that it is published or when it will be: it is ready to see.'
     ].join('\n'))] : []),
+    // Amendment of UD-313: an instance with no delivery command whose host lists its delivery orders refuses them to this session while a limit of a person is open or an idea is not released.
+    ...(hold ? [block('hold', [
+      `Nothing you do in this session may put work in production: ${[...(hold.guards.length ? [`it touches a limit that only a person lifts (${hold.guards.join('; ')})`] : []), ...(hold.idea ? ['what is asked is an idea to explore'] : [])].join(', and ')}. The orders that deliver are refused here; do not work around the refusal.`,
+      'Build and check the work, push the branch of the `job` block and finish with `outcome` `done`. The system hands the branch to a person with your `summary`, and a person releases it by answering in the thread.',
+      'Say in `summary` which limit stopped the delivery and what happens if it is crossed, and, when it applies, what the work does without crossing it. Do not write that it is published or when it will be.'
+    ].join('\n'))] : []),
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     ...(mention ? [block('mentioned', mention)] : []), // UD-278: who called the agent and the whole thread (src/execute/mention-context.js)
-    block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(escalation ? [`pass: continues the work of ${escalation.from}, a lighter model that could not close it. Its work is on the branch: fetch it, read \`git log\` and the diff, and continue from there, do not start over. Its note: ${escalation.note || '(none)'}. Your first reply was already sent: send no other one.`] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
+    block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(release ? ['pass: a person released the hold on this work and the system recorded it. The work is on the branch already: check it, deliver it by the rules of the host and finish. Your first reply was already sent: send no other one.'] : []), ...(escalation ? [`pass: continues the work of ${escalation.from}, a lighter model that could not close it. Its work is on the branch: fetch it, read \`git log\` and the diff, and continue from there, do not start over. Its note: ${escalation.note || '(none)'}. Your first reply was already sent: send no other one.`] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
     // the guards that have a mechanism, one line each, repeated in the last line of the prompt of a light model.
     ...(compact ? [block('limits', 'Push only the branch of the `job` block. Finish when the checks of the files you changed pass: a hook of this session checks it.')] : []),
     ...(deliverFailure ? [block('delivery_failure', [

@@ -42,7 +42,7 @@ function costOfMessage(db, messageId) {
  * @returns {null | object} `null` if the message has no `execute` job. With a job that left no spans (still running),
  * the figures come back `null` and `running` carries the phase.
  */
-export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
+export function timingOfMessage(db, messageId, { now = Date.now, calibration = null } = {}) {
   const job = get(db, "SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ? ORDER BY id DESC LIMIT 1", messageId);
   if (!job) return null;
   const base = {
@@ -52,7 +52,8 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
     // The cost is the whole of the message's execute jobs: when the light model did not close, its job and the larger model's both count.
     model: job.model ?? null, cost_usd: costOfMessage(db, messageId) ?? (typeof job.cost_usd === 'number' ? job.cost_usd : null),
     // UD-295: the job judgement of the job, or null while there is none.
-    judgment: judgmentOfMessage(db, messageId),
+    // B3 of the second audit: marked «sin calibrar» (`calibrated: false`) until the judge has been compared with people (judge-calibration.js).
+    judgment: judgmentOfMessage(db, messageId, { calibrated: calibration?.calibrated === true }),
     elapsed_ms: job.status === 'running' ? Math.max(0, now() - job.run_at) : null,
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,
     total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null,

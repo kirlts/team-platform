@@ -34,24 +34,29 @@ function names (value, where) {
   if (!Array.isArray(value) || value.length === 0 || !value.every(isText)) throw new Error(`${where} must be a non-empty list of names`)
 }
 
+/** One rule of the host (`commands.rules` or `commands.deliveries`): the same shape and the same checks, so a typo fails the job with its name. */
+function ruleOf (rule, where) {
+  only(rule, ['id', 'match', 'unless', 'line_requires', 'args_required', 'message'], where)
+  for (const source of [].concat(rule.match ?? [])) pattern(source, `${where}.match`)
+  if (rule.match === undefined || [].concat(rule.match).length === 0) throw new Error(`${where}.match is required`)
+  if (rule.unless !== undefined) pattern(rule.unless, `${where}.unless`)
+  if (rule.line_requires !== undefined) pattern(rule.line_requires, `${where}.line_requires`)
+  if (rule.args_required !== undefined && typeof rule.args_required !== 'boolean') throw new Error(`${where}.args_required must be true or false`)
+  if (!isText(rule.message)) throw new Error(`${where}.message is required: it is what the model reads when the command is refused`)
+}
+
 function commandsOf (value) {
-  only(value, ['builtin', 'protected_branches', 'rules'], 'commands')
+  only(value, ['builtin', 'protected_branches', 'rules', 'deliveries'], 'commands')
   if (value.builtin !== undefined) {
     if (!Array.isArray(value.builtin)) throw new Error('commands.builtin must be a list')
     for (const name of value.builtin) if (!BUILTIN_NAMES.includes(name)) throw new Error(`commands.builtin does not know «${name}» (known: ${BUILTIN_NAMES.join(', ')})`)
   }
   if (value.protected_branches !== undefined) names(value.protected_branches, 'commands.protected_branches')
-  value.rules?.forEach?.((rule, i) => {
-    const where = `commands.rules[${i}]${rule?.id ? ` («${rule.id}»)` : ''}`
-    only(rule, ['id', 'match', 'unless', 'line_requires', 'args_required', 'message'], where)
-    for (const source of [].concat(rule.match ?? [])) pattern(source, `${where}.match`)
-    if (rule.match === undefined || [].concat(rule.match).length === 0) throw new Error(`${where}.match is required`)
-    if (rule.unless !== undefined) pattern(rule.unless, `${where}.unless`)
-    if (rule.line_requires !== undefined) pattern(rule.line_requires, `${where}.line_requires`)
-    if (rule.args_required !== undefined && typeof rule.args_required !== 'boolean') throw new Error(`${where}.args_required must be true or false`)
-    if (!isText(rule.message)) throw new Error(`${where}.message is required: it is what the model reads when the command is refused`)
-  })
-  if (value.rules !== undefined && !Array.isArray(value.rules)) throw new Error('commands.rules must be a list')
+  for (const key of ['rules', 'deliveries']) {
+    if (value[key] === undefined) continue
+    if (!Array.isArray(value[key])) throw new Error(`commands.${key} must be a list`)
+    value[key].forEach((rule, i) => ruleOf(rule, `commands.${key}[${i}]${rule?.id ? ` («${rule.id}»)` : ''}`))
+  }
 }
 
 function toolsBlock (value) {
@@ -91,6 +96,9 @@ export function parseGuards (text) {
   if (guards.close !== undefined) closeBlock(guards.close)
   return guards
 }
+
+/** The orders of the host that put work in production (`commands.deliveries`). Not refused as they are: see `withDeliveriesDenied` in limits-hold.js. */
+export const deliveriesOf = (guards) => (Array.isArray(guards?.commands?.deliveries) ? guards.commands.deliveries : [])
 
 /** What the session declares for these guards: the `hooks` to merge with the ones of `sessionSettings`. Nothing is declared for an empty block. */
 export function guardHooks (guards) {

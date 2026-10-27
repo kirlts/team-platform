@@ -64,7 +64,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const args = process.argv.slice(2)
   const di = args.indexOf('--date')
-  const date = di >= 0 ? args.splice(di, 2)[1] : new Date().toISOString().slice(0, 10)
+  // The local day of the machine that prepares the release (TZ), the same day localDay of src/execute/budget.js uses: not UTC, which is already tomorrow at night in the Americas.
+  const today = new Date()
+  const date = di >= 0 ? args.splice(di, 2)[1] : `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const level = args[0]
   if (!level) { console.error('usage: node scripts/prepare-release.mjs <patch|minor|major|current|X.Y.Z> [--date YYYY-MM-DD]'); process.exit(2) }
   try {

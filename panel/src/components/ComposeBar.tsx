@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { useMe, useMembers } from '@team-platform/client/react'
+import { useNotices } from '@/lib/notices'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
@@ -30,7 +31,7 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
   const people = members.filter((m) => m.active !== false && (m as { kind?: string }).kind !== 'agent')
   if (me && !people.some((m) => m.id === me.id)) people.unshift(me)
   return (
-    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-2 max-md:w-full">
+    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-2 max-md:min-w-[14rem] max-md:flex-1">
       <span className="shrink-0">{t('compose.sendAs')}</span>
       <span className="min-w-0 flex-1 md:w-44 md:flex-none">
         <NativeSelect data-testid="compose-send-as" className="pointer-coarse:h-11" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -61,10 +62,26 @@ export function ComposeBar({ onSubmit, yielding = false }: { onSubmit: (draft: S
   const author = sendAs || me?.id || ''
   /** «Para» (UD-291): the members the send is addressed to. Empty means the automatic routing assigns, as it always did. */
   const [recipients, setRecipients] = useState<string[]>([])
-  /** Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). */
+  const notices = useNotices()
+  const members = useMembers().data ?? []
+  /** Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). It is said where the person is looking, with the way back. */
   const changeAuthor = (id: string) => {
+    const before = { sendAs, recipients }
     setSendAs(id)
     setRecipients((list) => list.filter((x) => x !== id))
+    if (recipients.includes(id)) {
+      const name = members.find((m) => m.id === id)?.name ?? ''
+      notices.show({
+        text: t('compose.leftTo', { name, to: t('compose.to') }),
+        action: {
+          label: t('undo.undo'),
+          run: () => {
+            setSendAs(before.sendAs)
+            setRecipients(before.recipients)
+          },
+        },
+      })
+    }
   }
   const [dragging, setDragging] = useState(false)
   const textArea = useRef<HTMLTextAreaElement>(null)
@@ -171,7 +188,7 @@ export function ComposeBar({ onSubmit, yielding = false }: { onSubmit: (draft: S
           <CaptureButtons draft={draft} labeled />
         </div>
         <div className="flex items-center gap-3 max-md:contents md:ml-auto">
-          <div className="min-w-0 max-md:order-2 max-md:w-full" data-testid="compose-to">
+          <div className="min-w-0 max-md:order-2" data-testid="compose-to">
             <RecipientsEditor ids={recipients} onChange={setRecipients} max={2} to={t('compose.to')} authorId={author} />
           </div>
           {author && <SendAs value={author} onChange={changeAuthor} />}

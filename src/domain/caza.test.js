@@ -146,6 +146,24 @@ describe('what the author reads when the analysis fails', () => {
     for (const file of ['es-419.ts', 'en.ts']) assert.ok(catalog(file).includes(`'analysis.error.${code}':`), `${file} has no sentence for ${code}`)
   })
 
+  it('the cause of the failure survives a slow worker: when the sweep reaches the input before the announcement of the lease does, it writes the same code', async () => {
+    const env = await team({ config: { worker: { maxAttempts: 2 } } })
+    const { input_id: id, job_id: jobId } = await env.submit('Un envío cuyo trabajador murió dos veces y cuyo arranque tardó.')
+    for (const dead of ['worker-dead-1', 'worker-dead-2']) {
+      assert.equal(String(env.queue.claim(dead).id), jobId)
+      run(env.db, 'UPDATE jobs SET lease_until = 1 WHERE id = ?', Number(jobId))
+      env.queue.recoverExpiredLeases({ spare: 'nobody' })
+    }
+    // The load of the machine, made exact: by the time the worker starts, the grace of the sweep has already passed, so the sweep settles the input
+    // before the announcement of the lease (a microtask) can. Both paths must name the same cause.
+    run(env.db, 'UPDATE jobs SET finished_at = ? WHERE id = ?', Date.now() - 3_600_000, Number(jobId))
+    env.worker.start()
+    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 30000 })
+    assert.equal(env.input(id).error_code, 'lease_expired')
+    const done = all(env.db, "SELECT data_json FROM job_events WHERE job_id = ? AND kind = 'done'", Number(jobId)).map((e) => JSON.parse(e.data_json))
+    assert.ok(done.length > 0 && done.every((d) => d.error_code === 'lease_expired'), `whoever listens to the job hears the same cause: ${JSON.stringify(done)}`)
+  })
+
   it('a send with nothing readable (a silent recording, a blank page) says so, instead of «datos inválidos»', async () => {
     const providers = createFakeProviders({ text: () => { throw new Error('nothing to ask the model') } })
     const env = await team({ worker: true, modules: { analyze, getProviders: () => providers, extract: async () => ({ text: '', meta: {} }) } })

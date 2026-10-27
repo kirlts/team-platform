@@ -111,6 +111,8 @@ export function Home() {
         key: u.key,
         text: u.draft.text,
         names: [...u.draft.files.map((f) => f.name), ...u.draft.links],
+        recipientIds: u.draft.recipientIds,
+        asMemberId: u.draft.asMemberId,
         at: u.at,
         progress: u.progress,
         error: u.error,

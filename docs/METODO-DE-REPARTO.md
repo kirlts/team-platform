@@ -21,7 +21,7 @@ Una descripción dice dónde puede moverse quien la lee y deja la decisión a su
 | Entorno | Hechos que no cambian: quién pide, con qué urgencia, qué se deshace y qué no | No |
 | Límites | Lo que nunca se cruza, con el mecanismo que lo hace cumplir | Sí |
 
-Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` dice si el valor que falta es de una persona o del modelo.
+Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` es `person` o `model` y dice de quién es el valor que falta.
 
 Reglas de forma:
 
@@ -67,12 +67,28 @@ Un área con más de la mitad de sus filas confidenciales (`--max-confidential-s
 | `intent`, `object`, `module` | lo que se quiere lograr, parte del sistema o del negocio, parte concreta; texto libre, una a tres palabras |
 | `understand_vs_create` | 0 comprender o aplicar lo conocido, 1 crear (Anderson y Krathwohl, 2001, usada como escala) |
 | `severity`, `irreversibility` | 0 a 1: qué colapsa si se hace mal y si se deshace |
-| `missing_value`, `value_holder` | 0 a 1 de cuánto del valor que falta es de una persona, y quién lo tiene (`model` o `nobody` si no es de una persona) |
+| `missing_value` | 0 a 1: cuánto del valor que falta es de una persona. Describe el área y no decide nada |
+| `value_holder`, `holder` | `person` o `model`, el vocabulario del analizador del producto, y el nombre de la persona que tiene el valor (vacío si es `model`) |
 | `limits` | ids de los límites del equipo que el pedido toca |
 | `maximize`, `sacrifice` | frases de 2 a 8 palabras, vacías si el texto no las deja ver |
 | `urgency`, `correction` | 0 a 1, y si corrige algo que ya se hizo mal |
 
-Un pedido exige a una persona cuando `missing_value` pasa de 0,5 y el `value_holder` es una persona, o cuando toca un límite que una persona levanta.
+Un pedido exige a una persona cuando `value_holder` es `person` o cuando toca un límite que una persona levanta. Es la definición del producto (`touchesPerson`, `src/domain/assessment.js`), sin umbral. Una prueba compara ambas definiciones sobre las mismas combinaciones.
+
+El método se adapta al analizador del producto, no al revés. Estas son las correspondencias entre los campos que el analizador devuelve por mensaje y los que el método mide por fila:
+
+| Analizador del producto | Fila del método |
+|---|---|
+| `understand_vs_create` | igual |
+| `value_holder` (`person` o `model`) | igual, más `holder` con el nombre |
+| `guards_touched` (ids de los límites del área) | `limits` (ids de los límites del equipo) |
+| `irreversibility`: qué colapsa si se ignora y si se deshace, en una sola escala | `severity` (qué colapsa) e `irreversibility` (si se deshace), separadas |
+| `expectation`: lo que se espera del trabajo, en palabras | no se extrae |
+| `certainty`: qué tan seguro está el analizador de sus estimaciones | no se extrae |
+| `idea`, `idea_guard`, `idea_reason`: cuánto del mensaje es una idea, si aplica el límite de que nada cambia sin aprobación de una persona al explorar una idea, y por qué | no se extraen |
+| no existe | `missing_value`, `urgency`, `correction`, `maximize`, `sacrifice`, `intent`, `object`, `module` |
+
+El reparto que mide la sección 8 usa lo que las filas dicen. No mide `certainty` ni el modo exploración, que el producto usa al elegir el modelo y al entregar.
 
 ## 3. Conjunto de áreas
 
@@ -265,7 +281,6 @@ La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`cr
 | `--folds` | 5 | Validación cruzada de 5 pliegues |
 | `--repeats` | 10 | Medición del 2026-10-26: con 1 partición, 2 a 15 de 32 veredictos cambiaban sólo con la semilla; con 10, 0 a 5 |
 | `--map-size` | 10 | Los diez módulos más frecuentes definen el mapa; una lista más larga llega a módulos que aparecen una vez |
-| `--person-value-above` | 0,5 | Definición: el valor que falta es de una persona cuando pasa de la mitad de la escala |
 | `--seed` | 7 | Semilla fija para repetir el informe |
 | `--max-confidential-share` | 0,5 | Definición: un área está sustentada por filas confidenciales cuando son más de la mitad de las suyas |
 | `--sample` (experimento) | 60 | Margen de 0,13 con 95 % de confianza |

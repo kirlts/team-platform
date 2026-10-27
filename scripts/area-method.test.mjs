@@ -14,7 +14,8 @@ import { runExperiment, scoreRouting, routerPrompt, SAMPLE } from './route-exper
 import { parseTemplate } from '../src/analyze/templates.js'
 import { initializeDatabase, openDatabase, get, all } from '../src/db/index.js'
 import { loadConfig } from '../src/config.js'
-import { createArea, createTemplate } from '../src/domain/areas.js'
+import { createArea, createTemplate, updateArea } from '../src/domain/areas.js'
+import { touchesPerson, VALUE_HOLDERS } from '../src/domain/assessment.js'
 import { createMember, updateMember } from '../src/domain/members.js'
 
 import { syntheticCorpus } from '../bench/fixtures/area-method/synthetic.mjs'
@@ -41,10 +42,10 @@ test('statistics helpers: standardized difference, seeded random and terms', () 
 })
 
 test('a request needs a person when the value is mostly a person\'s or a limit of a person is touched', () => {
-  const base = { value_holder: 'model', missing_value: 0.9, limits: [] }
-  assert.equal(requiresPerson(base, team), false)
-  assert.equal(requiresPerson({ ...base, value_holder: 'Ana' }, team), true)
-  assert.equal(requiresPerson({ ...base, value_holder: 'Ana', missing_value: DEFAULTS.personValueAbove }, team), false)
+  const base = { value_holder: 'model', holder: '', missing_value: 0.9, limits: [] }
+  assert.equal(requiresPerson(base, team), false, 'a high missing_value does not decide: the holder does')
+  assert.equal(requiresPerson({ ...base, value_holder: 'person', holder: 'Ana' }, team), true)
+  assert.equal(requiresPerson({ ...base, value_holder: 'person', holder: 'Ana', missing_value: 0.1 }, team), true, 'no threshold')
   assert.equal(requiresPerson({ ...base, limits: ['money'] }, team), true)
   assert.equal(requiresPerson({ ...base, limits: ['customer_data'] }, team), false)
 })
@@ -150,11 +151,12 @@ test('units are cut and batched, and the prompt and schema carry the team', () =
   const item = schema.properties.requests.items.properties
   assert.deepEqual(item.who.enum, ['Ana', 'Beto', 'Carla', 'Asistente', 'other'])
   assert.deepEqual(item.limits.items.enum, ['money', 'customer_data', 'irreversible'])
-  assert.ok(item.value_holder.enum.includes('model') && item.value_holder.enum.includes('nobody'))
+  assert.deepEqual(item.value_holder.enum, [...VALUE_HOLDERS], 'the vocabulary of the analyzer of the product')
+  assert.deepEqual(item.holder.enum, ['Ana', 'Beto', 'Carla', ''], 'the name of the person goes apart, among the people of the team')
 })
 
 const fakeRow = (unit, extra = {}) => ({ unit, date: '2026-03-02', who: 'Beto', to: 'Asistente', summary: 'Arreglar la etiqueta de envío', intent: 'falla', object: 'pedidos y envíos', module: 'etiquetas',
-  understand_vs_create: 0.3, severity: 0.5, irreversibility: 0.4, missing_value: 0.1, value_holder: 'model', limits: ['customer_data', 'unknown_limit'], maximize: 'envío a tiempo', sacrifice: '', urgency: 0.6, correction: false, ...extra })
+  understand_vs_create: 0.3, severity: 0.5, irreversibility: 0.4, missing_value: 0.1, value_holder: 'model', holder: '', limits: ['customer_data', 'unknown_limit'], maximize: 'envío a tiempo', sacrifice: '', urgency: 0.6, correction: false, ...extra })
 
 test('extraction validates and cleans what the model returns', async () => {
   const seen = []
@@ -343,4 +345,28 @@ test('B4: the criterion needs the precision as well as the recall', () => {
   const big = r.per_class.big
   assert.ok(big.recall_lower > big.baseline, `an area that absorbs everything has recall ${big.recall_lower}`)
   assert.ok(big.precision_lower <= big.baseline, 'but its precision does not beat the share')
+})
+
+// ---- the definition of «exige a una persona» is the product's (src/domain/assessment.js)
+test('a row needs a person exactly when the product says its work belongs to a person', async () => {
+  const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'area-method-person-'))
+  const config = loadConfig({ DATA_DIR: dir, HOST: '127.0.0.1', PORT: '0', LOG_LEVEL: 'silent', ADMIN_EMAIL: 'ana@tienda.example', ADMIN_PASSWORD: 'una clave larga de prueba 1' })
+  await initializeDatabase(config)
+  const db = openDatabase(config.dbFile, config.sqlite)
+  const area = createArea(db, { title: 'Área de prueba', description: 'd' })
+  const shown = updateArea(db, area.id, { guards: team.limits.map((l) => ({ text: l.text, mechanism: 'gancho', person: l.person })) })
+  const idOf = Object.fromEntries(team.limits.map((l) => [l.id, shown.guards.find((g) => g.text === l.text).id]))
+  const subsets = [[], ['money'], ['customer_data'], ['irreversible'], ['money', 'customer_data']]
+  let compared = 0
+  for (const value_holder of VALUE_HOLDERS) {
+    for (const limits of subsets) {
+      for (const missing_value of [0.1, 0.9]) {
+        const row = { value_holder, holder: value_holder === 'person' ? 'Ana' : '', missing_value, limits }
+        const product = touchesPerson(db, area.id, { guards: limits.map((id) => idOf[id]), estimates: { value_holder } })
+        assert.equal(requiresPerson(row, team), product, JSON.stringify(row))
+        compared++
+      }
+    }
+  }
+  assert.equal(compared, 20)
 })

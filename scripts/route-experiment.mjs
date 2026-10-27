@@ -51,7 +51,7 @@ export function judgeSchema () {
 
 const judgeSystem = `Juzgas el reparto de un pedido de un equipo: un enrutador eligió el área, quién lo atiende y escribió el encargo. Puntúa cada indicador de -2 a +2 (+2 excepcional, +1 fuerte, 0 esperado: el mínimo aceptable, -1 bajo, -2 inaceptable), con una oración de razón, contra la referencia que se da.\n${KPIS.filter((k) => ROUTING_KPIS.includes(k.id)).map((k) => `${k.id} ${k.name}: ${k.asks}`).join('\n')}`
 
-const referenceText = (row, team) => `Pedido: ${row.summary} (lo pide ${row.who}).\nReferencia: área ${row.area}; lo que falta lo tiene ${row.value_holder}; límites que toca: ${(row.limits ?? []).join(', ') || 'ninguno'}; se maximiza: ${row.maximize || 'no se deduce'}; se sacrifica: ${row.sacrifice || 'no se deduce'}; exige a una persona: ${requiresPerson(row, team) ? 'sí' : 'no'}.`
+const referenceText = (row, team) => `Pedido: ${row.summary} (lo pide ${row.who}).\nReferencia: área ${row.area}; lo que falta lo tiene ${row.value_holder === 'person' ? row.holder || 'una persona' : 'el modelo'}; límites que toca: ${(row.limits ?? []).join(', ') || 'ninguno'}; se maximiza: ${row.maximize || 'no se deduce'}; se sacrifica: ${row.sacrifice || 'no se deduce'}; exige a una persona: ${requiresPerson(row, team) ? 'sí' : 'no'}.`
 
 /** A deterministic sample of `size` rows, spread by area as they are in the corpus. */
 export function sampleRows (rows, size = SAMPLE, seed = 7) {
@@ -64,7 +64,7 @@ export function scoreRouting (route, row, team) {
   const people = new Set(team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name))
   const needs = requiresPerson(row, team)
   const included = route.attends.filter((n) => people.has(n))
-  const holder = row.value_holder
+  const holder = row.value_holder === 'person' ? row.holder : ''
   return {
     area_match: route.area === row.area,
     person_match: needs ? (people.has(holder) ? included.includes(holder) : included.length > 0) : included.length === 0,

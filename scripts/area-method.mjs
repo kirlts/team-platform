@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { parseTemplate, TEMPLATE_DESCRIPTION_MAX } from '../src/analyze/templates.js'
+import { VALUE_HOLDERS } from '../src/domain/assessment.js'
 
 // ---- knobs. Each default has its source; the command line overrides every one.
 export const DEFAULTS = Object.freeze({
@@ -40,8 +41,6 @@ export const DEFAULTS = Object.freeze({
   repeats: 10,
   // Fixed seed so a report can be reproduced (any integer would do).
   seed: 7,
-  // Definition: the missing value is mostly in a person's hands when it passes half of the scale.
-  personValueAbove: 0.5,
   // A description of an area holds at most three limits: the description is capped at TEMPLATE_DESCRIPTION_MAX characters.
   maxLimitsListed: 3,
   maxTerms: 3,
@@ -182,11 +181,14 @@ export function validateRows (rows) {
   return rows
 }
 
-/** Whether the request needs a person: the missing value is mostly a person's, or it touches a limit that a person lifts. */
-export function requiresPerson (row, team, { personValueAbove = DEFAULTS.personValueAbove } = {}) {
+/**
+ * Whether the request needs a person. It is the definition of the product (`touchesPerson`, src/domain/assessment.js): the value that is missing is a person's
+ * (`value_holder` is `person`, one of `VALUE_HOLDERS`) or the request touches a limit that a person lifts. There is no threshold: the extractor also gives
+ * `missing_value`, a 0 to 1 estimate that describes the area but decides nothing here. A test compares both definitions on the same requests.
+ */
+export function requiresPerson (row, team) {
   const limits = limitById(team)
-  const personHolder = row.value_holder && !['model', 'nobody'].includes(row.value_holder)
-  return (personHolder && row.missing_value > personValueAbove) || (row.limits ?? []).some((id) => limits.get(id)?.person === true)
+  return row.value_holder === 'person' || (row.limits ?? []).some((id) => limits.get(id)?.person === true)
 }
 
 // ---- grouping
@@ -235,9 +237,9 @@ export function profileOf (rows, team, opts = {}, totalRows = rows.length, weeks
     share: round(n / totalRows),
     per_week: round(n / weeks, 2),
     dimensions: Object.fromEntries(DIMENSIONS.map((d) => [d, round(mean(rows.map((r) => Number(r[d]) || 0)))])),
-    person_share: round(rows.filter((r) => requiresPerson(r, team, opts)).length / n),
+    person_share: round(rows.filter((r) => requiresPerson(r, team)).length / n),
     askers: share(rows.map((r) => r.who), 4),
-    holders: share(rows.map((r) => r.value_holder), 4),
+    holders: share(rows.map((r) => (r.value_holder === 'person' ? r.holder || 'person' : 'model')), 4),
     limits: top(rows.flatMap((r) => r.limits ?? []), 5).map(([id, c]) => ({ id, n: c })),
     maximize: topPhrases(open.map((r) => r.maximize).filter(Boolean)),
     sacrifice: topPhrases(open.map((r) => r.sacrifice).filter(Boolean)),
@@ -453,7 +455,7 @@ export function memberProfile (member, rows, team, opts = {}) {
   const inProposed = (r) => !proposed || proposed.has(r.area)
   const asked = rows.filter((r) => r.who === member.name)
   const received = rows.filter((r) => r.to === member.name)
-  const held = rows.filter((r) => r.value_holder === member.name)
+  const held = rows.filter((r) => r.value_holder === 'person' && r.holder === member.name)
   const limits = limitById(team)
   const parts = [member.role.trim()]
   const base = member.kind === 'agent' ? received : asked
@@ -553,7 +555,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minShare', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'personValueAbove', 'maxConfidentialShare', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minShare', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')

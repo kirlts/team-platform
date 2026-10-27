@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } fr
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { readJson, readJsonl, validateTeam } from './area-method.mjs'
+import { VALUE_HOLDERS } from '../src/domain/assessment.js'
 
 // A batch is about 18,000 characters: a text provider reads that in one call and the instructions stay a small part of what it reads.
 export const BATCH_CHARS = 18000
@@ -42,7 +43,8 @@ Por cada pedido devuelve:
 - severity: de 0 a 1; qué colapsa si se hace mal (0 es cosmético, 1 es dinero, personas afectadas o la continuidad del negocio).
 - irreversibility: de 0 a 1; 0 se deshace en un minuto y 1 no se deshace.
 - missing_value: de 0 a 1; cuánto del valor que hace falta para resolver lo tiene sólo una persona (preferencia, prioridad, dinero, juicio propio de su oficio).
-- value_holder: el miembro que tiene ese valor, "model" si el modelo puede deducirlo o averiguarlo, o "nobody" si nada falta.
+- value_holder: "person" si el valor que falta lo tiene una persona del equipo, "model" si el modelo puede deducirlo o averiguarlo o si nada falta.
+- holder: el nombre de la persona del equipo que tiene ese valor; vacío si value_holder es "model".
 - limits: los ids de los límites del equipo que el pedido toca (lista vacía si ninguno).
 - maximize: de 2 a 8 palabras con la cualidad que quien pide quiere maximizar; vacío si el texto no lo deja ver.
 - sacrifice: de 2 a 8 palabras con lo que puede quedar apenas suficiente; vacío si el texto no lo deja ver.
@@ -63,11 +65,13 @@ export function rowsSchema (team) {
         type: 'array',
         items: {
           type: 'object', additionalProperties: false,
-          required: ['unit', 'date', 'who', 'to', 'summary', 'intent', 'object', 'module', 'understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'value_holder', 'limits', 'maximize', 'sacrifice', 'urgency', 'correction'],
+          required: ['unit', 'date', 'who', 'to', 'summary', 'intent', 'object', 'module', 'understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'value_holder', 'holder', 'limits', 'maximize', 'sacrifice', 'urgency', 'correction'],
           properties: {
             unit: text, date: text, who: { type: 'string', enum: members }, to: { type: 'string', enum: members }, summary: text, intent: text, object: text, module: text,
             understand_vs_create: scale, severity: scale, irreversibility: scale, missing_value: scale,
-            value_holder: { type: 'string', enum: [...team.members.map((m) => m.name), 'model', 'nobody'] },
+            // The vocabulary of the product's analyzer (`VALUE_HOLDERS`: person or model); the name of the person goes apart, in `holder`.
+            value_holder: { type: 'string', enum: [...VALUE_HOLDERS] },
+            holder: { type: 'string', enum: [...team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name), ''] },
             limits: { type: 'array', items: (team.limits ?? []).length ? { type: 'string', enum: team.limits.map((l) => l.id) } : { type: 'string' } },
             maximize: text, sacrifice: text, urgency: scale, correction: { type: 'boolean' }
           }
@@ -119,11 +123,13 @@ const clean = (text, counter) => PERSONAL.reduce((t, [re, to, applies]) => t.rep
 export function finishRows (requests, batch, team, counter = { n: 0 }) {
   const byId = new Map(batch.map((u) => [u.id, u]))
   const limits = new Set((team.limits ?? []).map((l) => l.id))
+  const people = new Set(team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name))
   const inRange = (x) => typeof x === 'number' && x >= 0 && x <= 1
   return requests.flatMap((r) => {
     const unit = byId.get(String(r.unit).replace(/[[\]\s]/g, ''))
-    if (!unit || !r.summary || !['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'].every((k) => inRange(r[k]))) return []
-    return [{ ...r, unit: unit.id, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : (unit.date ?? ''), summary: clean(r.summary, counter), intent: clean(r.intent, counter), object: clean(r.object, counter), module: clean(r.module, counter), maximize: clean(r.maximize, counter), sacrifice: clean(r.sacrifice, counter),
+    if (!unit || !r.summary || !VALUE_HOLDERS.includes(r.value_holder) || !['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'].every((k) => inRange(r[k]))) return []
+    const holder = r.value_holder === 'person' && people.has(r.holder) ? r.holder : ''
+    return [{ ...r, holder, unit: unit.id, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : (unit.date ?? ''), summary: clean(r.summary, counter), intent: clean(r.intent, counter), object: clean(r.object, counter), module: clean(r.module, counter), maximize: clean(r.maximize, counter), sacrifice: clean(r.sacrifice, counter),
       limits: (r.limits ?? []).filter((id) => limits.has(id)), source: unit.source ?? '', confidential: unit.confidential === true }]
   })
 }

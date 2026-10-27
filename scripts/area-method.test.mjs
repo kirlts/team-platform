@@ -12,7 +12,7 @@ import * as extraction from './request-rows.mjs'
 import { batchUnits, extractRows, finishRows, rowsSchema, systemPrompt } from './request-rows.mjs'
 const validation = await import('./row-validation.mjs').catch(() => ({})) // a module that older versions of the method did not have
 import * as experiment from './route-experiment.mjs'
-import { runExperiment, scoreRouting, routerPrompt, SAMPLE } from './route-experiment.mjs'
+import { runExperiment, scoreRouting, routerPrompt } from './route-experiment.mjs'
 import { parseTemplate } from '../src/analyze/templates.js'
 import { initializeDatabase, openDatabase, get, all } from '../src/db/index.js'
 import { loadConfig } from '../src/config.js'
@@ -214,13 +214,13 @@ test('the experiment routes a sample through the provider and reports counts, co
     }
   }
   const result = await runExperiment(rows, spec, team, { provider, size: 30, judge: true })
-  assert.ok(result.n >= 25 && result.n <= 30, `n ${result.n}`)
+  assert.equal(result.n, 78, '26 requests for each of the three areas: asking for 30 is raised to the count that an interval needs')
+  assert.deepEqual(result.sample.warnings.map((w) => w.kind), ['size_raised'])
   assert.ok(result.agreement_with_rows.area.rate > 0.5 && result.agreement_with_rows.area.rate < 1, `agreement ${result.agreement_with_rows.area.rate}: the corpus has confusions`)
   assert.deepEqual(result.indicators, { '1.1': 1, '1.2': 1, '2.3': 1, '3.3': 1 })
   assert.ok(Object.keys(result.confusions).length > 0, 'the confusions are reported')
   assert.match(routerPrompt(spec, team), /### Catálogo y precios\nPropósito: /)
   assert.match(prompts[0].system, /^Repartes pedidos/)
-  assert.equal(SAMPLE, 60)
 })
 
 // ---- B3: what a confidential unit says never reaches an output
@@ -521,4 +521,67 @@ test('B1: with labels from people the experiment also reports the agreement with
   assert.ok(result.agreement_with_labels.n > 50)
   assert.ok(result.agreement_with_labels.area.rate > 0.9)
   assert.equal(result.agreement_with_labels.rater, 'p1')
+})
+
+// ---- D5: the sample of the experiment
+test('D5: the shuffle is uniform: the first element stays in place one time in ten', () => {
+  const items = Array.from({ length: 10 }, (_, i) => i)
+  let stays = 0
+  const repetitions = 20000
+  for (let seed = 1; seed <= repetitions; seed++) if (experiment.sampleRows(items, 10, seed)[0] === 0) stays++
+  const share = stays / repetitions
+  assert.ok(Math.abs(share - 0.1) < 0.012, `the first element stays with probability ${share}, 0.1 expected (a sort with a random comparator gives 0.19)`)
+})
+
+test('D5: the sample has the size that was asked, filtered before the cut, and tells when it cannot', () => {
+  const { spec } = propose(rows, team, { purposes })
+  const tagged = method.withAreas(rows)
+  const drawn = experiment.drawSample(tagged, spec, { size: 100, perArea: 20 })
+  assert.equal(drawn.sample.length, 100, 'Contabilidad is not loaded, and the cut still gives 100')
+  assert.equal(drawn.discarded, 4)
+  assert.deepEqual(drawn.warnings, [])
+  const small = experiment.drawSample(tagged, spec, { size: 1000, perArea: 20 })
+  assert.equal(small.sample.length, tagged.length - 4)
+  assert.deepEqual(small.warnings.map((w) => w.kind), ['pool_short'])
+  const short = experiment.drawSample(tagged, spec, { perArea: 200 })
+  assert.ok(short.warnings.some((w) => w.kind === 'area_short' && w.needed === 200))
+})
+
+test('D5: the requests of an area that merges are measured against the area it merges into, and are not discarded', () => {
+  const { spec } = propose(rows, team, { purposes })
+  const tagged = method.withAreas(rows)
+  const result = experiment.drawSample(tagged, spec, { size: 400, perArea: 20, merge: { Contabilidad: 'Catálogo y precios' } })
+  assert.equal(result.discarded, 0)
+  assert.equal(result.merged, 4)
+  assert.equal(result.sample.filter((r) => r.area_before_merge === 'Contabilidad').every((r) => r.area === 'Catálogo y precios'), true)
+})
+
+test('D5: the sample is stratified by area and every request carries the weight of its area', () => {
+  const { spec } = propose(rows, team, { purposes })
+  const tagged = method.withAreas(rows)
+  const { sample } = experiment.drawSample(tagged, spec, { size: 60, perArea: 15 })
+  assert.equal(sample.length, 60)
+  const counts = sample.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map())
+  for (const n of counts.values()) assert.ok(n >= 15)
+  const pool = tagged.filter((r) => counts.has(r.area))
+  assert.ok(Math.abs(sample.reduce((t, r) => t + r.weight, 0) - pool.length) < 1e-6, 'the weights add up to the pool')
+})
+
+test('D5: the weighted rate describes the corpus: a router right only in the small area does not look good', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const byText = new Map(method.withAreas(rows).map((r) => [r.summary, r.area]))
+  const provider = { async complete (req) { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: 'x' } } } } // the same area for every request
+  const result = await runExperiment(rows, spec, team, { provider, size: 60, perArea: 20 })
+  const share = rows.filter((r) => r.object === 'catálogo y precios').length / rows.filter((r) => r.object !== 'contabilidad').length
+  assert.ok(Math.abs(result.agreement_with_rows.area.rate - share) < 0.02, `weighted ${result.agreement_with_rows.area.rate} vs the share ${share}`)
+  assert.ok(result.by_area['Catálogo y precios'].rate === 1 && result.by_area['Pedidos y envíos'].rate === 0)
+  assert.ok(byText.size > 0)
+})
+
+test('D3: the router that confuses an area with another more than it gets it right proposes a merge', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const provider = { async complete (req) { return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const result = await runExperiment(rows, spec, team, { provider, size: 60, perArea: 20 })
+  assert.ok(result.merge_suggestions.some((s) => s.into === 'Pedidos y envíos' && s.from === 'Catálogo y precios' && s.confused > s.right))
+  assert.ok(!result.merge_suggestions.some((s) => s.from === 'Pedidos y envíos'))
 })

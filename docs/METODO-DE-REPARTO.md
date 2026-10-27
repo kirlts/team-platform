@@ -92,7 +92,7 @@ El reparto que mide la sección 9 usa lo que las filas dicen. No mide `certainty
 
 ## 3. Validar las filas
 
-Una fila es la estimación de un modelo. Mientras ninguna persona la haya leído, lo que se mide con ella es el acuerdo con esa estimación y no el acierto. La anotación con un modelo generativo se valida contra personas, tarea por tarea (Pangakis, Wolken y Fasching, 2023, arXiv:2306.00176, consultado el 2026-10-27). Además, el extractor, el enrutador y el juez usan por omisión el mismo modelo y leen el mismo resumen. Un error común a los tres cuenta como acierto. Un modelo también favorece lo que genera (Panickssery, Bowman y Feng, 2024, arXiv:2404.13076, consultado el 2026-10-27).
+Una fila es la estimación de un modelo. Mientras ninguna persona la haya leído, lo que se mide con ella es el acuerdo con esa estimación y no el acierto. La anotación con un modelo generativo se valida contra personas (Pangakis, Wolken y Fasching, 2023, arXiv:2306.00176, consultado el 2026-10-27). Además, el extractor, el enrutador y el juez usan por omisión el mismo modelo y leen el mismo resumen. Un error común a los tres cuenta como acierto. Un modelo también favorece lo que genera (Panickssery, Bowman y Feng, 2024, arXiv:2404.13076, consultado el 2026-10-27).
 
 ```
 node scripts/row-validation.mjs sample rows.jsonl --team team.json --out sample.jsonl
@@ -233,7 +233,11 @@ Lo que se construye y lo que se mide son filas distintas. `--holdout` reparte la
 
 Una tasa se lee junto a su línea base. En el ejemplo inventado, 69 % de los pedidos no exige a una persona. Un enrutador que elige siempre al agente solo acierta la persona en esa proporción, así que 0,8 aporta poco sobre 0,69. Con `--accept` el comando compara contra `agreement_with_labels` si existe y contra las filas si no.
 
-La muestra es de 60 pedidos: una proporción medida con 60 tiene un margen de unos 0,13 con 95 % de confianza. Sirve para distinguir 0,5 de 0,8 y no para distinguir 0,8 de 0,85. Una diferencia de un caso entre dos descripciones queda dentro del ruido. `--accept <proporción>` hace fallar el comando si el área o la persona quedan por debajo. Sin él sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
+La muestra se estratifica por área. Cada área aporta 26 pedidos o todos los que tiene. Es la cuenta de la sección 3, que da un intervalo de Wilson de semiancho 0,15. Si `--sample` pide menos que 26 por área, el total sube y el resultado lo avisa. Lo que falta para llegar a `--sample` se sortea del resto. El sorteo es un barajado Fisher-Yates con semilla (Durstenfeld, 1964). Cada pedido pesa lo que pesa su área en el corpus. Las tasas globales usan esos pesos y su intervalo usa el tamaño efectivo de Kish (1965). Las filas de un área que se funde se miden contra el área en que se funde.
+
+El resultado informa cuántos pedidos se pidieron, se sortearon y se descartaron. También trae avisos: un área con menos pedidos que los del intervalo, o un corpus menor que la muestra. `by_area` da la tasa de cada área con su intervalo, que es donde se ve una área chica. `merge_suggestions` lista los pares en que el enrutador confunde un área con otra más veces de las que la acierta.
+
+`--accept <proporción>` hace fallar el comando si el área o la persona quedan por debajo. Sin él sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
 
 Se corrige la descripción donde hay una confusión de dos casos o más. La corrección se prueba contra el conjunto de ajuste (`--stage tune`) y se repite hasta que una versión nueva ya no mejora el área ni la persona. Las descripciones se ajustan con una muestra y se confirman con otra. El conjunto de confirmación (`--stage confirm`) se lee una vez, al final, y no sirve para seguir corrigiendo.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Measures how well a model routes requests when it reads only the descriptions of the areas and the profiles of the members.
 //
-//   node scripts/route-experiment.mjs rows.jsonl --load load.json --team team.json [--families f.json] [--sample 60] [--judge]
+//   node scripts/route-experiment.mjs rows.jsonl --load load.json --team team.json [--families f.json] [--sample n] [--judge]
 //                                     [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]
 //
 // For each sampled row the router answers an area, who attends and a one-line brief. The result is scored against the row without a judge:
@@ -15,12 +15,10 @@
 
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, propose, readJson, readJsonl, requiresPerson, seededRandom, splitUnits, validateTeam, wilson, withAreas } from './area-method.mjs'
+import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
 import { keyRows } from './row-validation.mjs'
 import { KPIS } from '../src/execute/judge.js'
 
-// Default sample: 60 routed requests. A proportion measured on 60 has a margin of about 0.13 at 95 %, enough to tell 0.5 from 0.8 and not enough to tell 0.8 from 0.85.
-export const SAMPLE = 60
 // The four indicators that apply to a routing: the others judge a finished job.
 export const ROUTING_KPIS = Object.freeze(['1.1', '1.2', '2.3', '3.3'])
 
@@ -54,10 +52,46 @@ const judgeSystem = `Juzgas el reparto de un pedido de un equipo: un enrutador e
 
 const referenceText = (row, team) => `Pedido: ${row.summary} (lo pide ${row.who}).\nReferencia: área ${row.area}; lo que falta lo tiene ${row.value_holder === 'person' ? row.holder || 'una persona' : 'el modelo'}; límites que toca: ${(row.limits ?? []).join(', ') || 'ninguno'}; se maximiza: ${row.maximize || 'no se deduce'}; se sacrifica: ${row.sacrifice || 'no se deduce'}; exige a una persona: ${requiresPerson(row, team) ? 'sí' : 'no'}.`
 
-/** A deterministic sample of `size` rows, spread by area as they are in the corpus. */
-export function sampleRows (rows, size = SAMPLE, seed = 7) {
+/** A deterministic sample of `size` rows in a uniformly random order (Fisher-Yates with the seed). */
+export function sampleRows (rows, size, seed = DEFAULTS.seed) {
+  return shuffle(rows, seededRandom(seed)).slice(0, size)
+}
+
+/**
+ * The sample to route. Rows whose area is not in the load file are first given to the area they would merge into (`merge`), and dropped only when that area is
+ * not loaded either; this happens before the cut, so the sample has the size that was asked. Then it is stratified by area: every area gets `perArea` requests
+ * (the count behind a Wilson interval of half width `halfWidth`, see `wilsonSampleSize`) or all it has, and the rest of `size` is drawn from what is left. Each
+ * sampled request carries the weight of its area (rows of the area in the pool over rows sampled), so a rate describes the corpus and not the sample.
+ * `warnings` says when the pool is smaller than `size`, when an area has fewer requests than `perArea`, and when `perArea` raised the size.
+ */
+export function drawSample (rows, load, { size = null, perArea = wilsonSampleSize(DEFAULTS.targetRate, DEFAULTS.halfWidth), merge = {}, seed = DEFAULTS.seed } = {}) {
+  const titles = new Set(load.areas.map((a) => a.title))
+  const discarded = []
+  const pool = []
+  for (const r of rows) {
+    const area = titles.has(r.area) ? r.area : (titles.has(merge[r.area]) ? merge[r.area] : null)
+    if (area === null) discarded.push(r)
+    else pool.push(area === r.area ? r : { ...r, area, area_before_merge: r.area })
+  }
   const rand = seededRandom(seed)
-  return [...rows].sort(() => rand() - 0.5).slice(0, size)
+  const groups = new Map()
+  for (const r of shuffle(pool, rand)) groups.set(r.area, [...(groups.get(r.area) ?? []), r])
+  const warnings = []
+  const target = size ?? perArea * groups.size
+  const chosen = []
+  const leftover = []
+  for (const [area, list] of [...groups.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+    chosen.push(...list.slice(0, perArea))
+    leftover.push(...list.slice(perArea))
+    if (list.length < perArea) warnings.push({ kind: 'area_short', area, available: list.length, needed: perArea })
+  }
+  if (chosen.length > target) warnings.push({ kind: 'size_raised', requested: target, drawn: chosen.length })
+  const fill = shuffle(leftover, rand).slice(0, Math.max(0, target - chosen.length))
+  chosen.push(...fill)
+  if (chosen.length < target) warnings.push({ kind: 'pool_short', requested: target, available: chosen.length })
+  const poolSize = new Map([...groups.entries()].map(([a, l]) => [a, l.length]))
+  const drawn = chosen.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map())
+  return { sample: chosen.map((r) => ({ ...r, weight: poolSize.get(r.area) / drawn.get(r.area) })), discarded: discarded.length, merged: pool.filter((r) => r.area_before_merge).length, warnings }
 }
 
 /**
@@ -87,7 +121,8 @@ export function scoreRouting (route, row, team) {
 export function baselines (sample, team, majorityArea) {
   const agent = team.members.find((m) => m.kind === 'agent')?.name ?? team.members[0].name
   const people = new Set(team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name))
-  const rate = (route) => sample.length ? sample.filter((r) => scoreRouting(route(r), r, team)[route.field]).length / sample.length : 0
+  const total = sample.reduce((t, r) => t + (r.weight ?? 1), 0)
+  const rate = (route) => total ? sample.filter((r) => scoreRouting(route(r), r, team)[route.field]).reduce((t, r) => t + (r.weight ?? 1), 0) / total : 0
   const area = (r) => ({ area: majorityArea, attends: [agent] })
   area.field = 'area_agrees'
   const alone = (r) => ({ area: r.area, attends: [agent] })
@@ -109,9 +144,10 @@ export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, 
 }
 
 /** Runs the sample through the router (and the judge when asked). `provider.complete({ system, messages, schema, effort })`. */
-export async function runExperiment (rows, load, team, { provider, families = {}, size = SAMPLE, judge = false, parallel = 6, seed = 7, held = null, buildUnits = null, buildRows = null, labels = [], validation = null, models = {} } = {}) {
+export async function runExperiment (rows, load, team, { provider, families = {}, size = null, perArea, merge = {}, judge = false, parallel = 6, seed = 7, held = null, buildUnits = null, buildRows = null, labels = [], validation = null, models = {} } = {}) {
   validateTeam(team)
-  const sample = sampleRows(withAreas(rows, families), size, seed).filter((r) => load.areas.some((a) => a.title === r.area))
+  const drawn = drawSample(withAreas(rows, families), load, { size, merge, seed, ...(perArea ? { perArea } : {}) })
+  const sample = drawn.sample
   const system = routerPrompt(load, team)
   const schema = routerSchema(load, team)
   const out = []
@@ -120,7 +156,7 @@ export async function runExperiment (rows, load, team, { provider, families = {}
     while (next < sample.length) {
       const row = sample[next++]
       const route = (await provider.complete({ system, messages: [{ role: 'user', content: `Lo pide: ${row.who}\nPedido: ${row.summary}` }], schema, effort: 'low' })).json
-      const result = { key: row.key, unit: row.unit, reference_area: row.area, area: route.area, attends: route.attends, brief: route.brief, ...scoreRouting(route, row, team) }
+      const result = { key: row.key, unit: row.unit, weight: row.weight, reference_area: row.area, area: route.area, attends: route.attends, brief: route.brief, ...scoreRouting(route, row, team) }
       if (judge) {
         const j = (await provider.complete({ system: judgeSystem, messages: [{ role: 'user', content: `${referenceText(row, team)}\nReparto: área ${route.area}; atiende ${route.attends.join(', ')}; encargo: ${route.brief}` }], schema: judgeSchema(), effort: 'low' })).json
         result.indicators = Object.fromEntries((j?.indicators ?? []).map((k) => [k.id, k.score]))
@@ -134,6 +170,7 @@ export async function runExperiment (rows, load, team, { provider, families = {}
   const labelled = humanReference(out, sample, labels, team)
   return {
     ...summarize(out),
+    sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, merged: drawn.merged, warnings: drawn.warnings },
     validated: validation?.validated === true,
     baselines: baselines(sample, team, largest),
     agreement_with_labels: labelled,
@@ -154,12 +191,24 @@ export function humanReference (results, sample, labels, team) {
   const scored = results.filter((r) => byKey.has(r.key)).map((r) => {
     const l = byKey.get(r.key)
     const row = sample.find((x) => x.key === r.key)
-    return scoreRouting(r, { ...row, area: l.area, value_holder: l.value_holder, holder: l.holder ?? '', limits: l.limits ?? [] }, team)
+    return { ...scoreRouting(r, { ...row, area: l.area, value_holder: l.value_holder, holder: l.holder ?? '', limits: l.limits ?? [] }, team), weight: r.weight }
   })
-  return { rater, n: scored.length, area: rateOf(scored.filter((x) => x.area_agrees).length, scored.length), person: rateOf(scored.filter((x) => x.person_agrees).length, scored.length) }
+  return { rater, n: scored.length, area: rateOf(scored.filter((x) => x.area_agrees), scored), person: rateOf(scored.filter((x) => x.person_agrees), scored) }
 }
 
-const rateOf = (k, n) => { const w = wilson(k, n); return { k, n, rate: n ? round3(k / n) : 0, lower: round3(w.lower), upper: round3(w.upper) } }
+/**
+ * A rate of weighted items with its Wilson interval. With weights the interval uses the effective size of Kish (1965, Survey Sampling): (sum of weights)^2 over the sum of
+ * squared weights, which is the plain count when every weight is 1.
+ */
+const rateOf = (hits, items) => {
+  const w = (x) => x.weight ?? 1
+  const total = items.reduce((t, x) => t + w(x), 0)
+  const ok = hits.reduce((t, x) => t + w(x), 0)
+  const effective = total ? (total * total) / items.reduce((t, x) => t + w(x) ** 2, 0) : 0
+  const rate = total ? ok / total : 0
+  const interval = wilson(rate * effective, effective)
+  return { k: hits.length, n: items.length, rate: round3(rate), lower: round3(interval.lower), upper: round3(interval.upper) }
+}
 const round3 = (x) => Math.round(x * 1000) / 1000
 
 /**
@@ -172,18 +221,30 @@ export function leakedExamples (sample, load, buildUnits = null) {
 
 /**
  * The counts of an experiment. The two rates are called what they measure: the agreement of the router with the rows that the extraction wrote, not its accuracy.
- * Each carries its Wilson interval. The confusions, the people missing and the people in excess are counted apart, and the indicators are the mean of each one.
+ * Each carries its Wilson interval and is weighted so that it describes the corpus. `by_area` gives the same per area, which is where a small area shows what a
+ * global rate hides. `merge_suggestions` lists the pairs where the router confuses an area with another in more requests than it gets right.
  */
 export function summarize (results) {
   const n = results.length
-  const count = (f) => results.filter(f).length
   const confusions = {}
   for (const r of results) if (!r.area_agrees) { const k = `${r.reference_area} -> ${r.area}`; confusions[k] = (confusions[k] ?? 0) + 1 }
   const judged = results.filter((r) => r.indicators)
   const indicators = judged.length ? Object.fromEntries(ROUTING_KPIS.map((id) => [id, Math.round((judged.reduce((a, r) => a + (r.indicators[id] ?? 0), 0) / judged.length) * 100) / 100])) : null
+  const areas = [...new Set(results.map((r) => r.reference_area))].sort()
+  const byArea = Object.fromEntries(areas.map((area) => {
+    const mine = results.filter((r) => r.reference_area === area)
+    return [area, rateOf(mine.filter((r) => r.area_agrees), mine)]
+  }))
+  const suggestions = Object.entries(confusions)
+    .map(([k, count]) => { const [from, into] = k.split(' -> '); return { from, into, confused: count, right: byArea[from]?.k ?? 0 } })
+    .filter((s) => s.confused > s.right)
   return {
     n,
-    agreement_with_rows: { area: rateOf(count((r) => r.area_agrees), n), person: rateOf(count((r) => r.person_agrees), n), person_missing: count((r) => r.person_missing), person_extra: count((r) => r.person_extra) },
+    agreement_with_rows: {
+      area: rateOf(results.filter((r) => r.area_agrees), results), person: rateOf(results.filter((r) => r.person_agrees), results),
+      person_missing: results.filter((r) => r.person_missing).length, person_extra: results.filter((r) => r.person_extra).length
+    },
+    by_area: byArea, merge_suggestions: suggestions,
     confusions: Object.fromEntries(Object.entries(confusions).sort((a, b) => b[1] - a[1])), indicators, results
   }
 }
@@ -191,7 +252,7 @@ export function summarize (results) {
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample 60] [--judge] [--judge-model m] [--labels labels.jsonl] [--validation validation.json] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--labels labels.jsonl] [--validation validation.json] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
@@ -200,6 +261,7 @@ async function main (argv) {
   const team = readJson(option('--team'))
   const families = option('--families') ? readJson(option('--families')) : {}
   let load
+  let merge = {}
   let pool = rows
   let held = null
   let buildUnits = null
@@ -208,16 +270,19 @@ async function main (argv) {
     const fraction = option('--holdout') && !option('--holdout').startsWith('--') ? Number(option('--holdout')) : undefined
     const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')) })
     load = built.load
+    merge = Object.fromEntries(built.skipped.filter((x) => x.merge_into).map((x) => [x.title, x.merge_into]))
     pool = built.test
     held = { stage: built.stage, sets: built.sets }
     buildUnits = built.buildUnits
     buildRows = built.buildRows
   } else {
     load = readJson(option('--load'))
+    // The areas the analysis would merge into another are measured against the one they merge into.
+    merge = Object.fromEntries(analyze(rows, team, { families }).areas.filter((x) => !x.keep && x.merge_into).map((x) => [x.title, x.merge_into]))
     console.error('Sin --holdout, las descripciones se miden con las mismas filas con que se escribieron: el resultado no vale como medida.')
   }
   const result = await runExperiment(pool, load, team, {
-    provider, families, size: Number(option('--sample', SAMPLE)), judge: rest.includes('--judge'), parallel: Number(option('--parallel', 6)), held, buildUnits, buildRows,
+    provider, families, size: option('--sample') ? Number(option('--sample')) : null, merge, judge: rest.includes('--judge'), parallel: Number(option('--parallel', 6)), held, buildUnits, buildRows,
     labels: option('--labels') ? readJsonl(option('--labels')) : [], validation: option('--validation') ? readJson(option('--validation')) : null,
     models: { router: option('--model', 'claude-haiku-5-5'), judge: option('--judge-model', option('--model', 'claude-haiku-5-5')) }
   })

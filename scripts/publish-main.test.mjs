@@ -249,6 +249,14 @@ test('the door does not publish without the mark: the hook of the toy rejects a 
   assert.notEqual(r.status, 0)
 })
 
+test('the retired deploy mark does not publish: the hook of the toy rejects it, with the sha of desarrollo', () => {
+  const t = makeToy('retired-mark')
+  t.release('0.2.0'); const sha = t.commit('second'); t.git('push', '-q', 'origin', 'desarrollo')
+  const r = sh(t.repo, 'git', ['push', 'origin', `${sha}:refs/heads/main`], { DEPLOY_PUBLISHES_MAIN: sha })
+  assert.notEqual(r.status, 0)
+  assert.equal(t.remoteRef('refs/heads/main'), t.first, 'main stays where it was')
+})
+
 test('--dry-run does not stop at the first failing step: it runs the rest and still exits 1', () => {
   const t = makeToy('dry-failing')
   t.release('0.2.0'); t.commit('second'); t.git('push', '-q', 'origin', 'desarrollo')

@@ -16,6 +16,7 @@ const ARTICLE = `<!doctype html><html lang="es"><head><meta charset="utf-8"><tit
 let server;
 let base;
 const hits = [];
+let dripClosed = () => {};
 const PRIVATE = ['127.0.0.1'];
 
 before(async () => {
@@ -64,6 +65,16 @@ before(async () => {
       }
       case '/cuelga':
         return; // never responds
+      case '/gotea': {
+        // Headers at once, then one byte every 50 ms: the site answers, but too slowly to finish.
+        res.writeHead(200, { 'content-type': 'text/html' });
+        const drip = setInterval(() => res.write('x'), 50);
+        res.on('close', () => {
+          clearInterval(drip);
+          dripClosed();
+        });
+        return;
+      }
       default:
         res.writeHead(404);
         return res.end();
@@ -165,6 +176,15 @@ test('a site that does not respond is cut at the deadline', async () => {
   const t = performance.now();
   await assert.rejects(extract(link(`${base}/cuelga`), { config: cfg({ timeoutMs: 300 }) }), (e) => e.code === 'link_timeout');
   assert.ok(performance.now() - t < 3000);
+});
+
+test('a site that answers but delivers its bytes slowly is cut at the deadline and the connection is released (TASK-013)', async () => {
+  const closed = new Promise((resolve) => { dripClosed = resolve; });
+  const t = performance.now();
+  await assert.rejects(extract(link(`${base}/gotea`), { config: cfg({ timeoutMs: 400 }) }), (e) => e.code === 'link_timeout' && e.details.timeoutMs === 400);
+  const elapsed = performance.now() - t;
+  assert.ok(elapsed >= 350 && elapsed < 3000, `cut at the deadline, not before or long after (took ${Math.round(elapsed)} ms)`);
+  await closed; // the server saw the socket close: nothing keeps downloading in the background
 });
 
 test('cancelling with the signal cuts the download', async () => {

@@ -15,6 +15,11 @@
     "paths": ["panel/", "packages/client/", "src/api/", "src/domain/", "src/analyze/", "src/extract/", "src/queue/", "src/events/", "src/providers/", "src/db/", "src/worker.js", "src/config.js", "src/testing/walkthrough-providers-module.js", "src/image.docker.test.js", "src/image-walkthrough.docker.test.js", "Dockerfile"],
     "tests": ["src/image.docker.test.js", "src/image-walkthrough.docker.test.js"]
   },
+  "daemon": {
+    "_doc": "Tests that need a real Docker daemon and do not skip without one (a skipped test did not pass): a change under these paths selects them, and the directed run fails if Docker does not answer. 2026-10-26: the SIGKILL test failed for days on origin/desarrollo because only the complete battery ran it; the sweep of the worker and DESTROY of the driver are what it walks.",
+    "paths": ["drivers/docker-local/", "src/execute/machines", "src/execute/runners.js", "src/execute/handler.js", "src/worker.js"],
+    "tests": ["src/execute/machines-sigkill.docker.test.js"]
+  },
   "client": {
     "_doc": "A change in what shapes the API (routes, roles, codes, schemas, the rules the routes apply) runs the whole suite of packages/client (vitest): it talks to the real API, so it is what notices a server that changed under it (2026-10-26: 8 red tests that no change of the client had caused).",
     "run": "packages/client",

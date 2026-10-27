@@ -71,16 +71,22 @@ export function pruneExecuteMachines (db, { now = Date.now(), retentionDays = 36
   return Number(runSql(db, 'DELETE FROM execute_machines WHERE destroyed_at IS NOT NULL AND created_at < ?', now - retentionDays * MS_PER_DAY).changes)
 }
 
+const sweeping = new WeakMap() // db handle -> ids of the rows that a sweep without a set of its own is destroying
+const sweepingOf = (db) => { if (!sweeping.has(db)) sweeping.set(db, new Set()); return sweeping.get(db) }
+
 /**
  * Destroys the orphan machines with the DESTROY order of the host. Several at a time (they are independent), at most `concurrency`.
- * `inFlight`: ids of the rows that this very process is destroying right now (a cancelled job whose DESTROY has not ended); they are not called twice.
+ * `inFlight`: ids of the rows that this very process is destroying right now (a cancelled job whose DESTROY has not ended, or another sweep); they are not called twice. The sweep writes its own rows
+ * into it from the moment it lists them until their DESTROY ends: the sweep of the start and the one of the first expired lease overlap whenever a DESTROY takes longer than the heartbeat, and the second
+ * `docker rm -f` of the same container answers «removal is already in progress» and left a failure in the register of a machine that was being destroyed well.
  * Returns { destroyed, failed }. Never throws: a failure is in the row and in the log.
  */
-export async function sweepMachines ({ db, config, logger = null, now = Date.now, untriedOnly = false, concurrency, inFlight = null }) {
+export async function sweepMachines ({ db, config, logger = null, now = Date.now, untriedOnly = false, concurrency, inFlight = sweepingOf(db) }) {
   const x = config.execute
   if (!x || x.runner !== 'machine' || !x.machineDestroy) return { destroyed: 0, failed: 0 }
   let rows
-  try { rows = orphanMachines(db, { untriedOnly }).filter((r) => !inFlight?.has(r.id)) } catch (error) { logger?.error({ err: error }, 'could not list the orphan machines'); return { destroyed: 0, failed: 0 } }
+  try { rows = orphanMachines(db, { untriedOnly }).filter((r) => !inFlight.has(r.id)) } catch (error) { logger?.error({ err: error }, 'could not list the orphan machines'); return { destroyed: 0, failed: 0 } }
+  for (const row of rows) inFlight.add(row.id) // listing and claiming are one synchronous step: no other sweep of this process can list these rows now
   const result = { destroyed: 0, failed: 0 }
   let next = 0
   const worker = async () => {
@@ -97,7 +103,7 @@ export async function sweepMachines ({ db, config, logger = null, now = Date.now
       } catch (error) {
         result.failed++
         logger?.error({ err: error, job_id: row.job_id, machine: row.machine }, 'could not destroy or record an orphan machine')
-      }
+      } finally { inFlight.delete(row.id) }
     }
   }
   await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), rows.length) }, worker))

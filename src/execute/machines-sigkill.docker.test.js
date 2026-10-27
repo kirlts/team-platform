@@ -1,7 +1,7 @@
 // Piece B4 with a worker killed without warning: the worker is a real process (`node src/worker.js`, WORKER_MODE=external) with drivers/docker-local against a real
 // Docker daemon. RUN is running, the process gets SIGKILL, another worker starts and nothing is left alive: the container is destroyed (or taken over by the next
 // attempt of the job) and `GET /health` says `machines.open` is 0 again. Without Docker this test FAILS and says so: a skipped test did not pass.
-// It is a `.docker.test.js`: run it with `npm run test:sigkill`. The directed selection leaves those out because its containers (tp-<instance>-job-<job id>) live for seconds.
+// It is a `.docker.test.js`: run it with `npm run test:sigkill`. The directed selection runs it when the change touches what it walks (src/testing/areas.json, «daemon»); the others of its kind stay out.
 // Its instance (TP_DOCKER_INSTANCE) is its own, so the tests of the driver that run beside it neither count nor touch its machines.
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
@@ -9,7 +9,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { after, before, describe, it } from 'node:test'
+import { after, afterEach, before, describe, it } from 'node:test'
 import { updateMember } from '../domain/members.js'
 import { setProjectDescription } from '../domain/settings.js'
 import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
@@ -116,6 +116,13 @@ describe('B4 with SIGKILL of a real worker process', () => {
     env.db.prepare("UPDATE jobs SET status = 'cancelled' WHERE kind = 'execute' AND status = 'queued'").run()
   })
 
+  // A test that failed leaves its worker B alive. The next test would then have it claim its fresh job before worker A does (it holds the lease with its heartbeat, so nothing expires) and would fail for a reason
+  // that is not its own (2026-10-26: the second case failed 90 s after the first one).
+  afterEach(async () => {
+    const alive = children.splice(0).filter((w) => w.exited === null)
+    await Promise.all(alive.map((w) => new Promise((resolveExit) => { w.child.once('exit', resolveExit); w.child.kill('SIGKILL') })))
+  })
+
   after(async () => {
     for (const w of children) { if (w.exited === null) w.child.kill('SIGKILL') }
     try { execFileSync('docker', ['ps', '-a', '-q', '--filter', `label=${LABEL}`, '--filter', `label=${INSTANCE_LABEL}`], { encoding: 'utf8' }).split('\n').filter(Boolean).forEach((id) => { try { execFileSync('docker', ['rm', '-f', '-v', id], { stdio: 'ignore' }) } catch { /* gone */ } }) } catch { /* docker gone */ }
@@ -135,7 +142,10 @@ describe('B4 with SIGKILL of a real worker process', () => {
     const b = startWorker('worker B')
     await ready(b)
     await until(async () => idOf(nameOf(jobId)) === null && (await health()).machines.open === 0, { timeoutMs: 60_000, everyMs: 100 })
+    // The row closes and the log line is written in the same tick of the worker, but the line travels through a pipe that this process reads between two turns of its loop: it is waited for, not read at once.
+    await until(() => /an orphan machine was destroyed/.test(b.output), { timeoutMs: 10_000, everyMs: 50 }).catch(() => {})
     assert.match(b.output, /an orphan machine was destroyed/, 'the worker says it destroyed it')
+    assert.doesNotMatch(b.output, /could not be destroyed/, 'and it called DESTROY once: a second call to the same machine answers «removal is already in progress»')
     assert.equal((await health()).status, 'ok')
     b.child.kill('SIGTERM')
     await until(() => b.exited, { timeoutMs: 15_000 })

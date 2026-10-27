@@ -11,6 +11,9 @@
 //                 words. No retry and no second pass: the job ends done with `delivered = 0` and `delivery_held = 1`, and ONE reply with
 //                 the summary, the reason and `needs_decision` goes to the person who decides in the area (UD-269), who gets the message. The platform knows no zones: the host decides, reading TEAM_OUTPUT_JSON
 //   other exit    the delivery failed; its stdout and stderr are the reason
+//   a Guard about a person (UD-313): when the message touches one that no person has lifted, the platform itself holds the delivery as with exit 76, without running the command. The act that lifts it is the
+//                 review of a person: `requested_by` (by hand, or `review: approve` in the thread) from an active member of kind `person`; the pre-approval `approved_by` was given before the warning and does not lift.
+//                 The lift is audited as `message.guard_lifted` and holds for the rest of that message. Without Guards about a person nothing changes.
 //   environment   TEAM_JOB_ID TEAM_MESSAGE_ID TEAM_BRANCH TEAM_WORKDIR TEAM_DELIVER_ROUND TEAM_DELIVER_ATTEMPT and TEAM_OUTPUT_JSON (the structured output of the
 //                 session, compact JSON without `summary`)
 //                 TEAM_CAPTURES_VIDEO is «1» when the session left the walkthrough video (UD-275), «0» when not: a host that holds for review says so in the reason
@@ -33,6 +36,7 @@ import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { handOffToPerson } from '../domain/escalation.js'
+import { guardsOf, liftPersonGuards, openPersonGuards } from '../domain/assessment.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
@@ -69,6 +73,7 @@ const TEXTS = {
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
     held: (reason, captures) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción.${captures ? ' Cómo queda, en «Propuesta».' : ''}`,
     heldReason: 'el cambio necesita esa revisión',
+    limitHeld: (list) => `toca un límite que solo una persona levanta (${list}); quien apruebe la entrega lo levanta y queda registrado`,
     verification: (branch, reason, budget) => `No quedó en producción: no pasó la verificación${reason ? ` (${reason})` : ''}.${budget ? ' Se alcanzó el tope de gasto de hoy y Claude no sigue.' : ''} Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     again: (reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. Claude lo corrige y vuelve a entregar.`,
     alreadyThere: 'El cambio ya estaba en producción: llegó por otro camino y no hizo falta entregarlo de nuevo.',
@@ -83,6 +88,7 @@ const TEXTS = {
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
     held: (reason, captures) => `Change ready for review: ${reason}. It is not in production yet.${captures ? ' How it looks, in «Proposal».' : ''}`,
     heldReason: 'the change needs that review',
+    limitHeld: (list) => `it touches a limit that only a person lifts (${list}); whoever approves the delivery lifts it and it is recorded`,
     verification: (branch, reason, budget) => `It did not reach production: it did not pass verification${reason ? ` (${reason})` : ''}.${budget ? ' Today\'s spending cap was reached and Claude does not continue.' : ''} The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     again: (reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. Claude is fixing it and will deliver again.`,
     alreadyThere: 'The change was already in production: it arrived another way and did not need to be delivered again.',
@@ -204,7 +210,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     const { message_id: messageId, member_id: memberId } = payload
     const branch = payload.branch ?? `tp/${messageId}`
     if (!x.deliverCommand) throw permanent('EXECUTE_DELIVER_COMMAND no está declarada.', 'deliver_not_configured')
-    const message = get(db, 'SELECT id, status, author_id, template_id FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
+    const message = get(db, 'SELECT id, status, author_id, template_id, area_id, guards_json FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!message) throw permanent('El mensaje del trabajo ya no existe.', 'message_missing')
     if (message.status === 'closed') throw permanent('El mensaje está cerrado.', 'message_closed')
     const agent = get(db, 'SELECT id, kind, active FROM members WHERE id = ?', memberId)
@@ -246,12 +252,38 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       }
     }
 
+    /** A delivery that waits for the review of a person (UD-266, UD-275): one hand-over to the person who decides in the area, with the summary, the reason and how the branch looks. */
+    const holdForReview = ({ reason, ms }) => {
+      return () => {
+        const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language, label: 'proposal' }) // UD-275: what the branch looks like, for the person who reviews
+        // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
+        const { replyId } = handOffToPerson({ db, events, now }, {
+          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language, captures: closing.files.length > 0 }), ...closing.lines, ...(payload.captures_rejected?.length ? [noCaptureLine(payload.output, closing.files.length, author?.language, payload.captures_rejected)] : []), ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
+        })
+        const finalAt = now()
+        const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
+        saveRun(payload, job.id, {
+          delivery_ms: ms, delivered: 0, delivery_held: 1, delivery_hold_reason: reason || null, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
+        })
+        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
+        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true } })
+      }
+    }
+
     // UD-296: a branch the host already serves went out another way (the night batch of the host): it is delivered, and nothing is deployed again.
     const landed = await inProduction(job, ctx, { messageId, branch })
     if (landed) {
       const ms = 0
       try { runSql(db, 'UPDATE jobs SET marks_json = ? WHERE id = ?', JSON.stringify({ delivery_ms: ms, delivered: 1 }), job.id) } catch { /* the mark is a courtesy */ }
       return closeDelivered({ ref: landed, after: null, ms, alreadyThere: true })
+    }
+
+    // UD-313: a Guard about a person that the message touches is a wall: it is not crossed without a person lifting it. The platform holds the delivery here, before the host's command runs,
+    // whatever the host decides; the review of a person (`requested_by`) lifts it and records who. The pre-approval (`approved_by`) came before the warning and does not.
+    const openGuards = openPersonGuards(db, message)
+    if (openGuards.length > 0 && !(payload.requested_by && liftPersonGuards(db, message, { memberId: payload.requested_by, jobId: job.id, now }))) {
+      const list = guardsOf(db, message.area_id).filter((g) => openGuards.includes(g.id)).map((g) => `G${g.id}: ${g.text}`).join('; ')
+      return holdForReview({ reason: textsOf(author?.language).limitHeld(list).slice(0, REASON_CHARS), ms: 0 })
     }
 
     const startedAt = now()
@@ -357,23 +389,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       runSql(db, 'UPDATE jobs SET payload_json = ? WHERE id = ?', JSON.stringify({ ...fresh, defer_streak: { key, n: streak } }), job.id)
       throw new Deferred(x.capacityWaitMs, step('deliverWait'))
     }
-    if (result.code === DELIVER_HELD && !(payload.requested_by ?? payload.approved_by)) {
-      const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
-      return () => {
-        const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language, label: 'proposal' }) // UD-275: what the branch looks like, for the person who reviews
-        // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
-        const { replyId } = handOffToPerson({ db, events, now }, {
-          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language, captures: closing.files.length > 0 }), ...closing.lines, ...(payload.captures_rejected?.length ? [noCaptureLine(payload.output, closing.files.length, author?.language, payload.captures_rejected)] : []), ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
-        })
-        const finalAt = now()
-        const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
-        saveRun(payload, job.id, {
-          delivery_ms: ms, delivered: 0, delivery_held: 1, delivery_hold_reason: reason || null, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
-        })
-        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
-        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true } })
-      }
-    }
+    if (result.code === DELIVER_HELD && !(payload.requested_by ?? payload.approved_by)) return holdForReview({ reason: (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS), ms })
     if (result.code !== 0) {
       saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
       const failure = Object.assign(new Error(`La orden de entrega terminó con código ${result.code}: ${tail(output, 1500) || 'sin salida'}`), { code: environment ? 'deliver_env' : 'deliver_failed', output })

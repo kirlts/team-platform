@@ -236,8 +236,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       nameMaxChars: intVar(env, 'PROJECT_NAME_MAX_CHARS', 80, { min: 1 }) // declared courtesy, H-3722
     },
 
-    // ---- Analysis framing (H-3722). One paragraph at the head of every system prompt. 2,000 characters are ≈ 670 tokens at
-    // the 3 characters per token of the analyzer (`charsPerToken`), ten times the default framing; a longer context is
+    // ---- Analysis framing (H-3722). One paragraph at the head of every system prompt. 2,000 characters are ≈ 890 tokens at
+    // the 2.25 characters per token of the analyzer (`charsPerToken`), ten times the default framing; a longer context is
     // the project description's job (UD-024). Declared courtesy, not measured.
     analysis: {
       framingMaxChars: intVar(env, 'ANALYSIS_FRAMING_MAX_CHARS', 2000, { min: 1 }) // declared courtesy, H-3722

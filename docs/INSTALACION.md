@@ -40,23 +40,23 @@ Qué significa cada número: el patch trae correcciones y cambios que nadie tien
 
 ### El registro de batería de un commit
 
-Cada commit que pasó la batería completa del canónico deja un registro, y un anfitrión lo consulta antes de repetir en su imagen las pruebas del canónico. El registro es una nota de git en la referencia `refs/notes/battery` del repositorio del canónico: una nota por sha, y cada escritura es un commit de esa referencia, así que escribir una a mano deja autor, fecha y padre en su historia. Sólo existe para lo que pasó: si una orden salió distinto de 0, no se escribe nada.
+Cada commit que pasó la batería completa del canónico deja un registro. Un anfitrión lo consulta antes de repetir en su imagen las pruebas del canónico. El registro es una nota de git en la referencia `refs/notes/battery`: una nota por sha. Cada escritura es un commit de esa referencia, así que una nota escrita a mano deja autor, fecha y padre en su historia. Sólo existe para lo que pasó: si una orden salió distinto de 0, no se escribe nada.
 
-Consulta, con el sha completo, desde cualquier repositorio y sin clonar el canónico (sale 0 e imprime el JSON si hay registro, 1 si no lo hay):
+Consulta con el sha completo, desde cualquier repositorio y sin clonar el canónico. Sale 0 e imprime el JSON si hay registro, y 1 si no lo hay:
 
 ```
 git fetch -q https://github.com/kirlts/team-platform.git +refs/notes/battery:refs/notes/tp-battery && git notes --ref=tp-battery show <sha completo>
 ```
 
-Con el script del canónico (acepta un prefijo del sha, comprueba que la nota corresponde a ese commit y funciona fuera de un repositorio; sale 0 con el JSON, 1 sin registro, 3 con un registro que no corresponde al commit):
+Con el script del canónico, que acepta un prefijo del sha, comprueba que la nota corresponde al commit y funciona fuera de un repositorio. Sale 0 con el JSON, 1 sin registro y 3 con un registro que no corresponde al commit:
 
 ```
 node scripts/battery-record.mjs show <sha> --remote https://github.com/kirlts/team-platform.git [--trace]
 ```
 
-`--trace` imprime los commits de la referencia que tocaron esa nota: quién la escribió y cuándo. El JSON de una línea lleva `schema`, `sha`, `tree`, `date`, `node`, `runner`, `commands` (por orden: `cmd`, `exit`, `seconds`, `tests`, `pass`, `fail` y `log_sha256`, la huella de su salida completa), `skipped` (lo que la puerta no corrió y por qué) e `image_base` (referencia y digest de cada base externa del `Dockerfile`; `null` con la razón si no se pudo resolver). Un anfitrión que lo usa compara `tree` con el de su commit y `image_base` con la base de su propia imagen: si coinciden y `commands` trae `complete` con `exit` 0, no repite `test:completa`.
+`--trace` imprime los commits de la referencia que tocaron esa nota: quién la escribió y cuándo. El JSON de una línea lleva `schema`, `sha`, `tree`, `date`, `node`, `runner`, `commands`, `skipped` e `image_base`. Cada orden de `commands` trae `cmd`, `exit`, `seconds`, `tests`, `pass`, `fail` y `log_sha256`, la huella de su salida completa. `skipped` lista lo que la puerta no corrió y por qué. `image_base` trae referencia y digest de cada base externa del `Dockerfile`, con `null` y la razón si no se pudo resolver. Un anfitrión compara `tree` con el de su commit y `image_base` con la base de su imagen. Si coinciden y `commands` trae `complete` con `exit` 0, no repite `test:completa`.
 
-Quién lo escribe: `scripts/publish-main.sh` lo deja al publicar `main`, con lo que su batería ya corrió, y `node scripts/battery-record.mjs run <sha>` lo genera para un commit que no se publicó. Las órdenes de `run` son `test:completa`, `test:panel`, `test:client` y `node --test src/static.test.js`, una tras otra: la primera levanta contenedores y las demás abren puertos.
+Quién lo escribe: `scripts/publish-main.sh` lo deja al publicar `main`, con lo que su batería ya corrió. `node scripts/battery-record.mjs run <sha>` lo genera para un commit que no se publicó. Sus órdenes son `test:completa`, `test:panel`, `test:client` y `node --test src/static.test.js`, una tras otra: la primera levanta contenedores y las demás abren puertos.
 
 ## 1. Sola en un VPS
 

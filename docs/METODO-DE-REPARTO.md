@@ -269,6 +269,10 @@ La muestra se estratifica por área. Cada área aporta 26 pedidos o todos los qu
 
 El resultado informa cuántos pedidos se pidieron, se sortearon y se descartaron. También trae avisos: un área con menos pedidos que los del intervalo, o un corpus menor que la muestra. `by_area` da la tasa de cada área con su intervalo, que es donde se ve una área chica. `merge_suggestions` lista los pares en que el enrutador confunde un área con otra más veces de las que la acierta.
 
+Comparar dos versiones. `--versus otro-resultado.json` empareja los pedidos que las dos corridas enrutaron y aplica la prueba exacta de McNemar (1947) a los casos en que sólo una acierta. Como los pedidos son los mismos, la diferencia tiene menos error (Miller, 2024, arXiv:2411.00640, consultado el 2026-10-27). Una diferencia de un caso da p igual a 1.
+
+`--judge` usa por omisión el mismo modelo que enruta. Un modelo favorece lo que genera (sección 3), así que el resultado trae `judge.same_model` y, mientras sea verdadero, los indicadores se leen con esa reserva. `--judge-model` fija otro modelo. Los indicadores de un reparto miden la coherencia del reparto con el acuerdo. Son los indicadores 1.1, 1.2, 2.3 y 3.3 de la sección 11, aplicados a un reparto.
+
 `--accept <proporción>` hace fallar el comando si el área o la persona quedan por debajo. Sin él sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
 
 Se corrige la descripción donde hay una confusión de dos casos o más. La corrección se prueba contra el conjunto de ajuste (`--stage tune`) y se repite hasta que una versión nueva ya no mejora el área ni la persona. Las descripciones se ajustan con una muestra y se confirman con otra. El conjunto de confirmación (`--stage confirm`) se lee una vez, al final, y no sirve para seguir corrigiendo.

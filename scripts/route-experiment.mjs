@@ -181,6 +181,36 @@ export async function runExperiment (rows, load, team, { provider, families = {}
 }
 
 /**
+ * The exact McNemar test (McNemar 1947, Psychometrika 12:153-157) of two ways of routing the same requests: `onlyA` requests that A gets right and B wrong, `onlyB` the
+ * reverse. Under the hypothesis of no difference each discordant request is A's or B's with probability one half; the p-value is two-sided and exact.
+ */
+export function mcnemarExact (onlyA, onlyB) {
+  const n = onlyA + onlyB
+  if (n === 0) return 1
+  const k = Math.min(onlyA, onlyB)
+  let tail = 0
+  let term = 0.5 ** n // P(X = 0)
+  for (let i = 0; i <= k; i++) { tail += term; term = (term * (n - i)) / (i + 1) }
+  return Math.min(1, 2 * tail)
+}
+
+/**
+ * Compares two experiments on the requests they both routed (paired by `key`): the descriptions of A against the ones of B, or two routers. A difference between rates
+ * is read with the paired test, not by eye (Miller 2024, arXiv:2411.00640, consulted 2026-10-27: the pairs share the question, so their differences have a smaller error
+ * than two independent samples).
+ */
+export function compareRuns (a, b) {
+  const byKey = new Map(b.results.filter((r) => r.key).map((r) => [r.key, r]))
+  const pairs = a.results.filter((r) => r.key && byKey.has(r.key)).map((r) => [r, byKey.get(r.key)])
+  const block = (field) => {
+    const onlyA = pairs.filter(([x, y]) => x[field] && !y[field]).length
+    const onlyB = pairs.filter(([x, y]) => !x[field] && y[field]).length
+    return { only_first: onlyA, only_second: onlyB, p: Math.round(mcnemarExact(onlyA, onlyB) * 10000) / 10000 }
+  }
+  return { paired: pairs.length, area: block('area_agrees'), person: block('person_agrees') }
+}
+
+/**
  * The agreement with the labels of people, for the sampled requests that a person labeled (the first rater by name). The reference row is rebuilt from the label:
  * area, who holds the value, the limits it touches. It is the only measure of the routing that is not the extraction judged by itself.
  */
@@ -252,7 +282,7 @@ export function summarize (results) {
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--labels labels.jsonl] [--validation validation.json] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl] [--validation validation.json] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
@@ -286,6 +316,7 @@ async function main (argv) {
     labels: option('--labels') ? readJsonl(option('--labels')) : [], validation: option('--validation') ? readJson(option('--validation')) : null,
     models: { router: option('--model', 'claude-haiku-5-5'), judge: option('--judge-model', option('--model', 'claude-haiku-5-5')) }
   })
+  if (option('--versus')) result.comparison = compareRuns(result, readJson(option('--versus')))
   const text = `${JSON.stringify(result, null, 2)}\n`
   if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
   const a = result.agreement_with_rows

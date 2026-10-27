@@ -707,3 +707,35 @@ test('D3: an area that is kept in both windows is stable, one that appears late 
   assert.equal(windows.areas.Otra.stable_keep, false, 'one window is not enough to create an area')
   assert.throws(() => method.analyzeWindows(late, team, { cut: '2027-01-01' }), /no rows/)
 })
+
+// ---- D4: comparing two versions, and a judge that is not the one that routes
+test('D4: the exact McNemar test of a known case', () => {
+  assert.ok(Math.abs(experiment.mcnemarExact(8, 2) - 0.1094) < 0.0005, '8 against 2 of 10 discordant pairs: p = 0.109')
+  assert.equal(experiment.mcnemarExact(5, 5), 1)
+  assert.equal(experiment.mcnemarExact(0, 0), 1)
+  assert.ok(experiment.mcnemarExact(20, 3) < 0.001)
+  assert.equal(experiment.mcnemarExact(3, 20), experiment.mcnemarExact(20, 3))
+})
+
+test('D4: a difference of one case is inside the noise and a clear one is not', () => {
+  const mk = (flags) => ({ results: flags.map((f, i) => ({ key: `k${i}`, area_agrees: f[0], person_agrees: f[1] })) })
+  const base = Array.from({ length: 60 }, () => [true, true])
+  const oneCase = base.map((f, i) => (i === 0 ? [false, true] : f))
+  assert.ok(experiment.compareRuns(mk(base), mk(oneCase)).area.p >= 1, 'one case of difference is not a signal')
+  const clear = base.map((f, i) => (i < 15 ? [false, true] : f))
+  const result = experiment.compareRuns(mk(base), mk(clear))
+  assert.equal(result.paired, 60)
+  assert.deepEqual([result.area.only_first, result.area.only_second], [15, 0])
+  assert.ok(result.area.p < 0.001)
+  assert.equal(experiment.compareRuns(mk(base), { results: [{ key: 'other', area_agrees: true }] }).paired, 0, 'only the requests both routed are compared')
+})
+
+test('D4: the result says when the judge is the same model as the router', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const provider = { async complete (req) { return req.schema.properties.indicators ? { json: { indicators: ['1.1', '1.2', '2.3', '3.3'].map((id) => ({ id, score: 0, reason: 'x' })) } } : { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const same = await runExperiment(rows, spec, team, { provider, judge: true, models: { router: 'm', judge: 'm' } })
+  assert.deepEqual(same.judge, { model: 'm', router_model: 'm', same_model: true })
+  const other = await runExperiment(rows, spec, team, { provider, judge: true, models: { router: 'm', judge: 'n' } })
+  assert.equal(other.judge.same_model, false)
+  assert.equal((await runExperiment(rows, spec, team, { provider })).judge, null)
+})

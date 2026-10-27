@@ -1613,3 +1613,14 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Subir la versión con cada variable nueva: obliga a cada driver a declarar de nuevo sin que nada se haya roto.
 **Consecuencias:** `docs/CONTRATO-DE-ANFITRION.md`, `docs/MASTER-SPEC.md` §7.5 «Ejecución», `src/config.js`, `src/api/index.js` y `scripts/host-conformance.mjs`, estos tres últimos en piezas aparte del plan.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-312] La estética del panel es la actual, DISENO.md es su referente y nada la rediseña
+
+**Fecha:** 2026-10-27
+**Contexto:** Antes de integrar piezas al canónico, la auditoría de identidad (`origin/wt-identidad`, `docs/investigaciones/identidad-2026-10-26/`) propuso una dirección nueva y midió dos derivas respecto de `panel/DISENO.md`: Orbitron fuera de los títulos (`cd001a46`) y las luces de estado reemplazadas por marcas de contorno (`56a49550`, `99e34df1`). Martín, 2026-10-27 00:45, textual: «no perdamos tiempo en esto. Solo me importa que lo que vaya integrándose al canónico lo haga siguiendo su estética actual sin estropearla».
+**Decisión:** (1) No hay rediseño: la propuesta y los bocetos de esa auditoría quedan descartados y no se usan. (2) `panel/DISENO.md` es el referente de la estética del panel. Un cambio de tokens, colores, fuentes o materiales que no esté en ese documento no entra a `panel/src/styles.css` ni a un componente; si hace falta, primero se cambia el documento, con su medición. (3) Las dos derivas estaban decididas por escrito (UD-036, UD-041, UD-100, UD-130 y los hallazgos H-355 y H-541), así que el panel no se toca y `DISENO.md` pasó a decir lo que el panel es hoy.
+**Alternativas descartadas:**
+- Reponer Orbitron en los títulos y la luz con halo en las marcas de estado: contradice decisiones escritas del dueño (UD-041, UD-100, UD-130) y mediciones de legibilidad (J1-A-55).
+- Adoptar la dirección de la auditoría: Martín pidió no perder tiempo en esto.
+**Consecuencias:** `panel/DISENO.md` abre con su condición de referente y documenta dónde hay luz de estado y dónde contorno, y que Orbitron es sólo la marca.
+**Condiciones de reversión:** Que Martín pida un rediseño.

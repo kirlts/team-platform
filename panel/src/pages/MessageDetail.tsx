@@ -18,6 +18,7 @@ import { canReplyTo } from '@/lib/handoff'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { ReviewPending } from '@/components/ReviewPending'
+import { AgentWork } from '@/components/AgentWork'
 import { Recipients } from '@/components/Recipients'
 import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
@@ -260,6 +261,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           )}
           </div>
 
+          <AgentWork message={m} />
           <ReviewPending message={m} />
 
           {/* What was attached comes before the words (mockup: «Previsualización de»): the gallery shows the medium and its siblings. */}

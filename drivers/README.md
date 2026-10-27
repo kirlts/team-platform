@@ -123,4 +123,6 @@ El tope de máquinas lo hace cumplir create, contando las máquinas vivas con la
 TEAM_URL=https://team.ejemplo.cl TEAM_EMAIL=… TEAM_PASSWORD=… CANARY_AREA="Canario" node scripts/canary.mjs
 ```
 
+Con una identidad por cabecera firmada (`IDENTITY_PROVIDER=delegated`, `DELEGATED_MODE=signed-header`) no hay clave de persona: `CANARY_DELEGATED_SECRET` y `CANARY_USER_EMAIL` firman cada petición como Editor. En una instalación nueva, `CANARY_CREATE=1` crea el área y el miembro agente que falten (`CANARY_AGENT` es entonces su correo), y `CANARY_AREA_MODEL` fija el modelo del área para que la corrida cueste lo que el anfitrión declaró. Sin `CANARY_CREATE`, un área o un agente ausentes dejan el canario en rojo, que es lo que una instancia de producción tiene que decir.
+
 Las variables y los códigos están en la cabecera del guion.

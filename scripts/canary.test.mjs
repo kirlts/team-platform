@@ -17,21 +17,25 @@ import { main, RED, USAGE } from './canary.mjs'
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-canary.mjs', import.meta.url))
 let PORT = 0 // ephemeral, set after listen
 
+/** A real worker (analysis and `execute` handlers) over `env`, with the fake `claude` as the session. */
+function workerFor (env, vault, port) {
+  const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(port) }, {
+    execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${port}`, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 0, maxAttempts: 1 }
+  })
+  const handlers = {
+    ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }),
+    execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders })
+  }
+  const worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
+  worker.start()
+  return worker
+}
+
 describe('scripts/canary.mjs', () => {
   let env, worker, vault, editor
   const cookieHeaders = (cookie) => ({ cookie, 'x-team-request': 'panel' })
 
-  function startWorker () {
-    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, {
-      execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 0, maxAttempts: 1 }
-    })
-    const handlers = {
-      ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }),
-      execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders })
-    }
-    worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
-    worker.start()
-  }
+  const startWorker = () => { worker = workerFor(env, vault, PORT) }
   const baseEnv = () => ({ TEAM_URL: `http://127.0.0.1:${PORT}`, TEAM_EMAIL: 'ed@x.org', TEAM_PASSWORD: 'una clave larga de prueba 1', CANARY_AREA: 'Canary' })
   const run = async (extra = {}, options = {}) => {
     const out = []; const err = []
@@ -127,5 +131,65 @@ describe('scripts/canary.mjs', () => {
     const bad = await run({ TEAM_PASSWORD: 'otra clave que no es' })
     assert.equal(bad.code, RED)
     assert.match(bad.err, /CANARY FAILED at «identity»: login answered 401/)
+  })
+})
+
+describe('scripts/canary.mjs against an instance whose identity is a signed header (the host\'s session; no password anywhere)', () => {
+  const SECRET = 'a shared secret of the test, long enough'
+  let env, worker, vault, port
+  const run = async (extra = {}, options = {}) => {
+    const out = []; const err = []
+    const code = await main({ TEAM_URL: `http://127.0.0.1:${port}`, CANARY_DELEGATED_SECRET: SECRET, CANARY_USER_EMAIL: 'canary@host.example', CANARY_AREA: 'Canary', CANARY_AGENT: 'claude@host.example', ...extra }, { out: (l) => out.push(l), err: (l) => err.push(l), ...options })
+    return { code, out: out.join('\n'), err: err.join('\n') }
+  }
+
+  before(async () => {
+    env = await makeEnv({ config: { identity: { provider: 'delegated', provision: 'host', delegated: { mode: 'signed-header', secrets: [SECRET] } } }, modules: { analyze: async (bundle, opts) => fakeAnalyze(bundle, opts) } })
+    vault = createVault(loadMasterKey({ dataDir: env.dir }))
+    await env.app.listen({ host: '127.0.0.1', port: 0 }); port = env.app.server.address().port
+    worker = workerFor(env, vault, port)
+    process.env.FAKE_CANARY_MODE = 'ok'
+    delete process.env.FAKE_CANARY_SLEEP_MS
+  })
+  after(async () => { await worker?.stop(); await env.close() })
+
+  it('red at «agent» on an instance with no agent, and nothing is created without CANARY_CREATE', async () => {
+    const r = await run()
+    assert.equal(r.code, RED)
+    assert.match(r.err, /CANARY FAILED at «agent»: no active agent member matches «claude@host\.example»/)
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM members WHERE kind = 'agent'").get().n, 0)
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM areas WHERE title = 'Canary'").get().n, 0)
+  })
+
+  it('green with the signed identity: CANARY_CREATE makes the agent and the area, CANARY_AREA_MODEL sets the area\'s models, and the person who signs enters as an editor the host provisions', async () => {
+    const r = await run({ CANARY_CREATE: '1', CANARY_AREA_MODEL: 'claude-haiku-5-5', CANARY_AREA_DESCRIPTION: 'Mensajes del canario.' })
+    assert.equal(r.code, 0, r.err)
+    assert.match(r.out, /^CANARY OK/)
+    const agent = env.db.prepare("SELECT email, name, kind FROM members WHERE kind = 'agent'").get()
+    assert.deepEqual({ ...agent }, { email: 'claude@host.example', name: 'Claude', kind: 'agent' })
+    const area = env.db.prepare("SELECT title, description, execute_model, execute_model_light FROM areas WHERE title = 'Canary'").get()
+    assert.deepEqual({ ...area }, { title: 'Canary', description: 'Mensajes del canario.', execute_model: 'claude-haiku-5-5', execute_model_light: 'claude-haiku-5-5' })
+    const signer = env.db.prepare("SELECT role FROM members WHERE email = 'canary@host.example'").get()
+    assert.equal(signer.role, 'editor', 'the host provisions the member with the role it declares in the header')
+    assert.equal(env.db.prepare('SELECT status FROM messages ORDER BY id DESC LIMIT 1').get().status, 'closed')
+  })
+
+  it('green again without CANARY_CREATE once they exist, and the area is not recreated', async () => {
+    const r = await run()
+    assert.equal(r.code, 0, r.err)
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM areas WHERE title = 'Canary'").get().n, 1)
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM members WHERE kind = 'agent'").get().n, 1)
+  })
+
+  it('red at «identity» with a secret the instance does not know: the signature is checked, not the header', async () => {
+    const r = await run({ CANARY_DELEGATED_SECRET: 'another secret that is not the instance\'s' })
+    assert.equal(r.code, RED)
+    assert.match(r.err, /CANARY FAILED at «identity»: GET \/api\/me answered 401/)
+  })
+
+  it('red at «identity» when the clock of the caller is outside the tolerance of the signature', async () => {
+    const r = await run({}, { now: () => Date.now() - 3_600_000 })
+    assert.equal(r.code, RED)
+    assert.match(r.err, /CANARY FAILED at «identity»: GET \/api\/me answered 401/)
   })
 })

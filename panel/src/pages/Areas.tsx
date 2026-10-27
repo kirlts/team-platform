@@ -217,14 +217,11 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
       <RowCheck id={area.id} title={area.title} selection={selection} align="row" />
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
-      <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="py-1 text-sm font-semibold hover:text-accent-deep hover:underline pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">
-        {/* One child: a flex container would trim the space between the head and the glued last word. */}
-        <span>
-          {head}
-          <span className="whitespace-nowrap">
-            {tail}
-            <ChevronRight size={16} aria-hidden className="ml-1 inline-block shrink-0 align-[-0.2em] text-muted" />
-          </span>
+      <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="py-1 text-sm font-semibold hover:text-accent-deep hover:underline pointer-coarse:py-[11px]">
+        {head}
+        <span className="whitespace-nowrap">
+          {tail}
+          <ChevronRight size={16} aria-hidden className="ml-1 inline-block shrink-0 align-[-0.2em] text-muted" />
         </span>
       </Link>
       {/* The counts of every area are drawn, zero included (UD-211): the column is never blank. A count above zero leads to Mensajes filtered by the area and that state. */}

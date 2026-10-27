@@ -77,9 +77,19 @@ export function rowsSchema (team) {
   }
 }
 
-/** Cuts long units and groups the pieces in batches of about `maxChars` characters. */
+/** Every unit says whether it is confidential. A unit without the field is refused: «open» by default is how a recorded meeting reaches the rows. */
+export function validateUnits (units) {
+  const bad = units.map((u, i) => [u, i]).filter(([u]) => typeof u?.confidential !== 'boolean')
+  if (bad.length) throw new Error(`Every unit needs a boolean "confidential"; ${bad.length} do not (first at line ${bad[0][1] + 1}).`)
+  return units
+}
+
+/**
+ * Cuts long units and groups the pieces in batches of about `maxChars` characters. A batch never mixes confidential and open units: the model would be able
+ * to attribute a request to the wrong unit and the check only knows that the id exists.
+ */
 export function batchUnits (units, { maxChars = BATCH_CHARS, unitChars = UNIT_CHARS } = {}) {
-  const pieces = units.flatMap((u) => {
+  const pieces = [...units.filter((u) => !u.confidential), ...units.filter((u) => u.confidential)].flatMap((u) => {
     const text = String(u.text ?? '').trim()
     return text.length ? Array.from({ length: Math.ceil(text.length / unitChars) }, (_, i) => ({ ...u, text: text.slice(i * unitChars, (i + 1) * unitChars) })) : []
   })
@@ -87,7 +97,7 @@ export function batchUnits (units, { maxChars = BATCH_CHARS, unitChars = UNIT_CH
   let current = []
   let size = 0
   for (const p of pieces) {
-    if (current.length && size + p.text.length > maxChars) { batches.push(current); current = []; size = 0 }
+    if (current.length && (size + p.text.length > maxChars || Boolean(current[0].confidential) !== Boolean(p.confidential))) { batches.push(current); current = []; size = 0 }
     current.push(p)
     size += p.text.length
   }
@@ -98,9 +108,12 @@ export function batchUnits (units, { maxChars = BATCH_CHARS, unitChars = UNIT_CH
 const unitBlock = (u) => `[${u.id}] fuente: ${u.source ?? ''} | fecha de la unidad: ${u.date ?? ''} | autor por omisión: ${u.author ?? ''}${u.confidential ? ' | confidencial' : ''}\n${u.text}`
 
 // Privacy net for what the model wrote: an address, or a run of digits that can be an identity number or a phone, is replaced and counted.
-// It decides nothing about a request; it only keeps personal data out of the rows if the instructions were not followed.
-const PERSONAL = [[/[\w.+-]+@[\w-]+\.[\w.]+/g, '[correo]'], [/\+?\d[\d\s.-]{7,}\d/g, '[número]']]
-const clean = (text, counter) => PERSONAL.reduce((t, [re, to]) => t.replace(re, () => { counter.n++; return to }), String(text ?? ''))
+// It decides nothing about a request; it only keeps personal data out of the rows if the instructions were not followed. It does not detect names
+// of people or companies: the rows of a confidential meeting are read by a person before `propose` (docs/METODO-DE-REPARTO.md, section 2).
+// An ISO date (2026-03-04) is not a number to hide.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const PERSONAL = [[/[\w.+-]+@[\w-]+\.[\w.]+/g, '[correo]', () => true], [/\+?\d[\d\s.-]{7,}\d/g, '[número]', (m) => !ISO_DATE.test(m)]]
+const clean = (text, counter) => PERSONAL.reduce((t, [re, to, applies]) => t.replace(re, (m) => { if (!applies(m)) return m; counter.n++; return to }), String(text ?? ''))
 
 /** Validates the rows of one batch against the team and the units, and attaches the unit's source and confidentiality. Drops what has no known unit. */
 export function finishRows (requests, batch, team, counter = { n: 0 }) {
@@ -110,14 +123,15 @@ export function finishRows (requests, batch, team, counter = { n: 0 }) {
   return requests.flatMap((r) => {
     const unit = byId.get(String(r.unit).replace(/[[\]\s]/g, ''))
     if (!unit || !r.summary || !['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'].every((k) => inRange(r[k]))) return []
-    return [{ ...r, unit: unit.id, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : (unit.date ?? ''), summary: clean(r.summary, counter), module: clean(r.module, counter), maximize: clean(r.maximize, counter), sacrifice: clean(r.sacrifice, counter),
-      limits: (r.limits ?? []).filter((id) => limits.has(id)), source: unit.source ?? '', confidential: Boolean(unit.confidential) }]
+    return [{ ...r, unit: unit.id, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : (unit.date ?? ''), summary: clean(r.summary, counter), intent: clean(r.intent, counter), object: clean(r.object, counter), module: clean(r.module, counter), maximize: clean(r.maximize, counter), sacrifice: clean(r.sacrifice, counter),
+      limits: (r.limits ?? []).filter((id) => limits.has(id)), source: unit.source ?? '', confidential: unit.confidential === true }]
   })
 }
 
 /** Runs the extraction. `provider` has `complete({ system, messages, schema, effort })`. Returns `{ rows, batches, redacted, failed }`. */
 export async function extractRows (units, team, { provider, parallel = 6, cacheDir = null, onBatch = () => {} } = {}) {
   validateTeam(team)
+  validateUnits(units)
   const batches = batchUnits(units)
   const system = systemPrompt(team)
   const schema = rowsSchema(team)

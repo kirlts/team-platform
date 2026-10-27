@@ -36,7 +36,11 @@ Reglas de forma:
 
 El equipo aporta tres cosas. Ninguna sale del repositorio.
 
-**Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. Se recomiendan cuatro semanas o más. Una reunión grabada lleva `confidential: true`. De ella salen resúmenes abstractos y conteos, nunca una cita ni un hecho concreto. Sus resúmenes no entran a los ejemplos de una descripción.
+**Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. Se recomiendan cuatro semanas o más. `confidential` es obligatorio y booleano en cada unidad. Una unidad sin él se rechaza: «abierto» por omisión es la forma en que una reunión grabada llega a una salida. Una reunión grabada lleva `confidential: true`.
+
+Las filas de una unidad confidencial suman a los conteos, las medias y las proporciones: tamaño, quién pide, límites tocados, fracción que exige a una persona. Ninguna palabra suya llega a una salida. Eso excluye las frases de «Se maximiza» y «Se sacrifica», los ejemplos, los nombres de módulos y de intenciones, y el título de un área. Vale para el informe de `analyze`, el archivo de carga, la lista de áreas descartadas y los perfiles. Una prueba siembra frases únicas en filas confidenciales y verifica que no aparecen.
+
+Un área con más de la mitad de sus filas confidenciales (`--max-confidential-share`) no se propone y en toda salida se llama «Área confidencial N». La red de privacidad de la extracción reemplaza correos y cifras largas. No detecta nombres de personas ni de empresas, así que una persona lee las filas de una unidad confidencial antes de correr `propose`. Un lote de extracción nunca mezcla unidades confidenciales con abiertas.
 
 **Equipo** (`team.json`):
 
@@ -105,11 +109,11 @@ Cuándo cambia el conjunto. Nace un área cuando un subconjunto de otra cumple l
 
 | Cláusula | Cómo se obtiene |
 |---|---|
-| Se maximiza | Hasta tres frases representativas de `maximize`: la palabra más repetida elige la frase más frecuente que la contiene, y esa palabra sale de la ronda siguiente |
+| Se maximiza | Hasta tres frases representativas de `maximize` de las filas no confidenciales: la palabra más repetida elige la frase más frecuente que la contiene, y esa palabra sale de la ronda siguiente |
 | Se sacrifica | Lo mismo con `sacrifice` |
 | Entorno | Los dos miembros que más piden, con su porcentaje, y la fracción que exige a una persona |
 | Límites | Hasta tres límites más tocados, cada uno con quién lo levanta |
-| Entra | Hasta tres resúmenes, uno por módulo frecuente, nunca de una unidad confidencial |
+| Entra | Hasta tres resúmenes, uno por módulo frecuente, de filas no confidenciales |
 | No entra | Las áreas con que el reconocimiento por texto más la confunde |
 
 La descripción tiene a lo más 1.024 caracteres (`TEMPLATE_DESCRIPTION_MAX`). Si no cabe, se quitan primero los ejemplos, luego el borde y luego el entorno. Las cláusulas con propósito, qué se maximiza, qué se sacrifica y límites no se quitan: si ellas solas no caben, `propose` se detiene.
@@ -143,7 +147,7 @@ Los campos propios de una intención salen de lo que los pedidos de ese subconju
 | Qué decide | Pedidos donde él tiene el valor que falta, por área, y los límites de persona que más levanta |
 | Qué no decide (agente) | Los límites que levanta una persona |
 
-Las reuniones confidenciales aportan sólo conteos y patrones. El perfil de una persona calibra el tono y el grado de guía. El reparto lo decide el valor que falta en cada pedido, porque quién pide explica poco de cómo se atiende. Un perfil no supera `config.members.profileMaxLength` (4.000 caracteres).
+Las reuniones confidenciales aportan sólo conteos y ninguna frase suya entra a un perfil. Un perfil nombra sólo las áreas del archivo de carga. El perfil de una persona calibra el tono y el grado de guía. El reparto lo decide el valor que falta en cada pedido, porque quién pide explica poco de cómo se atiende. Un perfil no supera `config.members.profileMaxLength` (4.000 caracteres).
 
 ## 7. Descripción del proyecto
 
@@ -187,7 +191,7 @@ Los procedimientos se replican con alguien de quien sólo hay una reunión de in
 |---|---|---|
 | 1 | Agregar sus unidades y extraer sus filas | Cada pedido con sus dimensiones |
 | 2 | Correr `analyze`: sus pedidos caen en las áreas existentes o piden una nueva con los cuatro criterios | Si cumple los cuatro nace el área; si no, su trabajo entra al área más cercana |
-| 3 | Redactar su perfil con `propose` y corregirlo con la persona | Ninguna cita ni hecho concreto de la reunión |
+| 3 | Redactar su perfil con `propose` y corregirlo con la persona | Ninguna palabra de la reunión en el perfil |
 | 4 | Correr el experimento con 20 pedidos donde el valor es suyo y 20 donde no | Lo incluye cuando el valor es suyo y no lo incluye en los otros; el umbral lo fija el equipo |
 | 5 | Comparar su perfil completo con uno de una línea en la misma corrida | El completo no puntúa menos en los indicadores |
 | 6 | Pedir a la persona que marque lo que no la describe | Una corrección por cláusula como máximo |
@@ -258,4 +262,5 @@ La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`cr
 | `--map-size` | 10 | Los diez módulos más frecuentes definen el mapa; una lista más larga llega a módulos que aparecen una vez |
 | `--person-value-above` | 0,5 | Definición: el valor que falta es de una persona cuando pasa de la mitad de la escala |
 | `--seed` | 7 | Semilla fija para repetir el informe |
+| `--max-confidential-share` | 0,5 | Definición: un área está sustentada por filas confidenciales cuando son más de la mitad de las suyas |
 | `--sample` (experimento) | 60 | Margen de 0,13 con 95 % de confianza |

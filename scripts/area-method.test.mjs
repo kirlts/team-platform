@@ -6,7 +6,9 @@ import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import * as method from './area-method.mjs'
 import { cohenD, DEFAULTS, fitClauses, analyze, propose, readJson, readJsonl, recognition, requiresPerson, seededRandom, topPhrases, validateLoadFile, validateTeam } from './area-method.mjs'
+import * as extraction from './request-rows.mjs'
 import { batchUnits, extractRows, finishRows, rowsSchema, systemPrompt } from './request-rows.mjs'
 import { runExperiment, scoreRouting, routerPrompt, SAMPLE } from './route-experiment.mjs'
 import { parseTemplate } from '../src/analyze/templates.js'
@@ -137,7 +139,7 @@ test('the product creates what the load file describes', async () => {
 const units = readJsonl(path.join(fixtures, 'units.jsonl'))
 
 test('units are cut and batched, and the prompt and schema carry the team', () => {
-  assert.equal(batchUnits(units).length, 1)
+  assert.equal(batchUnits(units).length, 2, 'one batch of open units and one of confidential units')
   assert.equal(batchUnits([{ id: 'x', text: 'a'.repeat(25000) }], { maxChars: 10000, unitChars: 9000 }).length, 3)
   assert.equal(batchUnits([{ id: 'x', text: '  ' }]).length, 0)
   assert.match(systemPrompt(team), /Ana \(Soy la dueña/)
@@ -161,9 +163,9 @@ test('extraction validates and cleans what the model returns', async () => {
     }
   }
   const result = await extractRows(units, team, { provider })
-  assert.equal(result.batches, 1)
+  assert.equal(result.batches, 2)
   assert.equal(seen[0].effort, 'low')
-  assert.match(seen[0].messages[0].content, /\[u3\] fuente: reunión semanal .* confidencial/)
+  assert.match(seen.map((r) => r.messages[0].content).join('\n'), /\[u3\] fuente: reunión semanal .* confidencial/)
   assert.deepEqual(result.rows.map((r) => r.unit), ['u1', 'u2', 'u3'], 'an unknown unit and a value out of range are dropped')
   assert.deepEqual(result.rows[0].limits, ['customer_data'], 'a limit the team does not have is dropped')
   assert.match(result.rows[1].summary, /\[correo\] sobre \[número\]/)
@@ -175,7 +177,7 @@ test('extraction validates and cleans what the model returns', async () => {
 test('a failed batch is counted and does not stop the others', async () => {
   const provider = { async complete () { throw new Error('sin servicio') } }
   const result = await extractRows(units, team, { provider })
-  assert.deepEqual([result.failed, result.rows.length], [1, 0])
+  assert.deepEqual([result.failed, result.rows.length], [2, 0])
 })
 
 test('finishRows ignores a row with a malformed date and keeps the date of the unit', () => {
@@ -212,4 +214,80 @@ test('the experiment routes a sample through the provider and reports counts, co
   assert.match(routerPrompt(spec, team), /### Catálogo y precios\nPropósito: /)
   assert.match(prompts[0].system, /^Repartes pedidos/)
   assert.equal(SAMPLE, 60)
+})
+
+// ---- B3: what a confidential unit says never reaches an output
+const SEEDED = ['zxqmargen-secreto-acme', 'zxqaviso-sindicato-previo', 'zxqresumen-reunion-despido', 'zxqmodulo-liquidaciones', 'zxqintencion-reservada']
+
+/** The invented corpus with 15 of the 40 catalog rows marked confidential and carrying a unique phrase in every free-text field. */
+function seededCorpus () {
+  let seeded = 0
+  return rows.map((r) => {
+    if (r.object !== 'catálogo y precios' || seeded >= 15) return r
+    seeded++
+    return { ...r, confidential: true, maximize: SEEDED[0], sacrifice: SEEDED[1], summary: `${SEEDED[2]} ${seeded}`, module: SEEDED[3], intent: SEEDED[4] }
+  })
+}
+const everything = (value) => JSON.stringify(value)
+
+test('B3: no phrase seeded in a confidential row appears in the report, the load file or the skipped list', () => {
+  const corpus = seededCorpus()
+  const result = propose(corpus, team, { purposes, actor: 'ana@tienda.example' })
+  const text = everything(result)
+  for (const phrase of SEEDED) assert.ok(!text.includes(phrase), `${phrase} reached an output`)
+  assert.ok(result.spec.areas.some((a) => a.title === 'Catálogo y precios'), 'the area still exists: 25 of its 40 rows are open')
+})
+
+test('B3: an area that exists only through confidential rows is not proposed and its title is written nowhere', () => {
+  const extra = Array.from({ length: 30 }, (_, i) => ({ ...rows[0], unit: `c${i}`, object: 'despidos de personal', module: 'liquidaciones', summary: `Revisar el despido número ${i}`, confidential: true, maximize: 'trato digno', sacrifice: 'rapidez' }))
+  const corpus = [...rows, ...extra]
+  const result = propose(corpus, team, { purposes })
+  assert.ok(!result.spec.areas.some((a) => /despidos/i.test(a.title)))
+  assert.ok(!everything(result).match(/despido/i), 'neither the title nor a word of the rows is written')
+  const hidden = result.report.areas.find((a) => /^Área confidencial/.test(a.title))
+  assert.ok(hidden, 'its counts remain, under a neutral name')
+  assert.equal(hidden.keep, false)
+  assert.equal(hidden.public_support.pass, false)
+  assert.ok(result.skipped.some((s) => s.title === hidden.title && s.failed.includes('public_support')))
+})
+
+test('B3: a profile does not name an area that is not proposed and does not quote a confidential row', () => {
+  const corpus = seededCorpus()
+  const { spec } = propose(corpus, team, { purposes })
+  const profiles = spec.members.map((m) => m.profile).join('\n')
+  assert.ok(!/Contabilidad/.test(profiles), 'Contabilidad is not an area of the load file')
+  for (const phrase of SEEDED) assert.ok(!profiles.includes(phrase))
+})
+
+test('B3: a row or a unit without the confidential flag is refused', () => {
+  const { confidential: _drop, ...open } = rows[0]
+  assert.throws(() => analyze([open, ...rows.slice(1)], team), /confidential/)
+  assert.throws(() => propose([open, ...rows.slice(1)], team, { purposes }), /confidential/)
+  assert.throws(() => method.validateRows([{ ...rows[0], confidential: 'no' }]), /confidential/)
+  const { confidential: _also, ...unit } = units[0]
+  assert.throws(() => extraction.validateUnits([unit]), /confidential/)
+  return assert.rejects(extractRows([unit], team, { provider: { async complete () { throw new Error('must not be called') } } }), /confidential/)
+})
+
+test('B3: a batch never mixes confidential and open units', () => {
+  const mixed = [{ id: 'a', confidential: false, text: 'x'.repeat(100) }, { id: 'b', confidential: true, text: 'y'.repeat(100) }, { id: 'c', confidential: false, text: 'z'.repeat(100) }]
+  const batches = batchUnits(mixed)
+  assert.equal(batches.length, 2)
+  for (const b of batches) assert.equal(new Set(b.map((u) => Boolean(u.confidential))).size, 1)
+})
+
+test('B3: the labels list hides what only a confidential row says', () => {
+  const corpus = [...rows, { ...rows[0], unit: 'z1', object: 'despidos de personal', intent: 'reservada', confidential: true }]
+  const listing = method.labels(corpus)
+  assert.ok(!everything(listing).includes('despidos'))
+  assert.ok(listing.objects.some((o) => o.confidential_only === true && o.n === 1))
+})
+
+test('B3: the privacy net also cleans intent and object, and leaves an ISO date alone', () => {
+  const counter = { n: 0 }
+  const [row] = finishRows([fakeRow('u1', { summary: 'Revisar el pedido del 2026-03-04', intent: 'llamar al 987654321', object: 'mail ana@tienda.example' })], [{ id: 'u1', date: '2026-03-02' }], team, counter)
+  assert.match(row.summary, /2026-03-04/)
+  assert.match(row.intent, /\[número\]/)
+  assert.match(row.object, /\[correo\]/)
+  assert.equal(counter.n, 2)
 })

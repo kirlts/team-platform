@@ -37,7 +37,10 @@ export const DEFAULTS = Object.freeze({
   personValueAbove: 0.5,
   // A description of an area holds at most three limits: the description is capped at TEMPLATE_DESCRIPTION_MAX characters.
   maxLimitsListed: 3,
-  maxTerms: 3
+  maxTerms: 3,
+  // Definition: an area is supported by its confidential rows when they are more than half of its rows. The title, the phrases and the examples of an
+  // area come from the rows that can be quoted; if most rows cannot, the area is not proposed and its title is not written in any output.
+  maxConfidentialShare: 0.5
 })
 
 export const DIMENSIONS = Object.freeze(['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'])
@@ -126,6 +129,16 @@ export function validateTeam (team) {
 
 export const limitById = (team) => new Map((team.limits ?? []).map((l) => [l.id, l]))
 
+/**
+ * Every row says whether it comes from a confidential unit. A row without the field is refused: the default of «open» is how a recorded meeting reached the output.
+ * Throws with the first rows that fail.
+ */
+export function validateRows (rows) {
+  const bad = rows.map((r, i) => [r, i]).filter(([r]) => typeof r?.confidential !== 'boolean')
+  if (bad.length) throw new Error(`Every row needs a boolean "confidential"; ${bad.length} do not (first at line ${bad[0][1] + 1}).`)
+  return rows
+}
+
 /** Whether the request needs a person: the missing value is mostly a person's, or it touches a limit that a person lifts. */
 export function requiresPerson (row, team, { personValueAbove = DEFAULTS.personValueAbove } = {}) {
   const limits = limitById(team)
@@ -138,8 +151,25 @@ const slug = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g,
 const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /** The area (family) title of each row: the object label through the families map, or the label itself with a capital. */
-export function withAreas (rows, families = {}) {
-  return rows.map((r) => ({ ...r, area: families[r.object] ?? capital(r.object) }))
+export function withAreas (rows, families = {}, hidden = new Map()) {
+  return rows.map((r) => { const title = families[r.object] ?? capital(r.object); return { ...r, area: hidden.get(title) ?? title } })
+}
+
+/**
+ * The areas whose rows are mostly confidential, with the neutral name that replaces their title in every output (`Área confidencial 1`, in the order of the titles).
+ * Their counts still enter the report; their words never do.
+ */
+export function hiddenAreas (rows, families = {}, maxShare = DEFAULTS.maxConfidentialShare) {
+  const by = new Map()
+  for (const r of rows) {
+    const t = families[r.object] ?? capital(r.object)
+    const c = by.get(t) ?? { n: 0, confidential: 0 }
+    c.n++
+    if (r.confidential) c.confidential++
+    by.set(t, c)
+  }
+  const titles = [...by.entries()].filter(([, c]) => c.confidential / c.n > maxShare).map(([t]) => t).sort()
+  return new Map(titles.map((t, i) => [t, `Área confidencial ${i + 1}`]))
 }
 
 const weeksOf = (rows) => {
@@ -147,12 +177,18 @@ const weeksOf = (rows) => {
   return t.length > 1 ? Math.max(1, (Math.max(...t) - Math.min(...t)) / 604800000) : 1 // 604800000 ms: seven days
 }
 
-/** What the rows of one group say: sizes, means of the dimensions, who asks, who holds the value, limits, terms and modules. */
+/**
+ * What the rows of one group say: sizes, means of the dimensions, who asks, who holds the value, limits, terms and modules.
+ * The counts and the means use every row. Everything that is words (phrases, modules, intents) comes only from the rows that are not confidential.
+ */
 export function profileOf (rows, team, opts = {}, totalRows = rows.length, weeks = weeksOf(rows)) {
   const n = rows.length
+  const open = rows.filter((r) => !r.confidential)
   const share = (items, k) => top(items, k).map(([name, c]) => ({ name, n: c, share: round(c / n) }))
   return {
     n,
+    n_open: open.length,
+    confidential_share: round(n ? (n - open.length) / n : 0),
     share: round(n / totalRows),
     per_week: round(n / weeks, 2),
     dimensions: Object.fromEntries(DIMENSIONS.map((d) => [d, round(mean(rows.map((r) => Number(r[d]) || 0)))])),
@@ -160,11 +196,11 @@ export function profileOf (rows, team, opts = {}, totalRows = rows.length, weeks
     askers: share(rows.map((r) => r.who), 4),
     holders: share(rows.map((r) => r.value_holder), 4),
     limits: top(rows.flatMap((r) => r.limits ?? []), 5).map(([id, c]) => ({ id, n: c })),
-    maximize: topPhrases(rows.map((r) => r.maximize).filter(Boolean)),
-    sacrifice: topPhrases(rows.map((r) => r.sacrifice).filter(Boolean)),
-    modules: top(rows.map((r) => String(r.module ?? '').toLowerCase()), opts.mapSize ?? DEFAULTS.mapSize).map(([m]) => m),
+    maximize: topPhrases(open.map((r) => r.maximize).filter(Boolean)),
+    sacrifice: topPhrases(open.map((r) => r.sacrifice).filter(Boolean)),
+    modules: top(open.map((r) => String(r.module ?? '').toLowerCase()), opts.mapSize ?? DEFAULTS.mapSize).map(([m]) => m),
     correction_share: round(rows.filter((r) => r.correction).length / n),
-    intents: top(rows.map((r) => r.intent), 12).map(([label, c]) => ({ label, n: c }))
+    intents: top(open.map((r) => r.intent), 12).map(([label, c]) => ({ label, n: c }))
   }
 }
 
@@ -221,8 +257,10 @@ const overlap = (a, b) => { const small = Math.min(a.length, b.length); return s
 /** Measures every candidate area against the four criteria of the method. Returns the report. */
 export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   validateTeam(team)
+  validateRows(rows)
   const o = { ...DEFAULTS, ...overrides }
-  const tagged = withAreas(rows, families)
+  const hidden = hiddenAreas(rows, families, o.maxConfidentialShare)
+  const tagged = withAreas(rows, families, hidden)
   const weeks = weeksOf(tagged)
   const titles = [...new Set(tagged.map((r) => r.area))]
   const byArea = new Map(titles.map((t) => [t, tagged.filter((r) => r.area === t)]))
@@ -246,7 +284,10 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
       distinct_treatment: { pass: Object.values(effects).every((e) => e.distinct), against: effects, min_effect: o.minEffect }
     }
     const nearest = others.map((t) => ({ t, d: Math.hypot(...DIMENSIONS.map((dim) => p.dimensions[dim] - profiles.get(t).dimensions[dim])) })).sort((a, b) => a.d - b.d)[0]
-    return { title, id: slug(title), profile: p, criteria, keep: Object.values(criteria).every((c) => c.pass), merge_into: Object.values(criteria).every((c) => c.pass) ? null : nearest?.t ?? null }
+    // An area that is mostly confidential is never kept, whatever its criteria say: it cannot be described with words that can be quoted.
+    const publicSupport = { pass: p.confidential_share <= o.maxConfidentialShare, confidential_share: p.confidential_share, max: o.maxConfidentialShare }
+    const keep = Object.values(criteria).every((c) => c.pass) && publicSupport.pass
+    return { title, id: slug(title), profile: p, criteria, public_support: publicSupport, keep, merge_into: keep ? null : nearest?.t ?? null }
   })
   return { rows: tagged.length, weeks: round(weeks, 1), partition: recognized, areas, knobs: o }
 }
@@ -337,6 +378,8 @@ export function templateMarkdown ({ intent, area, profile, team, extraFields = [
 // ---- member profiles
 /** A draft profile in the first person, from what the corpus says about the member. The `role` sentence is the member's own. */
 export function memberProfile (member, rows, team, opts = {}) {
+  const proposed = opts.areas ? new Set(opts.areas) : null // only the areas that are proposed are named: the others do not exist for the product
+  const inProposed = (r) => !proposed || proposed.has(r.area)
   const asked = rows.filter((r) => r.who === member.name)
   const received = rows.filter((r) => r.to === member.name)
   const held = rows.filter((r) => r.value_holder === member.name)
@@ -344,18 +387,18 @@ export function memberProfile (member, rows, team, opts = {}) {
   const parts = [member.role.trim()]
   const base = member.kind === 'agent' ? received : asked
   if (base.length) {
-    const terms = topPhrases(base.map((r) => r.maximize).filter(Boolean))
-    const lost = topPhrases(base.map((r) => r.sacrifice).filter(Boolean))
+    const terms = topPhrases(base.filter((r) => !r.confidential).map((r) => r.maximize).filter(Boolean)) // words only from rows that can be quoted
+    const lost = topPhrases(base.filter((r) => !r.confidential).map((r) => r.sacrifice).filter(Boolean))
     if (terms.length) parts.push(`Maximizo: ${phrases(terms)}.${lost.length ? ` Acepto que quede apenas suficiente: ${phrases(lost)}.` : ''}`)
-    const areas = top(base.map((r) => r.area), 3).map(([a, c]) => `${a} (${pct(c / base.length)})`)
-    parts.push(member.kind === 'agent' ? `Lo que atiendo se reparte así: ${list(areas)}.` : `Pido sobre todo en ${list(areas)}.`)
+    const areas = top(base.filter(inProposed).map((r) => r.area), 3).map(([a, c]) => `${a} (${pct(c / base.length)})`)
+    if (areas.length) parts.push(member.kind === 'agent' ? `Lo que atiendo se reparte así: ${list(areas)}.` : `Pido sobre todo en ${list(areas)}.`)
   }
   if (member.kind === 'agent') {
     const person = (team.limits ?? []).filter((l) => l.person).map((l) => l.text)
     if (person.length) parts.push(`No decido: ${list(person)}. Eso sube a quien tiene el valor, como una pregunta de una línea con mi recomendación.`)
   } else if (held.length) {
-    const areas = top(held.map((r) => r.area), 3).map(([a, c]) => `${a} (${c})`)
-    parts.push(`Tengo el valor que falta en ${held.length} pedidos: ${list(areas)}. Esas decisiones son mías.`)
+    const areas = top(held.filter(inProposed).map((r) => r.area), 3).map(([a, c]) => `${a} (${c})`)
+    if (areas.length) parts.push(`Tengo el valor que falta en ${held.length} pedidos: ${list(areas)}. Esas decisiones son mías.`)
     const own = top(held.flatMap((r) => r.limits ?? []).filter((id) => limits.get(id)?.person), 2).map(([id]) => limits.get(id).text)
     if (own.length) parts.push(`Lo que sólo yo levanto: ${list(own)}.`)
   }
@@ -370,18 +413,19 @@ export function memberProfile (member, rows, team, opts = {}) {
  */
 export function propose (rows, team, { purposes = {}, families = {}, intents = {}, intentFields = {}, actor, ...overrides } = {}) {
   const report = analyze(rows, team, { families, ...overrides })
-  const tagged = withAreas(rows, families).map((r) => ({ ...r, intent: intents[r.intent] ?? r.intent }))
+  const hidden = hiddenAreas(rows, families, overrides.maxConfidentialShare ?? DEFAULTS.maxConfidentialShare)
+  const tagged = withAreas(rows, families, hidden).map((r) => ({ ...r, intent: intents[r.intent] ?? r.intent }))
   const minTemplate = overrides.minTemplate ?? DEFAULTS.minTemplate
   const missing = report.areas.filter((a) => a.keep && !purposes[a.title]).map((a) => a.title)
   if (missing.length) throw new Error(`A purpose sentence is needed for: ${missing.join(', ')}`)
   const areas = []
   const skipped = []
   report.areas.forEach((entry, index) => {
-    if (!entry.keep) { skipped.push({ title: entry.title, merge_into: entry.merge_into, failed: Object.entries(entry.criteria).filter(([, c]) => !c.pass).map(([k]) => k) }); return }
+    if (!entry.keep) { skipped.push({ title: entry.title, merge_into: entry.merge_into, failed: Object.entries({ ...entry.criteria, public_support: entry.public_support }).filter(([, c]) => !c.pass).map(([k]) => k) }); return }
     // The areas the text most often confuses with this one are named as its borders.
     const borders = Object.keys(report.partition.confusion).filter((k) => k.startsWith(`${entry.title} -> `)).slice(0, 2).map((k) => k.split(' -> ')[1])
     const description = fitClauses(areaClauses(entry, { team, purpose: purposes[entry.title], examples: examplesOf(tagged, entry.title), neighbours: borders }))
-    const mine = tagged.filter((r) => r.area === entry.title)
+    const mine = tagged.filter((r) => r.area === entry.title && !r.confidential) // a template is written with rows that can be quoted
     const templates = [...new Set(mine.map((r) => r.intent))]
       .map((label) => ({ label, n: mine.filter((r) => r.intent === label).length }))
       .filter((i) => i.n >= minTemplate)
@@ -393,7 +437,7 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
       })
     areas.push({ title: entry.title, description, position: index + 1, templates })
   })
-  const members = team.members.filter((m) => m.role).map((m) => ({ email: m.email, profile: memberProfile(m, tagged, team) }))
+  const members = team.members.filter((m) => m.role).map((m) => ({ email: m.email, profile: memberProfile(m, tagged, team, { areas: areas.map((a) => a.title) }) }))
   const spec = { version: 1, ...(actor ? { actor } : {}), areas, members }
   validateLoadFile(spec)
   return { spec, skipped, report }
@@ -421,11 +465,24 @@ export function validateLoadFile (spec) {
   return spec
 }
 
+/**
+ * The objects and intents with their frequency, for the person who groups them into families. A label that only confidential rows use is shown as
+ * `(confidential)` with its count: the words of a recorded meeting do not leave through any output of the method.
+ */
+export function labels (rows) {
+  const listing = (field) => {
+    const all = top(rows.map((r) => r[field]), 1000)
+    const open = new Set(rows.filter((r) => !r.confidential).map((r) => r[field]))
+    return all.map(([label, n]) => (open.has(label) ? { label, n } : { label: '(confidential)', n, confidential_only: true }))
+  }
+  return { objects: listing('object'), intents: listing('intent') }
+}
+
 // ---- command line
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minShare', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'personValueAbove'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minShare', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'personValueAbove', 'maxConfidentialShare'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')
@@ -433,7 +490,8 @@ function main (argv) {
   }
   const rows = readJsonl(rowsFile)
   if (command === 'labels') {
-    out({ objects: top(rows.map((r) => r.object), 1000).map(([label, n]) => ({ label, n })), intents: top(rows.map((r) => r.intent), 1000).map(([label, n]) => ({ label, n })) })
+    try { validateRows(rows) } catch (error) { console.error(error.message); process.exit(1) }
+    out(labels(rows))
     return
   }
   if (!option('--team')) { console.error('Falta --team'); process.exit(2) }

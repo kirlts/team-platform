@@ -89,6 +89,15 @@ describe('scripts/host-conformance.mjs', () => {
     assert.match(r.out, /contract_version: 1 NOT met: 5 of 14 cases failed \(sequence, destroy-twice, destroy-run-fails, destroy-deadline, destroy-shutdown\)/)
   })
 
+  it('a case leaves nothing behind: the job that a shutdown returned to the queue does not run inside the next case (it made «deliver-76» count a DELIVER of another message)', async () => {
+    // «destroy-shutdown» ends with its execute job back in the queue (contract: attempt refunded). Before the flows cancelled their leftovers, the worker of the next flow claimed that job
+    // and its delivery ran in the log of «deliver-76»: 6 failures out of 6 with this pair of cases (measured 2026-10-26).
+    const r = await conformance(['--driver', localDriver('leftover'), '--only', 'destroy-shutdown,deliver-76'])
+    assert.equal(r.code, 0, r.out + r.err)
+    assert.equal(verdict(r.out, 'destroy-shutdown'), 'ok', r.out)
+    assert.equal(verdict(r.out, 'deliver-76'), 'ok', r.out)
+  })
+
   it('a driver whose DELIVER is not repeatable fails «deliver-repeat» and only that one', async () => {
     const dir = localDriver('not-repeatable', { 'deliver.sh': 'N="$(dirname "$0")/count"\necho x >> "$N"\necho "ref-$(wc -l < "$N" | tr -d " ")"\n' })
     const r = await conformance(['--driver', dir, '--only', 'deliver,deliver-repeat'])

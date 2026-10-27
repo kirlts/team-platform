@@ -134,6 +134,7 @@ describe('what every session of the platform needs, whoever hosts it (plan B5)',
   it('the full prompt carries how to work cheaply, what a compaction keeps, how an answer is built and who decides the media', () => {
     const { stable } = buildExecuteParts(input(1))
     assert.match(stable, /cost grows with the square of its turns/)
+    assert.match(stable, /Open a screenshot again only when the code it shows changed/)
     assert.match(stable, /more than five files to an `Explore` subagent that returns paths and lines/)
     assert.match(stable, /When your context is compacted, the summary keeps: the `message` and `job` blocks, the plan[^.]*the branch and its last commit[^.]*verdict of any judge/)
     assert.match(stable, /opens with the conclusion and follows with the evidence, each claim with its source: file and line, query and result, commit, capture, or an external page with its date/)

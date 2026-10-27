@@ -1,42 +1,64 @@
 # Método de reparto
 
-Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo que ese equipo ya escribió y dijo. Incluye cómo juzgar después si el reparto y el trabajo fueron adecuados. Cada procedimiento tiene un guion que lo ejecuta y una prueba con un equipo inventado (`bench/fixtures/area-method/`).
+Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo que ese equipo ya escribió y dijo. Incluye cómo juzgar después si el reparto y el trabajo fueron adecuados. Un procedimiento con guion tiene su prueba con un equipo inventado (`bench/fixtures/area-method/`). Los que no tienen guion se marcan «manual» y traen su procedimiento.
 
-| Paso | Guion | Entrada | Salida |
-|---|---|---|---|
-| Extraer pedidos | `scripts/request-rows.mjs` | textos del equipo (`units.jsonl`), `team.json` | una fila por pedido (`rows.jsonl`) |
-| Medir las áreas candidatas | `scripts/area-method.mjs analyze` | filas, `team.json` | informe con cuatro criterios por área |
-| Proponer la configuración | `scripts/area-method.mjs propose` | filas, `team.json`, `purposes.json` | archivo de carga (áreas, plantillas, perfiles) |
-| Medir el reparto | `scripts/route-experiment.mjs` | filas, archivo de carga, `team.json` | aciertos de área y de persona, confusiones, indicadores |
+| Paso | Guion | Entrada | Salida | Automatizado |
+|---|---|---|---|---|
+| Extraer pedidos | `scripts/request-rows.mjs` | textos del equipo (`units.jsonl`), `team.json` | una fila por pedido (`rows.jsonl`) | Sí |
+| Validar las filas | `scripts/row-validation.mjs` | filas, etiquetas de personas | muestra para etiquetar, acuerdos (kappa) | La muestra y los acuerdos; las etiquetas las ponen personas |
+| Medir las áreas candidatas | `scripts/area-method.mjs analyze` | filas, `team.json` | informe con cuatro criterios por área | Sí |
+| Proponer la configuración | `scripts/area-method.mjs propose` | filas, `team.json`, `purposes.json` | archivo de carga (áreas, límites, plantillas, perfiles) | Sí |
+| Confirmar las áreas | ninguno | archivo de carga | las áreas con `confirmed: true` | Manual, sección 5 |
+| Cargar | `scripts/apply-load-file.mjs` | archivo de carga confirmado | áreas, límites, plantillas y perfiles en la base | Sí |
+| Medir el reparto | `scripts/route-experiment.mjs` | filas, archivo de carga, `team.json` | acuerdo de área y de persona, líneas base, confusiones, indicadores | Sí |
+| Probar la descripción del proyecto | ninguno | descripción, filas | proporción de límites nombrados | Manual, sección 8 |
+| Probar con un miembro nuevo | ninguno | unidades del miembro | su perfil y su lugar en las áreas | En parte, sección 10 |
+| Evaluar un trabajo | `src/execute/judge.js` | un trabajo terminado | juicio de doce indicadores | Sí, dentro del producto |
+
+El proveedor de texto de la extracción y del experimento es `claude -p`, con la suscripción de quien corre el guion y el modelo `claude-haiku-5-5` por omisión (`--model`). La extracción hace una llamada por lote de 18.000 caracteres. El experimento hace una llamada por pedido, y dos con `--judge`. El método no fija un costo: la cuota se lee en el informe de uso del proveedor.
 
 ## 1. Describir un espacio
 
-Una descripción dice dónde puede moverse quien la lee y deja la decisión a su criterio. Una regla suelta queda en la zona del contexto que el modelo atiende menos y no dice por qué existe. Una descripción con su tensión nombrada obliga a entender cada polo por el otro. El método usa un vocabulario único para áreas, plantillas, perfiles y proyecto.
+Una descripción dice dónde puede moverse quien la lee y deja la decisión a su criterio. Cumple dos funciones a la vez. Da forma: límites con su mecanismo y una medida de lo que se maximiza. Deja espacio: el propósito y lo que puede quedar apenas suficiente. Una descripción que sólo da forma produce trámite. Una que sólo deja espacio no produce nada comprobable. Cuando lo pedido es explorar una idea, el trabajo se construye y se muestra, y sólo la respuesta de una persona lo publica.
+
+Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento baja (Liu et al., 2023, arXiv:2307.03172, consultado el 2026-10-27). Una descripción con su tensión nombrada obliga a entender cada polo por el otro. El método usa un vocabulario único para áreas, plantillas, perfiles y proyecto.
 
 | Cláusula | Pregunta que responde | Es de pasa o no pasa |
 |---|---|---|
-| Propósito | Para qué existe, en una oración. Desempata entre dos diseños que cumplen todo | No |
-| Se maximiza | La cualidad que gana cuando hay que elegir | No |
+| Propósito | Para qué existe, en una oración. Desempata cuando dos opciones sirven igual al propósito | No |
+| Se maximiza | Una sola cualidad: la que gana cuando hay que renunciar a algo y dos diseños cumplen todo. Si el corpus muestra dos, el equipo elige una y la otra pasa a lo que se sacrifica o a un límite | No |
 | Se sacrifica | Lo que puede quedar apenas suficiente | No |
-| Entorno | Hechos que no cambian: quién pide, con qué urgencia, qué se deshace y qué no | No |
-| Límites | Lo que nunca se cruza, con el mecanismo que lo hace cumplir | Sí |
+| Entorno | Hechos que no cambian y acotan las soluciones: herramientas obligatorias, plazos, presupuesto, qué está en producción, qué se deshace y qué no. Cuánto pide cada persona es un dato del informe y no del entorno | No |
+| Límites | Lo que nunca se cruza, con el mecanismo que lo sostiene | Sí |
 
-Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` es `person` o `model` y dice de quién es el valor que falta.
+Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). En el panel y en los prompts del producto un límite se llama Guardia; este documento dice límite. Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` es `person` o `model` y dice de quién es el valor que falta.
+
+Levantar un límite de una persona sigue siempre este orden (UD-313):
+
+| Paso | Qué ocurre |
+|---|---|
+| 1 | Un límite de una persona, tocado y sin levantar, retiene la entrega. La plataforma la deja pendiente de aprobación (`pending_delivery`, el mismo efecto del código 76) y traspasa el mensaje a quien decide en el área |
+| 2 | La sesión nombra el límite que toca y el riesgo si se cruza, y propone una alternativa que hace lo pedido sin cruzarlo. Puede preparar el trabajo en la rama |
+| 3 | Una persona activa lo levanta al aprobar la entrega a mano o con `review: approve` en el hilo. La aprobación de antemano y la de un agente no lo levantan |
+| 4 | Queda en la auditoría como `message.guard_lifted`: quién, qué límites y qué entrega |
+| 5 | Vale para ese mensaje y no para los siguientes |
+
+El sistema lee ids y quién aprueba, nunca la prosa de la sesión. Un límite que no es de persona no se retiene en la plataforma: lo sostiene su mecanismo.
 
 Reglas de forma:
 
 | Regla | Razón |
 |---|---|
-| El espacio se escribe en afirmativo; la negación queda para el límite | Una negación puede desviar al modelo en los primeros tokens |
+| El espacio se escribe en afirmativo; la negación queda para el límite | Los modelos manejan peor la negación (Truong, Baldwin, Verspoor y Cohn, 2023, arXiv:2306.08189, consultado el 2026-10-27) |
 | Un límite que depende de que el modelo lo recuerde necesita un mecanismo: un gancho, una credencial acotada, una prueba | Escribir «no hagas X» no impide X |
 | Cada cláusula se escribe con las palabras del dominio del equipo, sin jerga de método | El modelo debe leer lo que el equipo diría |
-| El reparto no usa niveles ni tipos cerrados | Un casillero decide antes de mirar el trabajo; una estimación continua con su razón y un juicio posterior no |
+| Qué modelo trabaja, quién atiende y cómo se trabaja no se lee de una categoría: salen de estimaciones continuas con su razón y de un juicio posterior. Las áreas y las plantillas sólo eligen qué descripción y qué campos se muestran, y se redefinen cuando la medición lo pide (sección 4) | Un casillero decide antes de mirar el trabajo. El cuadrante del juicio (sección 11) clasifica la tarea para fijar metas de evaluación y no decide a quién ni cómo se asigna |
 
 ## 2. Material de partida
 
 El equipo aporta tres cosas. Ninguna sale del repositorio.
 
-**Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. Se recomiendan cuatro semanas o más. `confidential` es obligatorio y booleano en cada unidad. Una unidad sin él se rechaza: «abierto» por omisión es la forma en que una reunión grabada llega a una salida. Una reunión grabada lleva `confidential: true`.
+**Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. El corpus necesita filas y no semanas: al menos 26 por área y por ventana de tiempo (secciones 3 y 4). El informe avisa con `corpus_small` cuando no alcanza. El método no trae exportador. Cada texto de un chat o de una reunión se exporta con la herramienta de su origen y se escribe como una línea de `units.jsonl`. Una unidad en dos idiomas pide un paso explícito: la persona unifica las etiquetas de `labels` en `families.json`. `confidential` es obligatorio y booleano en cada unidad. Una unidad sin él se rechaza: «abierto» por omisión es la forma en que una reunión grabada llega a una salida. Una reunión grabada lleva `confidential: true`.
 
 Las filas de una unidad confidencial suman a los conteos, las medias y las proporciones. Eso incluye el tamaño, quién pide y los límites tocados. Ninguna palabra suya llega a una salida. Eso excluye las frases de «Se maximiza» y «Se sacrifica», los ejemplos, los nombres de módulos y de intenciones, y el título de un área. Vale para el informe de `analyze`, el archivo de carga, la lista de áreas descartadas y los perfiles. Una prueba siembra frases únicas en filas confidenciales y verifica que no aparecen.
 

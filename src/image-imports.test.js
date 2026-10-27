@@ -46,6 +46,7 @@ test('every companion of team.mjs is in the build context', async () => {
   const imported = [...team.matchAll(/(?:from |import\()\s*['"]\.\/([^'"]+)['"]/g)].map((m) => m[1])
   const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
   const runtime = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '))
+  assert.deepEqual(imported.filter((f) => !TEAM_COMPANIONS.includes(f)), [], 'team.mjs imports a module that does not travel with it to the session\'s bin/')
   const missing = [...new Set([...TEAM_COMPANIONS, ...imported])]
     .filter((f) => !ignore.includes(`!scripts/${f}`) || !runtime.includes(`COPY scripts/${f} `))
   assert.deepEqual(missing, [])

@@ -221,7 +221,7 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
       const notes = await readNotes(process.cwd(), env.TEAM_MAP_NOTES || MAP_NOTES_FILE) // the host's own lines about its repository: a file in it, `.team/map-notes.txt` unless TEAM_MAP_NOTES says another
       const map = await buildRepoMap({ cwd: process.cwd(), paths, brief: options.brief === true, notes })
       return { code: 0, out: options.hook ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: map.text } }) : map.text, err: '' }
-    } catch (error) { return { code: 0, out: '', err: `team map: ${error.message}` } } // the map is a help: a repository without git starts the session without it
+    } catch (error) { return { code: 1, out: '', err: `team map: ${error.message}` } } // exit 1 and not 2: a SessionStart hook that fails does not stop the session, but it no longer fails silently (a missing companion started sessions without a map and exited 0)
   }
   if (command === 'guard') {
     // UD-295: PreToolUse hook of a direct fix on a light model. A rule that must hold is enforced here and not asked in the prompt: the session never pushes `main`

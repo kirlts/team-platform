@@ -51,8 +51,17 @@ import { DEFAULT_PROGRESS_INTERVAL_MIN, addDeliveryNote, addStartNote, closeWait
 
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
-// Modules that `team.mjs` imports at run time and that must travel with it (only Node built-ins inside): without them `team walkthrough` died with «Cannot find module walkthrough.mjs» (job 144, 2026-10-24).
-export const TEAM_COMPANIONS = ['walkthrough.mjs']
+// Modules that `team.mjs` imports at run time and that must travel with it (only Node built-ins inside): without them `team walkthrough` died with «Cannot find module walkthrough.mjs» (job 144, 2026-10-24),
+// and `team map` with «Cannot find module repo-map.mjs» while exiting 0, so the session started without its map and nobody saw it.
+export const TEAM_COMPANIONS = ['walkthrough.mjs', 'repo-map.mjs']
+
+/** `team` in the PATH of a session: the standalone script and its companions next to a shim, in `<workdir>/bin`, so a machine gets it with the job directory. */
+export async function installTeamBin (workdir) {
+  await mkdir(join(workdir, 'bin'))
+  await copyFile(TEAM_SCRIPT, join(workdir, 'bin', 'team.mjs'))
+  for (const name of TEAM_COMPANIONS) await copyFile(fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)), join(workdir, 'bin', name))
+  await writeFile(join(workdir, 'bin', 'team'), '#!/bin/sh\nexec node "$(dirname "$0")/team.mjs" "$@"\n', { mode: 0o755 })
+}
 const PROVIDER = 'claude-code'
 const STDERR_TAIL_CHARS = 600 // declared courtesy: the cause of a process that fails is at the END of its stderr (the start is ssh and useradd noise); enough for the last lines, short enough for `last_error`
 
@@ -251,11 +260,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     await mkdir(root, { recursive: true })
     const workdir = await mkdtemp(join(root, `execute-${job.id}-`))
     try {
-      await mkdir(join(workdir, 'bin'))
-      // `team` in the session's PATH: the standalone script next to a shim, so a machine gets it with the job dir.
-      await copyFile(TEAM_SCRIPT, join(workdir, 'bin', 'team.mjs'))
-      for (const name of TEAM_COMPANIONS) await copyFile(fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)), join(workdir, 'bin', name))
-      await writeFile(join(workdir, 'bin', 'team'), '#!/bin/sh\nexec node "$(dirname "$0")/team.mjs" "$@"\n', { mode: 0o755 })
+      await installTeamBin(workdir)
       let cwd = workdir
       let worktree = null
       if (x.runner === 'local' && x.repoDir) {

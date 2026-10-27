@@ -1,9 +1,10 @@
 // The map of the repository a session starts in (UD-295): within its token budget, from git alone, rebuilt only when the structure changes.
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { installTeamBin } from '../src/execute/handler.js'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { buildRepoMap, MAP_MAX_TOKENS, readNotes } from './repo-map.mjs'
@@ -91,4 +92,20 @@ test('`team map --hook` in the repository of a session prints the notes of TEAM_
     assert.ok(run({}).hookSpecificOutput.additionalContext.includes('Note of the repository itself'), 'with no variable, the file the repository keeps in .team/ is read')
     assert.ok(!run({ TEAM_MAP_NOTES: 'notes.txt' }).hookSpecificOutput.additionalContext.includes('Note of the repository itself'), 'the variable replaces the default file')
   } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('`team map` runs from the work directory the core prepares (bin/ with team.mjs and its companions); with a companion missing it exits 1 and says which, instead of exiting 0 with no map', async () => {
+  const dir = repo()
+  const work = mkdtempSync(join(tmpdir(), 'workdir-'))
+  const run = () => spawnSync(join(work, 'bin', 'team'), ['map', '--brief'], { cwd: dir, encoding: 'utf8', env: { PATH: process.env.PATH } })
+  try {
+    await installTeamBin(work)
+    const ok = run()
+    assert.equal(ok.status, 0, ok.stderr)
+    assert.ok(ok.stdout.includes('<repo_map>'), ok.stdout)
+    rmSync(join(work, 'bin', 'repo-map.mjs'))
+    const broken = run()
+    assert.notEqual(broken.status, 0, 'a map that cannot be built is not a success')
+    assert.match(broken.stderr, /team map: .*repo-map\.mjs/)
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(work, { recursive: true, force: true }) }
 })

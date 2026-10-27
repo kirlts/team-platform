@@ -14,6 +14,7 @@ export function MemberPicker({
   label,
   shortLabel,
   compact = false,
+  triggerClassName,
 }: {
   members: Member[]
   selected: string[]
@@ -24,6 +25,8 @@ export function MemberPicker({
   shortLabel?: string
   /** One row of 24 px: the button of the header of a message. */
   compact?: boolean
+  /** Another look for the button, where the row it sits in has little room (the tools of a reply). */
+  triggerClassName?: string
 }) {
   const t = useT()
   const [search, setSearch] = useState('')
@@ -54,7 +57,7 @@ export function MemberPicker({
           type="button"
           aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
           title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
-          className={`hit inline-flex items-center justify-center gap-1 rounded-full font-semibold text-muted hover:bg-hover hover:text-accent ${hiddenCount > 0 ? 'border border-line-strong bg-glass-strong' : ''} ${compact ? 'min-h-6 px-1.5 text-xs' : 'min-h-8 px-3 text-sm pointer-coarse:min-h-11 pointer-coarse:min-w-11'}`}
+          className={`hit inline-flex items-center justify-center gap-1 rounded-full font-semibold text-muted hover:bg-hover hover:text-accent ${triggerClassName ?? ''} ${hiddenCount > 0 ? 'border border-line-strong bg-glass-strong' : ''} ${compact ? 'min-h-6 px-1.5 text-xs max-md:min-h-11 max-md:px-3 pointer-coarse:min-h-11' : 'min-h-8 px-3 text-sm pointer-coarse:min-h-11 pointer-coarse:min-w-11'}`}
         >
           {hiddenCount > 0 ? (
             <>

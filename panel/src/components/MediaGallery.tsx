@@ -418,6 +418,7 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
 
   if (item.kind === 'video' && item.src) {
     return (
+      <div className="flex w-full min-w-0 flex-col gap-2">
       <div className="relative flex w-full items-center justify-center bg-black/80">
         {loading}
         {/* The first frame is the cover: the fragment asks for 0.1 s, so the browser draws it before any play. */}
@@ -432,6 +433,13 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
           onError={wait}
           className={cn('max-w-full', cap)}
         />
+      </div>
+      {/* The speech the server read from a video, as from an audio: under the video, loaded when its slide is the current one. */}
+      {active && item.transcriptSrc && (
+        <div className="flex min-h-0 flex-col px-4 pb-2">
+          <Transcript src={item.transcriptSrc} />
+        </div>
+      )}
       </div>
     )
   }

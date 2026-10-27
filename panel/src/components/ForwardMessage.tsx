@@ -20,7 +20,7 @@ export function ForwardMessage({ messageId }: { messageId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" data-testid="forward-open">
+        <Button size="sm" variant="ghost" data-testid="forward-open" className="max-md:h-11">
           <ArrowRight size={14} aria-hidden /> {t('forward.action')}
         </Button>
       </DialogTrigger>
@@ -38,14 +38,20 @@ function ForwardForm({ messageId, onClose }: { messageId: string; onClose: () =>
   const forward = useForward(messageId)
   const [memberId, setMemberId] = useState('')
   const [comment, setComment] = useState('')
-  const missingId = useId()
+  // What is missing is said under its own field, and only after sending was tried: a window that opens already complaining says nothing a person can act on.
+  const [tried, setTried] = useState(false)
+  const memberError = useId()
+  const commentError = useId()
   const recipients = activeMembers.filter((m) => m.id !== me?.id)
   const noMember = memberId === ''
   const noComment = comment.trim() === ''
-  const missing = noMember && noComment ? t('forward.missingBoth') : noMember ? t('forward.missingMember') : noComment ? t('forward.missingComment') : null
 
   const submit = () => {
-    if (missing || forward.isPending) return
+    if (forward.isPending) return
+    if (noMember || noComment) {
+      setTried(true)
+      return
+    }
     forward.mutate(
       { member_id: memberId, comment: comment.trim() },
       {
@@ -60,6 +66,7 @@ function ForwardForm({ messageId, onClose }: { messageId: string; onClose: () =>
   return (
     <form
       className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault()
         submit()
@@ -67,7 +74,7 @@ function ForwardForm({ messageId, onClose }: { messageId: string; onClose: () =>
     >
       <label className="flex flex-col gap-1 text-sm font-medium">
         {t('forward.member')}
-        <NativeSelect data-testid="forward-member" autoFocus value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+        <NativeSelect data-testid="forward-member" autoFocus value={memberId} aria-invalid={tried && noMember ? true : undefined} aria-describedby={tried && noMember ? memberError : undefined} onChange={(e) => setMemberId(e.target.value)}>
           <option value="" disabled>
             {t('forward.memberNone')}
           </option>
@@ -77,26 +84,31 @@ function ForwardForm({ messageId, onClose }: { messageId: string; onClose: () =>
             </option>
           ))}
         </NativeSelect>
+        {tried && noMember && (
+          <span id={memberError} role="alert" data-testid="forward-member-error" className="text-xs font-normal text-danger">
+            {t('forward.missingMember')}
+          </span>
+        )}
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium">
         {t('forward.comment')}
-        <Textarea data-testid="forward-comment" rows={4} value={comment} onChange={(e) => setComment(e.target.value)} />
+        <Textarea data-testid="forward-comment" rows={4} value={comment} aria-invalid={tried && noComment ? true : undefined} aria-describedby={tried && noComment ? commentError : undefined} onChange={(e) => setComment(e.target.value)} />
+        {tried && noComment && (
+          <span id={commentError} role="alert" data-testid="forward-comment-error" className="text-xs font-normal text-danger">
+            {t('forward.missingComment')}
+          </span>
+        )}
       </label>
       {forward.isError && (
         <p role="alert" className="text-xs text-danger">
           {errorText(forward.error)}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 pt-1">
-        {missing && (
-          <p id={missingId} role="status" className="mr-auto text-xs text-muted">
-            {missing}
-          </p>
-        )}
-        <Button variant="ghost" onClick={onClose}>
+      <div className="flex items-center justify-end gap-3 pt-1">
+        <Button variant="ghost" onClick={onClose} className="max-md:h-11">
           {t('common.cancel')}
         </Button>
-        <Button type="submit" variant="primary" data-testid="forward-submit" disabled={missing !== null || forward.isPending} aria-describedby={missing ? missingId : undefined}>
+        <Button type="submit" variant="primary" data-testid="forward-submit" disabled={forward.isPending} className="max-md:h-11">
           {t('forward.submit')}
         </Button>
       </div>

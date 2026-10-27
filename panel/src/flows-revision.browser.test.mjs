@@ -32,14 +32,16 @@ async function session(who, path, viewport = { width: 1440, height: 900 }) {
 const shot = async (page, name) => { if (DIR) await page.screenshot({ path: `${DIR}/${name}.png` }) }
 
 describe('Review of a held change by reply (UD-280)', () => {
-  test('the sheet shows one line of state and no buttons', async () => {
+  test('the sheet shows the line of state and one control: reply to Claude', async () => {
     const { message_id: id } = await panel.control.review()
     const { page, context } = await session('ana', `/messages/${id}`)
     try {
       const block = page.getByTestId('review-pending')
       await block.waitFor()
-      assert.equal(await block.innerText(), 'Cambio listo para revisar')
-      assert.equal(await block.getByRole('button').count(), 0)
+      assert.equal(await page.getByTestId('review-reason').innerText(), 'Cambio listo para revisar')
+      assert.equal(await block.getByRole('button').count(), 1)
+      assert.equal(await block.getByRole('button').innerText(), 'Responder a Claude')
+      // The review is written, not chosen from buttons (UD-280).
       for (const name of ['Entregar', 'Pedir cambios', 'Descartar']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 0, name)
       await shot(page, 'revision-escritorio')
     } finally {
@@ -70,13 +72,33 @@ describe('Review of a held change by reply (UD-280)', () => {
     }
   })
 
+  test('«Responder a Claude» leaves Claude mentioned and the cursor in the reply field', async () => {
+    const { message_id: id } = await panel.control.review()
+    const { page, context } = await session('ana', `/messages/${id}`)
+    try {
+      await page.getByTestId('review-reply').click()
+      const field = page.locator('#reply-field')
+      assert.equal(await field.evaluate((el) => el === document.activeElement), true, 'the field has the focus')
+      assert.match(await field.inputValue(), /^@Claude /)
+      await field.press('End')
+      await field.pressSequentially('descártalo, no es lo que pedí')
+      await page.getByRole('button', { name: 'Responder', exact: true }).click()
+      await page.locator('[data-mention]').first().waitFor()
+      const detail = await (await page.request.get(`${origin}/api/messages/${id}`)).json()
+      assert.deepEqual(detail.replies.at(-1).mentions, ['u-claude'])
+      assert.match(detail.replies.at(-1).body, /descártalo, no es lo que pedí/)
+    } finally {
+      await context.close()
+    }
+  })
+
   test('a member who is not an Editor sees the same line', async () => {
     const { message_id: id } = await panel.control.review()
     const { page, context } = await session('bruno', `/messages/${id}`)
     try {
       await page.getByTestId('review-pending').waitFor()
-      assert.equal(await page.getByTestId('review-pending').getByRole('button').count(), 0)
-      assert.equal(await page.getByTestId('review-pending').innerText(), 'Cambio listo para revisar')
+      assert.equal(await page.getByTestId('review-pending').getByRole('button').count(), 1)
+      assert.equal(await page.getByTestId('review-reason').innerText(), 'Cambio listo para revisar')
     } finally {
       await context.close()
     }

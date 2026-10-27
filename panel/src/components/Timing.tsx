@@ -2,12 +2,12 @@ import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { SpanTree } from '@/components/TraceTree'
 import { EXECUTE_MODELS, TeamApiError, type MessageTiming } from '@team-platform/client'
-import { useErrorText, useT, type MessageKey } from '@/i18n'
+import { FailedMark } from '@/components/FailedMark'
+import { X } from '@/components/icons'
+import { useErrorText, useFormat, useI18n, useT, type MessageKey } from '@/i18n'
 import { useMessageTiming } from '@team-platform/client/react'
 
 const SLOWEST_SHOWN = 5
-
-export const seconds = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : ms < 60000 ? `${Math.round(ms / 100) / 10} s` : `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s`)
 
 /** «Tiempos» of the sheet of a message worked by an agent (UD-262): folded; the figures load when it opens. */
 export function Timing({ messageId, assigneeIds }: { messageId: string; assigneeIds: string[] }) {
@@ -40,6 +40,7 @@ export function hasTiming(d: MessageTiming | undefined): boolean {
 
 export function TimingBody({ messageId }: { messageId: string }) {
   const t = useT()
+  const { duration, usd } = useFormat()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
   if (timing.isPending) return <p className="text-sm text-muted">…</p>
@@ -50,13 +51,13 @@ export function TimingBody({ messageId }: { messageId: string }) {
   const d = timing.data
   // Only the figures that exist: a dash is a placeholder, and «Detalles» shows what has data.
   const figures = ([
-    [t('timing.firstReply'), d.first_reply_ms === null ? null : seconds(d.first_reply_ms)],
-    [t('timing.finalReply'), d.final_reply_ms === null ? null : seconds(d.final_reply_ms)],
-    [t('timing.total'), d.total_ms === null ? null : seconds(d.total_ms)],
-    [t('timing.wait'), d.queue_wait_ms === null ? null : seconds(d.queue_wait_ms)],
+    [t('timing.firstReply'), d.first_reply_ms === null ? null : duration(d.first_reply_ms)],
+    [t('timing.finalReply'), d.final_reply_ms === null ? null : duration(d.final_reply_ms)],
+    [t('timing.total'), d.total_ms === null ? null : duration(d.total_ms)],
+    [t('timing.wait'), d.queue_wait_ms === null ? null : duration(d.queue_wait_ms)],
     // UD-295: the model of the session and what it has cost.
     [t('timing.model'), d.model ? (EXECUTE_MODELS.find((m) => m.id === d.model)?.label ?? d.model) : null],
-    [t('timing.cost'), typeof d.cost_usd === 'number' ? `US$ ${d.cost_usd.toFixed(2)}` : null],
+    [t('timing.cost'), typeof d.cost_usd === 'number' ? usd(d.cost_usd) : null],
     [t('timing.state'), STATES.includes(d.job_status) ? t(`timing.state.${d.job_status}` as MessageKey) : null],
   ] as [string, string | null][]).filter((f): f is [string, string] => f[1] !== null)
   return (
@@ -74,7 +75,7 @@ export function TimingBody({ messageId }: { messageId: string }) {
       {d.job_status === 'running' && (
         <p data-timing-running className="tabular-nums text-muted">
           {d.phase ? t(`timing.phase.${d.phase}` as MessageKey) : t('timing.running')}
-          {d.elapsed_ms !== null && ` · ${seconds(d.elapsed_ms)}`}
+          {d.elapsed_ms !== null && ` · ${duration(d.elapsed_ms)}`}
         </p>
       )}
       {d.phases.length > 0 && (
@@ -82,7 +83,7 @@ export function TimingBody({ messageId }: { messageId: string }) {
           {d.phases.map((p) => (
             <li key={p.name} data-timing-phase={p.name} className="flex items-baseline gap-1.5">
               <span className="text-muted">{t(`timing.phase.${p.name}` as MessageKey)}</span>
-              <span className="tabular-nums">{seconds(p.duration_ms)}</span>
+              <span className="tabular-nums">{duration(p.duration_ms)}</span>
             </li>
           ))}
         </ul>
@@ -92,7 +93,8 @@ export function TimingBody({ messageId }: { messageId: string }) {
           {d.slowest.slice(0, SLOWEST_SHOWN).map((s, i) => (
             <li key={i} data-timing-slow className="flex flex-wrap items-baseline gap-x-3">
               <span className={s.success === false ? 'text-danger' : ''}>{s.summary ?? s.name}</span>
-              <span className="tabular-nums text-muted">{seconds(s.duration_ms)}</span>
+              <span className="tabular-nums text-muted">{duration(s.duration_ms)}</span>
+              {s.success === false && <FailedMark />}
             </li>
           ))}
         </ol>
@@ -130,30 +132,44 @@ export function DetailBody({ messageId }: { messageId: string }) {
  */
 export function JudgmentBody({ messageId }: { messageId: string }) {
   const t = useT()
+  const { has } = useI18n()
+  const { decimal } = useFormat()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
   if (timing.isPending) return <p className="text-sm text-muted">…</p>
   if (timing.isError) return <p className="break-words text-sm text-danger">{errorText(timing.error)}</p>
   const j = timing.data.judgment
   if (!j) return <p className="text-sm text-muted">{t('judgment.none')}</p>
+  // The sign is part of the figure of an indicator: «+1», «0», «−1». The scale of both lists is said once, above them.
+  const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0')
   return (
     <div data-testid="judgment" className="flex flex-col gap-3 text-sm">
       <p className="m-0 text-muted">{EXECUTE_MODELS.find((m) => m.id === j.worked_with)?.label ?? j.worked_with ?? ''}</p>
-      <ul aria-label={t('judgment.axes')} className="m-0 flex list-none flex-col gap-1 p-0">
-        {j.axes.map((a) => (
-          <li key={a.axis} data-testid="judgment-axis" data-meets={a.meets === null ? undefined : String(a.meets)} className="flex flex-wrap items-baseline gap-x-3">
-            <span className="min-w-0 flex-1">{t(`judgment.axis.${a.axis}` as MessageKey)}</span>
-            <span className="tabular-nums">{a.score === null ? '—' : a.score.toFixed(1)}</span>
-            <span className="tabular-nums text-muted">{t('judgment.target', { n: a.target })}</span>
-            <span className={a.meets === false ? 'text-danger' : 'text-muted'}>{a.meets === null ? '' : t(a.meets ? 'judgment.meets' : 'judgment.misses')}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-col gap-1">
+        <p data-testid="judgment-scale" className="m-0 text-xs text-muted">{t('judgment.scale')}</p>
+        <ul aria-label={t('judgment.axes')} className="m-0 flex list-none flex-col gap-1 p-0">
+          {j.axes.map((a) => (
+            <li key={a.axis} data-testid="judgment-axis" data-meets={a.meets === null ? undefined : String(a.meets)} className="flex flex-wrap items-baseline gap-x-3">
+              <span className="min-w-0 flex-1">{t(`judgment.axis.${a.axis}` as MessageKey)}</span>
+              <span className="tabular-nums">{a.score === null ? '—' : decimal(a.score, 1)}</span>
+              <span className="tabular-nums text-muted">{t('judgment.target', { n: a.target })}</span>
+              <span className={a.meets === false ? 'inline-flex items-center gap-1 text-danger' : 'text-muted'}>
+                {a.meets === false && <X size={14} aria-hidden className="shrink-0" />}
+                {a.meets === null ? '' : t(a.meets ? 'judgment.meets' : 'judgment.misses')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
       {j.summary && <p className="m-0 break-words">{j.summary}</p>}
       <ol aria-label={t('judgment.kpis')} className="m-0 flex list-none flex-col gap-2 p-0">
         {j.kpis.filter((k) => k.applies).map((k) => (
-          <li key={k.id} className="flex flex-col gap-0.5">
-            <span><span className="tabular-nums text-muted">{k.id}</span> <span className="tabular-nums">{k.score > 0 ? `+${k.score}` : k.score}</span> {k.claim}</span>
+          <li key={k.id} data-testid="judgment-kpi" className="flex flex-col gap-0.5">
+            <span className="flex flex-wrap items-baseline gap-x-3">
+              <span className="min-w-0 flex-1 font-medium">{has(`judgment.kpi.${k.id}`) ? t(`judgment.kpi.${k.id}` as MessageKey) : k.id}</span>
+              <span className="tabular-nums">{signed(k.score)}</span>
+            </span>
+            <span className="break-words">{k.claim}</span>
             {k.quote && <span className="break-words text-muted">«{k.quote}»</span>}
           </li>
         ))}

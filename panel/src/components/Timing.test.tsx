@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { TeamApiError } from '@team-platform/client'
-import { seconds, Timing } from './Timing'
+import { Timing } from './Timing'
 
 const timing = {
   message_id: '7', job_id: '3', job_status: 'done', trace_id: 'a'.repeat(32), phase: null, elapsed_ms: null,
@@ -39,12 +39,6 @@ function wrap(ids: string[]) {
     </QueryClientProvider>,
   )
 }
-
-describe('seconds', () => {
-  it('writes milliseconds, seconds and minutes', () => {
-    expect([seconds(420), seconds(41000), seconds(94000), seconds(1_320_000)]).toEqual(['420 ms', '41 s', '1 min 34 s', '22 min 0 s'])
-  })
-})
 
 describe('Timing', () => {
   it('shows nothing when no assignee is an agent', async () => {

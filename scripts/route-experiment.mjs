@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
 import { keyRows, referenceLabels, rowsByUnit, unitStrata } from './row-validation.mjs'
+import { loadProvider } from './request-rows.mjs'
 import { KPIS } from '../src/execute/judge.js'
 
 // The four indicators that apply to a routing: the others judge a finished job.
@@ -437,11 +438,10 @@ export function acceptDecision (result, accept, { allowUnvalidated = false } = {
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
-  const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
-  const provider = createClaudeCliProviders({ model: option('--model', 'claude-haiku-5-5') }).text
+  const provider = await loadProvider(option('--provider'), option('--model', 'claude-haiku-5-5'))
   const rows = keyRows(readJsonl(rowsFile))
   const team = readJson(option('--team'))
   const families = option('--families') ? readJson(option('--families')) : {}

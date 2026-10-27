@@ -11,6 +11,7 @@
 // extracted the rows already interpreted them, and this script only counts and compares the fields it returned. The words of a confidential unit reach no output. The proposal is a draft
 // (`confirmed: false` in every area) until the team confirms it, and `scripts/apply-load-file.mjs` is what loads it.
 
+import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { parseTemplate, TEMPLATE_DESCRIPTION_MAX } from '../src/analyze/templates.js'
@@ -366,6 +367,8 @@ export function recognition (rows, labelOf, { folds = DEFAULTS.folds, seed = DEF
   return { accuracy: round(accuracy), base: round(base), lower: round(overall.lower), per_class: perClass, confusion: Object.fromEntries(Object.entries(confusion).sort((a, b) => b[1] - a[1])) }
 }
 
+const pairSeed = (key) => parseInt(createHash('sha256').update(key).digest('hex').slice(0, 8), 16)
+
 /**
  * Holm's step-down adjustment (Holm 1979, Scand. J. Statistics 6:65-70) of a list of p-values: it controls the probability of any false positive among them at `alpha`
  * without assuming the tests are independent, which the five dimensions are not. Returns the adjusted p-values in the order given.
@@ -464,7 +467,6 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   const profiles = new Map(titles.map((t) => [t, profileOf(byArea.get(t), team, o, tagged.length, weeks)]))
   const recognized = recognition(tagged, (r) => r.area, o)
   const tests = new Map()
-  const testRand = seededRandom(o.seed)
   const areas = titles.map((title) => {
     const p = profiles.get(title)
     const others = titles.filter((t) => t !== title)
@@ -474,7 +476,8 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
     const effects = Object.fromEntries(candidates.map((t) => {
       const [x, y] = [title, t].sort() // one test per pair of areas, whichever of the two is being described
       const key = `${x}|${y}`
-      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, rand: testRand }))
+      // One generator per pair, seeded from the seed and the titles: adding an area does not change the p-values of the pairs that were already there.
+      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, rand: seededRandom((o.seed ^ pairSeed(key)) >>> 0) }))
       const test = tests.get(key)
       const mine = dominantLimit(p)
       const theirs = dominantLimit(profiles.get(t))
@@ -498,6 +501,9 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   const warnings = []
   if (tagged.length < 2 * rowsNeeded) warnings.push({ kind: 'corpus_small', rows: tagged.length, needed: 2 * rowsNeeded })
   if (team.members.length < 2) warnings.push({ kind: 'single_member', detail: 'with one member there is nothing to route between' })
+  // An area that would merge into one that is not kept either has nowhere to go; with labels in two languages this is how a real area splits in two and one half disappears.
+  const lost = areas.filter((a) => !a.keep && a.merge_into && !areas.find((t) => t.title === a.merge_into)?.keep).map((a) => ({ area: a.title, merge_into: a.merge_into }))
+  if (lost.length) warnings.push({ kind: 'merge_target_not_kept', areas: lost, detail: 'the area it would merge into is not kept either: unify the labels of the objects in families.json' })
   if (areas.filter((a) => a.keep).length < 2) warnings.push({ kind: 'single_area', detail: 'fewer than two areas are kept: there is nothing to route between' })
   return { rows: tagged.length, weeks: round(weeks, 1), partition: recognized, areas, warnings, knobs: o }
 }
@@ -634,7 +640,7 @@ export function memberProfile (member, rows, team, opts = {}) {
   const add = (text, drop) => parts.push({ text, drop })
   const base = member.kind === 'agent' ? received : asked
   if (base.length) {
-    const terms = topPhrases(base.filter((r) => !r.confidential).map((r) => r.maximize).filter(Boolean)) // words only from rows that can be quoted
+    const terms = topPhrases(base.filter((r) => !r.confidential).map((r) => r.maximize).filter(Boolean), 1) // words only from rows that can be quoted; one quality, as in an area
     const lost = topPhrases(base.filter((r) => !r.confidential).map((r) => r.sacrifice).filter(Boolean))
     if (terms.length) add(`Maximizo: ${phrases(terms)}.${lost.length ? ` Acepto que quede apenas suficiente: ${phrases(lost)}.` : ''}`, 3)
     const areas = top(base.filter(inProposed).map((r) => r.area), 3).map(([a, c]) => `${a} (${pct(c / base.length)})`)
@@ -668,7 +674,7 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
   if (missing.length) throw new Error(`A purpose sentence is needed for: ${missing.join(', ')}`)
   const areas = []
   const skipped = []
-  report.areas.forEach((entry, index) => {
+  report.areas.forEach((entry) => {
     if (!entry.keep) { skipped.push({ title: entry.title, merge_into: entry.merge_into, failed: Object.entries({ ...entry.criteria, public_support: entry.public_support }).filter(([, c]) => !c.pass).map(([k]) => k) }); return }
     // The areas the text most often confuses with this one are named as its borders.
     const minBorder = overrides.minBorderConfusions ?? DEFAULTS.minBorderConfusions
@@ -688,7 +694,7 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
     // The limits belong to the team and not to an area: every area carries all of them as its guards, so that the analyzer can flag a request that touches one wherever it lands.
     // The area is a draft until the team confirms it: the quality it maximizes and what it sacrifices come from what people asked for, not from what the team decided.
     const guards = (team.limits ?? []).map((l) => ({ text: l.text, mechanism: String(l.mechanism ?? '').trim(), person: l.person === true }))
-    areas.push({ title: entry.title, description, position: index + 1, confirmed: false, candidates: { maximize: entry.profile.maximize_candidates, sacrifice: entry.profile.sacrifice }, guards, templates })
+    areas.push({ title: entry.title, description, position: areas.length + 1, confirmed: false, candidates: { maximize: entry.profile.maximize_candidates, sacrifice: entry.profile.sacrifice }, guards, templates })
   })
   const members = team.members.filter((m) => m.role).map((m) => ({ email: m.email, profile: memberProfile(m, tagged, team, { areas: areas.map((a) => a.title) }) }))
   const spec = { version: LOAD_FILE_VERSION, ...(actor ? { actor } : {}), areas, members }

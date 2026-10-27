@@ -1,7 +1,7 @@
 // The routing method over an invented corpus (bench/fixtures/area-method): the criteria, the proposal, the load file and the extraction and
 // the routing experiment with a fake provider. Nothing here reaches a model or the network.
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { test } from 'node:test'
@@ -1288,4 +1288,76 @@ test('Reaudit D7: AC1 is printed next to kappa and does not fall when one catego
   assert.equal(validation.weightedAC1(pair('y', 'y', 5)), 1)
   const items = rare.map((p, i) => ({ ...p, unit: `u${i}`, stratum: 'all' }))
   assert.equal(typeof validation.kappaWithInterval(items, { resamples: 50 }).ac1, 'number')
+})
+
+// ---- Reauditoría D8: the extraction does not trust a half-written file, a repeated id or a partial result
+test('Reaudit D8: a cache file that a cut left half written is read as absent and the batch is asked again', async () => {
+  const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'area-method-cut-'))
+  const counter = { calls: 0 }
+  await extractRows(oneUnit('texto A'), team, { provider: answering('resumen A', counter), model: 'm', cacheDir: dir })
+  const file = path.join(dir, readdirSync(dir)[0])
+  writeFileSync(file, '[{"unit":"u1","summ') // the cut
+  const again = await extractRows(oneUnit('texto A'), team, { provider: answering('resumen A', counter), model: 'm', cacheDir: dir })
+  assert.equal(counter.calls, 2)
+  assert.equal(again.rows[0].summary, 'resumen A')
+  assert.deepEqual(readdirSync(dir).filter((f) => f.endsWith('.tmp')), [], 'a file is written whole and renamed: no half file stays')
+  assert.doesNotThrow(() => JSON.parse(readFileSync(file, 'utf8')))
+})
+
+test('Reaudit D8: two units with the same id are refused', () => {
+  assert.throws(() => extraction.validateUnits([{ id: 'a', confidential: false }, { id: 'b', confidential: false }, { id: 'a', confidential: true }]), /unique.*a/)
+})
+
+test('Reaudit D8: a provider from a module, so that a team with an API of its own can use the method', async () => {
+  const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'area-method-provider-'))
+  const file = path.join(dir, 'provider.mjs')
+  writeFileSync(file, "export default (model) => ({ model, async complete () { return { json: { requests: [] } } } })\n")
+  const provider = await extraction.loadProvider(file, 'mi-modelo')
+  assert.equal(provider.model, 'mi-modelo')
+  assert.deepEqual((await provider.complete({})).json, { requests: [] })
+  const broken = path.join(dir, 'broken.mjs')
+  writeFileSync(broken, 'export default { nothing: true }\n')
+  await assert.rejects(extraction.loadProvider(broken, 'm'), /must export a provider/)
+})
+
+// ---- Reauditoría, minor findings
+test('Reaudit M1: an area that would merge into one that is not kept is announced', () => {
+  // the real area «Catálogo y precios» written in two ways: each half is too small and merges into the other
+  const split = rows.map((r) => (r.object === 'catálogo y precios' && r.unit.charCodeAt(r.unit.length - 1) % 2 ? { ...r, object: 'precios y catálogo' } : r))
+  const report = analyze(split, team, { permutations: 99, repeats: 1 })
+  const warning = report.warnings.find((w) => w.kind === 'merge_target_not_kept')
+  assert.ok(warning, JSON.stringify(report.warnings))
+  assert.ok(warning.areas.some((a) => /atálogo|recios/.test(a.area)))
+  assert.equal(analyze(rows, team).warnings.some((w) => w.kind === 'merge_target_not_kept'), false)
+})
+
+test('Reaudit M4 and M6: a profile names one quality, and the positions have no holes when an area is left out', () => {
+  const { spec, skipped } = propose(rows, team, { purposes })
+  assert.ok(skipped.length >= 1)
+  assert.deepEqual(spec.areas.map((a) => a.position), spec.areas.map((_, i) => i + 1))
+  for (const m of spec.members) { const maximize = m.profile.match(/Maximizo: ([^.]*)\./)?.[1]; if (maximize) assert.ok(!maximize.includes(';'), `${m.email}: ${maximize}`) }
+})
+
+test('Reaudit M7: the p-values of a pair do not change when another area is added', () => {
+  const two = syntheticCorpus({ sizes: { A: 40, B: 40 }, noise: 0.5, seed: 61 })
+  const three = [...syntheticCorpus({ sizes: { Z: 40 }, noise: 0.5, seed: 62 }).map((r) => ({ ...r, unit: `z${r.unit}` })), ...two] // the new area comes first, so its pairs are tested first
+  const pOf = (list) => analyze(list, team, { holdout: 0, minRows: 3, permutations: 99, repeats: 1 }).areas.find((a) => a.title === 'A').criteria.distinct_treatment.against.B.dimensions
+  assert.deepEqual(pOf(two), pOf(three))
+})
+
+test('Reaudit M3: the loader needs a confirmation by an active person and reports what it overwrites', async () => {
+  const db = await freshDatabase('confirmer')
+  const { spec } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
+  const noBody = confirmed(spec)
+  delete noBody.areas[0].confirmed_by
+  assert.throws(() => applyLoadFile(db, noBody), /confirmed_by/)
+  const robot = confirmed(spec)
+  robot.areas[0].confirmed_by = 'asistente@tienda.example'
+  assert.throws(() => applyLoadFile(db, robot), /active person/, 'an agent does not confirm')
+  applyLoadFile(db, confirmed(spec))
+  const edited = confirmed(spec)
+  edited.areas[0].description = `${edited.areas[0].description} Otra frase.`
+  edited.members[0].profile = `${edited.members[0].profile} Y esto.`
+  const result = applyLoadFile(db, edited)
+  assert.deepEqual(result.changes.map((c) => [c.kind, c.fields.join()]), [['area', 'description'], ['member', 'profile']])
 })

@@ -6,7 +6,8 @@
 // Three questions, each on invented corpora (bench/fixtures/area-method/synthetic.mjs) and without any model:
 //   1. specificity: text with no signal about the area (noise 1) must never pass, whatever the shares of the areas;
 //   2. sensitivity: as the noise grows, in which band does an area of 12 to 60 rows stop passing;
-//   3. stability: with one corpus fixed, how many area verdicts change with the seed of the folds alone, with 1 and with 10 repetitions.
+//   3. a dominant area: how large a share of the rows an area can hold and still pass;
+//   4. stability: with one corpus fixed, how many area verdicts change with the seed of the folds alone, with 1 and with 10 repetitions.
 import { recognition } from '../scripts/area-method.mjs'
 import { syntheticCorpus } from './fixtures/area-method/synthetic.mjs'
 
@@ -29,7 +30,15 @@ console.log('   shares 70/20/10:   ', passRate({ big: 140, middle: 40, small: 20
 console.log('   shares 92/5/3/2:   ', passRate({ big: 230, a: 10, b: 6, c: 4 }, 1))
 console.log('2. areas of 60, 40, 20 and 12 rows')
 for (const noise of [0, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 1]) console.log(`   noise ${noise}:`.padEnd(15), passRate({ a: 60, b: 40, c: 20, d: 12 }, noise))
-console.log('3. verdicts that change with the seed of the folds alone (8 corpora x 4 areas = 32 verdicts)')
+console.log('3. an area that holds most of the rows: the share of corpora in which the large area and a small one pass')
+for (const noise of [0.5, 0.8]) {
+  for (const share of [0.7, 0.8, 0.9, 0.95]) {
+    const big = Math.round(share * 100)
+    const small = (100 - big) / 2
+    console.log(`   noise ${noise}, ${big} % of the rows:`.padEnd(34), passRate({ big, a: small, b: small }, noise))
+  }
+}
+console.log('4. verdicts that change with the seed of the folds alone (8 corpora x 4 areas = 32 verdicts)')
 for (const repeats of [1, 10]) {
   for (const noise of [0.75, 0.8, 0.85, 0.9]) {
     let changed = 0

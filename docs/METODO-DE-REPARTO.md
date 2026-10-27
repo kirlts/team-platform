@@ -15,13 +15,15 @@ Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo
 | Probar con un miembro nuevo | ninguno | unidades del miembro | su perfil y su lugar en las áreas | En parte, sección 10 |
 | Evaluar un trabajo | `src/execute/judge.js` | un trabajo terminado | juicio de doce indicadores | Sí, dentro del producto |
 
+Nivel de evidencia. Todas las mediciones de este documento usan corpus inventados con dimensiones independientes, y ninguna corrida del método sobre material real está documentada. Lo que se afirma de los umbrales vale para esos corpus. Antes de confiar en un número sobre material de un equipo, las filas se validan con personas (sección 3).
+
 El proveedor de texto de la extracción y del experimento es `claude -p`, con la suscripción de quien corre el guion y el modelo `claude-haiku-5-5` por omisión (`--model`). La extracción hace una llamada por lote de 18.000 caracteres. El experimento hace una llamada por pedido, y dos con `--judge`. El método no fija un costo: la cuota se lee en el informe de uso del proveedor.
 
 ## 1. Describir un espacio
 
 Una descripción dice dónde puede moverse quien la lee y deja la decisión a su criterio. Cumple dos funciones a la vez. Da forma: límites con su mecanismo y una medida de lo que se maximiza. Deja espacio: el propósito y lo que puede quedar apenas suficiente. Una descripción que sólo da forma produce trámite. Una que sólo deja espacio no produce nada comprobable. Cuando lo pedido es explorar una idea, el trabajo se construye y se muestra, y sólo la respuesta de una persona lo publica.
 
-Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento baja (Liu et al., 2023, arXiv:2307.03172, consultado el 2026-10-27). Una descripción con su tensión nombrada obliga a entender cada polo por el otro. El método usa un vocabulario único para áreas, plantillas, perfiles y proyecto.
+Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento baja en los modelos que midieron Liu et al. (2023, arXiv:2307.03172, consultado el 2026-10-27). No se midió con el modelo del método. Una descripción con su tensión nombrada obliga a entender cada polo por el otro. El método usa un vocabulario único para áreas, plantillas, perfiles y proyecto.
 
 | Cláusula | Pregunta que responde | Es de pasa o no pasa |
 |---|---|---|
@@ -49,7 +51,7 @@ Reglas de forma:
 
 | Regla | Razón |
 |---|---|
-| El espacio se escribe en afirmativo; la negación queda para el límite | Los modelos manejan peor la negación (Truong, Baldwin, Verspoor y Cohn, 2023, arXiv:2306.08189, consultado el 2026-10-27) |
+| El espacio se escribe en afirmativo; la negación queda para el límite | Los modelos que midieron Truong, Baldwin, Verspoor y Cohn (2023, arXiv:2306.08189, consultado el 2026-10-27) manejan mal la negación. Ese estudio mide comprensión en pruebas, no redacción de descripciones: la regla es una conjetura razonable |
 | Un límite que depende de que el modelo lo recuerde necesita un mecanismo: un gancho, una credencial acotada, una prueba | Escribir «no hagas X» no impide X |
 | Cada cláusula se escribe con las palabras del dominio del equipo, sin jerga de método | El modelo debe leer lo que el equipo diría |
 | Qué modelo trabaja, quién atiende y cómo se trabaja no se lee de una categoría: salen de estimaciones continuas con su razón y de un juicio posterior. Las áreas y las plantillas sólo eligen qué descripción y qué campos se muestran, y se redefinen cuando la medición lo pide (sección 4) | Un casillero decide antes de mirar el trabajo. El cuadrante del juicio (sección 11) clasifica la tarea para fijar metas de evaluación y no decide a quién ni cómo se asigna |
@@ -87,6 +89,8 @@ Un área con más de la mitad de sus filas confidenciales (`--max-confidential-s
 `request-rows.mjs` pide a un modelo liviano, por lotes de unos 18.000 caracteres, una fila por pedido con salida validada por esquema. Cada lote queda en la carpeta de `--cache` y un corte no repite lo hecho. El archivo se nombra con un hash del contenido del lote, las instrucciones, el esquema, el proveedor y el modelo. Otro texto, otro proveedor u otro modelo nunca encuentra el archivo de una corrida anterior. Cada fila guarda el modelo y la versión del guion (`model`, `script_version`).
 
 La extracción no es determinista: `claude -p` no fija semilla ni temperatura, y dos corridas dan filas distintas. Por eso la sección 3 pide repetirla sobre la muestra validada y medir el acuerdo entre corridas. Un correo o una cifra larga en los textos de una fila se reemplaza y se cuenta. Una fecha ISO se deja.
+
+Una fila que no valida contra el esquema no se guarda, y el guion cuenta por motivo las que descartó (`unknown_unit`, `no_summary`, `bad_value_holder`, `out_of_range`). El caché se escribe entero o no se escribe. Un archivo a medias por un corte se lee como ausente y el lote se pide de nuevo. Los ids de unidad no se repiten, porque la partición y las claves de fila se apoyan en ellos. Si falla algún lote el guion no escribe la salida, salvo con `--partial`. Con `--provider ./modulo.mjs` el modelo es el de cualquier módulo que exporte un proveedor (`complete({ system, messages, schema, effort })` que devuelve `{ json }`); así lo usa un equipo con acceso directo a una API.
 
 | Campo | Contenido |
 |---|---|
@@ -200,9 +204,9 @@ Un área existe si cumple los cuatro criterios.
 | Mapa propio | sus diez módulos más frecuentes comparten a lo más la mitad con los de cada otra área (`--max-overlap`) | Definición: más de la mitad en común es el mismo mapa |
 | Tratamiento distinto | su límite dominante difiere del de cada otra área candidata, o alguna dimensión difiere en 0,5 desviaciones estándar o más (`--min-effect`) con un valor p ajustado de 0,05 o menos (`--alpha`) | Cohen (1988): 0,5 es el efecto mediano. El valor p sale de una prueba de permutación de 999 repeticiones (`--permutations`; Phipson y Smyth, 2010) y se ajusta con el método de Holm (1979) sobre las cinco dimensiones |
 
-La proporción es la línea base. Un clasificador que no lee el texto obtiene esa precisión, ya sea que reparta por proporciones o elija siempre el área mayor. Obtiene ese recall si reparte por proporciones. Exigir las dos cotas evita que un área dominante apruebe sólo por absorber todo. El intervalo es el de Wilson (1927) y no el de Wald. Con 3 aciertos de 3, Wald da un límite inferior de 1 y Wilson da 0,44 (Brown, Cai y DasGupta, 2001). El criterio es un diagnóstico del corpus y no del enrutador. Dice si el texto de los pedidos separa las áreas, no si un modelo que lee una descripción las elige bien. Eso lo mide la sección 9.
+La proporción es la línea base. Un clasificador que no lee el texto obtiene esa precisión, ya sea que reparta por proporciones o elija siempre el área mayor. Obtiene ese recall si reparte por proporciones. Exigir las dos cotas evita que un área dominante apruebe sólo por absorber todo. También deja fuera a la dominante legítima cuando el texto separa poco. El intervalo es el de Wilson (1927) y no el de Wald. Con 3 aciertos de 3, Wald da un límite inferior de 1 y Wilson da 0,44 (Brown, Cai y DasGupta, 2001). El criterio es un diagnóstico del corpus y no del enrutador. Dice si el texto de los pedidos separa las áreas, no si un modelo que lee una descripción las elige bien. Eso lo mide la sección 9.
 
-Medición del 2026-10-26 (`bench/area-method-recognition.mjs`, corpus inventados con una proporción conocida de palabras sin señal). Con texto sin señal, ninguna de las áreas aprueba en 30 corpus, sea cual sea su proporción (70/20/10 y 92/5/3/2). Con señal hasta 0,7 de palabras compartidas, las cuatro áreas de 60, 40, 20 y 12 filas aprueban en los 30 corpus. La franja de transición va de 0,75 a 0,9. Dentro de ella, con una sola partición, entre 2 y 15 de 32 veredictos cambiaban sólo por la semilla de los pliegues. Con 10 repeticiones cambian entre 0 y 5. Con esa evidencia el criterio se conserva.
+Medición del 2026-10-26 (`bench/area-method-recognition.mjs`, corpus inventados con una proporción conocida de palabras sin señal). Con texto sin señal, ninguna de las áreas aprueba en 30 corpus, sea cual sea su proporción (70/20/10 y 92/5/3/2). Con señal hasta 0,7 de palabras compartidas, las cuatro áreas de 60, 40, 20 y 12 filas aprueban en los 30 corpus. La franja de transición va de 0,75 a 0,9. Dentro de ella, con una sola partición, entre 2 y 15 de 32 veredictos cambiaban sólo por la semilla de los pliegues. Con 10 repeticiones cambian entre 0 y 5. Con esa evidencia el criterio se conserva. Un área que concentra la mayoría de las filas pasa si el texto la separa con claridad. Con 0,5 de palabras compartidas pasa hasta con el 90 % de las filas. Con 0,8 pasa 25 de 30 veces al 70 %, 10 al 80 % y ninguna al 90 %. Una dominante que no pasa puede ser legítima. El aviso `single_area` lo muestra y la decisión es del equipo.
 
 Una área candidata es la que alcanza el volumen mínimo. Un área que no lo alcanza se funde y no decide si otra es distinta. El límite dominante es el más tocado; si dos empatan el primer lugar, el área no tiene límite dominante y el límite no decide. Dos áreas difieren por límite sólo si las dos tienen uno y no es el mismo.
 
@@ -216,7 +220,7 @@ Se comparan cinco dimensiones a la vez. Con una regla fija de 0,5 desviaciones, 
 | 20 y 40 | 0,34 | 0,06 |
 | 40 y 40 | 0,12 | 0,04 |
 
-Las dimensiones son estimaciones del modelo y están correlacionadas entre sí, y las filas de una unidad no son independientes. La prueba no supone lo primero y no modela lo segundo. Un resultado cerca del nivel se lee con esa reserva.
+El control de Holm cubre las cinco dimensiones de un par. No corrige entre pares ni entre áreas; es conservador para este criterio porque se exige distinguirse de todas las vecinas. Las dimensiones son estimaciones del modelo y están correlacionadas entre sí, y las filas de una unidad no son independientes. La prueba no supone lo primero y no modela lo segundo. Un resultado cerca del nivel se lee con esa reserva.
 
 Lo que 26 no sostiene. Es el tamaño para una tasa de 0,8: para una de 0,5 el semiancho a 26 es 0,19 y hacen falta 39. Con 26 filas, el conjunto de confirmación (la cuarta parte de las unidades) tendría 6 o 7 pedidos. Por eso con partición el área necesita 104. El informe da `rows_needed_to_measure` por área.
 
@@ -238,6 +242,7 @@ El informe avisa en `warnings` cuando no hay nada que repartir:
 | `corpus_small` | El corpus tiene menos de dos veces el mínimo de filas para medir |
 | `single_member` | El equipo tiene un solo miembro |
 | `single_area` | Menos de dos áreas cumplen los criterios |
+| `merge_target_not_kept` | Un área que se uniría a otra que tampoco se conserva. Pasa cuando una misma área real se escribe de dos formas: se unifican las etiquetas en `families.json` |
 
 El informe incluye por área su perfil. Lleva tamaño, pedidos por semana, medias de las dimensiones y fracción que exige a una persona. Lleva también quién pide, quién tiene el valor, los límites más tocados, lo que se maximiza y se sacrifica, los módulos y las intenciones. Con las mismas filas el informe es idéntico: las particiones y las permutaciones usan una semilla fija.
 
@@ -265,7 +270,7 @@ Cuándo cambia el conjunto. Dos corridas seguidas significan dos cortes distinto
 
 La descripción tiene a lo más 1.024 caracteres (`TEMPLATE_DESCRIPTION_MAX`). Si no cabe, se quitan primero los ejemplos, luego el borde y luego el entorno. Las cláusulas con propósito, qué se maximiza, qué se sacrifica y límites no se quitan: si ellas solas no caben, `propose` se detiene.
 
-Una descripción más larga no es mejor por serlo. La medición del 2026-10-21 (`docs/investigaciones/mediciones/2026-10-21-descripciones-de-area-largas.md`) lo muestra. Las descripciones largas bajaron la exactitud de área de 82,6 % a 75,8 %, por dos frases y no por el largo. La corrección de una descripción nombra el borde con el vecino sólo cuando la medición muestra una confusión de dos casos o más (`--min-border-confusions`).
+Una descripción más larga no es mejor por serlo. La medición del 2026-10-21 (`docs/investigaciones/mediciones/2026-10-21-descripciones-de-area-largas.md`) es indirecta. Mide el analizador del producto con otras categorías y referencias privadas, y su ruido entre corridas llega a 4 puntos. Las descripciones largas bajaron la exactitud de área de 82,6 % a 75,8 %. La mejora a 86,4 % corrigió dos frases y cambió el orden del catálogo a la vez. La medición dice que el efecto del orden no está demostrado. La corrección de una descripción nombra el borde con el vecino sólo cuando la medición muestra una confusión de dos casos o más (`--min-border-confusions`).
 
 `propose` deja cada área sin confirmar (`confirmed: false`). La cualidad que se maximiza y lo que se sacrifica salen de lo que la gente pidió, no de lo que el equipo decidió. El equipo lee las cláusulas de cada área, elige o reemplaza la cualidad entre los candidatos y marca `confirmed: true` con su correo en `confirmed_by`. El cargador rechaza un área sin confirmar (sección 12).
 
@@ -291,7 +296,7 @@ Los campos propios de una intención salen de lo que los pedidos de ese subconju
 | Parte | Origen |
 |---|---|
 | Qué hace | La oración `role` de `team.json`, escrita por el propio miembro o por el equipo |
-| Qué maximiza y qué acepta perder | Frases de los pedidos que hizo (persona) o que recibió (agente) |
+| Qué maximiza y qué acepta perder | Una cualidad que maximiza y hasta tres que acepta perder, de los pedidos que hizo (persona) o que recibió (agente) |
 | Dónde pide, o cómo se reparte lo que atiende | Áreas con su porcentaje |
 | Qué decide | Pedidos donde él tiene el valor que falta, por área, y los límites de persona que más levanta |
 | Qué no decide (agente) | Los límites que levanta una persona |
@@ -399,7 +404,7 @@ Cómo se lee:
 
 Tres indicadores se adaptan a un trabajo que nadie supervisó, y su redacción lo dice. El 3.2 juzga lo que se le entrega a la persona y cuánto se entiende, porque su experiencia durante la sesión no existe. El 4.2 puntúa sólo las intervenciones que la respuesta final y la salida técnica dejan ver. El 4.3 necesita la primera propuesta como evidencia y la plataforma todavía no la entrega, así que queda sin puntuar. En un trabajo sin supervisión el eje 4 se apoya en el 4.1 y el 4.2. Un eje sin indicadores observables no cumple ni incumple su meta.
 
-El cuadrante clasifica la tarea para fijar la meta de cada eje (McGrath, 1984, *Groups: Interaction and Performance*). Las metas son la media mínima: 0 esperado, 1 fuerte, 2 excepcional.
+El cuadrante clasifica la tarea para fijar la meta de cada eje (McGrath, 1984, *Groups: Interaction and Performance*). Las metas son la media mínima: 0 esperado, 1 fuerte, 2 excepcional. McGrath da la clasificación de las tareas; los valores de la tabla son los del instrumento de evaluación del producto y no de McGrath.
 
 | Cuadrante | La tarea | Eje 1 | Eje 2 | Eje 3 | Eje 4 |
 |---|---|---|---|---|---|
@@ -466,7 +471,7 @@ node scripts/apply-load-file.mjs load.json --db /data/team.db [--only-confirmed]
 
 El cargador es idempotente. Encuentra un área por su título, una plantilla por su nombre dentro del área, un límite por su texto y un miembro por su correo. Lo que ya tiene el contenido del archivo no se escribe de nuevo y no deja línea en la auditoría. Aplicarlo dos veces deja el mismo estado. Agrega y actualiza, y nunca borra un área, una plantilla ni un límite que el archivo no nombra. Todo ocurre en una transacción.
 
-Antes de escribir rechaza un archivo inválido, un `actor` que no sea una persona activa, un miembro que no existe y un área sin confirmar. `--only-confirmed` aplica las confirmadas y omite las demás. Un límite que no es de persona y no declara mecanismo se aplica y se informa. El producto lo acepta y la descripción ya dice «sin mecanismo declarado». `--require-mechanism` lo rechaza. Cada área creada o actualizada deja `area.method_load` en la auditoría, con quién la confirmó.
+Antes de escribir rechaza un archivo inválido y un `actor` que no sea una persona activa. Rechaza también un miembro que no existe y un área sin confirmar. También rechaza un `confirmed_by` que no sea el correo de una persona activa. La confirmación es un acto de una persona y es lo que registra la auditoría. `--only-confirmed` aplica las confirmadas y omite las demás. Un límite que no es de persona y no declara mecanismo se aplica y se informa. El producto lo acepta y la descripción ya dice «sin mecanismo declarado». `--require-mechanism` lo rechaza. Cada área creada o actualizada deja `area.method_load` en la auditoría, con quién la confirmó. El resultado trae `changes`: qué entidades existentes sobrescribió y en qué campos, para que una edición hecha en el producto no se pierda sin aviso.
 
 Una prueba aplica el archivo dos veces sobre una base real y compara el estado y la auditoría.
 

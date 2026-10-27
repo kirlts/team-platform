@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Turns the written and spoken material of a team into one row per request, with the dimensions the routing method measures.
 //
-//   node scripts/request-rows.mjs units.jsonl --team team.json --out rows.jsonl [--model claude-haiku-5-5] [--parallel 6] [--cache DIR]
+//   node scripts/request-rows.mjs units.jsonl --team team.json --out rows.jsonl [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--cache DIR] [--partial]
 //
 // `units.jsonl`: one text per line, `{ id, source, date, author, confidential, text }` (`confidential: true` for a recorded meeting: only abstract
 // summaries come out of it). The model is reached through `claude -p` with the subscription of the account that runs the script, as the benchmark
@@ -9,7 +9,7 @@
 // Each batch is cached in a file, so a cut does not repeat what is done. The text of the units stays where the units file is: the rows hold
 // summaries only, and the script never writes a unit's text anywhere. `docs/METODO-DE-REPARTO.md` describes the fields.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -90,6 +90,10 @@ export function rowsSchema (team) {
 export function validateUnits (units) {
   const bad = units.map((u, i) => [u, i]).filter(([u]) => typeof u?.confidential !== 'boolean')
   if (bad.length) throw new Error(`Every unit needs a boolean "confidential"; ${bad.length} do not (first at line ${bad[0][1] + 1}).`)
+  // The split by unit and the key of a request rest on the id: two units with the same one would be one.
+  const seen = new Set()
+  const repeated = [...new Set(units.filter((u) => (seen.has(u.id) ? true : (seen.add(u.id), false))).map((u) => u.id))]
+  if (repeated.length) throw new Error(`Unit ids must be unique; repeated: ${repeated.slice(0, 5).join(', ')}${repeated.length > 5 ? ` and ${repeated.length - 5} more` : ''}.`)
   return units
 }
 
@@ -153,6 +157,21 @@ export function finishRows (requests, batch, team, counter = { n: 0 }, meta = {}
   })
 }
 
+/**
+ * The provider of the model. By default `claude -p` with the subscription of the account that runs the script. With `--provider ./module.mjs` any module whose default export is a
+ * provider (`{ complete({ system, messages, schema, effort }) }` returning `{ json }`) or a function `(model) => provider`: that is how a team with direct access to an API uses the method.
+ */
+export async function loadProvider (modulePath, model) {
+  if (modulePath) {
+    const mod = (await import(pathToFileURL(modulePath).href)).default
+    const provider = typeof mod === 'function' ? await mod(model) : mod
+    if (typeof provider?.complete !== 'function') throw new Error(`${modulePath} must export a provider with complete({ system, messages, schema, effort }).`)
+    return provider
+  }
+  const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
+  return createClaudeCliProviders({ model }).text
+}
+
 /** Runs the extraction. `provider` has `complete({ system, messages, schema, effort })`. Returns `{ rows, batches, redacted, failed }`. */
 export async function extractRows (units, team, { provider, model = provider?.model ?? '', parallel = 6, cacheDir = null, onBatch = () => {} } = {}) {
   validateTeam(team)
@@ -168,11 +187,14 @@ export async function extractRows (units, team, { provider, model = provider?.mo
     while (next < batches.length) {
       const i = next++
       const file = cacheDir ? join(cacheDir, cacheName(batches[i], { system, schema, provider: provider?.name ?? '', model })) : null
-      if (file && existsSync(file)) { results[i] = JSON.parse(readFileSync(file, 'utf8')); continue }
+      // A cache file that a cut left half written is not a result: it is read as absent and the batch is asked again.
+      let cached = null
+      if (file && existsSync(file)) { try { cached = JSON.parse(readFileSync(file, 'utf8')) } catch { cached = null } }
+      if (Array.isArray(cached)) { results[i] = cached; continue }
       try {
         const r = await provider.complete({ system, messages: [{ role: 'user', content: batches[i].map(unitBlock).join('\n\n') }], schema, effort: 'low' })
         results[i] = finishRows(r.json?.requests ?? [], batches[i], team, counter, { model })
-        if (file) writeFileSync(file, JSON.stringify(results[i]))
+        if (file) { writeFileSync(`${file}.tmp`, JSON.stringify(results[i])); renameSync(`${file}.tmp`, file) } // written whole or not at all
       } catch (error) { failed++; results[i] = []; onBatch({ index: i, error: error.message }) }
       onBatch({ index: i, rows: results[i].length })
     }
@@ -185,19 +207,22 @@ async function main (argv) {
   const [unitsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
   if (!unitsFile || !option('--team') || !option('--out')) {
-    console.error('Uso: node scripts/request-rows.mjs units.jsonl --team team.json --out rows.jsonl [--model claude-haiku-5-5] [--parallel 6] [--cache DIR]')
+    console.error('Uso: node scripts/request-rows.mjs units.jsonl --team team.json --out rows.jsonl [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--cache DIR] [--partial]')
     process.exit(2)
   }
-  const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
   const model = option('--model', 'claude-haiku-5-5')
-  const provider = createClaudeCliProviders({ model }).text
+  const provider = await loadProvider(option('--provider'), model)
   const cacheDir = option('--cache', null)
   if (cacheDir) mkdirSync(cacheDir, { recursive: true })
   const { rows, batches, redacted, failed, dropped } = await extractRows(readJsonl(unitsFile), readJson(option('--team')), {
     provider, model, parallel: Number(option('--parallel', 6)), cacheDir, onBatch: (e) => console.error(e.error ? `lote ${e.index}: ${e.error}` : `lote ${e.index}: ${e.rows} pedidos`)
   })
-  writeFileSync(option('--out'), '')
-  for (const r of rows) appendFileSync(option('--out'), `${JSON.stringify(r)}\n`)
+  if (failed && !rest.includes('--partial')) {
+    console.error(`${failed} lotes fallaron: no se escribe ${option('--out')}. Con --partial se escribe lo que se obtuvo; el caché guarda los lotes hechos y una segunda corrida repite sólo los fallidos.`)
+    process.exit(1)
+  }
+  writeFileSync(`${option('--out')}.tmp`, rows.map((r) => `${JSON.stringify(r)}\n`).join(''))
+  renameSync(`${option('--out')}.tmp`, option('--out'))
   console.error(`${batches} lotes, ${rows.length} pedidos, ${redacted} datos reemplazados, ${failed} lotes fallidos`)
   const lost = Object.entries(dropped)
   if (lost.length) console.error(`Filas descartadas por no validar: ${lost.map(([reason, n]) => `${n} ${reason}`).join(', ')}`)

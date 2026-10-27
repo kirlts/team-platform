@@ -32,11 +32,14 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
   const unconfirmed = spec.areas.filter((a) => a.confirmed !== true)
   if (unconfirmed.length && !onlyConfirmed) throw new Error(`The team has not confirmed: ${unconfirmed.map((a) => a.title).join(', ')}. Set "confirmed": true (and "confirmed_by") after reading the clauses, or use --only-confirmed.`)
   const areas = spec.areas.filter((a) => a.confirmed === true)
+  // The confirmation is an act of a person: `confirmed_by` names an active person of the team, and it is what the audit records.
+  const notPeople = areas.filter((a) => !a.confirmed_by || !get(db, "SELECT 1 AS ok FROM members WHERE email = ? AND kind = 'person' AND active = 1 AND removed = 0", a.confirmed_by)).map((a) => a.title)
+  if (notPeople.length) throw new Error(`"confirmed_by" must be the e-mail of an active person of the team in: ${notPeople.join(', ')}.`)
   const warnings = loadWarnings({ areas })
   if (requireMechanism && warnings.length) throw new Error(`Guards without a mechanism: ${warnings.map((w) => `${w.guard} (${w.area})`).join('; ')}.`)
   const missing = (spec.members ?? []).filter((m) => !get(db, 'SELECT 1 AS ok FROM members WHERE email = ? AND removed = 0', m.email)).map((m) => m.email)
   if (missing.length) throw new Error(`Members that do not exist: ${missing.join(', ')}.`)
-  const result = { created: { areas: 0, templates: 0 }, updated: { areas: 0, guards: 0, templates: 0, members: 0 }, unchanged: { areas: 0, templates: 0, members: 0 }, skipped: unconfirmed.map((a) => a.title), warnings }
+  const result = { created: { areas: 0, templates: 0 }, updated: { areas: 0, guards: 0, templates: 0, members: 0 }, changes: [], unchanged: { areas: 0, templates: 0, members: 0 }, skipped: unconfirmed.map((a) => a.title), warnings }
   tx(db, () => {
     for (const a of areas) {
       let row = get(db, 'SELECT id, description, position FROM areas WHERE title = ? AND deleted_at IS NULL', a.title)
@@ -46,6 +49,7 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
         result.created.areas++
         changed = true
       } else if (row.description !== a.description || row.position !== a.position) {
+        result.changes.push({ kind: 'area', name: a.title, fields: [row.description !== a.description ? 'description' : null, row.position !== a.position ? 'position' : null].filter(Boolean) })
         updateArea(db, row.id, { description: a.description, position: a.position }, { actorId: actor.id })
         result.updated.areas++
         changed = true
@@ -56,6 +60,7 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
       const merged = [...wanted, ...current.filter((c) => !wanted.some((w) => w.text === c.text)).map((c) => ({ text: c.text, mechanism: c.mechanism, person: c.person === true }))]
       const normalized = current.map((c) => ({ text: c.text, mechanism: c.mechanism, person: c.person === true }))
       if (!sameGuards(normalized, merged)) {
+        result.changes.push({ kind: 'guards', name: a.title, fields: ['guards'] })
         updateArea(db, row.id, { guards: merged.map((g) => ({ id: current.find((c) => c.text === g.text)?.id, ...g })) }, { actorId: actor.id })
         result.updated.guards++
         changed = true
@@ -63,13 +68,14 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
       for (const t of a.templates ?? []) {
         const name = t.name
         const existing = get(db, 'SELECT id, body_markdown FROM templates WHERE area_id = ? AND name = ? COLLATE NOCASE AND deleted_at IS NULL', row.id, name)
-        if (!existing) { createTemplate(db, row.id, { body_markdown: t.body_markdown }, { actorId: actor.id }); result.created.templates++; changed = true } else if (existing.body_markdown !== t.body_markdown) { updateTemplate(db, row.id, existing.id, { body_markdown: t.body_markdown }, { actorId: actor.id }); result.updated.templates++; changed = true } else result.unchanged.templates++
+        if (!existing) { createTemplate(db, row.id, { body_markdown: t.body_markdown }, { actorId: actor.id }); result.created.templates++; changed = true } else if (existing.body_markdown !== t.body_markdown) { result.changes.push({ kind: 'template', name: `${a.title} / ${name}`, fields: ['body_markdown'] }); updateTemplate(db, row.id, existing.id, { body_markdown: t.body_markdown }, { actorId: actor.id }); result.updated.templates++; changed = true } else result.unchanged.templates++
       }
       if (changed) audit(db, { memberId: actor.id, action: 'area.method_load', entity: 'area', entityId: row.id, detail: { title: a.title, confirmed_by: a.confirmed_by ?? null }, now })
     }
     for (const m of spec.members ?? []) {
       const member = get(db, 'SELECT id, profile FROM members WHERE email = ? AND removed = 0', m.email)
       if (member.profile === m.profile) { result.unchanged.members++; continue }
+      result.changes.push({ kind: 'member', name: m.email, fields: ['profile'] })
       updateMember(db, member.id, { profile: m.profile }, { actorId: actor.id })
       result.updated.members++
     }
@@ -86,7 +92,8 @@ function main (argv) {
     const result = applyLoadFile(db, JSON.parse(readFileSync(file, 'utf8')), { onlyConfirmed: rest.includes('--only-confirmed'), requireMechanism: rest.includes('--require-mechanism') })
     for (const w of result.warnings) console.error(`Aviso: el límite «${w.guard}» del área ${w.area} no tiene mecanismo declarado.`)
     for (const t of result.skipped) console.error(`Omitida, sin confirmar: ${t}`)
-    process.stdout.write(`${JSON.stringify({ created: result.created, updated: result.updated, unchanged: result.unchanged }, null, 2)}\n`)
+    for (const c of result.changes) console.error(`Sobrescribe ${c.kind} «${c.name}»: ${c.fields.join(', ')}`)
+    process.stdout.write(`${JSON.stringify({ created: result.created, updated: result.updated, unchanged: result.unchanged, changes: result.changes }, null, 2)}\n`)
   } catch (error) { console.error(error.message); process.exit(1) }
 }
 

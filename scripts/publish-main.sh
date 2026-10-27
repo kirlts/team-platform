@@ -25,6 +25,12 @@
 #                over what it ran. A record that cannot be written is reported in the summary and does not stop the publication.
 #   8. push      only if all of the above exited 0: tag `vX.Y.Z` and `<sha>:main`, in one atomic push, with RELEASE_PUBLISHES_MAIN=<sha>.
 #
+# Where the steps run. Steps 3 to 5 run INSIDE the pinned image (the `battery` stage of the Dockerfile, scripts/battery-image.sh): the
+# Node, the base image and the tools are those the Dockerfile declares, not those of the machine that publishes, and a test that needs
+# something the image does not have (a Docker daemon, a git identity, Chromium, a network) is skipped with the reason it wrote; the record
+# lists them. Step 6 needs a Docker daemon (it starts the machines of the reference driver), so it runs on this machine, outside the image,
+# and the record marks it `where: "host"` with this machine's Node. The settings below replace a step with a command that runs as given.
+#
 # Not part of a publication, on purpose: `test:image` (it builds the production image; the host that installs builds it), `test:bench`
 # (it measures models and spends calls), the browser tests of the panel and the walkthrough (per change, UD-265). The steps run one after
 # the other: the conformance and the docker tests of the battery start containers from the same driver, and they were never run side by
@@ -41,14 +47,14 @@
 #
 # Settings (all optional; the tests inject doubles):
 #   PUBLISH_REMOTE            the remote (default origin)
-#   PUBLISH_TEST_CMD          step 3 (default `npm run test:completa`)
-#   PUBLISH_PANEL_CMD         step 4 (default `npm run test:panel`)
-#   PUBLISH_CLIENT_CMD        step 5 (default `npm run test:client`)
+#   PUBLISH_TEST_CMD          step 3 (default `npm run test:completa`, in the image)
+#   PUBLISH_PANEL_CMD         step 4 (default `npm run test:panel`, in the image)
+#   PUBLISH_CLIENT_CMD        step 5 (default `npm run test:client`, in the image)
 #   PUBLISH_HOST_COMPOSE      the compose file of the host the publication is for; with it, step 7 also writes the verification a host
 #                             reads (refs/notes/verificaciones); without it, only the detailed record (refs/notes/battery)
 #   PUBLISH_HOST_BASE_IMAGE   the base image the host declares (a reference such as `name:tag`), for `imagen_base` of that verification;
 #                             without it, the external root of the last stage of the Dockerfile
-#   PUBLISH_CONFORMANCE_CMD   step 6 (default `node scripts/host-conformance.mjs --driver drivers/docker-local`)
+#   PUBLISH_CONFORMANCE_CMD   step 6 (default `node scripts/host-conformance.mjs --driver drivers/docker-local`, on this machine)
 #   TMPDIR                    where the steps write (default $HOME/.cache: /tmp is memory)
 set -u -o pipefail
 
@@ -66,9 +72,13 @@ while [ $# -gt 0 ]; do
 done
 
 export TMPDIR="${TMPDIR:-$HOME/.cache}"; mkdir -p "$TMPDIR"
-CMD_TEST="${PUBLISH_TEST_CMD:-npm run test:completa}"
-CMD_PANEL="${PUBLISH_PANEL_CMD:-npm run test:panel}"
-CMD_CLIENT="${PUBLISH_CLIENT_CMD:-npm run test:client}"
+# A default step runs in the image (the command shown in the record is the plain one); an override runs as given, like the doubles of the tests.
+IN_IMAGE="bash '$AQUI/scripts/battery-image.sh' --"
+step_cmd() { # <override> <default command>: what is executed
+  if [ -n "$1" ]; then printf '%s' "$1"; else printf '%s %q' "$IN_IMAGE" "$2"; fi
+}
+CMD_TEST="${PUBLISH_TEST_CMD:-}"; CMD_PANEL="${PUBLISH_PANEL_CMD:-}"; CMD_CLIENT="${PUBLISH_CLIENT_CMD:-}"
+SHOWN_TEST="${PUBLISH_TEST_CMD:-npm run test:completa}"; SHOWN_PANEL="${PUBLISH_PANEL_CMD:-npm run test:panel}"; SHOWN_CLIENT="${PUBLISH_CLIENT_CMD:-npm run test:client}"
 CMD_CONF="${PUBLISH_CONFORMANCE_CMD:-node scripts/host-conformance.mjs --driver drivers/docker-local}"
 
 SUMMARY=(); WT=""; TAG_MADE=""; FAILED=0
@@ -159,14 +169,16 @@ t0=$(now)
 prepare_modules ""; prepare_modules panel; prepare_modules packages/client
 SUMMARY+=("modules       ok    $(dt "$t0" "$(now)")s")
 
-run() { # <name> <command> [<name in the battery record>]
-  local name="$1" cmd="$2" rec="${3:-$1}" t rc log="$LOGS/$1.log"
-  t=$(now); echo; echo "==> $name: $cmd"
+run() { # <name> <command executed> <name in the battery record> <where: image|host|empty> <command shown in the record>
+  local name="$1" cmd="$2" rec="${3:-$1}" where="${4:-}" shown="${5:-$2}" t rc log="$LOGS/$1.log" extra=()
+  [ -z "$where" ] || extra+=(--where "$where")
+  [ "$where" != host ] || extra+=(--node "$(node --version)")
+  t=$(now); echo; echo "==> $name: $shown${where:+ ($where)}"
   (cd "$WT" && bash -c "$cmd") 2>&1 | tee "$log"; rc=${PIPESTATUS[0]}
-  node "$AQUI/scripts/battery-record.mjs" result --name "$rec" --exit "$rc" --seconds "$(dt "$t" "$(now)")" --log "$log" --cmd "$cmd" >> "$RESULTS" 2>/dev/null \
+  node "$AQUI/scripts/battery-record.mjs" result --name "$rec" --exit "$rc" --seconds "$(dt "$t" "$(now)")" --log "$log" --cmd "$shown" ${extra[@]+"${extra[@]}"} >> "$RESULTS" 2>/dev/null \
     || note "could not describe the result of $name for the battery record" >&2
-  if [ "$rc" = 0 ]; then SUMMARY+=("$(printf '%-12s' "$name") ok    $(dt "$t" "$(now)")s   $cmd"); return 0; fi
-  SUMMARY+=("$(printf '%-12s' "$name") FAILED (exit $rc)  $(dt "$t" "$(now)")s   $cmd")
+  if [ "$rc" = 0 ]; then SUMMARY+=("$(printf '%-12s' "$name") ok    $(dt "$t" "$(now)")s   $shown${where:+ ($where)}"); return 0; fi
+  SUMMARY+=("$(printf '%-12s' "$name") FAILED (exit $rc)  $(dt "$t" "$(now)")s   $shown${where:+ ($where)}")
   note "$name failed (exit $rc)" >&2
   # A real run stops at the first failure. A dry run goes on, so that the seconds and the verdict of every step are measured.
   if [ "$DRY" = 1 ]; then FAILED=1; return 0; fi
@@ -178,10 +190,12 @@ changed() { # <prefix>
 }
 
 # 3 to 6. the checks ---------------------------------------------------------------------------------------------------------
-run battery "$CMD_TEST" complete
-if changed panel/; then run panel "$CMD_PANEL"; else SUMMARY+=("panel        skipped (panel/ did not change since main)"); echo '{"name":"panel","skipped":"panel/ did not change since main"}' >> "$RESULTS"; fi
-if changed packages/client/; then run client "$CMD_CLIENT"; else SUMMARY+=("client       skipped (packages/client/ did not change since main)"); echo '{"name":"client","skipped":"packages/client/ did not change since main"}' >> "$RESULTS"; fi
-run conformance "$CMD_CONF"
+# `where` is image for a default step and empty for an override, which runs as given.
+place() { if [ -n "$1" ]; then printf ''; else printf image; fi }
+run battery "$(step_cmd "$CMD_TEST" 'npm run test:completa')" complete "$(place "$CMD_TEST")" "$SHOWN_TEST"
+if changed panel/; then run panel "$(step_cmd "$CMD_PANEL" 'npm run test:panel')" panel "$(place "$CMD_PANEL")" "$SHOWN_PANEL"; else SUMMARY+=("panel        skipped (panel/ did not change since main)"); echo '{"name":"panel","skipped":"panel/ did not change since main"}' >> "$RESULTS"; fi
+if changed packages/client/; then run client "$(step_cmd "$CMD_CLIENT" 'npm run test:client')" client "$(place "$CMD_CLIENT")" "$SHOWN_CLIENT"; else SUMMARY+=("client       skipped (packages/client/ did not change since main)"); echo '{"name":"client","skipped":"packages/client/ did not change since main"}' >> "$RESULTS"; fi
+run conformance "$CMD_CONF" conformance host "$CMD_CONF"
 
 # 7. record, 8. push --------------------------------------------------------------------------------------------------------
 if [ "$DRY" = 1 ]; then

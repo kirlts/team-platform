@@ -585,3 +585,29 @@ test('D3: the router that confuses an area with another more than it gets it rig
   assert.ok(result.merge_suggestions.some((s) => s.into === 'Pedidos y envíos' && s.from === 'Catálogo y precios' && s.confused > s.right))
   assert.ok(!result.merge_suggestions.some((s) => s.from === 'Pedidos y envíos'))
 })
+
+// ---- D6: the extraction is reproducible, or says why not
+const oneUnit = (text) => [{ id: 'u1', source: 's', date: '2026-03-02', author: 'Ana', confidential: false, text }]
+const answering = (summary, counter = { calls: 0 }) => ({ async complete () { counter.calls++; return { json: { requests: [fakeRow('u1', { summary })] } } } })
+
+test('D6: the cache is named by the content of the batch, the provider and the model, so another run never reads the file of an earlier one', async () => {
+  const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'area-method-cache-'))
+  const counter = { calls: 0 }
+  const a = await extractRows(oneUnit('texto A'), team, { provider: answering('resumen A', counter), model: 'modelo-1', cacheDir: dir })
+  assert.equal(a.rows[0].summary, 'resumen A')
+  const again = await extractRows(oneUnit('texto A'), team, { provider: answering('resumen A', counter), model: 'modelo-1', cacheDir: dir })
+  assert.equal(counter.calls, 1, 'the same batch, provider and model reuse the file')
+  assert.equal(again.rows[0].summary, 'resumen A')
+  const otherText = await extractRows(oneUnit('texto COMPLETAMENTE DISTINTO'), team, { provider: answering('resumen B', counter), model: 'modelo-1', cacheDir: dir })
+  assert.equal(otherText.rows[0].summary, 'resumen B', 'another text does not get the summary of the first')
+  const otherModel = await extractRows(oneUnit('texto A'), team, { provider: answering('resumen C', counter), model: 'modelo-2', cacheDir: dir })
+  assert.equal(otherModel.rows[0].summary, 'resumen C', 'another model does not get the rows of the first')
+  assert.equal(counter.calls, 3)
+})
+
+test('D6: every row records the model and the version of the script that wrote it', async () => {
+  const result = await extractRows(oneUnit('texto A'), team, { provider: answering('resumen A'), model: 'modelo-1' })
+  assert.equal(result.rows[0].model, 'modelo-1')
+  assert.equal(result.rows[0].script_version, extraction.EXTRACTOR_VERSION)
+  assert.match(extraction.EXTRACTOR_VERSION, /^\d+\.\d+\.\d+$/)
+})

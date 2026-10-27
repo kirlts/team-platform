@@ -57,7 +57,9 @@ Un área con más de la mitad de sus filas confidenciales (`--max-confidential-s
 
 ### Filas
 
-`request-rows.mjs` pide a un modelo liviano, por lotes de unos 18.000 caracteres, una fila por pedido con salida validada por esquema. Cada lote queda en la carpeta de `--cache` y un corte no repite lo hecho. Un resumen con correo o con una cifra larga se reemplaza y se cuenta.
+`request-rows.mjs` pide a un modelo liviano, por lotes de unos 18.000 caracteres, una fila por pedido con salida validada por esquema. Cada lote queda en la carpeta de `--cache` y un corte no repite lo hecho. El archivo se nombra con un hash del contenido del lote, las instrucciones, el esquema, el proveedor y el modelo. Otro texto, otro proveedor u otro modelo nunca encuentra el archivo de una corrida anterior. Cada fila guarda el modelo y la versión del guion (`model`, `script_version`).
+
+La extracción no es determinista: `claude -p` no fija semilla ni temperatura, y dos corridas dan filas distintas. Por eso la sección 3 pide repetirla sobre la muestra validada y medir el acuerdo entre corridas. Un correo o una cifra larga en los textos de una fila se reemplaza y se cuenta. Una fecha ISO se deja.
 
 | Campo | Contenido |
 |---|---|

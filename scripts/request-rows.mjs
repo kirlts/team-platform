@@ -10,6 +10,7 @@
 // summaries only, and the script never writes a unit's text anywhere. `docs/METODO-DE-REPARTO.md` describes the fields.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { readJson, readJsonl, validateTeam } from './area-method.mjs'
@@ -19,6 +20,10 @@ import { VALUE_HOLDERS } from '../src/domain/assessment.js'
 export const BATCH_CHARS = 18000
 // A unit longer than this is cut in pieces of this size, so one very long document does not fill a batch alone.
 export const UNIT_CHARS = 9000
+
+// The version of the extraction: change it when the instructions, the schema or the cleaning of the rows change in a way that makes old rows differ.
+// Every row records it with the model that wrote it, and the cache of a batch is named by a hash that includes the instructions, so an old cache is never taken for a new run.
+export const EXTRACTOR_VERSION = '1.1.0'
 
 const scale = { type: 'number', minimum: 0, maximum: 1 }
 
@@ -119,8 +124,17 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const PERSONAL = [[/[\w.+-]+@[\w-]+\.[\w.]+/g, '[correo]', () => true], [/\+?\d[\d\s.-]{7,}\d/g, '[número]', (m) => !ISO_DATE.test(m)]]
 const clean = (text, counter) => PERSONAL.reduce((t, [re, to, applies]) => t.replace(re, (m) => { if (!applies(m)) return m; counter.n++; return to }), String(text ?? ''))
 
+/**
+ * The name of the cache file of a batch: a hash of everything that decides what the model answers (the units of the batch, the instructions, the schema, the provider
+ * and the model). Another text, another provider or another model never finds the file of an earlier run, whatever the position of the batch.
+ */
+export function cacheName (batch, { system, schema, provider = '', model = '' }) {
+  const hash = createHash('sha256').update(JSON.stringify({ batch, system, schema, provider, model, version: EXTRACTOR_VERSION })).digest('hex').slice(0, 24)
+  return `batch-${hash}.json`
+}
+
 /** Validates the rows of one batch against the team and the units, and attaches the unit's source and confidentiality. Drops what has no known unit. */
-export function finishRows (requests, batch, team, counter = { n: 0 }) {
+export function finishRows (requests, batch, team, counter = { n: 0 }, meta = {}) {
   const byId = new Map(batch.map((u) => [u.id, u]))
   const limits = new Set((team.limits ?? []).map((l) => l.id))
   const people = new Set(team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name))
@@ -130,12 +144,12 @@ export function finishRows (requests, batch, team, counter = { n: 0 }) {
     if (!unit || !r.summary || !VALUE_HOLDERS.includes(r.value_holder) || !['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'].every((k) => inRange(r[k]))) return []
     const holder = r.value_holder === 'person' && people.has(r.holder) ? r.holder : ''
     return [{ ...r, holder, unit: unit.id, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : (unit.date ?? ''), summary: clean(r.summary, counter), intent: clean(r.intent, counter), object: clean(r.object, counter), module: clean(r.module, counter), maximize: clean(r.maximize, counter), sacrifice: clean(r.sacrifice, counter),
-      limits: (r.limits ?? []).filter((id) => limits.has(id)), source: unit.source ?? '', confidential: unit.confidential === true }]
+      limits: (r.limits ?? []).filter((id) => limits.has(id)), source: unit.source ?? '', confidential: unit.confidential === true, model: meta.model ?? '', script_version: EXTRACTOR_VERSION }]
   })
 }
 
 /** Runs the extraction. `provider` has `complete({ system, messages, schema, effort })`. Returns `{ rows, batches, redacted, failed }`. */
-export async function extractRows (units, team, { provider, parallel = 6, cacheDir = null, onBatch = () => {} } = {}) {
+export async function extractRows (units, team, { provider, model = provider?.model ?? '', parallel = 6, cacheDir = null, onBatch = () => {} } = {}) {
   validateTeam(team)
   validateUnits(units)
   const batches = batchUnits(units)
@@ -148,11 +162,11 @@ export async function extractRows (units, team, { provider, parallel = 6, cacheD
   const worker = async () => {
     while (next < batches.length) {
       const i = next++
-      const file = cacheDir ? join(cacheDir, `batch-${String(i).padStart(4, '0')}.json`) : null
+      const file = cacheDir ? join(cacheDir, cacheName(batches[i], { system, schema, provider: provider?.name ?? '', model })) : null
       if (file && existsSync(file)) { results[i] = JSON.parse(readFileSync(file, 'utf8')); continue }
       try {
         const r = await provider.complete({ system, messages: [{ role: 'user', content: batches[i].map(unitBlock).join('\n\n') }], schema, effort: 'low' })
-        results[i] = finishRows(r.json?.requests ?? [], batches[i], team, counter)
+        results[i] = finishRows(r.json?.requests ?? [], batches[i], team, counter, { model })
         if (file) writeFileSync(file, JSON.stringify(results[i]))
       } catch (error) { failed++; results[i] = []; onBatch({ index: i, error: error.message }) }
       onBatch({ index: i, rows: results[i].length })
@@ -170,11 +184,12 @@ async function main (argv) {
     process.exit(2)
   }
   const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
-  const provider = createClaudeCliProviders({ model: option('--model', 'claude-haiku-5-5') }).text
+  const model = option('--model', 'claude-haiku-5-5')
+  const provider = createClaudeCliProviders({ model }).text
   const cacheDir = option('--cache', null)
   if (cacheDir) mkdirSync(cacheDir, { recursive: true })
   const { rows, batches, redacted, failed } = await extractRows(readJsonl(unitsFile), readJson(option('--team')), {
-    provider, parallel: Number(option('--parallel', 6)), cacheDir, onBatch: (e) => console.error(e.error ? `lote ${e.index}: ${e.error}` : `lote ${e.index}: ${e.rows} pedidos`)
+    provider, model, parallel: Number(option('--parallel', 6)), cacheDir, onBatch: (e) => console.error(e.error ? `lote ${e.index}: ${e.error}` : `lote ${e.index}: ${e.rows} pedidos`)
   })
   writeFileSync(option('--out'), '')
   for (const r of rows) appendFileSync(option('--out'), `${JSON.stringify(r)}\n`)

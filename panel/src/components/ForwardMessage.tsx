@@ -14,14 +14,14 @@ import { NativeSelect } from './NativeSelect'
  * forward, an agent as any other) and the reason, which is required: the button stays off and says what is missing until both are there. The reason
  * stays in the thread as a notice. An agent starts working the message when it receives it.
  */
-export function ForwardMessage({ messageId, iconOnly = false }: { messageId: string; /** A phone has no room for the word beside the other actions: the arrow alone, with the word as its name. */ iconOnly?: boolean }) {
+export function ForwardMessage({ messageId }: { messageId: string }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size={iconOnly ? 'icon' : 'sm'} variant="ghost" data-testid="forward-open" className={iconOnly ? 'max-md:h-11 max-md:w-11' : undefined} aria-label={iconOnly ? t('forward.action') : undefined} title={iconOnly ? t('forward.action') : undefined}>
-          <ArrowRight size={14} aria-hidden /> {!iconOnly && t('forward.action')}
+        <Button size="sm" variant="ghost" data-testid="forward-open" className="max-md:h-11">
+          <ArrowRight size={14} aria-hidden /> {t('forward.action')}
         </Button>
       </DialogTrigger>
       <DialogContent title={t('forward.title')}>{open && <ForwardForm messageId={messageId} onClose={() => setOpen(false)} />}</DialogContent>

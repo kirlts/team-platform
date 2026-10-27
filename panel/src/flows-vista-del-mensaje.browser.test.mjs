@@ -53,15 +53,16 @@ describe('the sheet of a message (UD-309)', () => {
           const del = await box(page.getByRole('button', { name: 'Borrar', exact: true }))
           const count = await box(page.getByTestId('reply-count'))
           const back = await box(page.locator('main a[href="/messages"]'))
-          if (width >= 768) {
-            assert.ok(forward.y > back.y + back.height - 1, 'the actions are under the top row, not in it')
-            assert.ok(forward.y < title.y + title.height + 48 && del.y < title.y + title.height + 48, 'Reenviar and Borrar belong to the title row')
-          } else {
-            // On a phone the way back, the jump to the reply and the two actions share the first row, as targets of 44 px, and the title is the second line: the text of the message starts higher.
-            assert.ok(Math.abs(forward.y - back.y) < 24 && Math.abs(del.y - back.y) < 24, 'the actions are on the row of the way back')
-            assert.ok(forward.width >= 44 && forward.height >= 44 && del.width >= 44 && del.height >= 44, 'targets of 44 px')
+          // UD-309 at every width: the way back is in the top row and the actions are under it, on the title line.
+          assert.ok(forward.y > back.y + back.height - 1, 'the actions are under the top row, not in it')
+          assert.ok(forward.y < title.y + title.height + 48 && del.y < title.y + title.height + 48, 'Reenviar and Borrar belong to the title row')
+          assert.ok(del.x > forward.x, 'Borrar is the last, at the right')
+          if (width < 768) {
+            // On a phone the targets are 44 px, the count is on the line of the actions at the left of them, and the title wraps without being pushed.
+            assert.ok(forward.height >= 44 && del.height >= 44, 'targets of 44 px')
             assert.ok(back.height >= 44, 'the way back is a target of 44 px')
-            assert.ok(title.y > forward.y + forward.height - 1, 'the title is under that row')
+            assert.ok(Math.abs(count.y + count.height / 2 - (forward.y + forward.height / 2)) < 12 && count.x < forward.x, 'the count shares the line of the actions, at their left')
+            assert.ok(count.y >= title.y + title.height - 1, 'right under the title')
           }
           if (width >= 768) {
             assert.ok(Math.abs(forward.y + forward.height / 2 - (title.y + title.height / 2)) < 24, 'on the same line as the title')

@@ -153,7 +153,7 @@ describe('the own reply draws each file once and has one name for each action', 
 })
 
 describe('on a phone', () => {
-  test('every control of the sheet is a target of 44 px and the header takes two lines before the text', async () => {
+  test('every control of the header is a target of 44 px and the first reply of the thread is in the first screen', async () => {
     const { done_id: id } = await panel.control.execution()
     const message = (await (await panel.browser.newContext()).request.get(`${origin}/api/messages?q=contraste`)).ok
     void message
@@ -172,6 +172,12 @@ describe('on a phone', () => {
       // The links and fields of the text itself (the fields of the form, the area chip) are text, not controls of the header: the header and the thread are measured.
       const header = small.filter((s) => /^(Mensajes|Reenviar|Borrar|Responder)\b/.test(s))
       assert.deepEqual(header, [])
+      // The first reply of the thread is drawn inside the first screen of 390x844, for a message of the sample with a thread.
+      await page.goto(`${origin}/messages/102`)
+      await page.locator('main h1').waitFor()
+      await settled(page)
+      const first = await page.locator('section[aria-label="Respuestas"] article').first().boundingBox()
+      assert.ok(first && first.y < 844 - 60, `the first reply starts at y ${first?.y} of 844`)
       await shot(page, 'telefono-cabecera')
     } finally {
       await context.close()

@@ -39,6 +39,9 @@ export const DEFAULTS = Object.freeze({
   // Repeats of the cross-validation (see `recognition`). Measured 2026-10-26 on 8 invented corpora of 4 areas (60, 40, 20 and 12 rows) with 30 fold seeds each: with 1 draw, of 32
   // area verdicts changed with the seed alone (noise 0.75 to 0.9: 2, 7, 12 and 15); with 10 draws, 0, 1, 4 and 5 (bench/area-method-recognition.mjs).
   repeats: 10,
+  // Share of the units kept out of the construction of descriptions and profiles. Half is held out and split again into a tuning set and a confirmation set, which gives
+  // the 50 / 25 / 25 split that Hastie, Tibshirani and Friedman (2009, The Elements of Statistical Learning, 2nd ed., section 7.2) suggest for abundant data.
+  holdout: 0.5,
   // Fixed seed so a report can be reproduced (any integer would do).
   seed: 7,
   // A description of an area holds at most three limits: the description is capped at TEMPLATE_DESCRIPTION_MAX characters.
@@ -111,6 +114,20 @@ export function seededRandom (seed) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
+}
+
+/**
+ * Splits the rows by unit into the construction side and two held-out sets: `tune` (the descriptions are corrected against it) and `confirm` (it is read once, at the end).
+ * A unit is always on one side only, so the examples of a description and the profiles of the members, which come from `build`, never contain a request that is measured.
+ */
+export function splitUnits (rows, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
+  const units = shuffle([...new Set(rows.map((r) => r.unit))].sort(), seededRandom(seed))
+  const held = Math.round(units.length * holdout)
+  if (held < 2 || units.length - held < 1) throw new Error(`${units.length} units are too few to hold out ${holdout}: the tuning and the confirmation sets need one unit each at least.`)
+  const side = new Map()
+  units.forEach((u, i) => side.set(u, i >= held ? 'build' : i % 2 === 0 ? 'tune' : 'confirm'))
+  const pick = (name) => rows.filter((r) => side.get(r.unit) === name)
+  return { build: pick('build'), tune: pick('tune'), confirm: pick('confirm') }
 }
 
 const words = (text) => String(text ?? '').toLowerCase().match(/\p{L}{3,}/gu)?.filter((w) => !STOP.has(w)) ?? []

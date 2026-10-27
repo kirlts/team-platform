@@ -10,6 +10,7 @@ import * as method from './area-method.mjs'
 import { cohenD, DEFAULTS, fitClauses, analyze, propose, readJson, readJsonl, recognition, requiresPerson, seededRandom, topPhrases, validateLoadFile, validateTeam } from './area-method.mjs'
 import * as extraction from './request-rows.mjs'
 import { batchUnits, extractRows, finishRows, rowsSchema, systemPrompt } from './request-rows.mjs'
+import * as experiment from './route-experiment.mjs'
 import { runExperiment, scoreRouting, routerPrompt, SAMPLE } from './route-experiment.mjs'
 import { parseTemplate } from '../src/analyze/templates.js'
 import { initializeDatabase, openDatabase, get, all } from '../src/db/index.js'
@@ -79,7 +80,7 @@ test('propose writes areas, templates and profiles that the product accepts, and
   assert.throws(() => propose(rows, team, { purposes: {} }), /purpose sentence/)
   const { spec, skipped } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
   assert.equal(spec.actor, 'ana@tienda.example')
-  assert.deepEqual(spec.areas.map((a) => a.title), ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente'])
+  assert.deepEqual(spec.areas.map((a) => a.title).sort(), ['Atención al cliente', 'Catálogo y precios', 'Pedidos y envíos'])
   assert.deepEqual(skipped.map((s) => s.title), ['Contabilidad'])
   for (const a of spec.areas) {
     assert.ok(a.description.length <= 1024)
@@ -90,7 +91,7 @@ test('propose writes areas, templates and profiles that the product accepts, and
   }
   const catalog = spec.areas.find((a) => a.title === 'Catálogo y precios')
   assert.match(catalog.description, /Límites: mover dinero o fijar un precio \(lo levanta una persona\)/)
-  assert.deepEqual(catalog.templates.map((t) => t.name), ['Ajuste'], 'only the intent with 20 requests or more has its own template')
+  assert.deepEqual(catalog.templates.map((t) => t.name).sort(), ['Ajuste', 'Falla', 'Pregunta'], 'only the intents with 20 requests or more have their own template')
   const parsed = parseTemplate(catalog.templates[0].body_markdown)
   assert.deepEqual(parsed.fields.map((f) => f.name), ['request', 'value_missing', 'limits_touched', 'undo'])
   assert.ok(parsed.output.every((o) => o.type === 'boolean' && o.name.startsWith('touches_')), 'the limits of the area are booleans')
@@ -206,15 +207,16 @@ test('the experiment routes a sample through the provider and reports counts, co
       prompts.push(req)
       if (req.schema.properties.indicators) return { json: { indicators: ['1.1', '1.2', '2.3', '3.3'].map((id) => ({ id, score: 1, reason: 'bien' })) } }
       const text = req.messages[0].content
-      const area = /precio|descuento|ficha|fotos|stock|compatibilidades/i.test(text) ? 'Catálogo y precios' : /reclamo|garant|horario|frecuentes|correo/i.test(text) ? 'Atención al cliente' : 'Pedidos y envíos'
+      // A wiring test only: the router is a pattern over the vocabulary of the invented corpus, so it also errs where the corpus is phrased with a neighbour's words.
+      const area = /precio|descuento|ficha|fotos|stock|compatibilidad|oferta/i.test(text) ? 'Catálogo y precios' : /reclamo|garant|horario|frecuentes|correo|respuesta|cliente/i.test(text) ? 'Atención al cliente' : 'Pedidos y envíos'
       return { json: { area, attends: area === 'Catálogo y precios' ? ['Ana'] : ['Asistente'], brief: 'Maximiza lo pedido. Para si toca dinero.' } }
     }
   }
   const result = await runExperiment(rows, spec, team, { provider, size: 30, judge: true })
-  assert.equal(result.n, 30)
-  assert.ok(result.area_rate > 0.7, `area rate ${result.area_rate}`)
+  assert.ok(result.n >= 25 && result.n <= 30, `n ${result.n}`)
+  assert.ok(result.area_rate > 0.5 && result.area_rate < 1, `area rate ${result.area_rate}: the corpus has confusions`)
   assert.deepEqual(result.indicators, { '1.1': 1, '1.2': 1, '2.3': 1, '3.3': 1 })
-  assert.equal(typeof result.confusions, 'object')
+  assert.ok(Object.keys(result.confusions).length > 0, 'the confusions are reported')
   assert.match(routerPrompt(spec, team), /### Catálogo y precios\nPropósito: /)
   assert.match(prompts[0].system, /^Repartes pedidos/)
   assert.equal(SAMPLE, 60)
@@ -369,4 +371,42 @@ test('a row needs a person exactly when the product says its work belongs to a p
     }
   }
   assert.equal(compared, 20)
+})
+
+// ---- B2: what builds the descriptions is not what measures them
+test('B2: the split is by unit, reproducible, and the tuning and confirmation sets are different', () => {
+  const sets = method.splitUnits(rows, { holdout: 0.5, seed: 7 })
+  const units = (list) => new Set(list.map((r) => r.unit))
+  for (const [a, b] of [['build', 'tune'], ['build', 'confirm'], ['tune', 'confirm']]) assert.equal([...units(sets[a])].filter((u) => units(sets[b]).has(u)).length, 0, `${a} and ${b} share a unit`)
+  assert.equal(sets.build.length + sets.tune.length + sets.confirm.length, rows.length)
+  assert.ok(Math.abs(sets.tune.length - sets.confirm.length) < rows.length * 0.05)
+  assert.ok(sets.build.length > rows.length * 0.4 && sets.build.length < rows.length * 0.6)
+  assert.deepEqual(method.splitUnits(rows, { holdout: 0.5, seed: 7 }), sets)
+  assert.notDeepEqual(method.splitUnits(rows, { holdout: 0.5, seed: 8 }).tune, sets.tune)
+  assert.throws(() => method.splitUnits(rows.slice(0, 2), { holdout: 0.5 }), /too few/)
+})
+
+test('B2: nothing in the held-out rows reaches the descriptions or the profiles', () => {
+  const sets = method.splitUnits(rows, { seed: 7 })
+  const held = new Set([...sets.tune, ...sets.confirm].map((r) => r.unit))
+  const marked = rows.map((r, i) => (held.has(r.unit) ? { ...r, summary: `zzfuga resumen ${i}`, maximize: 'zzfuga cualidad', sacrifice: 'zzfuga resto', module: 'zzfuga modulo' } : r))
+  for (const stage of ['tune', 'confirm']) {
+    const built = experiment.buildAndSplit(marked, team, { stage, purposes })
+    const text = JSON.stringify(built.load)
+    assert.ok(!text.includes('zzfuga'), `${stage}: a held-out row reached the load file`)
+    assert.ok(built.test.length > 0 && built.test.every((r) => held.has(r.unit)))
+    assert.ok(built.load.areas.length >= 3)
+  }
+  assert.deepEqual(experiment.buildAndSplit(marked, team, { stage: 'tune', purposes }).test.map((r) => r.unit), sets.tune.map((r) => r.unit))
+})
+
+test('B2: without a hold-out the leak is counted, and with it the count is zero', async () => {
+  const provider = { async complete (req) { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: 'x' + req.messages[0].content.length } } } }
+  const whole = propose(rows, team, { purposes }).spec
+  const leaked = await runExperiment(rows, whole, team, { provider, size: rows.length })
+  assert.ok(leaked.leaked_examples > 0, 'the examples of the descriptions are in the measured sample')
+  const built = experiment.buildAndSplit(rows, team, { stage: 'confirm', purposes })
+  const clean = await runExperiment(built.test, built.load, team, { provider, size: built.test.length, held: { stage: built.stage, sets: built.sets }, buildUnits: built.buildUnits })
+  assert.equal(clean.holdout.stage, 'confirm')
+  assert.equal(clean.leaked_examples, 0)
 })

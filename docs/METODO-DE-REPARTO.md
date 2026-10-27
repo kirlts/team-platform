@@ -186,10 +186,12 @@ Criterio de aceptación: un modelo que lee sólo esta descripción y un pedido d
 ## 8. Medir el reparto
 
 ```
-node scripts/route-experiment.mjs rows.jsonl --load load.json --team team.json --sample 60 --judge --out result.json
+node scripts/route-experiment.mjs rows.jsonl --holdout --purposes purposes.json --team team.json --stage tune --sample 60 --judge --out result.json
 ```
 
 Un enrutador liviano lee sólo las descripciones de las áreas y los perfiles, y cada pedido de la muestra. Devuelve área, quién atiende y un encargo de una línea. El resultado se compara con la fila sin juez.
+
+Lo que se construye y lo que se mide son filas distintas. `--holdout` reparte las unidades (nunca las filas) en tres conjuntos: construcción, ajuste y confirmación. Se retiene el 50 % de las unidades (`--holdout 0.5`) y se parte en dos mitades iguales. Resulta la partición 50 / 25 / 25 que Hastie, Tibshirani y Friedman (2009, sección 7.2) sugieren para datos abundantes. El experimento llama a `propose` con el conjunto de construcción y mide sobre el retenido que se pidió con `--stage`. Los ejemplos de una descripción y los perfiles salen sólo del conjunto de construcción. El resultado informa cuántas filas medidas son un ejemplo citado (`leaked_examples`, debe ser 0). Sin `--holdout`, `--load` mide con las mismas filas con que se escribió y el guion avisa que el resultado no vale como medida.
 
 | Medida | Definición |
 |---|---|
@@ -201,7 +203,7 @@ Un enrutador liviano lee sólo las descripciones de las áreas y los perfiles, y
 
 La muestra es de 60 pedidos: una proporción medida con 60 tiene un margen de unos 0,13 con 95 % de confianza. Sirve para distinguir 0,5 de 0,8 y no para distinguir 0,8 de 0,85. Una diferencia de un caso entre dos descripciones queda dentro del ruido. `--accept <proporción>` hace fallar el comando si el área o la persona quedan por debajo. Sin él sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
 
-Se corrige la descripción donde hay una confusión de dos casos o más. Se prueba primero sobre esos casos y después sobre toda la muestra. Se detiene cuando una versión nueva ya no mejora el área ni la persona.
+Se corrige la descripción donde hay una confusión de dos casos o más. La corrección se prueba contra el conjunto de ajuste (`--stage tune`) y se repite hasta que una versión nueva ya no mejora el área ni la persona. Las descripciones se ajustan con una muestra y se confirman con otra. El conjunto de confirmación (`--stage confirm`) se lee una vez, al final, y no sirve para seguir corrigiendo.
 
 ## 9. Prueba con un miembro nuevo
 
@@ -284,3 +286,4 @@ La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`cr
 | `--seed` | 7 | Semilla fija para repetir el informe |
 | `--max-confidential-share` | 0,5 | Definición: un área está sustentada por filas confidenciales cuando son más de la mitad de las suyas |
 | `--sample` (experimento) | 60 | Margen de 0,13 con 95 % de confianza |
+| `--holdout` (experimento) | 0,5 | Partición 50 / 25 / 25 de Hastie, Tibshirani y Friedman (2009), sección 7.2 |

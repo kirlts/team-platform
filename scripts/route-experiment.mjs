@@ -15,7 +15,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { readJson, readJsonl, requiresPerson, seededRandom, validateTeam, withAreas } from './area-method.mjs'
+import { propose, readJson, readJsonl, requiresPerson, seededRandom, splitUnits, validateTeam, withAreas } from './area-method.mjs'
 import { KPIS } from '../src/execute/judge.js'
 
 // Default sample: 60 routed requests. A proportion measured on 60 has a margin of about 0.13 at 95 %, enough to tell 0.5 from 0.8 and not enough to tell 0.8 from 0.85.
@@ -73,8 +73,19 @@ export function scoreRouting (route, row, team) {
   }
 }
 
+/**
+ * Builds the descriptions and the profiles with the construction side of the rows and returns the held-out set to measure them on. `stage` is `tune` while the
+ * descriptions are being corrected and `confirm` for the one reading that is reported; a unit is never on both sides.
+ */
+export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, ...proposal } = {}) {
+  if (!['tune', 'confirm'].includes(stage)) throw new Error('stage must be tune or confirm')
+  const sets = splitUnits(rows, { holdout, seed })
+  const { spec, skipped, report } = propose(sets.build, team, proposal)
+  return { load: spec, skipped, report, test: sets[stage], buildUnits: new Set(sets.build.map((r) => r.unit)), sets: { build: sets.build.length, tune: sets.tune.length, confirm: sets.confirm.length }, stage }
+}
+
 /** Runs the sample through the router (and the judge when asked). `provider.complete({ system, messages, schema, effort })`. */
-export async function runExperiment (rows, load, team, { provider, families = {}, size = SAMPLE, judge = false, parallel = 6, seed = 7 } = {}) {
+export async function runExperiment (rows, load, team, { provider, families = {}, size = SAMPLE, judge = false, parallel = 6, seed = 7, held = null, buildUnits = null } = {}) {
   validateTeam(team)
   const sample = sampleRows(withAreas(rows, families), size, seed).filter((r) => load.areas.some((a) => a.title === r.area))
   const system = routerPrompt(load, team)
@@ -94,7 +105,15 @@ export async function runExperiment (rows, load, team, { provider, families = {}
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(parallel, sample.length)) }, worker))
-  return summarize(out)
+  return { ...summarize(out), holdout: held, leaked_examples: leakedExamples(sample, load, buildUnits) }
+}
+
+/**
+ * How many sampled requests may be one of the examples quoted in a description: a request that is measured must not be one of them. With `buildUnits` (the units the
+ * descriptions were built from) a request counts only if its unit is one of them; without it every summary that is quoted counts, because the examples do not say which row they come from.
+ */
+export function leakedExamples (sample, load, buildUnits = null) {
+  return sample.filter((r) => (!buildUnits || buildUnits.has(r.unit)) && load.areas.some((a) => a.description.includes(`«${r.summary}»`))).length
 }
 
 /** The counts of an experiment: area match, person match, missing and extra people, the confusions and the indicator means. */
@@ -115,14 +134,31 @@ export function summarize (results) {
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  if (!rowsFile || !option('--load') || !option('--team')) {
-    console.error('Uso: node scripts/route-experiment.mjs rows.jsonl --load load.json --team team.json [--families f.json] [--sample 60] [--judge] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]')
-    process.exit(2)
-  }
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample 60] [--judge] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
+  const holdout = rest.includes('--holdout')
+  if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
   const provider = createClaudeCliProviders({ model: option('--model', 'claude-haiku-5-5') }).text
-  const result = await runExperiment(readJsonl(rowsFile), readJson(option('--load')), readJson(option('--team')), {
-    provider, families: option('--families') ? readJson(option('--families')) : {}, size: Number(option('--sample', SAMPLE)), judge: rest.includes('--judge'), parallel: Number(option('--parallel', 6))
+  const rows = readJsonl(rowsFile)
+  const team = readJson(option('--team'))
+  const families = option('--families') ? readJson(option('--families')) : {}
+  let load
+  let pool = rows
+  let held = null
+  let buildUnits = null
+  if (holdout) {
+    const fraction = option('--holdout') && !option('--holdout').startsWith('--') ? Number(option('--holdout')) : undefined
+    const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')) })
+    load = built.load
+    pool = built.test
+    held = { stage: built.stage, sets: built.sets }
+    buildUnits = built.buildUnits
+  } else {
+    load = readJson(option('--load'))
+    console.error('Sin --holdout, las descripciones se miden con las mismas filas con que se escribieron: el resultado no vale como medida.')
+  }
+  const result = await runExperiment(pool, load, team, {
+    provider, families, size: Number(option('--sample', SAMPLE)), judge: rest.includes('--judge'), parallel: Number(option('--parallel', 6)), held, buildUnits
   })
   const text = `${JSON.stringify(result, null, 2)}\n`
   if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)

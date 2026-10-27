@@ -141,17 +141,17 @@ exit "$CODE"
 MODE="\${CONFORMANCE_DELIVER_MODE:-pass}"
 if [ "$MODE" = later ] && [ ! -e "$CONFORMANCE_FLAGS/deliver-75" ]; then
   : > "$CONFORMANCE_FLAGS/deliver-75"
-  echo "deliver exit=75 injected" >> "$CONFORMANCE_LOG"
+  echo "deliver $2 message=$1 exit=75 injected" >> "$CONFORMANCE_LOG"
   echo '##team wait before-machine'
   exit 75
 fi
 if [ "$MODE" = held ]; then
-  echo "deliver exit=76 injected" >> "$CONFORMANCE_LOG"
+  echo "deliver $2 message=$1 exit=76 injected" >> "$CONFORMANCE_LOG"
   echo 'conformance: held for the review of a person'
   exit 76
 fi
 bash "$CONFORMANCE_DRIVER/deliver.sh" "$@"; CODE=$?
-echo "deliver exit=$CODE" >> "$CONFORMANCE_LOG"
+echo "deliver $2 message=$1 exit=$CODE" >> "$CONFORMANCE_LOG"
 exit "$CODE"
 `
 }
@@ -332,11 +332,18 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
       const retired = () => { const log = readLog(files.log); const at = log.map((l) => l.order).lastIndexOf('create'); return at < 0 || log.slice(at).some((l) => l.order === 'destroy') }
       try { await until(retired, { timeoutMs: HOOK_TIMEOUT_MS, everyMs: 100 }) } catch { /* the cases say that no DESTROY ran */ }
       await worker.stop(); worker = null
+      // A flow leaves nothing behind. The orderly shutdown of a worker returns the job it was running to the queue with its attempt refunded (that is the contract, and what
+      // «destroy-shutdown» exercises): left there, the worker of the NEXT flow claims it and runs it with the hooks, the log and the delivery mode of that flow, so a DELIVER
+      // of another message lands in the log of a case that counts them (measured 2026-10-26: «deliver-76» failed with «DELIVER ran more than once» because the delivery of
+      // the message of «shutdown» ran inside its flow). The jobs are read first, so the verdicts see what the flow did; the jobs still alive are cancelled after.
+      const leftovers = () => testEnv.db.prepare("SELECT id FROM jobs WHERE message_id = ? AND status IN ('queued', 'running')").all(messageId).map((j) => j.id)
       const [execJob] = jobsOf(messageId, 'execute')
       const deliverJobs = jobsOf(messageId, 'deliver')
       const runRow = execJob ? testEnv.db.prepare('SELECT * FROM execute_runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1').get(execJob.id) : null
       const stream = readFileSync(files.stream, 'utf8').split('\n').filter((l) => l.trim())
-      return { name, messageId, branch: `tp/${messageId}`, execJob, deliverJobs, deliverJob: deliverJobs.at(-1), runRow, log: readLog(files.log), stream, files }
+      const log = readLog(files.log)
+      for (const id of leftovers()) testEnv.queue.cancel(id)
+      return { name, messageId, branch: `tp/${messageId}`, execJob, deliverJobs, deliverJob: deliverJobs.at(-1), runRow, log, stream, files }
     }
     const lastOf = (f, order) => f.log.filter((l) => l.order === order && !l.start).at(-1)
     const describeJobs = (f) => `execute job ${f.execJob ? `${f.execJob.status} (${String(f.execJob.last_error ?? '').slice(0, 200) || 'no error recorded'})` : 'never enqueued'}${f.deliverJob ? `; deliver job ${f.deliverJob.status}` : ''}`
@@ -485,7 +492,9 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
         expect(f.deliverJob.status === 'done', `a held delivery ends done, not ${f.deliverJob.status}: ${String(f.deliverJob.last_error ?? '').slice(0, 300)}`)
         expect(f.deliverJob.attempts === 1, `a held delivery is not retried: attempts = ${f.deliverJob.attempts}`)
         expect(f.runRow?.delivery_held === 1 && f.runRow?.delivered === 0, `the run should be held and not delivered (delivery_held=${f.runRow?.delivery_held}, delivered=${f.runRow?.delivered})`)
-        expect(f.log.filter((l) => l.order === 'deliver').length === 1, 'DELIVER ran more than once')
+        // One DELIVER per job: the queue hands a job to one attempt at a time (its claim and its renewal are fenced by the attempt), so a second line of THIS job is a real double delivery.
+        expect(f.log.filter((l) => l.order === 'deliver' && l.job === String(f.deliverJob.id)).length === 1, 'DELIVER ran more than once')
+        expect(f.log.every((l) => l.order !== 'deliver' || l.message === String(f.messageId)), 'a DELIVER of another message ran inside this case')
       })
     }
 

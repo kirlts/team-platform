@@ -41,10 +41,15 @@ describe('mark several and delete them at once (UD-253)', () => {
       const before = await titles(page)
       const rows = page.locator('main article').filter({ has: page.getByTestId('row-check') })
       const chosen = []
+      const tops = () => page.locator('main article').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
+      const restingTops = await tops()
       for (let i = 0; i < 3; i++) {
         const row = rows.nth(i)
         chosen.push((await row.locator('h3').textContent()).trim())
         await row.getByTestId('row-check').click()
+        // The strip sits under the list: marking the first row moved every row down by its height and the next click fell on the row that had moved.
+        await page.getByTestId('selection-bar').waitFor()
+        assert.deepEqual((await tops()).slice(0, restingTops.length), restingTops.slice(0, restingTops.length), `no row moves when row ${i + 1} is marked`)
       }
       const bar = page.getByTestId('selection-bar')
       await bar.getByText('3 marcados').waitFor()

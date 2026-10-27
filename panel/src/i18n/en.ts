@@ -1162,6 +1162,7 @@ export const en: Record<MessageKey, Message> = {
   'analysis.error.agent_secret_missing': 'The agent key is missing',
   'analysis.error.execute_timeout': 'The session exceeded the maximum time',
   'analysis.error.host_instructions_missing': 'The rules file could not be read',
+  'analysis.error.guards_file_invalid': 'The guards file is not valid',
   'analysis.error.machine_create_failed': 'The machine could not be created',
   'analysis.error.execute_no_result': 'The session ended without a result',
   'analysis.error.execute_error': 'The session ended with an error',

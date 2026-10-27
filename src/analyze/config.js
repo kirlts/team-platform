@@ -42,10 +42,12 @@ export const KNOBS = Object.freeze({
   partitionThresholdTokens: { value: 100_000, source: 'Report 02 §2.2 and §10.2 [F2]; MASTER-SPEC §7.5 (provisional)' },
 
   // Token estimate from characters, only to decide whether a split is needed.
-  // Provisional assumption: about 4 characters per token in Spanish with the previous tokenizer, and the
-  // Haiku 5.5 tokenizer produces about 30 % more tokens for the same text (Haiku 5.5 migration
-  // guide, consulted on 2026-10-20): 4 / 1.3 ≈ 3. The calls return real `usage`; the bench calibrates this value.
-  charsPerToken: { value: 3, source: 'Provisional assumption; Haiku 5.5 migration guide (tokenizer with ~30 % more tokens); calibrated by the bench §7.11' },
+  // Measured 2026-10-26 on the 57 runs of 2026-10-21 (Haiku 5.5, real Spanish inputs from 344 to 19,993 estimated tokens): the real
+  // input tokens of the classification call against the estimate at 3 characters per token fit a line of slope 1.333 with R² 0.9962
+  // (`node bench/calibrate.mjs`), so the model counts 3 / 1.333 = 2.25 characters per token. The earlier 3 came from the migration
+  // guide of Haiku 5.5 (about 4 characters per token with the previous tokenizer, 30 % more tokens) and underestimated by a quarter.
+  // Sonnet 5.5 is not measured: the same script measures it on the first result files of that model.
+  charsPerToken: { value: 2.25, source: 'Measurement 2026-10-26 (docs/investigaciones/mediciones/2026-10-26-calibracion-de-tokens.md, bench/calibrate.mjs): 57 runs of Haiku 5.5, slope 1.333, R² 0.9962' },
 
   // Classification and decomposition calls at once (one group or one chunk each). Measured with the
   // 40-point docx (40 groups) and real providers on 2026-10-20: 4 at once, 26 s; 8, 16 s; 16, 10.5 s,

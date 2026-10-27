@@ -61,7 +61,11 @@ if (panelCode.length) {
 const imageTests = new Set(config.image.tests)
 const touchesImage = changed.some((file) => config.image.paths.some((p) => file === p || file.startsWith(p)))
 if (touchesImage) for (const t of imageTests) selected.add(t)
-const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f) || imageTests.has(f)).sort()
+// Tests on a real Docker daemon (src/testing/areas.json, «daemon»): they do not skip without Docker, they fail, so they run only when the change touches what they walk.
+const daemonTests = new Set(config.daemon.tests)
+const touchesDaemon = changed.some((file) => config.daemon.paths.some((p) => file === p || file.startsWith(p)))
+if (touchesDaemon) for (const t of daemonTests) selected.add(t)
+const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f) || imageTests.has(f) || daemonTests.has(f)).sort()
 const browserFiles = files.filter((f) => f.endsWith('.browser.test.mjs'))
 const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)

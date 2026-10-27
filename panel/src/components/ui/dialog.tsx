@@ -55,7 +55,7 @@ export function DialogContent({
         <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
           {/* The title names what the window holds: a heading above its own field labels, not one more label of their size. */}
           <Primitive.Title className="min-w-0 break-words text-base font-semibold normal-case leading-snug tracking-normal">{title}</Primitive.Title>
-          <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-hover" aria-label={t('common.close')}>
+          <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-hover pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center" aria-label={t('common.close')}>
             <X size={16} aria-hidden />
           </Primitive.Close>
         </div>

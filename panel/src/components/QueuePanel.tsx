@@ -21,7 +21,7 @@ const REPROCESSABLE = new Set(['published', 'proposed', 'failed', 'cancelled'])
 const SETTLED = new Set(['proposed', 'published', 'failed'])
 
 /**
- * «Cola» of Configuración (UD-251, Editor): the sends of everybody with their state, the count of jobs by state with the
+ * Content of the «Cola» box of Configuración (UD-251, Editor), which draws the title and the fold: the sends of everybody with their state, the count of jobs by state with the
  * purge of the finished ones, and on every send «Reprocesar», «Borrar» and «Traza». Nothing destructive asks for a
  * confirmation (UD-253): one click does it and the figure says what went.
  */
@@ -31,8 +31,7 @@ export function QueuePanel() {
   const list = useQueueInputs(page, PAGE_SIZE)
   const rows = list.data?.items ?? []
   return (
-    <section data-queue className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <h2>{t('queue.title')}</h2>
+    <section data-queue className="flex flex-col gap-3">
       <JobCounts />
       <RunningExecutions />
       <ExecutionRuns />
@@ -93,7 +92,8 @@ function RunningExecutions() {
 function JobCounts() {
   const t = useT()
   const errorText = useErrorText()
-  const counts = useJobCounts().data
+  const jobs = useJobCounts()
+  const counts = jobs.data
   const purge = usePurgeJobs()
   const [state, setState] = useState<PurgeState>('done')
   const [purged, setPurged] = useState<number | null>(null)
@@ -104,16 +104,23 @@ function JobCounts() {
   }
   return (
     <div className="flex flex-col gap-2">
-      <dl aria-label={t('queue.jobs')} data-job-counts className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-        {JOB_STATES.map((s) => (
-          <div key={s} className="flex items-baseline gap-1.5">
-            <dt className="text-muted">{t(`queue.job.${s}` as MessageKey)}</dt>
-            <dd data-job-count={s} className="tabular-nums">
-              {counts?.[s] ?? 0}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      {/* A count that could not be read is not a zero: «Fallidos 0» would say nothing failed. */}
+      {counts ? (
+        <dl aria-label={t('queue.jobs')} data-job-counts className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+          {JOB_STATES.map((s) => (
+            <div key={s} className="flex items-baseline gap-1.5">
+              <dt className="text-muted">{t(`queue.job.${s}` as MessageKey)}</dt>
+              <dd data-job-count={s} className="tabular-nums">
+                {counts[s] ?? 0}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div data-job-counts-state>
+          <LoadState query={jobs} rows={1} />
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-40">
           <NativeSelect aria-label={t('queue.purgeState')} value={state} disabled={purge.isPending} onChange={(e) => setState(e.target.value as PurgeState)}>

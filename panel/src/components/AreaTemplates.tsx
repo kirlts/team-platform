@@ -195,7 +195,7 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
     <article data-marked={selection.isMarked(template.id) || undefined} data-template-row className={`relative grid min-h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-line py-2 pl-10 pr-4 last:border-b-0 data-[marked]:bg-selected ${GRID}`}>
       <RowCheck id={template.id} title={template.name} selection={selection} align="row" />
       {/* The name opens the window; the chevron is glued to its last word, like the name of an area. */}
-      <button type="button" aria-label={t('areas.open', { title: template.name })} data-testid="template-open" data-repeat-ok="per-template" onClick={() => setOpen(true)} className="min-w-0 py-1 text-left text-sm font-semibold hover:text-accent-deep hover:underline max-sm:col-span-2">
+      <button type="button" aria-label={t('areas.open', { title: template.name })} data-testid="template-open" data-repeat-ok="per-template" onClick={() => setOpen(true)} className="min-w-0 py-1 text-left text-sm font-semibold pointer-coarse:min-h-11 hover:text-accent-deep hover:underline max-sm:col-span-2">
         {head}
         <span className="whitespace-nowrap">
           {tail}

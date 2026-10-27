@@ -2,6 +2,7 @@ import { useParams } from 'react-router'
 import { FitList } from '@/components/FitList'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
+import { NotFound } from '@/pages/NotFound'
 import { Badge } from '@/components/ui/badge'
 import { useT, type MessageKey } from '@/i18n'
 import { CONNECTIONS, isConnection } from '@/lib/connections'
@@ -17,11 +18,13 @@ export function Connections() {
   const t = useT()
   const { kind } = useParams()
   const chosen = isConnection(kind) ? kind : undefined
+  // An address of a connection the panel does not know says so, as every other view does (J1-A-10).
+  if (kind && !chosen) return <NotFound />
 
   return (
     <Page cols={12}>
       {/* None of them is built yet: the state is said once, beside the title, and the rows are names that open nothing. */}
-      <PageHeader title={t('nav.connections')} aside={<Badge tone="outline">{t('connections.unavailable')}</Badge>} />
+      <PageHeader reserve title={t('nav.connections')} aside={<Badge tone="outline">{t('connections.unavailable')}</Badge>} />
       <FitList
         rows={CONNECTIONS}
         rowKey={(c) => c}

@@ -116,6 +116,7 @@ Su comportamiento está en «Las cinco órdenes».
 | `EXECUTE_DIRECT_SESSION_ENV` | vacía | Lo mismo, sólo para sesiones del modelo liviano | UD-295 |
 | `EXECUTE_OTEL_ENV` | vacía | Pares `CLAVE=valor` para la telemetría propia de `claude -p` (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_*`) | UD-262 |
 | `EXECUTE_DIRECT_STOP_COMMAND` | vacía | Orden del gancho `Stop` de una sesión liviana. Código de salida 2 con el motivo en stderr devuelve la sesión al trabajo | UD-295 |
+| `EXECUTE_GUARDS_FILE` | vacía | Ruta de un JSON con las listas del anfitrión para los ganchos de toda sesión. Vacía: la sesión no declara ninguno de estos ganchos. Ver «Guardias de la sesión» | Opcional: un anfitrión sin ella conserva su comportamiento |
 | `EXECUTE_DIRECT_TOOLS` | `Bash,Read,Edit,Write,Grep,Glob,Agent` | Herramientas de una sesión liviana (`--tools`). Vacía: todas | Medición del 2026-10-25: 29.302 tokens con estas siete contra 53.938 con todas |
 | `EXECUTE_STABLE_AS_SYSTEM` | `0` | `1` envía la parte estable del prompt como `--append-system-prompt-file`, que la API guarda en caché entre sesiones | Medición `2026-10-23-tokens-y-cache.md` |
 | `EXECUTE_CONTRACT_VERSION` | sin declarar | Versión del contrato que cumple el driver (ver «Versión del contrato») | Este documento |
@@ -143,7 +144,7 @@ Las órdenes se declaran como texto de shell y corren con `/bin/sh -c` en la má
 | DESTROY | `{job_id}`, `{workdir}`, `{machine}` | `TEAM_JOB_ID`, `TEAM_WORKDIR` |
 | DELIVER | `{message_id}`, `{job_id}`, `{branch}`, `{workdir}` | Ver «DELIVER» |
 
-`{workdir}` de las órdenes de máquina contiene `run.sh` (la invocación de `claude`), `env.sh` (modo 600, lleva el secreto del agente), `prompt.md` y `bin/team`. Además `system.md` con `EXECUTE_STABLE_AS_SYSTEM`, `thread/` cuando el trabajo atiende una mención, y los directorios `captures/` y `attachments/` donde la sesión deja capturas y documentos.
+`{workdir}` de las órdenes de máquina contiene `run.sh` (la invocación de `claude`), `env.sh` (modo 600, lleva el secreto del agente), `prompt.md` y `bin/team`. Además `system.md` con `EXECUTE_STABLE_AS_SYSTEM`, `guards.json` con `EXECUTE_GUARDS_FILE`, `thread/` cuando el trabajo atiende una mención, y los directorios `captures/` y `attachments/` donde la sesión deja capturas y documentos.
 
 Las señales van sólo al grupo de procesos que lanzó el trabajador. Nunca se señala a un proceso padre.
 
@@ -220,6 +221,84 @@ Antes de DELIVER, el núcleo corre `EXECUTE_DELIVER_CHECK_COMMAND`, si existe, c
 
 En verde, la respuesta final es el `summary` de la sesión con «En producción desde HH:MM <zona>.» al final. El núcleo la publica sólo después de la confirmación del código 0.
 
+## Guardias de la sesión
+
+Una regla que el modelo tiene que recordar falla el día que no la recuerda. El núcleo trae los ganchos de Claude Code que la hacen cumplir y el anfitrión sólo escribe la lista. Los ganchos son parte del núcleo (`src/execute/hooks/`). Están escritos en Node y sólo usan módulos propios, porque la máquina trae `bash`, `node` y `claude` y nada más. El trabajador los copia a `bin/hooks/` del directorio del trabajo. Los declara en la configuración de la sesión (`--settings`), junto a los ganchos que ya declara, y los llama como `team hook <commands|tools|close>`. Vale para cualquier modelo y cualquier runner. Un anfitrión no copia ni registra nada.
+
+`EXECUTE_GUARDS_FILE` es un JSON. El trabajador lo lee al empezar cada trabajo. El trabajo falla con `guards_file_invalid` y el motivo en la respuesta, sin reintento. Fallan: un archivo ilegible, que no es JSON, con una clave desconocida, con una expresión regular inválida o con una regla sin mensaje. Un error de tipeo no puede dejar una sesión sin guardia. Una copia del archivo viaja con el directorio del trabajo y `TEAM_GUARDS_FILE` la señala. Sin esa variable, o con la copia ilegible, cada gancho deja pasar la llamada: una guardia rota no detiene la sesión.
+
+Ningún bloque es obligatorio y un bloque vacío no declara su gancho.
+
+### `commands`: órdenes de Bash que se niegan
+
+Gancho `PreToolUse` sobre `Bash`. Antes de ejecutar la orden la compara con las reglas, en este orden: primero las nombradas que el anfitrión encendió y después las suyas. La primera que coincide niega la orden y su `message` vuelve al modelo como motivo. Código de salida 0 siempre: la negación es la respuesta JSON `permissionDecision: deny`.
+
+| Clave | Qué es |
+|---|---|
+| `builtin` | Lista de reglas nombradas del núcleo que se encienden. Ninguna está encendida por omisión |
+| `protected_branches` | Ramas a las que `protected-push` niega empujar. Omisión: `main` y `master` |
+| `rules` | Reglas propias, en el orden en que se evalúan |
+
+Reglas nombradas:
+
+| Nombre | Niega |
+|---|---|
+| `forced-push` | `git push` con `--force`, `-f`, `--force-with-lease` o `+rama` |
+| `protected-push` | `git push` a una de `protected_branches`, también como `HEAD:rama` o `refs/heads/rama` |
+| `no-verify` | `git commit` o `git push` con `--no-verify` |
+| `amend` | `git commit` con `--amend` |
+| `add-all` | `git add -A`, `--all` y `.` |
+| `stash` | `git stash` |
+| `waiting` | `sleep <n>`, `watch` y los bucles `until` o `while` que duermen con `sleep` |
+
+Una regla propia es `{ id?, match, unless?, line_requires?, args_required?, message }`:
+
+| Clave | Qué es |
+|---|---|
+| `match` | Expresión regular de JavaScript, o lista de ellas que deben coincidir todas en algún punto de la orden. `{START}` es el comienzo de una orden simple: principio del texto, tras `;`, `&`, `\|`, `(` o un salto de línea, o tras `then`, `do` o `else` |
+| `unless` | La regla no se aplica si esta expresión coincide en cualquier punto de la orden |
+| `line_requires` | Por cada coincidencia de la primera expresión de `match`, el texto de su línea anterior a la coincidencia debe cumplir esta expresión; si no, se niega. Sirve para exigir un envoltorio, por ejemplo que una prueba pesada corra dentro de una orden que reparte la máquina |
+| `args_required` | Por cada coincidencia de la primera expresión de `match`, su primer grupo de captura debe traer una palabra posicional (ni bandera ni número); si no, se niega. Sirve para una prueba que corre todo el proyecto cuando no se le nombran archivos |
+| `message` | Lo que lee el modelo. Obligatorio: debe decir la orden correcta, no sólo que está prohibido |
+
+### `tools`: herramientas que se quitan
+
+Gancho `PreToolUse` sobre los nombres que aparezcan en la lista (el `matcher` es su unión).
+
+| Clave | Qué es |
+|---|---|
+| `deny` | Lista de `{ tools, message }`. La herramienta se niega siempre |
+| `deny_background` | Lista de `{ tools, message }`. La herramienta se niega sólo con `run_in_background: true`. Un subagente en segundo plano obliga a la sesión a esperarlo con vueltas vacías, y cada vuelta lee otra vez el contexto entero |
+
+### `close`: qué debe cumplirse al terminar
+
+Gancho `Stop`. Es la mitad de la exigencia de cierre que sólo la sesión puede corregir. La otra mitad no necesita gancho y ya está en el trabajador. Una sesión sin salida estructurada, o con una que no cumple la plantilla, hace fallar el trabajo con `invalid_output`. Una sin línea `result` lo hace fallar con `execute_no_result`. Ambos dejan el motivo en el hilo. El gancho devuelve la sesión al trabajo **una vez** (con `stop_hook_active` la deja terminar) y le da las órdenes exactas de lo que falta. No hace nada si el repositorio no tiene un cambio: la respuesta va en el hilo.
+
+| Clave | Qué exige |
+|---|---|
+| `base` | Rama desde la que se cuentan los commits de la sesión, por ejemplo `origin/main`. Omisión: la rama por omisión del remoto (`origin/HEAD`). Si ninguna existe no hay nada que contar y el gancho deja terminar |
+| `clean_tree` | `true`: ningún cambio sin commitear en archivos versionados |
+| `pushed_branch` | `true`: con commits propios, la rama está empujada con su último commit (`@{u}` igual a `HEAD`), porque el sistema entrega lo que hay en `origin` |
+| `review` | Un cambio que lo requiere lleva la marca de un revisor distinto de su autor sobre el árbol final |
+
+`review` es `{ paths?, except?, only?, only_except?, trailer, not_by?, message }`. El cambio la requiere en dos casos. Uno: algún archivo cambiado coincide con `paths` y no con `except`. Otro: todos los archivos cambiados coinciden con `only` y no con `only_except`, por ejemplo un cambio que sólo toca documentos. La marca es una línea de un mensaje de commit `<trailer>: <revisor> <sha del árbol>` con el árbol de `HEAD`. No vale si el revisor es autor de algún commit de la sesión. Tampoco vale si está en `not_by`, por ejemplo el nombre de la propia sesión; no distingue mayúsculas. Un cambio posterior a la marca la invalida. En `message`, `{tree}`, `{job}` y `{branch}` se reemplazan por el árbol de `HEAD`, `TEAM_JOB_ID` y `TEAM_BRANCH`: ahí va la orden exacta que deja la marca.
+
+Ejemplo mínimo:
+
+```json
+{
+  "commands": { "builtin": ["forced-push", "protected-push", "no-verify"], "protected_branches": ["main"] },
+  "tools": { "deny_background": [{ "tools": ["Agent"], "message": "Lanza el subagente en primer plano." }] },
+  "close": { "base": "origin/main", "clean_tree": true, "pushed_branch": true }
+}
+```
+
+El anfitrión prueba su archivo ejecutando `team hook` con el evento de Claude Code en la entrada estándar, igual que la sesión:
+
+```sh
+echo '{"tool_name":"Bash","tool_input":{"command":"git push --force origin x"}}' | TEAM_GUARDS_FILE=guards.json node scripts/team.mjs hook commands
+```
+
 ## Marcadores `##team`
 
 Son líneas completas. El núcleo las lee y no las cuenta como salida ni como referencia.
@@ -248,11 +327,12 @@ Un 75 repetido de DELIVER con la misma salida deja de ser una espera. El límite
 | `TEAM_CAPTURES_DIR`, `TEAM_CAPTURES_MAX`, `TEAM_CAPTURES_MAX_BYTES`, `TEAM_CAPTURES_OPEN_ZONE`, `TEAM_CAPTURES_UNMASKED`, `TEAM_LANGUAGE` | Reglas de las capturas y lengua de la respuesta |
 | `TEAM_ATTACHMENTS_DIR`, `TEAM_ATTACHMENTS_MAX`, `TEAM_ATTACHMENTS_MAX_BYTES` | Dónde la sesión deja documentos PDF y sus topes |
 | `TEAM_THREAD_DIR` | Archivos del hilo, sólo en un trabajo que atiende una mención |
+| `TEAM_GUARDS_FILE` | Copia del archivo de `EXECUTE_GUARDS_FILE` dentro del directorio del trabajo; sólo con ese archivo declarado. La leen los ganchos de la sesión |
 | `TRACEPARENT` | Continúa la traza del trabajo |
 | `TEAM_MAP_PATHS`, `TEAM_MAP_NOTES` | Opcionales; el anfitrión las declara en `EXECUTE_SESSION_ENV`. `team map` las lee: prefijos de carpeta que acotan los archivos más tocados, y la ruta de un archivo de notas (relativa al repositorio de la sesión o absoluta; por omisión `.team/map-notes.txt` del repositorio) cuyas líneas entran al mapa después de la estructura. Sirven para lo que la lista de archivos no dice, como el comando que elige las pruebas de un cambio. Un archivo ausente deja el mapa como estaba |
 | Pares de `EXECUTE_SESSION_ENV`, `EXECUTE_DIRECT_SESSION_ENV` y `EXECUTE_OTEL_ENV` | Los que el anfitrión declaró |
 
-`bin/team` está en el `PATH` de la sesión. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`.
+`bin/team` está en el `PATH` de la sesión. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`, y `hook` para los ganchos de «Guardias de la sesión».
 
 ## `EXECUTE_HOST_INSTRUCTIONS`
 

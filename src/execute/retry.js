@@ -14,7 +14,7 @@ import { dailyBudget } from './budget.js'
 
 // The causes a second try cannot fix: the output did not fit its format, or the agent cannot start (its configuration, the host's). Every other code is a limit
 // (steps, time, spend per message) or a service (model, machine, lease): one more try may end well.
-const NOT_RETRYABLE = ['invalid_output', 'execute_flag_rejected', 'account_inactive', 'agent_secret_missing', 'not_an_agent', 'template', 'host_instructions_missing', 'harness_unavailable']
+const NOT_RETRYABLE = ['invalid_output', 'execute_flag_rejected', 'account_inactive', 'agent_secret_missing', 'not_an_agent', 'template', 'host_instructions_missing', 'guards_file_invalid', 'harness_unavailable']
 
 // Failure code of a notice → cause of the environment (the work machine, the connection, the time limit, the delivery environment, the service). Not a red
 // attributable to the change or to the session: the work Claude did is not at fault. `resume.js` relaunches these by event; «Reintentar» uses them to tell

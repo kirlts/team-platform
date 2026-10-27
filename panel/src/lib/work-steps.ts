@@ -49,6 +49,10 @@ export function workSteps(d: MessageTiming, retry: 'publish' | 'work' | null = n
   if (current) seen.add(current)
   if (d.deliver) seen.add('deliver')
   seen.add('session')
+  // The stretches the instance is set to run show from the start, as pending. Whether a session ends in a change that goes to delivery is its result's: the panel only
+  // knows the instance declares a delivery, so the row says «Pendiente», and it goes away with the panel when the work ends without one.
+  if (d.machine === true) seen.add('machine')
+  if (d.delivers === true) seen.add('deliver')
   // A retry that only publishes shows the delivery it will run even when the failed job never reached one.
   if (failed && retry === 'publish') seen.add('deliver')
 

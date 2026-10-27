@@ -92,6 +92,8 @@ export function registerMessageRoutes (app, ctx) {
           type: 'object', additionalProperties: true,
           properties: {
             message_id: { type: 'string' }, job_id: { type: 'string' }, job_status: { type: 'string' }, trace_id: { type: 'string', nullable: true }, phase: { type: 'string', nullable: true },
+            delivers: { type: 'boolean', description: 'La instancia declara una entrega aparte (`EXECUTE_DELIVER_COMMAND`): un trabajo que termine en un cambio pasa por ella. Si una sesión concreta termina en un cambio lo decide su resultado, no esta cifra.' },
+            machine: { type: 'boolean', description: 'La sesión corre en una máquina creada para ella (`EXECUTE_RUNNER=machine`); con el ejecutor local no hay tramo de máquina.' },
             attempts: { type: 'integer' }, model: { type: 'string', nullable: true, description: 'El modelo con que corrió la sesión del trabajo (UD-295).' }, cost_usd: { type: 'number', nullable: true, description: 'Lo que costó la sesión hasta ahora, en USD (UD-295).' }, elapsed_ms: ms, first_reply_ms: ms, final_reply_ms: ms, first_reply_since_message_ms: ms, final_reply_since_message_ms: ms, total_ms: ms, queue_wait_ms: ms,
             phases: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, duration_ms: ms, offset_ms: ms, status: { type: 'string' } } } },
             slowest: { type: 'array', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'subagent'] }, name: { type: 'string' }, summary: { type: 'string', nullable: true }, duration_ms: ms, success: { type: 'boolean', nullable: true } } } },
@@ -107,7 +109,7 @@ export function registerMessageRoutes (app, ctx) {
     await ctx.telemetry?.flush() // a job that has just finished is visible too
     const timing = timingOfMessage(db, request.params.id)
     if (!timing) throw notFound('El mensaje no tiene trabajo de ejecución.')
-    return timing
+    return { ...timing, delivers: Boolean(config.execute.deliverCommand), machine: config.execute.runner === 'machine' }
   })
 
   const replyParams = { type: 'object', required: ['id', 'replyId'], properties: { id: idIn, replyId: idIn } }

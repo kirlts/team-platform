@@ -46,6 +46,7 @@ import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 import { createCreationGate, runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
+import { GUARDS_COPY, HOOK_MODULES, guardHooks, parseGuards } from './hooks/guards.js'
 import { startProgressNotices } from './progress-timer.js'
 import { DEFAULT_PROGRESS_INTERVAL_MIN, addDeliveryNote, addStartNote, closeWaitNote, upsertWaitNote } from '../domain/progress-notes.js'
 
@@ -60,6 +61,9 @@ export async function installTeamBin (workdir) {
   await mkdir(join(workdir, 'bin'))
   await copyFile(TEAM_SCRIPT, join(workdir, 'bin', 'team.mjs'))
   for (const name of TEAM_COMPANIONS) await copyFile(fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)), join(workdir, 'bin', name))
+  // `team hook <name>` imports them from `bin/hooks/` (scripts/team.mjs): the hooks of the host's guards file run in the session, on a machine too.
+  await mkdir(join(workdir, 'bin', 'hooks'))
+  for (const name of HOOK_MODULES) await copyFile(fileURLToPath(new URL(`./hooks/${name}`, import.meta.url)), join(workdir, 'bin', 'hooks', name))
   await writeFile(join(workdir, 'bin', 'team'), '#!/bin/sh\nexec node "$(dirname "$0")/team.mjs" "$@"\n', { mode: 0o755 })
 }
 const PROVIDER = 'claude-code'
@@ -128,7 +132,7 @@ export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type
  * the host declares it (EXECUTE_DIRECT_STOP_COMMAND), its check at the end: the command gets the event as JSON on stdin, exit 2 with the reason on stderr sends the
  * session back to work, and it must exit 0 when `stop_hook_active` is true so a session is held once, not forever.
  */
-export function sessionSettings ({ light = false, assessed = false, stopCommand = '' } = {}) {
+export function sessionSettings ({ light = false, assessed = false, stopCommand = '', guards = null } = {}) {
   const hooks = { ...LIVE_MENTION_SETTINGS.hooks }
   // KAIROS-PARA-TEAM-PLATFORM.md of the host §6: the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
   // KAIROS-PARA-TEAM-PLATFORM.md of the host §6: the light model gets only the paths it will probably touch; a larger model, when the analyzer assessed the message, the short map of the repository.
@@ -138,11 +142,13 @@ export function sessionSettings ({ light = false, assessed = false, stopCommand 
     hooks.PreToolUse = [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'team guard' }] }]
     if (stopCommand) hooks.Stop = [{ hooks: [{ type: 'command', command: stopCommand }] }]
   }
+  // The host's guards file (EXECUTE_GUARDS_FILE) for every session, whatever its model: what it refuses and what must hold at the end. Added to the hooks above, never in place of them.
+  for (const [event, groups] of Object.entries(guardHooks(guards))) hooks[event] = [...(hooks[event] ?? []), ...groups]
   return { hooks }
 }
 
 /** The arguments of `claude -p` (UD-255). `light`: a direct fix on the area's own direct model (UD-295). */
-export function claudeArgs (x, schema, { light = false, assessed = false } = {}) {
+export function claudeArgs (x, schema, { light = false, assessed = false, guards = null } = {}) {
   return [
     '-p',
     '--model', x.model,
@@ -151,7 +157,7 @@ export function claudeArgs (x, schema, { light = false, assessed = false } = {})
     ...(x.maxTurns > 0 ? ['--max-turns', String(x.maxTurns)] : []), // 0: no cap on turns, `--max-budget-usd` governs (UD-283)
     ...(light && x.directTools ? ['--tools', x.directTools] : []),
     '--permission-mode', 'bypassPermissions',
-    '--settings', JSON.stringify(sessionSettings({ light, assessed, stopCommand: x.directStopCommand })),
+    '--settings', JSON.stringify(sessionSettings({ light, assessed, stopCommand: x.directStopCommand, guards })),
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(schema)
   ]
@@ -231,7 +237,7 @@ const FAILURE_TEXTS = {
 const FAILURE_KIND = {
   lease_expired: 'interrupted', execute_timeout: 'timeout', execute_budget: 'budget', execute_max_turns: 'turns', invalid_output: 'format',
   execute_no_result: 'infra', machine_create_failed: 'infra', execute_api_error: 'infra', execute_flag_rejected: 'infra',
-  account_inactive: 'config', agent_secret_missing: 'config', not_an_agent: 'config', template: 'config', host_instructions_missing: 'config', harness_unavailable: 'config'
+  account_inactive: 'config', agent_secret_missing: 'config', not_an_agent: 'config', template: 'config', host_instructions_missing: 'config', guards_file_invalid: 'config', harness_unavailable: 'config'
 }
 // A `result` line that says the model service or the connection failed (claude -p ends with it after its own retries): the session did nothing a second try would repeat.
 const API_FAILURE = /\b(429|5\d\d)\b|overloaded|rate.?limit|too many requests|service unavailable|bad gateway|gateway time-?out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|fetch failed|connection (error|reset|refused)|timed out/i
@@ -434,6 +440,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       }
     }
 
+    // The host's lists for the hooks (EXECUTE_GUARDS_FILE). A file that cannot be read or does not fit its shape fails the job here, with its reason: a typo must not leave a session guarded by nothing.
+    let guards = null
+    if (x.guardsFile) {
+      try { guards = parseGuards(await readFile(x.guardsFile, 'utf8')) } catch (error) {
+        throw permanent(`EXECUTE_GUARDS_FILE (${x.guardsFile}): ${error.code ?? error.message}`, 'guards_file_invalid')
+      }
+    }
+
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
     // UD-307: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
@@ -465,7 +479,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     if (!admission.ok) throw new Deferred(x.capacityWaitMs, step('budgetWait'), { code: 'budget_reserved', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent, reserved_usd: held, sessions: reserved.size, reserve_usd: reserve.usd, reserve_basis: reserve.basis }) // what is left is held by sessions that run now: it may come back when they end
     const budgetUsd = admission.budgetUsd
     reserved.set(job.id, admission.holdUsd)
-    const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, assessed: estimates !== null })
+    const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, assessed: estimates !== null, guards })
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
     rec.began = true
@@ -489,7 +503,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
     const sessionEnv = {
       TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
-      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...capturesEnv(config, dirs.workdir, author?.language), ...documentsEnv(config, dirs.workdir), ...(mention ? threadEnv(dirs.workdir) : {})
+      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...(guards ? { TEAM_GUARDS_FILE: join(dirs.workdir, GUARDS_COPY) } : {}), ...capturesEnv(config, dirs.workdir, author?.language), ...documentsEnv(config, dirs.workdir), ...(mention ? threadEnv(dirs.workdir) : {})
     }
     // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
     const kind = x.runner === 'machine' ? 'machine' : 'local'
@@ -532,6 +546,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         'team.runner': x.runner, 'team.model': model, 'team.estimates': estimates ? JSON.stringify(estimates) : '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
+        if (guards) await writeFile(join(dirs.workdir, GUARDS_COPY), JSON.stringify(guards)) // the copy the hooks read; on a machine it travels with the job directory
         await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them

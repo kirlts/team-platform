@@ -17,10 +17,19 @@ describe('stepOfPhase', () => {
 })
 
 describe('workSteps', () => {
-  it('a queued job is one waiting state, with nothing started', () => {
-    const w = workSteps({ ...base, job_status: 'queued' })
+  it('a queued job shows the stretches the instance will run, all pending', () => {
+    const w = workSteps({ ...base, job_status: 'queued', machine: true, delivers: true })
     expect(w.state).toBe('queued')
-    expect(w.steps.every((s) => s.state === 'pending')).toBe(true)
+    expect(w.steps.map((s) => `${s.key}:${s.state}`)).toEqual(['machine:pending', 'session:pending', 'deliver:pending'])
+  })
+
+  it('without a declared machine or delivery, only the stretches the job has reached show', () => {
+    expect(states({ ...base, job_status: 'queued' })).toEqual(['session:pending'])
+    expect(states({ ...base, job_status: 'queued', machine: false, delivers: false })).toEqual(['session:pending'])
+  })
+
+  it('on the machine with a declared delivery: the session and the delivery wait', () => {
+    expect(states({ ...base, phase: 'create', elapsed_ms: 1000, machine: true, delivers: true })).toEqual(['machine:running', 'session:pending', 'deliver:pending'])
   })
 
   it('on the machine: it runs, the session waits, and the time is the elapsed one', () => {

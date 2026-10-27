@@ -73,6 +73,8 @@ export function Home() {
   const [uploads, setUploads] = useState<Upload[]>([])
   /** The send in view: the key of an upload that is still going up, or the id of an input the server already has. */
   const [selectedId, setSelectedId] = useState<string | undefined>()
+  /** The input each upload became, by the key the panel gave it. */
+  const landedAs = useRef(new Map<string, string>())
   /** The drawer under the bar (UD-046): it opens by itself when something is sent and the person can fold it; the control above carries the state of the sends. */
   const [drawerOpen, setDrawerOpen] = useState(false)
   /** The drawer as the failure of an upload finds it: the callback of the upload outlives the render that made it. */
@@ -122,6 +124,10 @@ export function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs, uploads])
   const ids = useMemo(() => items.map((i) => (i.kind === 'upload' ? i.upload.key : i.input.id)), [items])
+  // The key of an upload is the panel's own and the server does not know it: for the render in which the list already has the input and the selection still
+  // holds the key (the effect below moves it one render later), the drawer is given the id the upload became, never the key (it asked GET /inputs/<key>: 400).
+  // The upload may already have left `uploads` in that render, so what it became is kept apart, by key.
+  const shownId = selectedId && !ids.includes(selectedId) ? landedAs.current.get(selectedId) ?? selectedId : selectedId
 
   // The drawer opens on the send the person just made, and otherwise on the newest one (UD-070): the history is the list, newest first.
   useEffect(() => {
@@ -180,6 +186,7 @@ export function Home() {
         const created = await team.inputs.upload({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId, recipientIds: draft.recipientIds }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
         // The upload learns which input it became: the tray draws that send once, as the upload until the server's list has the input and as the input from then on
         // (the list can bring it before the upload leaves, and both were drawn for a moment: two options for one send).
+        landedAs.current.set(key, created.input_id)
         setUploads((list) => list.map((u) => (u.key === key ? { ...u, landed: created.input_id } : u)))
         // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
         await invalidateRoots(queryClient, ['inputs'])
@@ -274,7 +281,7 @@ export function Home() {
       {working && drawerOpen && (
         <SendDrawer
           items={items}
-          selectedId={selectedId}
+          selectedId={shownId}
           onSelect={(id) => {
             setDiscarded(null)
             setSelectedId(id)

@@ -10,6 +10,11 @@
     "src/error-codes.test.js",
     "src/quick-tests.test.js"
   ],
+  "image": {
+    "_doc": "Tests on the built Docker image (`npm run test:image`). A change under these paths selects them; without TEAM_PLATFORM_IMAGE they skip and say so, and the directed run prints the command. Building the image is never part of the directed run. 2026-10-26: the walkthrough failed for five days on origin/desarrollo because no selection reached it.",
+    "paths": ["panel/", "packages/client/", "src/api/", "src/domain/", "src/analyze/", "src/extract/", "src/queue/", "src/events/", "src/providers/", "src/db/", "src/worker.js", "src/config.js", "src/testing/walkthrough-providers-module.js", "src/image.docker.test.js", "src/image-walkthrough.docker.test.js", "Dockerfile"],
+    "tests": ["src/image.docker.test.js", "src/image-walkthrough.docker.test.js"]
+  },
   "client": {
     "_doc": "A change in what shapes the API (routes, roles, codes, schemas, the rules the routes apply) runs the whole suite of packages/client (vitest): it talks to the real API, so it is what notices a server that changed under it (2026-10-26: 8 red tests that no change of the client had caused).",
     "run": "packages/client",

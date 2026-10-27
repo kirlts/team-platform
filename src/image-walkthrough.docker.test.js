@@ -3,8 +3,11 @@
 // environment variable. It runs only when TEAM_PLATFORM_IMAGE names a built image (`npm run test:image` builds one
 // and sets it), so `npm test` stays free of Docker.
 //
-// What it does: signs in, writes a message with an image, an audio, a video, a PDF, a Word document and a text file,
-// waits for the proposal through the event stream, publishes it and finds the message in Mensajes. It fails on any
+// What it does, in two parts on the same instance. First the path of a new instance (publication «Al analizar», on by
+// default since UD-070): signs in, writes a message with an image, an audio, a video, a PDF, a Word document and a text
+// file, and finds the message in Mensajes once the analysis publishes it on its own, with no Enviar in between. Then the
+// review path, which a new instance does not take: it sets publication «Tras revisar» in Configuración, sends again,
+// waits for the proposal through the event stream, publishes it with Enviar and finds the second message. It fails on any
 // console error, CSP violation, request to another origin or unexpected 4xx/5xx response.
 //
 //   (cd panel && npm ci) && TEAM_PLATFORM_IMAGE=team-platform:local node --test src/image-walkthrough.docker.test.js
@@ -75,11 +78,25 @@ test('layer 5: the main flow of the panel on the image, with an attachment of ev
     await page.locator('input[type=file]:not([capture])').setInputFiles(files.map((f) => f.file))
     await page.getByRole('button', { name: 'Enviar', exact: true }).first().click()
 
+    // New instance: publication is automatic (UD-070), so the analysis publishes the message and no proposal waits for Enviar.
+    await page.getByRole('link', { name: 'Mensajes', exact: true }).first().click()
+    await page.getByText('Walkthrough message').first().waitFor({ timeout: 90_000 })
+
+    // Review path: the Editor sets publication by hand, the proposal waits as `proposed` and Enviar publishes it.
+    await page.getByRole('link', { name: 'Configuración', exact: true }).first().click()
+    const saved = page.waitForResponse((r) => r.url().endsWith('/api/settings/publication') && r.request().method() === 'PATCH')
+    await page.getByRole('radio', { name: 'Tras revisar' }).click()
+    assert.equal((await saved).status(), 200)
+    await page.getByRole('link', { name: 'Inicio', exact: true }).first().click()
+    const second = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+    await second.waitFor({ timeout: 15_000 })
+    await second.fill('La pantalla de equipo tarda en abrir. Segundo envío del recorrido, esta vez con revisión previa.')
+    await page.getByRole('button', { name: 'Enviar', exact: true }).first().click()
     const analysis = page.getByRole('region', { name: 'Análisis' })
     await analysis.getByRole('button', { name: 'Enviar' }).waitFor({ timeout: 90_000 })
     await analysis.getByRole('button', { name: 'Enviar' }).click()
     await page.getByRole('link', { name: 'Mensajes', exact: true }).first().click()
-    await page.getByText('Walkthrough message').first().waitFor({ timeout: 15_000 })
+    await page.getByText('Walkthrough message').nth(1).waitFor({ timeout: 15_000 })
 
     for (const view of ['Equipo', 'Configuración']) {
       await page.getByRole('link', { name: view, exact: true }).first().click()

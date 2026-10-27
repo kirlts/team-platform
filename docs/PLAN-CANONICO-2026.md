@@ -147,7 +147,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| E1 `panel/DISENO.md` es el referente | Una línea al inicio lo dice, con la decisión de Martín del 27-10 textual. Un cambio de tokens o materiales que no esté en DISENO.md no entra; si hace falta, primero se cambia DISENO.md con su medición | por hacer |
+| E1 `panel/DISENO.md` es el referente | Una línea al inicio lo dice, con la decisión de Martín del 26-10 textual. Un cambio de tokens o materiales que no esté en DISENO.md no entra; si hace falta, primero se cambia DISENO.md con su medición | por hacer |
 | E2 Juez contra DISENO.md en cada pantalla | Todo cambio de `panel/` que llegue a `desarrollo` lleva veredicto de un agente distinto, con capturas sin cabeza en escritorio y teléfono, claro y oscuro, que compara contra DISENO.md y contra la captura anterior de la misma vista | por hacer; las capturas de hoy en `wt-identidad` son la línea base |
 | E3 Reponer las dos derivas medidas | Orbitron en los títulos según DISENO.md (o DISENO.md actualizado si el cambio del 21-10 fue a propósito: se lee `cd001a46` antes de tocar) y las luces de estado con brillo y palabra en vez del contador de contorno | por hacer |
 | E4 La piel del anfitrión no cambia | `THEME_CSS` sigue; un anfitrión con panel propio no nota nada | hecho por diseño |

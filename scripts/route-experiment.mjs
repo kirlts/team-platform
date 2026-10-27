@@ -443,7 +443,8 @@ export function acceptDecision (result, accept, { allowUnvalidated = false } = {
   const floorPerson = Math.max(accept, ref.baselines.person_agent_alone.rate, ref.baselines.person_asker.rate, ref.baselines.person_all?.rate ?? 0)
   const passes = ref.area.lower >= floorArea && ref.person.lower >= floorPerson
   const valid = Boolean(labelled) && result.valid_for_acceptance !== false
-  return { code: passes ? 0 : 1, valid, message: `--accept: límite inferior de área ${ref.area.lower.toFixed(2)} (piso ${floorArea.toFixed(2)}) y de persona ${ref.person.lower.toFixed(2)} (piso ${floorPerson.toFixed(2)})${labelled ? '' : ' contra las filas: resultado no válido'}${labelled && result.valid_for_acceptance === false ? '; las filas no están validadas' : ''}` }
+  // Exit code: 1 when the lower bounds do not reach the floors; 3 when they do but the result is not valid (no labels of people, or rows not validated): a pass that proves nothing is not a pass.
+  return { code: passes ? (valid ? 0 : 3) : 1, passes, valid, floors: { area: round3(floorArea), person: round3(floorPerson) }, message: `--accept: límite inferior de área ${ref.area.lower.toFixed(2)} (piso ${floorArea.toFixed(2)}) y de persona ${ref.person.lower.toFixed(2)} (piso ${floorPerson.toFixed(2)})${labelled ? '' : ' contra las filas: resultado no válido'}${labelled && result.valid_for_acceptance === false ? '; las filas no están validadas' : ''}` }
 }
 
 async function main (argv) {
@@ -491,14 +492,16 @@ async function main (argv) {
   if (confirm) result.confirm_read = { repeated: confirm.repeated, first_read_at: confirm.first_read_at ?? null, reads: confirm.reads ?? null }
   if (holdout && option('--compare-load')) result.config_differences = configDifferences(load, readJson(option('--compare-load')))
   if (option('--versus')) result.comparison = compareRuns(result, readJson(option('--versus')))
+  const decision = option('--accept') !== undefined ? acceptDecision(result, Number(option('--accept')), { allowUnvalidated: rest.includes('--allow-unvalidated') }) : null
+  if (decision) result.accept = { threshold: Number(option('--accept')), passes: decision.passes ?? false, valid: decision.valid, floors: decision.floors ?? null, exit_code: decision.code }
   const text = `${JSON.stringify(result, null, 2)}\n`
   if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
   const a = result.agreement_with_rows
   if (result.judge?.same_model) console.error('El juez es el mismo modelo que enruta: los indicadores se leen con esa reserva (--judge-model).')
   console.error(`acuerdo con las filas: área ${a.area.k}/${result.n}, persona ${a.person.k}/${result.n} (de más ${a.person_extra}, de menos ${a.person_missing}); sin modelo: área ${result.baselines.area_majority.rate.toFixed(2)}, persona ${result.baselines.person_agent_alone.rate.toFixed(2)}`)
   if (!result.validated) console.error('Las filas no están validadas por personas (row-validation.mjs): el número es el acuerdo con la extracción, no el acierto.')
-  if (option('--accept') !== undefined) {
-    const decision = acceptDecision(result, Number(option('--accept')), { allowUnvalidated: rest.includes('--allow-unvalidated') })
+  if (result.n === 0) { console.error('El experimento no enrutó ningún pedido (0 de 0): no hay nada que medir. Revisa que el archivo de carga tenga áreas con filas y que --sample no sea 0.'); process.exit(4) }
+  if (decision) {
     console.error(decision.message)
     if (decision.code) process.exit(decision.code)
   }

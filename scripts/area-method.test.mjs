@@ -1,6 +1,7 @@
 // The routing method over an invented corpus (bench/fixtures/area-method): the criteria, the proposal, the load file and the extraction and
 // the routing experiment with a fake provider. Nothing here reaches a model or the network.
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
@@ -1539,4 +1540,91 @@ test('Coherence I8: the idea guard of the analyzer is measured against what the 
   assert.equal(result.idea.precision.value, 0.75)
   assert.equal(result.idea.kappa, 0.5)
   assert.equal(validation.analyzerAgreement(labels, analyses.map(({ idea_guard: _drop, ...a }) => a), team, { resamples: 50 }).idea, null, 'without the answer of the analyzer there is nothing to compare')
+})
+
+// ---- Reaudit 3
+const here = path.dirname(fileURLToPath(import.meta.url))
+const runScript = (script, args) => spawnSync(process.execPath, [path.join(here, script), ...args], { encoding: 'utf8' })
+const scratch = (name) => { const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), `${name}-`)); return dir }
+
+test('D3 (reaudit 3): the recall of the extraction is gated on its lower bound, not on the point value', () => {
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 })
+  const result = validation.agreement(corpusUnits, rows, labelsFor(items, { omit: 6 }), team, { resamples: 200 })
+  const recall = result.rules.find((r) => r.name === 'extraction:recall')
+  assert.ok(recall.value >= 0.8 && recall.lower < 0.8, `value ${recall.value}, lower ${recall.lower}`)
+  assert.equal(recall.on, 'lower')
+  assert.equal(recall.pass, false, 'a point value of 0.84 with a lower bound of 0.78 does not reach 0.8')
+  for (const r of result.rules.filter((x) => /^(extraction:(recall|precision)|people:)/.test(x.name))) assert.equal(r.on, 'lower', r.name)
+})
+
+test('D2 (reaudit 3): a result that passes but is not valid exits with 3 and says so in the result', () => {
+  const rate = (k, n) => { const w = method.wilson(k, n); return { k, n, rate: k / n, lower: w.lower, upper: w.upper } }
+  const none = { agreement_with_rows: { area: rate(78, 78), person: rate(78, 78) }, baselines: { area_majority: { rate: 0.3 }, person_agent_alone: { rate: 0.6 }, person_asker: { rate: 0.5 } }, agreement_with_labels: null }
+  const decision = experiment.acceptDecision(none, 0.5, { allowUnvalidated: true })
+  assert.equal(decision.passes, true)
+  assert.equal(decision.valid, false)
+  assert.equal(decision.code, 3)
+  assert.deepEqual(Object.keys(decision.floors), ['area', 'person'])
+  const labelled = { agreement_with_labels: { ...none.agreement_with_rows, area: rate(78, 78), person: rate(78, 78), baselines: none.baselines }, valid_for_acceptance: false, agreement_with_rows: {}, baselines: {} }
+  assert.equal(experiment.acceptDecision(labelled, 0.5, {}).code, 3, 'labels of people but rows not validated: not valid either')
+})
+
+test('D4 (reaudit 3): propose with no area and an experiment that routes nothing exit with a code other than 0', () => {
+  const dir = scratch('d4')
+  const small = path.join(dir, 'small.jsonl')
+  writeFileSync(small, `${rows.slice(0, 40).map((r) => JSON.stringify(r)).join('\n')}\n`)
+  const run = runScript('area-method.mjs', ['propose', small, '--team', path.join(fixtures, 'team.json'), '--purposes', path.join(fixtures, 'purposes.json'), '--out', path.join(dir, 'load.json')])
+  assert.notEqual(run.status, 0, run.stderr)
+  assert.match(run.stderr, /corpus_small/)
+  assert.equal(existsSync(path.join(dir, 'load.json')), false, 'no empty load file is written')
+  const { spec } = propose(rows, team, { purposes })
+  const renamed = { ...spec, areas: spec.areas.map((a, i) => ({ ...a, title: `Otra ${i}`, description: a.description })) }
+  const load = path.join(dir, 'renamed.json')
+  writeFileSync(load, JSON.stringify(renamed))
+  const provider = path.join(dir, 'provider.mjs')
+  writeFileSync(provider, "export default () => ({ async complete () { return { json: { area: 'Otra 0', attends: ['Asistente'], brief: 'x' } } } })\n")
+  const exp = runScript('route-experiment.mjs', [path.join(fixtures, 'rows.jsonl'), '--load', load, '--team', path.join(fixtures, 'team.json'), '--provider', provider, '--out', path.join(dir, 'out.json')])
+  assert.equal(exp.status, 4, exp.stderr)
+  assert.match(exp.stderr, /0 de 0/)
+})
+
+test('D5 (reaudit 3): a unit id with a space or a bracket is refused before the model is asked, and the others keep their rows', async () => {
+  for (const id of ['msg 12', '2026-03-04 10:22', 'a[1]']) assert.throws(() => extraction.validateUnits([{ id, confidential: false }]), /Unit ids may only hold/, id)
+  assert.doesNotThrow(() => extraction.validateUnits([{ id: 'msg_12.a:b-3', confidential: false }]))
+  const provider = { async complete () { return { json: { requests: [fakeRow('msg_12.a:b-3')] } } } }
+  const result = await extractRows([{ id: 'msg_12.a:b-3', text: 'texto', confidential: false }], team, { provider, model: 'm' })
+  assert.equal(result.rows.length, 1)
+})
+
+test('D9 (reaudit 3): the privacy net replaces numbers of 7 and 8 digits, ids, phones and addresses, and leaves an ISO date', () => {
+  const counter = { n: 0 }
+  const row = fakeRow('u1', { summary: 'Cliente 2234567 y 22345678, rut 12.345.678-5, tel +56 9 8765 4321, mail ana@x.org, fecha 2026-03-04' })
+  const [done] = finishRows([row], [{ id: 'u1' }], team, counter)
+  assert.ok(!/\b2234567\b|22345678|12\.345\.678|8765 4321|ana@x\.org/.test(done.summary), done.summary)
+  assert.ok(done.summary.includes('2026-03-04'))
+  assert.ok(counter.n >= 5)
+})
+
+test('Menor (reaudit 3): the resampling of units says how often each area is kept, reproducibly, and names no confidential title', () => {
+  const secret = Array.from({ length: 60 }, (_, i) => ({ ...rows[0], unit: `zk${i}`, object: 'zkobjconfidencial', summary: `Reservado ${i}`, confidential: true }))
+  const corpus = [...rows, ...secret]
+  const a = method.resampleAreas(corpus, team, { draws: 6, permutations: 99, repeats: 1, holdout: 0 })
+  assert.deepEqual(method.resampleAreas(corpus, team, { draws: 6, permutations: 99, repeats: 1, holdout: 0 }), a)
+  assert.equal(a.draws, 6)
+  for (const share of Object.values(a.kept_share)) assert.ok(share >= 0 && share <= 1)
+  assert.ok(!JSON.stringify(a).toLowerCase().includes('zkobjconfidencial'))
+  assert.ok(Object.keys(a.kept_share).includes('Catálogo y precios'))
+})
+
+test('B3 (reaudit 3): descriptions corrected by the team are the ones measured on the held-out set, and a title the build does not propose is an error', async () => {
+  const draft = experiment.buildAndSplit(rows, team, { stage: 'tune', purposes })
+  const title = draft.load.areas[0].title
+  const edited = draft.load.areas[0].description.replace(/Se maximiza: [^.]*\./, 'Se maximiza: zzcorregido.')
+  assert.notEqual(edited, draft.load.areas[0].description)
+  const built = experiment.buildAndSplit(rows, team, { stage: 'tune', purposes, descriptions: { [title]: edited } })
+  assert.equal(built.load.areas[0].description, edited)
+  assert.deepEqual(built.test.map((r) => r.unit), draft.test.map((r) => r.unit), 'the same held-out set: only the text changed')
+  assert.ok(experiment.routerPrompt(built.load, team).includes('zzcorregido'), 'the router reads the correction')
+  assert.throws(() => experiment.buildAndSplit(rows, team, { stage: 'tune', purposes, descriptions: { 'Área que no existe': 'x' } }), /does not propose/)
+  assert.throws(() => experiment.buildAndSplit(rows, team, { stage: 'tune', purposes, descriptions: { [title]: 'sin cláusulas' } }), /Se maximiza/)
 })

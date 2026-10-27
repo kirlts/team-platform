@@ -2,7 +2,7 @@
 // Builds a routing configuration (areas, guards, templates, member profiles) from the corpus of requests of one team.
 //
 //   node scripts/area-method.mjs labels  rows.jsonl
-//   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--cut [AAAA-MM-DD]] [--out report.json]
+//   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--cut [AAAA-MM-DD]] [--bootstrap N] [--out report.json]
 //   node scripts/area-method.mjs propose rows.jsonl --team team.json --purposes purposes.json --actor ed@x.org
 //                                        [--families families.json] [--intents intents.json] [--intent-fields fields.json] [--out load.json]
 //
@@ -544,6 +544,39 @@ export function analyzeWindows (rows, team, { cut = null, ...options } = {}) {
   return { cut: boundary, windows: [{ until: boundary, rows: before.length }, { since: boundary, rows: after.length }], areas }
 }
 
+/**
+ * How much the set of areas depends on which units the corpus happens to hold: the units are drawn with replacement (a bootstrap by unit, Efron and Tibshirani 1993: the requests of one
+ * unit travel together), each draw is analyzed and the share of the draws that keep each area is reported. `differs_share` is the share of draws in which the verdict of the area is not
+ * the one of the whole corpus; an area with a share above 0 is one that the corpus does not settle (reaudit 3 measured 5 of 30 draws changing the verdict on a corpus of three well
+ * separated areas, and 9 of 30 with noise). The neutral names of the confidential areas are the ones of the whole corpus. Nothing here reads a text.
+ */
+export function resampleAreas (rows, team, { draws = 20, families = {}, ...options } = {}) {
+  validateRows(rows)
+  const o = { ...DEFAULTS, ...options }
+  const hiddenTitles = hiddenAreas(rows, families, o.maxConfidentialShare)
+  const whole = analyze(rows, team, { families, hiddenTitles, ...options })
+  const full = new Map(whole.areas.map((a) => [a.title, a.keep]))
+  const units = [...new Set(rows.map((r) => r.unit))].sort()
+  const byUnit = new Map()
+  for (const r of rows) byUnit.set(r.unit, [...(byUnit.get(r.unit) ?? []), r])
+  const kept = new Map([...full.keys()].map((t) => [t, 0]))
+  const differs = new Map([...full.keys()].map((t) => [t, 0]))
+  for (let b = 0; b < draws; b++) {
+    const rand = seededRandom((o.seed + 7919 * (b + 1)) >>> 0) // 7919: a prime, so the draws of consecutive seeds do not repeat each other
+    const draw = Array.from({ length: units.length }, (_, i) => ({ from: units[Math.floor(rand() * units.length)], copy: i }))
+    const sample = draw.flatMap(({ from, copy }) => byUnit.get(from).map((r) => ({ ...r, unit: `${from}#${copy}` })))
+    const report = analyze(sample, team, { families, hiddenTitles, ...options })
+    const verdict = new Map(report.areas.map((a) => [a.title, a.keep]))
+    for (const t of full.keys()) {
+      const keep = verdict.get(t) === true
+      if (keep) kept.set(t, kept.get(t) + 1)
+      if (keep !== full.get(t)) differs.set(t, differs.get(t) + 1)
+    }
+  }
+  const share = (m) => Object.fromEntries([...m.entries()].map(([t, n]) => [t, round(n / draws)]))
+  return { draws, kept_share: share(kept), differs_share: share(differs), unsettled: [...differs.entries()].filter(([, n]) => n > 0).map(([t]) => t).sort() }
+}
+
 // ---- writing the descriptions: four clauses plus limits, with what enters and what does not
 const phrases = (items) => items.join('; ')
 const list = (items) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} y ${items.at(-1)}`)
@@ -790,7 +823,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth', 'holdout'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth', 'holdout', 'bootstrap'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')
@@ -805,13 +838,17 @@ function main (argv) {
   if (!option('--team')) { console.error('Falta --team'); process.exit(2) }
   const team = readJson(option('--team'))
   const load = (flag, fallback) => (option(flag) ? readJson(option(flag)) : fallback)
-  const common = { families: load('--families', {}), ...numeric }
+  const { bootstrap, ...knobs } = numeric
+  const common = { families: load('--families', {}), ...knobs }
   try {
-    if (command === 'analyze') out({ ...analyze(rows, team, common), ...(rest.includes('--cut') ? { stability: analyzeWindows(rows, team, { ...common, cut: option('--cut') && !option('--cut').startsWith('--') ? option('--cut') : null }) } : {}) })
+    if (command === 'analyze') out({ ...analyze(rows, team, common), ...(bootstrap ? { resampling: resampleAreas(rows, team, { ...common, draws: bootstrap }) } : {}), ...(rest.includes('--cut') ? { stability: analyzeWindows(rows, team, { ...common, cut: option('--cut') && !option('--cut').startsWith('--') ? option('--cut') : null }) } : {}) })
     else {
       const result = propose(rows, team, { ...common, purposes: load('--purposes', {}), intents: load('--intents', {}), intentFields: load('--intent-fields', {}), actor: option('--actor') })
       for (const w of result.warnings) console.error(`Aviso: el límite «${w.guard}» del área ${w.area} no tiene mecanismo declarado: queda como un pedido al modelo.`)
       if (result.skipped.length) console.error(`Áreas que no cumplen los criterios: ${result.skipped.map((s) => `${s.title} (${s.failed.join(', ')}; se uniría a ${s.merge_into})`).join('; ')}`)
+      // What the report says about the corpus (few rows, one member, fewer than two areas) is printed here too: `propose` used to end in silence with an empty file.
+      for (const w of result.report.warnings) console.error(`Aviso (${w.kind}): ${w.detail ?? JSON.stringify(w)}`)
+      if (result.spec.areas.length === 0) { console.error('Ninguna área cumple los criterios: no hay nada que repartir y no se escribe el archivo de carga. Revisa el informe de `analyze` (volumen, texto, mapa, tratamiento).'); process.exit(3) }
       out(result.spec)
     }
   } catch (error) { console.error(error.message); process.exit(1) }

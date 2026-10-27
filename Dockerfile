@@ -1,8 +1,15 @@
 # syntax=docker/dockerfile:1
 
+# Pinned base images (rule 3 of docs/RULES.md: a version that governs the build is declared with its source).
+# Source: `docker buildx imagetools inspect node:24-alpine` and `... alpine:3.24`, queried on 2026-10-27. Each digest is the index
+# (multi-platform) digest, which is what `docker pull` resolves for linux/amd64 and linux/arm64; node:24-alpine's linux/amd64 manifest
+# is sha256:1200d815de24f8dcca745fbf7651d166034a35adbcad8860a8538ffff44f1420 and its Alpine base is the amd64 manifest of the pin below.
+# To move them: run the two commands, replace every digest in this file (the stages use the same two) and publish a new version.
+# The battery of a publication runs inside the `battery` stage, which starts from the node pin, so a record names the same image.
+
 # Stage 1: panel. Builds panel/ if it exists; otherwise leaves an empty directory.
 # The whole context is copied because COPY fails when panel/ does not exist.
-FROM node:24-alpine AS panel
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS panel
 WORKDIR /ctx
 COPY . /ctx
 ARG BUILD_JOBS=
@@ -17,7 +24,7 @@ RUN mkdir -p /out \
 # Stage 2: production dependencies of the server, pruned (report docs/investigaciones/mediciones/2026-10-20-imagen-docker.md).
 # `--omit=optional` is NOT used: sharp ships its native binary as an optional dependency and would fail to load.
 # npm already installs only the binary of the build platform (linuxmusl-x64 or linuxmusl-arm64).
-FROM node:24-alpine AS deps
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN mkdir -p node_modules \
@@ -60,7 +67,7 @@ PRUNE
 # The tarballs are verified against a pinned SHA-256. ffmpeg.org publishes no checksum files, so the value was
 # computed on a tarball whose detached signature (key FCF986EA15E6E293A5644F10B4322F04D67658D8) verified;
 # dav1d publishes its own .sha256 next to the tarball.
-FROM alpine:3.24 AS ffmpeg
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS ffmpeg
 ARG FFMPEG_VERSION=8.1.3
 ARG FFMPEG_SHA256=7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
 ARG DAV1D_VERSION=1.5.4
@@ -118,7 +125,7 @@ RUN FFMPEG_BIN=/out/bin/ffmpeg FFPROBE_BIN=/out/bin/ffprobe sh /usr/local/bin/ch
 # Stage 4: runtime base shared by the test target and the shipped image: plain Alpine with only the node binary from
 # the official image (it also carries npm and yarn, about 23 MB, that the server never runs; same Alpine release as
 # node:24-alpine), the two static ffmpeg binaries and the NOTICE with the third-party binaries (UD-020).
-FROM alpine:3.24 AS base
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS base
 RUN apk add --no-cache libstdc++ \
  && addgroup -g 1000 node \
  && adduser -u 1000 -G node -s /bin/sh -D node
@@ -129,7 +136,7 @@ COPY NOTICE /usr/share/licenses/NOTICE
 
 # Test target (not shipped): `docker build --target extract-test -t team-platform:extract-test .` and
 # `docker run --rm team-platform:extract-test` run the extractor tests against the image binaries.
-FROM node:24-alpine AS test-deps
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS test-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci && npm cache clean --force
@@ -149,6 +156,26 @@ COPY scripts/team.mjs ./scripts/team.mjs
 COPY scripts/walkthrough.mjs ./scripts/walkthrough.mjs
 COPY scripts/repo-map.mjs ./scripts/repo-map.mjs
 CMD ["sh", "-c", "sh scripts/check-ffmpeg.sh && node --test src/extract/*.test.js src/extract/lib/*.test.js"]
+
+# Battery stage (not shipped): where the complete battery of a publication runs (scripts/battery-image.sh, used by scripts/publish-main.sh
+# and scripts/battery-record.mjs). It starts from the same pinned node image as test-deps, so `node --version` and the base digest of a
+# battery record are those of this file and not those of the machine that publishes. It carries the dependencies of the three packages the
+# battery tests (the root, the panel and the client), plus `bash` and `git`, which the orders and the tests of the publication door use.
+# The source is not in the image: scripts/battery-image.sh mounts the commit read-only and copies it to /app at run time, so a layer
+# depends on the lockfiles and not on the commit. The image has no Docker daemon, no Chromium and no identity for git: a test that needs
+# one declares it (src/testing/requires.js) and is skipped with its reason, which the summary counts. It runs as `node`, like production.
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS battery
+RUN apk add --no-cache bash git \
+ && mkdir /app && chown node:node /app
+USER node
+WORKDIR /app
+COPY --chown=node:node package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund && npm cache clean --force
+COPY --chown=node:node panel/package.json panel/package-lock.json ./panel/
+RUN cd panel && npm ci --no-audit --no-fund && npm cache clean --force
+COPY --chown=node:node packages/client/package.json packages/client/package-lock.json ./packages/client/
+RUN cd packages/client && npm ci --no-audit --no-fund && npm cache clean --force
+ENV NODE_ENV=test CI=1
 
 # Final stage.
 FROM base

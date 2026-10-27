@@ -54,7 +54,7 @@ function NotificationBell() {
           data-unread={snap.unread}
           aria-label={snap.unread > 0 ? t('bell.unread', { n: snap.unread }) : t('bell.label')}
           title={t('bell.label')}
-          className="relative inline-flex h-9 w-9 items-center md:h-10 md:w-10 justify-center rounded-full text-fg hover:bg-glass"
+          className="relative inline-flex h-11 w-11 items-center justify-center md:h-10 md:w-10 rounded-full text-fg hover:bg-glass"
         >
           <Bell size={22} aria-hidden strokeWidth={2} />
           {snap.unread > 0 && (

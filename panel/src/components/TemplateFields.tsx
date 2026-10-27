@@ -35,7 +35,8 @@ export function TemplateFields({
   /** The names the person asked to add: they are drawn, open, until they hold something or the edit ends empty. */
   const [adding, setAdding] = useState<string[]>([])
   const empty = (name: string) => !(values?.[name] ?? '').trim()
-  const pending = (f: { name: string; required: boolean }) => f.required && !closed && empty(f.name)
+  // Only whoever can fill the field is asked to: the one who cannot edit has nothing to do with an empty required field, so it is neither flagged nor drawn.
+  const pending = (f: { name: string; required: boolean }) => canEdit && f.required && !closed && empty(f.name)
   const shown = fields.filter((f) => isStated(values?.[f.name]) || pending(f) || adding.includes(f.name))
   const absent = canEdit && !closed ? fields.filter((f) => !shown.includes(f)) : []
   if (shown.length === 0 && absent.length === 0) return null
@@ -62,7 +63,7 @@ export function TemplateFields({
                     // The same list when there is nothing to remove: this runs on every render and a new array each time would never settle.
                     if (!editing) setAdding((a) => (a.includes(f.name) ? a.filter((n) => n !== f.name) : a))
                   }}
-                  placeholder={closed ? t('fields.optional') : ''}
+                  placeholder={closed ? t('fields.optional') : t('fields.fill')}
                   displayClassName={boxed ? 'border-line' : undefined}
                   emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
                   validate={f.required && !closed ? (v) => (v ? null : t('fields.requiredError')) : undefined}

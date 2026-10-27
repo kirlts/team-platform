@@ -12,7 +12,7 @@ import type { Area, Template } from '@team-platform/client'
 import { useDeletedTemplates, useDeleteTemplate, useDeleteTemplates, useRestoreTemplate, useRestoreTemplates, useSaveTemplate, useTemplates } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
 import { useSelection, type Selection } from '@/lib/selection'
-import { RowCheck, SelectionBar } from '@/components/SelectionBar'
+import { RowCheck, SelectionBar, SelectionFoot } from '@/components/SelectionBar'
 import { parseTemplateFields, parseTemplateOutput } from '@/lib/template'
 import { useUndo } from '@/lib/undo'
 
@@ -116,7 +116,6 @@ export function Templates({ area }: { area: Area }) {
       >
         {/* Every template is drawn: the list is not paged, so the count in the fold is the number of rows under it. */}
         <section aria-label={t('areas.templates')} className="flex min-w-0 flex-col border-y border-line">
-          {marked.length > 0 && <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />}
           {rows.length > 0 && <TemplateColumns />}
           {rows.length === 0
             ? templates.isPending || templates.isError
@@ -128,6 +127,11 @@ export function Templates({ area }: { area: Area }) {
                 </Fragment>
               ))}
         </section>
+        {marked.length > 0 && (
+          <SelectionFoot>
+            <SelectionBar className="border-b-0" selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />
+          </SelectionFoot>
+        )}
       </Fold>
       <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => { await save.mutateAsync(v) }} />
     </>

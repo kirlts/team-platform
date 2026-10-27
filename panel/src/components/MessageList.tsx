@@ -3,7 +3,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
-import { SelectionBar } from '@/components/SelectionBar'
+import { SelectionBar, SelectionFoot } from '@/components/SelectionBar'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import type { MessageQuery, Message } from '@team-platform/client'
@@ -52,14 +52,20 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
     })
   }
 
+  const bar =
+    marked.length > 0 ? (
+      <SelectionFoot>
+        <SelectionBar className="border-b-0" selection={selection} busy={del.isPending} onAll={() => selection.add(page.current.filter((id) => canMark(byId.get(id))))} onDelete={() => void remove()} />
+      </SelectionFoot>
+    ) : null
+
   return (
     <SelectionProvider scope={scope}>
       <FitList
         rows={rows}
         rowKey={(m) => m.id}
-        footer={footer}
+        footer={bar || footer ? <>{bar}{footer}</> : undefined}
         onShown={(keys) => (page.current = keys)}
-        header={marked.length > 0 ? <SelectionBar selection={selection} busy={del.isPending} onAll={() => selection.add(page.current.filter((id) => canMark(byId.get(id))))} onDelete={() => void remove()} /> : undefined}
         renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
         empty={
           list.isPending || list.isError ? (
@@ -67,7 +73,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
           ) : query.q || query.filters.length > 0 ? (
             <EmptyState
               action={
-                <Button variant="primary" onClick={onClear}>
+                <Button onClick={onClear}>
                   {t('messages.clearSearch')}
                 </Button>
               }

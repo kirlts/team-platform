@@ -61,6 +61,17 @@ describe('a field with no data is not drawn', () => {
     expect(container.textContent).toBe('')
   })
 
+  it('whoever cannot edit is not asked for an empty required field: it is neither flagged nor drawn', () => {
+    const { container } = mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit={false} />)
+    expect(screen.queryByText('Obligatorio')).toBeNull()
+    expect(container.querySelector('dl')).toBeNull()
+  })
+
+  it('an empty field that can be filled says «Completar» in its box', () => {
+    mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit />)
+    expect(screen.getByText('Completar')).toBeTruthy()
+  })
+
   it('an empty required field is drawn and says so; closed, it is not asked for', () => {
     const { rerender } = mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit />)
     expect(screen.getAllByText('Obligatorio').length).toBeGreaterThan(0)

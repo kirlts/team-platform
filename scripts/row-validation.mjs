@@ -120,6 +120,21 @@ export function weightedKappa (pairs) {
   return { kappa: (observed - expected) / (1 - expected), observed, expected }
 }
 
+/**
+ * Gwet's AC1 (2008, Br. J. Math. Stat. Psychol. 61:29-48) of the same pairs. Kappa falls when one category is very frequent even if the raters agree almost always; AC1 does not, because
+ * its chance agreement is computed from the mean frequency of each category. It is printed next to kappa as a contrast and does not decide anything.
+ */
+export function weightedAC1 (pairs) {
+  const total = pairs.reduce((s, p) => s + p.w, 0)
+  if (!(total > 0)) return null
+  const categories = [...new Set(pairs.flatMap((p) => [p.a, p.b]))]
+  if (categories.length < 2) return 1
+  const observed = pairs.filter((p) => p.a === p.b).reduce((s, p) => s + p.w, 0) / total
+  const mean = (c) => pairs.reduce((s, p) => s + p.w * ((p.a === c ? 1 : 0) + (p.b === c ? 1 : 0)) / 2, 0) / total
+  const chance = categories.reduce((s, c) => s + mean(c) * (1 - mean(c)), 0) / (categories.length - 1)
+  return chance >= 1 ? 1 : (observed - chance) / (1 - chance)
+}
+
 const round3 = (x) => Math.round(x * 1000) / 1000
 
 /**
@@ -152,7 +167,7 @@ export function bootstrapByUnit (items, statistic, { resamples = DEFAULTS.resamp
 export function kappaWithInterval (items, knobs = {}) {
   const point = weightedKappa(items)
   if (point.kappa === null) return { ...point, lower: null, upper: null, n: 0 }
-  return { kappa: round3(point.kappa), observed: round3(point.observed), ...bootstrapByUnit(items, (s) => weightedKappa(s).kappa, knobs), n: items.length }
+  return { kappa: round3(point.kappa), ac1: round3(weightedAC1(items)), observed: round3(point.observed), ...bootstrapByUnit(items, (s) => weightedKappa(s).kappa, knobs), n: items.length }
 }
 
 const FIELDS = {
@@ -333,9 +348,42 @@ export function analyzerAgreement (labels, analyses, team, { referenceRater = nu
   return { reference_rater: main, units: units.length, limits: per }
 }
 
+/**
+ * The agreement between two sets of scores of the same jobs on the scale of the job evaluation (-2 to +2): for example the judge and a person, or two readings of the judge, or two
+ * people. Lines `{ job, id, score }`; a job-indicator that only one of them scored is left out (`unpaired`). Per indicator, the quadratic weighted kappa (Cohen 1968, Psychological
+ * Bulletin 70:213-220), which counts a near miss as less of a disagreement than a far one on an ordered scale, and the share of pairs within one point.
+ */
+export function judgeAgreement (first, second, { levels = [-2, -1, 0, 1, 2] } = {}) {
+  const b = new Map(second.map((l) => [`${l.job}|${l.id}`, l.score]))
+  const ids = [...new Set(first.map((l) => l.id))].sort()
+  const span = (levels.length - 1) ** 2
+  const out = {}
+  let unpaired = 0
+  for (const id of ids) {
+    const pairs = first.filter((l) => l.id === id && b.has(`${l.job}|${id}`)).map((l) => [l.score, b.get(`${l.job}|${id}`)])
+    unpaired += first.filter((l) => l.id === id).length - pairs.length
+    const n = pairs.length
+    if (!n) { out[id] = { n: 0, kappa: null, within_one: null }; continue }
+    const share = (side, v) => pairs.filter((p) => p[side] === v).length / n
+    let observed = 0
+    let expected = 0
+    for (const [x, y] of pairs) observed += ((x - y) ** 2) / span
+    for (const x of levels) for (const y of levels) expected += share(0, x) * share(1, y) * (((x - y) ** 2) / span)
+    out[id] = { n, kappa: expected === 0 ? (observed === 0 ? 1 : 0) : round3(1 - (observed / n) / expected), within_one: round3(pairs.filter(([x, y]) => Math.abs(x - y) <= 1).length / n) }
+  }
+  return { indicators: out, unpaired }
+}
+
 function main (argv) {
   const [command, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
+  if (command === 'judge') {
+    const o = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
+    if (!o('--first') || !o('--second')) { console.error('Uso: node scripts/row-validation.mjs judge --first scores-a.jsonl --second scores-b.jsonl [--out agreement.json]   (líneas { job, id, score })'); process.exit(2) }
+    const text = `${JSON.stringify(judgeAgreement(readJsonl(o('--first')), readJsonl(o('--second'))), null, 2)}\n`
+    if (o('--out')) writeFileSync(o('--out'), text); else process.stdout.write(text)
+    return
+  }
   const need = command === 'analyzer' ? ['--units', '--labels', '--analysis', '--team'] : command === 'agree' ? ['--units', '--rows', '--labels', '--team'] : ['--units', '--rows', '--team']
   if (!['sample', 'agree', 'analyzer'].includes(command) || need.some((f) => !option(f))) {
     console.error('Uso: node scripts/row-validation.mjs sample --units units.jsonl --rows rows.jsonl --team team.json [--families f.json] [--stage all|tune|confirm] [--holdout 0.5] [--target-rate 0.8] [--half-width 0.15] [--with-text] --out sample.jsonl\n     node scripts/row-validation.mjs agree --units units.jsonl --rows rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--stage ...] [--reference-rater name] [--retest rows2.jsonl] [--min-kappa 0.6] [--max-unaligned-share 0.2] [--waive limit:id] [--min-limit-positives 5] [--resamples 1000] [--out validation.json]\n     node scripts/row-validation.mjs analyzer --units units.jsonl --labels labels.jsonl --analysis analysis.jsonl --team team.json [--reference-rater name] [--out analyzer.json]')

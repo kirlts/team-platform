@@ -15,9 +15,9 @@
 // A description set that routes badly is corrected only where the experiment shows a confusion of two cases or more, with the tuning set, and read once more with the confirmation set
 // (docs/METODO-DE-REPARTO.md, section «Medir el reparto»).
 
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
+import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
 import { keyRows, referenceLabels, rowsByUnit, unitStrata } from './row-validation.mjs'
 import { KPIS } from '../src/execute/judge.js'
 
@@ -45,12 +45,35 @@ export function routerSchema (load, team) {
 export function judgeSchema () {
   const item = {
     type: 'array', minItems: ROUTING_KPIS.length, maxItems: ROUTING_KPIS.length,
-    items: { type: 'object', additionalProperties: false, required: ['id', 'score', 'reason'], properties: { id: { type: 'string', enum: [...ROUTING_KPIS] }, score: { type: 'integer', enum: [-2, -1, 0, 1, 2] }, reason: { type: 'string' } } }
+    items: {
+      type: 'object', additionalProperties: false, required: ['id', 'applies', 'score', 'quote', 'reason'],
+      properties: {
+        id: { type: 'string', enum: [...ROUTING_KPIS] }, applies: { type: 'boolean', description: 'false when this indicator cannot be observed in this routing (then it is not scored).' },
+        score: { type: 'integer', enum: [-2, -1, 0, 1, 2] }, quote: { type: 'string', description: 'A direct quote of the request, the reference or the brief that supports the score; empty only when applies is false.' }, reason: { type: 'string' }
+      }
+    }
   }
   return { type: 'object', additionalProperties: false, required: ['indicators'], properties: { indicators: item } }
 }
 
-const judgeSystem = `Juzgas el reparto de un pedido de un equipo: un enrutador eligió el área, quién lo atiende y escribió el encargo. Puntúa cada indicador de -2 a +2 (+2 excepcional, +1 fuerte, 0 esperado: el mínimo aceptable, -1 bajo, -2 inaceptable), con una oración de razón, contra la referencia que se da.\n${KPIS.filter((k) => ROUTING_KPIS.includes(k.id)).map((k) => `${k.id} ${k.name}: ${k.asks}`).join('\n')}`
+// The anchors are the five levels of each indicator in `KPIS` (written for an unattended job): they are what a score of -2 to +2 means, and the judge of a routing reads them too.
+const anchors = (k) => k.levels.map((text, i) => `  ${['+2', '+1', '0', '-1', '-2'][i]}: ${text}`).join('\n')
+const judgeSystem = `Juzgas el reparto de un pedido de un equipo: un enrutador eligió el área, quién lo atiende y escribió el encargo. Puntúa cada indicador de -2 a +2 con las anclas que se dan (el 0 es el mínimo aceptable), contra la referencia que se da. Cita un fragmento textual del pedido, de la referencia o del encargo que sostenga cada puntaje. Un indicador que este reparto no deja observar lleva applies false y no se puntúa.\n${KPIS.filter((k) => ROUTING_KPIS.includes(k.id)).map((k) => `${k.id} ${k.name}: ${k.asks}\n${anchors(k)}`).join('\n')}`
+
+/** The scores of a judgement that hold up: the indicator applies, it has a score and its quote is in the evidence the judge was given. The others are not scored and are counted. */
+export function validJudgement (list, evidence) {
+  const flat = (t) => String(t ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+  const scores = {}
+  const dropped = { not_observable: 0, quote_not_in_evidence: 0, repeated_or_unknown: 0 }
+  for (const k of list ?? []) {
+    if (!ROUTING_KPIS.includes(k.id) || id_seen(scores, k.id)) { dropped.repeated_or_unknown++; continue }
+    if (k.applies !== true) { dropped.not_observable++; continue }
+    if (!flat(k.quote) || !flat(evidence).includes(flat(k.quote))) { dropped.quote_not_in_evidence++; continue }
+    scores[k.id] = k.score
+  }
+  return { scores, dropped }
+}
+const id_seen = (scores, id) => id in scores
 
 const referenceText = (row, team) => `Pedido: ${row.summary} (lo pide ${row.who}).\nReferencia: área ${row.area}; lo que falta lo tiene ${row.value_holder === 'person' ? row.holder || 'una persona' : 'el modelo'}; límites que toca: ${(row.limits ?? []).join(', ') || 'ninguno'}; se maximiza: ${row.maximize || 'no se deduce'}; se sacrifica: ${row.sacrifice || 'no se deduce'}; exige a una persona: ${requiresPerson(row, team) ? 'sí' : 'no'}.`
 
@@ -113,7 +136,11 @@ export function scoreRouting (route, row, team) {
     area_agrees: route.area === row.area,
     person_agrees: needs ? (people.has(holder) ? included.includes(holder) : included.length > 0) : included.length === 0,
     person_missing: needs && included.length === 0,
-    person_extra: !needs && included.length > 0
+    person_extra: !needs && included.length > 0,
+    // For the precision and the recall of the people: a router that includes everyone agrees on every request that needs a person, and `person_agrees` does not see the excess.
+    person_included: included.length > 0,
+    person_needed: needs,
+    person_right: needs && (people.has(holder) ? included.includes(holder) : included.length > 0)
   }
 }
 
@@ -122,7 +149,7 @@ export function scoreRouting (route, row, team) {
  * (no person), and always the person who asks (the agent when the one who asks is not a person). A measure of the routing means nothing without them
  * (docs/METODO-DE-REPARTO.md, section «Medir el reparto»).
  */
-export function baselines (sample, team, majorityArea, reference = (r) => r) {
+export function baselines (sample, team, majorityArea, reference = (r) => r, predictArea = null) {
   const agent = team.members.find((m) => m.kind === 'agent')?.name ?? team.members[0].name
   const people = new Set(team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name))
   const total = sample.reduce((t, r) => t + (r.weight ?? 1), 0)
@@ -133,7 +160,15 @@ export function baselines (sample, team, majorityArea, reference = (r) => r) {
   alone.field = 'person_agrees'
   const asker = (r) => ({ area: r.area, attends: [people.has(r.who) ? r.who : agent] })
   asker.field = 'person_agrees'
-  return { area_majority: { area: majorityArea, rate: rate(area) }, person_agent_alone: { rate: rate(alone) }, person_asker: { rate: rate(asker) } }
+  const everyone = (r) => ({ area: r.area, attends: [...people] })
+  everyone.field = 'person_agrees'
+  const out = { area_majority: { area: majorityArea, rate: rate(area) }, person_agent_alone: { rate: rate(alone) }, person_asker: { rate: rate(asker) }, person_all: { rate: rate(everyone) } }
+  if (predictArea) {
+    const reads = (r) => ({ area: predictArea(r.summary), attends: [agent] })
+    reads.field = 'area_agrees'
+    out.area_nb = { rate: rate(reads) }
+  }
+  return out
 }
 
 /**
@@ -202,32 +237,37 @@ export async function runExperiment (rows, load, team, { provider, families = {}
       const result = { key: row.key, unit: row.unit, weight: row.weight, reference_area: row.area, area: route.area, attends: route.attends, brief: route.brief, ...scoreRouting(route, row, team) }
       if (row.label) { const l = scoreRouting(route, labelRow(row), team); result.label_area_agrees = l.area_agrees; result.label_person_agrees = l.person_agrees }
       if (judge) {
-        const j = (await provider.complete({ system: judgeSystem, messages: [{ role: 'user', content: `${referenceText(row, team)}\nReparto: área ${route.area}; atiende ${route.attends.join(', ')}; encargo: ${route.brief}` }], schema: judgeSchema(), effort: 'low' })).json
-        result.indicators = Object.fromEntries((j?.indicators ?? []).map((k) => [k.id, k.score]))
+        // The judge reads the reference of the people when there is one: the extraction is not the truth it is measured against.
+        const evidence = `${referenceText(row.label ? labelRow(row) : row, team)}\nReparto: área ${route.area}; atiende ${route.attends.join(', ')}; encargo: ${route.brief}`
+        const j = (await provider.complete({ system: judgeSystem, messages: [{ role: 'user', content: evidence }], schema: judgeSchema(), effort: 'low' })).json
+        const valid = validJudgement(j?.indicators, evidence)
+        result.indicators = valid.scores
+        result.judge_dropped = valid.dropped
       }
       out.push(result)
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(parallel, sample.length)) }, worker))
   const referenceRows = withAreas(buildRows ?? rows, families)
+  const predictArea = referenceRows.length ? trainNaiveBayes(referenceRows, (r) => r.area) : null // the construction rows when there is a split, the whole corpus otherwise
   const largest = [...referenceRows.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
   const withLabels = out.filter((r) => 'label_area_agrees' in r)
   const raw = labeledRun && unitTexts ? await routeRaw(sample, unitTexts, { provider, system, schema, team, load, parallel }) : null
   const labelled = labeledRun ? {
     n: withLabels.length, units: labeledRun.units, rater: referenceRater,
     area: rateOf(withLabels.filter((r) => r.label_area_agrees), withLabels), person: rateOf(withLabels.filter((r) => r.label_person_agrees), withLabels),
-    baselines: baselines(sample.filter((r) => r.label), team, largest, labelRow), raw
+    baselines: baselines(sample.filter((r) => r.label), team, largest, labelRow, predictArea), raw
   } : null
   return {
     ...summarize(out),
     sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, confidential_left_out: drawn.confidential, merged: drawn.merged, warnings: drawn.warnings },
     validated: validation?.validated === true,
     valid_for_acceptance: Boolean(labeledRun) && validation?.validated === true,
-    baselines: baselines(sample, team, largest),
+    baselines: baselines(sample, team, largest, (r) => r, predictArea),
     agreement_with_labels: labelled,
-    judge: judge ? { model: models.judge ?? null, router_model: models.router ?? null, same_model: Boolean(models.judge && models.judge === models.router) } : null,
+    judge: judge ? { model: models.judge ?? null, router_model: models.router ?? null, same_model: Boolean(models.judge && models.judge === models.router), dropped: out.reduce((t, r) => { for (const [k, n] of Object.entries(r.judge_dropped ?? {})) t[k] = (t[k] ?? 0) + n; return t }, {}), validated_against_people: false } : null,
     holdout: held,
-    leaked_examples: leakedExamples(sample, load, buildUnits)
+    ...leakedExamples(sample, load, buildUnits, buildRows)
   }
 }
 
@@ -264,42 +304,53 @@ export function mcnemarExact (onlyA, onlyB) {
 }
 
 /**
- * Compares two experiments on the requests they both routed (paired by `key`): the descriptions of A against the ones of B, or two routers. A difference between rates
+ * Compares two experiments on the units they both routed: the descriptions of A against the ones of B, or two routers. A difference between rates
  * is read with the paired test, not by eye (Miller 2024, arXiv:2411.00640, consulted 2026-10-27: the pairs share the question, so their differences have a smaller error
  * than two independent samples).
  */
 export function compareRuns (a, b) {
-  const byKey = new Map(b.results.filter((r) => r.key).map((r) => [r.key, r]))
-  const pairs = a.results.filter((r) => r.key && byKey.has(r.key)).map((r) => [r, byKey.get(r.key)])
+  // The pairs are UNITS: a unit is right when all its requests are. The requests of one message are not independent, so they are not counted as separate pairs.
+  const units = (run, field) => { const m = new Map(); for (const r of run.results.filter((x) => x.unit)) m.set(r.unit, (m.get(r.unit) ?? true) && r[field]); return m }
   const block = (field) => {
-    const onlyA = pairs.filter(([x, y]) => x[field] && !y[field]).length
-    const onlyB = pairs.filter(([x, y]) => !x[field] && y[field]).length
-    return { only_first: onlyA, only_second: onlyB, p: Math.round(mcnemarExact(onlyA, onlyB) * 10000) / 10000 }
+    const ua = units(a, field)
+    const ub = units(b, field)
+    const shared = [...ua.keys()].filter((u) => ub.has(u))
+    const onlyA = shared.filter((u) => ua.get(u) && !ub.get(u)).length
+    const onlyB = shared.filter((u) => !ua.get(u) && ub.get(u)).length
+    return { only_first: onlyA, only_second: onlyB, p: Math.round(mcnemarExact(onlyA, onlyB) * 10000) / 10000, units: shared.length }
   }
-  return { paired: pairs.length, area: block('area_agrees'), person: block('person_agrees') }
+  const area = block('area_agrees')
+  const person = block('person_agrees')
+  return { paired: area.units, area, person }
 }
 
 /**
- * A rate of weighted items with its Wilson interval. With weights the interval uses the effective size of Kish (1965, Survey Sampling): (sum of weights)^2 over the sum of
- * squared weights, which is the plain count when every weight is 1.
+ * A rate of weighted items with its Wilson interval. The observations are the UNITS, not the requests: the requests of a message share text and author and are not independent.
+ * The effective size is that of Kish (1965, Survey Sampling), (sum of weights)^2 over the sum of squared weights, taken over the weight of each unit; it is the plain count
+ * when every unit has one request of weight 1.
  */
 const rateOf = (hits, items) => {
   const w = (x) => x.weight ?? 1
   const total = items.reduce((t, x) => t + w(x), 0)
   const ok = hits.reduce((t, x) => t + w(x), 0)
-  const effective = total ? (total * total) / items.reduce((t, x) => t + w(x) ** 2, 0) : 0
+  const byUnit = new Map()
+  items.forEach((x, i) => byUnit.set(x.unit ?? `#${i}`, (byUnit.get(x.unit ?? `#${i}`) ?? 0) + w(x)))
+  const effective = total ? (total * total) / [...byUnit.values()].reduce((t, v) => t + v * v, 0) : 0
   const rate = total ? ok / total : 0
   const interval = wilson(rate * effective, effective)
-  return { k: hits.length, n: items.length, rate: round3(rate), lower: round3(interval.lower), upper: round3(interval.upper) }
+  return { k: hits.length, n: items.length, units: byUnit.size, rate: round3(rate), lower: round3(interval.lower), upper: round3(interval.upper) }
 }
 const round3 = (x) => Math.round(x * 1000) / 1000
 
 /**
- * How many sampled requests may be one of the examples quoted in a description: a request that is measured must not be one of them. With `buildUnits` (the units the
- * descriptions were built from) a request counts only if its unit is one of them; without it every summary that is quoted counts, because the examples do not say which row they come from.
+ * What of the sample the descriptions may have seen. `leaked_examples` counts the sampled requests whose text is quoted in a description, whatever their unit: a request that
+ * reads as one of the examples is not new to the router. `duplicate_of_build` counts those whose text is identical to some request of the construction side (the same sentence
+ * in another message: the corpora of a team repeat themselves). `from_build_units` counts the ones whose unit is a construction unit, which the split makes 0.
  */
-export function leakedExamples (sample, load, buildUnits = null) {
-  return sample.filter((r) => (!buildUnits || buildUnits.has(r.unit)) && load.areas.some((a) => a.description.includes(`«${r.summary}»`))).length
+export function leakedExamples (sample, load, buildUnits = null, buildRows = null) {
+  const quoted = (r) => load.areas.some((a) => a.description.includes(`«${r.summary}»`))
+  const built = buildRows ? new Set(buildRows.map((r) => r.summary)) : null
+  return { leaked_examples: sample.filter(quoted).length, duplicate_of_build: built ? sample.filter((r) => built.has(r.summary)).length : null, from_build_units: buildUnits ? sample.filter((r) => buildUnits.has(r.unit)).length : null }
 }
 
 /**
@@ -311,8 +362,12 @@ export function summarize (results) {
   const n = results.length
   const confusions = {}
   for (const r of results) if (!r.area_agrees) { const k = `${r.reference_area} -> ${r.area}`; confusions[k] = (confusions[k] ?? 0) + 1 }
+  // An indicator is the mean of the jobs that scored it. One the judge could not observe, or whose quote is not in the evidence, is not scored and is not filled with 0.
   const judged = results.filter((r) => r.indicators)
-  const indicators = judged.length ? Object.fromEntries(ROUTING_KPIS.map((id) => [id, Math.round((judged.reduce((a, r) => a + (r.indicators[id] ?? 0), 0) / judged.length) * 100) / 100])) : null
+  const indicators = judged.length ? Object.fromEntries(ROUTING_KPIS.map((id) => {
+    const scored = judged.filter((r) => typeof r.indicators[id] === 'number')
+    return [id, { mean: scored.length ? Math.round((scored.reduce((a, r) => a + r.indicators[id], 0) / scored.length) * 100) / 100 : null, n: scored.length }]
+  })) : null
   const areas = [...new Set(results.map((r) => r.reference_area))].sort()
   const byArea = Object.fromEntries(areas.map((area) => {
     const mine = results.filter((r) => r.reference_area === area)
@@ -325,11 +380,41 @@ export function summarize (results) {
     n,
     agreement_with_rows: {
       area: rateOf(results.filter((r) => r.area_agrees), results), person: rateOf(results.filter((r) => r.person_agrees), results),
-      person_missing: results.filter((r) => r.person_missing).length, person_extra: results.filter((r) => r.person_extra).length
+      person_missing: results.filter((r) => r.person_missing).length, person_extra: results.filter((r) => r.person_extra).length,
+      person_precision: rateOf(results.filter((r) => r.person_right), results.filter((r) => r.person_included)),
+      person_recall: rateOf(results.filter((r) => r.person_right), results.filter((r) => r.person_needed))
     },
     by_area: byArea, merge_suggestions: suggestions,
     confusions: Object.fromEntries(Object.entries(confusions).sort((a, b) => b[1] - a[1])), indicators, results
   }
+}
+
+/**
+ * The experiment measures the PROCEDURE, not the configuration that is loaded: the families of objects are drawn from the labels of the whole corpus, and the file that is loaded was
+ * built with all the rows while the experiment builds with the construction side. This lists what differs between the areas that were measured and the ones in the loaded file.
+ */
+export function configDifferences (measured, loaded) {
+  const a = new Map(measured.areas.map((x) => [x.title, x]))
+  const b = new Map(loaded.areas.map((x) => [x.title, x]))
+  return {
+    only_in_measured: [...a.keys()].filter((t) => !b.has(t)).sort(),
+    only_in_loaded: [...b.keys()].filter((t) => !a.has(t)).sort(),
+    description_differs: [...a.keys()].filter((t) => b.has(t) && a.get(t).description !== b.get(t).description).sort()
+  }
+}
+
+/**
+ * The confirmation set is read once. The first reading writes its date in the state file; a second one is refused unless the person asks for it (`again`), and then the result
+ * says it is a repeated reading: a confirmation that is read until it looks good is not one. Any other stage is free.
+ */
+export function confirmGate (statePath, { stage, again = false, now = () => new Date().toISOString() } = {}) {
+  if (stage !== 'confirm') return { allowed: true, repeated: false }
+  let state = null
+  try { state = JSON.parse(readFileSync(statePath, 'utf8')) } catch { /* never read */ }
+  if (state && !again) return { allowed: false, repeated: true, first_read_at: state.first_read_at, message: `El conjunto de confirmación ya se leyó el ${state.first_read_at} (${state.reads} vez/veces). Una lectura más pide --again y queda marcada.` }
+  const next = { first_read_at: state?.first_read_at ?? now(), reads: (state?.reads ?? 0) + 1, last_read_at: now() }
+  writeFileSync(statePath, `${JSON.stringify(next)}\n`)
+  return { allowed: true, repeated: Boolean(state), first_read_at: next.first_read_at, reads: next.reads }
 }
 
 /**
@@ -342,8 +427,8 @@ export function acceptDecision (result, accept, { allowUnvalidated = false } = {
   const labelled = result.agreement_with_labels
   if (!labelled && !allowUnvalidated) return { code: 2, valid: false, message: '--accept necesita --labels: sin etiquetas de personas sólo hay acuerdo con la extracción. Con --allow-unvalidated se compara contra las filas y el resultado queda marcado como no válido.' }
   const ref = labelled ?? { area: result.agreement_with_rows.area, person: result.agreement_with_rows.person, baselines: result.baselines }
-  const floorArea = Math.max(accept, ref.baselines.area_majority.rate)
-  const floorPerson = Math.max(accept, ref.baselines.person_agent_alone.rate, ref.baselines.person_asker.rate)
+  const floorArea = Math.max(accept, ref.baselines.area_majority.rate, ref.baselines.area_nb?.rate ?? 0)
+  const floorPerson = Math.max(accept, ref.baselines.person_agent_alone.rate, ref.baselines.person_asker.rate, ref.baselines.person_all?.rate ?? 0)
   const passes = ref.area.lower >= floorArea && ref.person.lower >= floorPerson
   const valid = Boolean(labelled) && result.valid_for_acceptance !== false
   return { code: passes ? 0 : 1, valid, message: `--accept: límite inferior de área ${ref.area.lower.toFixed(2)} (piso ${floorArea.toFixed(2)}) y de persona ${ref.person.lower.toFixed(2)} (piso ${floorPerson.toFixed(2)})${labelled ? '' : ' contra las filas: resultado no válido'}${labelled && result.valid_for_acceptance === false ? '; las filas no están validadas' : ''}` }
@@ -352,7 +437,7 @@ export function acceptDecision (result, accept, { allowUnvalidated = false } = {
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
@@ -367,7 +452,10 @@ async function main (argv) {
   let held = null
   let buildUnits = null
   let buildRows = null
+  let confirm = null
   if (holdout) {
+    confirm = confirmGate(`${rowsFile}.confirm.json`, { stage: option('--stage', 'tune'), again: rest.includes('--again') })
+    if (!confirm.allowed) { console.error(confirm.message); process.exit(2) }
     const fraction = option('--holdout') && !option('--holdout').startsWith('--') ? Number(option('--holdout')) : undefined
     const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')) })
     load = built.load
@@ -389,10 +477,13 @@ async function main (argv) {
     validation: option('--validation') ? readJson(option('--validation')) : null,
     models: { router: option('--model', 'claude-haiku-5-5'), judge: option('--judge-model', option('--model', 'claude-haiku-5-5')) }
   })
+  if (confirm) result.confirm_read = { repeated: confirm.repeated, first_read_at: confirm.first_read_at ?? null, reads: confirm.reads ?? null }
+  if (holdout && option('--compare-load')) result.config_differences = configDifferences(load, readJson(option('--compare-load')))
   if (option('--versus')) result.comparison = compareRuns(result, readJson(option('--versus')))
   const text = `${JSON.stringify(result, null, 2)}\n`
   if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
   const a = result.agreement_with_rows
+  if (result.judge?.same_model) console.error('El juez es el mismo modelo que enruta: los indicadores se leen con esa reserva (--judge-model).')
   console.error(`acuerdo con las filas: área ${a.area.k}/${result.n}, persona ${a.person.k}/${result.n} (de más ${a.person_extra}, de menos ${a.person_missing}); sin modelo: área ${result.baselines.area_majority.rate.toFixed(2)}, persona ${result.baselines.person_agent_alone.rate.toFixed(2)}`)
   if (!result.validated) console.error('Las filas no están validadas por personas (row-validation.mjs): el número es el acuerdo con la extracción, no el acierto.')
   if (option('--accept') !== undefined) {

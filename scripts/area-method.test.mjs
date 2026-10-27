@@ -1,7 +1,7 @@
 // The routing method over an invented corpus (bench/fixtures/area-method): the criteria, the proposal, the load file and the extraction and
 // the routing experiment with a fake provider. Nothing here reaches a model or the network.
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync } from 'node:fs'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { test } from 'node:test'
@@ -196,7 +196,7 @@ test('finishRows ignores a row with a malformed date and keeps the date of the u
 // ---- routing experiment
 test('the routing is scored without a judge: area and people', () => {
   const row = { ...rows.find((r) => r.object === 'catálogo y precios' && r.limits.includes('money')), area: 'Catálogo y precios' }
-  assert.deepEqual(scoreRouting({ area: 'Catálogo y precios', attends: ['Ana'] }, row, team), { area_agrees: true, person_agrees: true, person_missing: false, person_extra: false })
+  assert.deepEqual(scoreRouting({ area: 'Catálogo y precios', attends: ['Ana'] }, row, team), { area_agrees: true, person_agrees: true, person_missing: false, person_extra: false, person_included: true, person_needed: true, person_right: true })
   assert.equal(scoreRouting({ area: 'Catálogo y precios', attends: ['Asistente'] }, row, team).person_missing, true)
   const simple = { ...rows.find((r) => r.object === 'atención al cliente' && r.limits.length === 0), area: 'Atención al cliente' }
   assert.equal(scoreRouting({ area: 'Atención al cliente', attends: ['Asistente', 'Ana'] }, simple, team).person_extra, true)
@@ -208,7 +208,7 @@ test('the experiment routes a sample through the provider and reports counts, co
   const provider = {
     async complete (req) {
       prompts.push(req)
-      if (req.schema.properties.indicators) return { json: { indicators: ['1.1', '1.2', '2.3', '3.3'].map((id) => ({ id, score: 1, reason: 'bien' })) } }
+      if (req.schema.properties.indicators) return { json: { indicators: ['1.1', '1.2', '2.3', '3.3'].map((id) => ({ id, applies: true, score: 1, quote: 'Pedido', reason: 'bien' })) } }
       const text = req.messages[0].content
       // A wiring test only: the router is a pattern over the vocabulary of the invented corpus, so it also errs where the corpus is phrased with a neighbour's words.
       const area = /precio|descuento|ficha|fotos|stock|compatibilidad|oferta/i.test(text) ? 'Catálogo y precios' : /reclamo|garant|horario|frecuentes|correo|respuesta|cliente/i.test(text) ? 'Atención al cliente' : 'Pedidos y envíos'
@@ -219,7 +219,7 @@ test('the experiment routes a sample through the provider and reports counts, co
   assert.equal(result.n, 78, '26 requests for each of the three areas: asking for 30 is raised to the count that an interval needs')
   assert.deepEqual(result.sample.warnings.map((w) => w.kind), ['size_raised'])
   assert.ok(result.agreement_with_rows.area.rate > 0.5 && result.agreement_with_rows.area.rate < 1, `agreement ${result.agreement_with_rows.area.rate}: the corpus has confusions`)
-  assert.deepEqual(result.indicators, { '1.1': 1, '1.2': 1, '2.3': 1, '3.3': 1 })
+  assert.deepEqual(Object.fromEntries(Object.entries(result.indicators).map(([id, v]) => [id, v.mean])), { '1.1': 1, '1.2': 1, '2.3': 1, '3.3': 1 })
   assert.ok(Object.keys(result.confusions).length > 0, 'the confusions are reported')
   assert.match(routerPrompt(spec, team), /### Catálogo y precios\nPropósito: /)
   assert.match(prompts[0].system, /^Repartes pedidos/)
@@ -407,11 +407,12 @@ test('B2: without a hold-out the leak is counted, and with it the count is zero'
   const provider = { async complete (req) { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: 'x' + req.messages[0].content.length } } } }
   const whole = propose(rows, team, { purposes }).spec
   const leaked = await runExperiment(rows, whole, team, { provider, size: rows.length })
-  assert.ok(leaked.leaked_examples > 0, 'the examples of the descriptions are in the measured sample')
+  assert.ok(leaked.leaked_examples > 0 && leaked.from_build_units === null, 'the examples of the descriptions are in the measured sample')
   const built = experiment.buildAndSplit(rows, team, { stage: 'confirm', purposes })
-  const clean = await runExperiment(built.test, built.load, team, { provider, size: built.test.length, held: { stage: built.stage, sets: built.sets }, buildUnits: built.buildUnits })
+  const clean = await runExperiment(built.test, built.load, team, { provider, size: built.test.length, held: { stage: built.stage, sets: built.sets }, buildUnits: built.buildUnits, buildRows: built.buildRows })
   assert.equal(clean.holdout.stage, 'confirm')
-  assert.equal(clean.leaked_examples, 0)
+  assert.equal(clean.from_build_units, 0, 'no sampled request is from a construction unit')
+  assert.ok(clean.leaked_examples >= 0 && clean.duplicate_of_build >= clean.leaked_examples, 'the sentences of a corpus repeat: identical text is counted apart')
 })
 
 // ---- B1 and B2 (reaudit): nothing counts until people have read the ORIGINAL text, and the gate is on the lower bound of the interval
@@ -895,8 +896,8 @@ test('D4: the exact McNemar test of a known case', () => {
   assert.equal(experiment.mcnemarExact(3, 20), experiment.mcnemarExact(20, 3))
 })
 
-test('D4: a difference of one case is inside the noise and a clear one is not', () => {
-  const mk = (flags) => ({ results: flags.map((f, i) => ({ key: `k${i}`, area_agrees: f[0], person_agrees: f[1] })) })
+test('D4: a difference of one case is inside the noise and a clear one is not, and the pairs are units', () => {
+  const mk = (flags) => ({ results: flags.map((f, i) => ({ key: `k${i}`, unit: `u${i}`, area_agrees: f[0], person_agrees: f[1] })) })
   const base = Array.from({ length: 60 }, () => [true, true])
   const oneCase = base.map((f, i) => (i === 0 ? [false, true] : f))
   assert.ok(experiment.compareRuns(mk(base), mk(oneCase)).area.p >= 1, 'one case of difference is not a signal')
@@ -905,18 +906,110 @@ test('D4: a difference of one case is inside the noise and a clear one is not', 
   assert.equal(result.paired, 60)
   assert.deepEqual([result.area.only_first, result.area.only_second], [15, 0])
   assert.ok(result.area.p < 0.001)
-  assert.equal(experiment.compareRuns(mk(base), { results: [{ key: 'other', area_agrees: true }] }).paired, 0, 'only the requests both routed are compared')
+  assert.equal(experiment.compareRuns(mk(base), { results: [{ key: 'other', unit: 'other', area_agrees: true }] }).paired, 0, 'only the units both routed are compared')
+  // two requests of one unit are one pair, and the unit is right only when both are
+  const twins = { results: [{ unit: 'a', area_agrees: true }, { unit: 'a', area_agrees: false }, { unit: 'b', area_agrees: true }, { unit: 'b', area_agrees: true }] }
+  const allRight = { results: [{ unit: 'a', area_agrees: true }, { unit: 'a', area_agrees: true }, { unit: 'b', area_agrees: true }, { unit: 'b', area_agrees: true }] }
+  const pairs = experiment.compareRuns(twins, allRight)
+  assert.equal(pairs.paired, 2)
+  assert.deepEqual([pairs.area.only_first, pairs.area.only_second], [0, 1])
 })
+
+test('Reaudit D4: the interval of a rate counts units and not requests, and an example quoted anywhere is counted', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const provider = { async complete () { return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const result = await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 300, perArea: 10 })
+  const a = result.agreement_with_rows.area
+  assert.ok(a.units < a.n, `${a.n} requests in ${a.units} units: some messages carry two requests`)
+  // the same rate over independent requests would be narrower: the interval is the one of the units
+  const w = method.wilson(Math.round(a.rate * a.n), a.n)
+  assert.ok(a.upper - a.lower >= w.upper - w.lower - 1e-9, 'never narrower than counting every request as independent')
+  const repeated = rows.find((r) => result.results.length && rows.filter((x) => x.summary === r.summary).length > 3)
+  assert.ok(repeated, 'the sentences of the invented corpus repeat across messages')
+  const quoted = { areas: [{ title: 'X', description: `Entra: «${repeated.summary}».` }] }
+  const sample = rows.filter((r) => r.summary === repeated.summary)
+  assert.equal(experiment.leakedExamples(sample, quoted).leaked_examples, sample.length, 'identical text counts whatever its unit')
+  assert.equal(experiment.leakedExamples(sample, quoted, new Set(), rows.slice(0, 1000)).duplicate_of_build, sample.length)
+})
+
 
 test('D4: the result says when the judge is the same model as the router', async () => {
   const { spec } = propose(rows, team, { purposes })
-  const provider = { async complete (req) { return req.schema.properties.indicators ? { json: { indicators: ['1.1', '1.2', '2.3', '3.3'].map((id) => ({ id, score: 0, reason: 'x' })) } } : { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const provider = { async complete (req) { return req.schema.properties.indicators ? { json: { indicators: ['1.1', '1.2', '2.3', '3.3'].map((id) => ({ id, applies: true, score: 0, quote: 'Pedido', reason: 'x' })) } } : { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
   const same = await runExperiment(rows, spec, team, { provider, judge: true, models: { router: 'm', judge: 'm' } })
-  assert.deepEqual(same.judge, { model: 'm', router_model: 'm', same_model: true })
+  assert.equal(same.judge.same_model, true)
+  assert.equal(same.judge.validated_against_people, false)
   const other = await runExperiment(rows, spec, team, { provider, judge: true, models: { router: 'm', judge: 'n' } })
   assert.equal(other.judge.same_model, false)
   assert.equal((await runExperiment(rows, spec, team, { provider })).judge, null)
 })
+
+test('Reaudit C6: an indicator the judge cannot observe, or whose quote is not in the evidence, is not scored and is not filled with 0', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const system = []
+  const provider = { async complete (req) {
+    if (!req.schema.properties.indicators) return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } }
+    system.push(req.system)
+    return { json: { indicators: [
+      { id: '1.1', applies: true, score: 2, quote: 'Pedido', reason: 'ok' },
+      { id: '1.2', applies: false, score: 0, quote: '', reason: 'no se ve' },
+      { id: '2.3', applies: true, score: 1, quote: 'una frase que no está en ninguna parte', reason: 'inventada' },
+      { id: '3.3', applies: true, score: -1, quote: 'Pedido', reason: 'ok' }
+    ] } }
+  } }
+  const result = await runExperiment(rows, spec, team, { provider, judge: true, size: 40, perArea: 5 })
+  assert.deepEqual(result.indicators['1.1'], { mean: 2, n: result.n })
+  assert.deepEqual(result.indicators['1.2'], { mean: null, n: 0 }, 'not observable: no mean, not a 0')
+  assert.deepEqual(result.indicators['2.3'], { mean: null, n: 0 }, 'a quote that is not in the evidence does not count')
+  assert.equal(result.indicators['3.3'].mean, -1)
+  assert.equal(result.judge.dropped.not_observable, result.n)
+  assert.equal(result.judge.dropped.quote_not_in_evidence, result.n)
+  assert.match(system[0], /\+2: .*\n  \+1: .*\n  0: .*\n  -1: .*\n  -2: /, 'the five anchors of the indicator are in the prompt of the judge')
+  assert.match(experiment.validJudgement([{ id: '9.9', applies: true, score: 0, quote: 'x' }], 'x').dropped.repeated_or_unknown.toString(), /1/)
+})
+
+test('Reaudit D5: the baselines include everyone and a classifier of the words, and the people are measured by precision and recall', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const provider = { async complete () { return { json: { area: 'Catálogo y precios', attends: ['Ana', 'Beto', 'Carla'], brief: 'x' } } } } // everyone attends every request
+  const result = await runExperiment(rows, spec, team, { provider, size: 120, perArea: 20 })
+  assert.ok(result.baselines.area_nb.rate > 0.6 && result.baselines.area_nb.rate <= 1, 'the naive Bayes of the summaries is a baseline to beat')
+  assert.ok(Math.abs(result.baselines.person_all.rate - result.agreement_with_rows.person.rate) < 0.01, 'always everyone is exactly the router that attends everyone')
+  const p = result.agreement_with_rows
+  assert.ok(p.person_recall.rate > 0.99, 'everyone is included, so no one is missing')
+  assert.ok(p.person_precision.rate < p.person_recall.rate, 'but the precision shows the excess that person_agrees hides')
+  assert.ok(p.person_precision.rate < 0.5)
+})
+
+// ---- Reauditoría D2 and D3: what the experiment measures, and a confirmation that is read once
+test('Reaudit D2: the experiment lists what differs between the areas it measured and the ones in the file that is loaded', () => {
+  const whole = propose(rows, team, { purposes }).spec
+  const built = experiment.buildAndSplit(validation.keyRows(rows), team, { stage: 'tune', purposes }).load
+  const same = experiment.configDifferences(whole, whole)
+  assert.deepEqual(same, { only_in_measured: [], only_in_loaded: [], description_differs: [] })
+  const diff = experiment.configDifferences(built, whole)
+  assert.ok(diff.description_differs.length > 0, 'the descriptions were built with half of the rows and differ from the loaded ones')
+  const fewer = { ...whole, areas: whole.areas.slice(1) }
+  assert.deepEqual(experiment.configDifferences(whole, fewer).only_in_measured, [whole.areas[0].title])
+})
+
+test('Reaudit D3: the confirmation set is read once and a second reading is refused or marked', () => {
+  const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'area-method-confirm-'))
+  const file = path.join(dir, 'rows.jsonl.confirm.json')
+  assert.deepEqual(experiment.confirmGate(file, { stage: 'tune' }), { allowed: true, repeated: false }, 'tuning is free and writes nothing')
+  assert.equal(existsSync(file), false)
+  const first = experiment.confirmGate(file, { stage: 'confirm', now: () => '2026-10-27T10:00:00Z' })
+  assert.equal(first.allowed, true)
+  assert.equal(first.reads, 1)
+  const second = experiment.confirmGate(file, { stage: 'confirm' })
+  assert.equal(second.allowed, false)
+  assert.match(second.message, /ya se leyó el 2026-10-27T10:00:00Z/)
+  const again = experiment.confirmGate(file, { stage: 'confirm', again: true, now: () => '2026-10-28T09:00:00Z' })
+  assert.equal(again.allowed, true)
+  assert.equal(again.repeated, true)
+  assert.equal(again.reads, 2)
+  assert.equal(again.first_read_at, '2026-10-27T10:00:00Z', 'the first reading is not forgotten')
+})
+
 
 // ---- Marco: limits with their mechanism, a draft until the team confirms, one quality to maximize, an environment of facts
 const noMechanism = { ...team, limits: team.limits.map(({ mechanism: _m, ...l }) => l) }
@@ -1071,7 +1164,7 @@ test('Marco 3: the loader reports a guard without a mechanism and can refuse it;
 })
 
 // ---- D7: the document and the scripts say the same
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { AXES, KPIS, QUADRANTS } from '../src/execute/judge.js'
 
 const methodDoc = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'METODO-DE-REPARTO.md'), 'utf8')
@@ -1168,4 +1261,31 @@ test('B1 (reaudit): a row that does not validate is counted by reason and not lo
   const counter = { n: 0 }
   finishRows([fakeRow('u1', { summary: '' })], [{ id: 'u1' }], team, counter)
   assert.deepEqual(counter.dropped, { no_summary: 1 })
+})
+
+test('Reaudit D6: the judge is compared with people, indicator by indicator, with a kappa that weighs a near miss less than a far one', () => {
+  const jobs = Array.from({ length: 26 }, (_, i) => i)
+  const person = jobs.flatMap((job) => ['1.1', '2.3'].map((id) => ({ job, id, score: ((job + (id === '2.3' ? 2 : 0)) % 5) - 2 })))
+  const same = validation.judgeAgreement(person, person)
+  assert.equal(same.indicators['1.1'].kappa, 1)
+  assert.equal(same.indicators['1.1'].within_one, 1)
+  const near = person.map((l) => ({ ...l, score: Math.max(-2, Math.min(2, l.score + (l.job % 2 ? 1 : 0))) }))
+  const far = person.map((l) => ({ ...l, score: -l.score }))
+  const kNear = validation.judgeAgreement(person, near).indicators['1.1'].kappa
+  const kFar = validation.judgeAgreement(person, far).indicators['1.1'].kappa
+  assert.ok(kNear > 0.6 && kNear < 1, `a judge that is one point off in half of the jobs: ${kNear}`)
+  assert.ok(kFar < kNear, 'a judge that inverts the scale is worse')
+  assert.ok(validation.judgeAgreement(person.slice(0, 40), person.slice(2)).unpaired > 0, 'a score that only one of them gave is counted and left out')
+})
+
+test('Reaudit D7: AC1 is printed next to kappa and does not fall when one category is almost all', () => {
+  const pair = (a, b, n) => Array.from({ length: n }, () => ({ a, b, w: 1 }))
+  const rare = [...pair('n', 'n', 90), ...pair('y', 'y', 2), ...pair('y', 'n', 4), ...pair('n', 'y', 4)] // 92 % agreement, the category y is rare
+  const kappa = validation.weightedKappa(rare).kappa
+  const ac1 = validation.weightedAC1(rare)
+  assert.ok(kappa < 0.35, `kappa ${kappa}: the prevalence drags it down`)
+  assert.ok(ac1 > 0.85, `AC1 ${ac1}: the agreement is high and it says so`)
+  assert.equal(validation.weightedAC1(pair('y', 'y', 5)), 1)
+  const items = rare.map((p, i) => ({ ...p, unit: `u${i}`, stratum: 'all' }))
+  assert.equal(typeof validation.kappaWithInterval(items, { resamples: 50 }).ac1, 'number')
 })

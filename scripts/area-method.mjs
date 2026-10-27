@@ -417,6 +417,30 @@ export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = D
  * The limit an area touches most. When two limits tie for the first place the area has no dominant limit (null): the order of the counts would otherwise decide the
  * criterion. Two areas differ by limit only when both have one and they are not the same.
  */
+/**
+ * A multinomial naive Bayes (Laplace smoothing) trained on the summaries of `rows`, as a function from a text to the label it predicts. It is the router with no model that the experiment
+ * has to beat: it reads the same words, from the construction rows, and costs nothing.
+ */
+export function trainNaiveBayes (rows, labelOf) {
+  const classes = new Map()
+  const vocabulary = new Set()
+  for (const r of rows) {
+    const c = classes.get(labelOf(r)) ?? { docs: 0, total: 0, count: new Map() }
+    c.docs++
+    for (const t of words(r.summary)) { c.count.set(t, (c.count.get(t) ?? 0) + 1); c.total++; vocabulary.add(t) }
+    classes.set(labelOf(r), c)
+  }
+  return (text) => {
+    let best = null
+    for (const [label, c] of classes) {
+      let score = Math.log(c.docs / rows.length)
+      for (const t of words(text)) score += Math.log(((c.count.get(t) ?? 0) + 1) / (c.total + vocabulary.size + 1))
+      if (!best || score > best.score) best = { label, score }
+    }
+    return best?.label ?? null
+  }
+}
+
 const dominantLimit = (profile) => {
   const [first, second] = profile.limits
   return first && second && first.n === second.n ? null : first?.id ?? null

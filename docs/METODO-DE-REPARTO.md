@@ -152,7 +152,7 @@ El kappa tiene un intervalo ancho con pocas etiquetas. Con 78 pedidos etiquetado
 | 0,7 | 0,92 | 0,32 |
 | 0,8 | 1,00 | 0,86 |
 
-Por eso la compuerta mira el límite inferior de cada kappa, y exige que llegue a 0,6 (`--min-kappa`). Desde 0,61 Landis y Koch (1977) llaman «sustancial» al acuerdo. Es una convención sin respaldo empírico, y el kappa depende de la frecuencia de cada categoría. El equipo fija el umbral antes de medir.
+Por eso la compuerta mira el límite inferior de cada kappa, y exige que llegue a 0,6 (`--min-kappa`). Desde 0,61 Landis y Koch (1977) llaman «sustancial» al acuerdo. Es una convención sin respaldo empírico, y el kappa depende de la frecuencia de cada categoría. Por eso cada kappa trae el AC1 de Gwet (2008), que no cae cuando una categoría es casi todo. Es un contraste y no decide. El equipo fija el umbral antes de medir.
 
 Reglas. `validated` es verdadero sólo si todas se cumplen y no falta nada. Cada una aparece en `rules` con su valor.
 
@@ -329,18 +329,23 @@ node scripts/route-experiment.mjs rows.jsonl --holdout --purposes purposes.json 
 
 Un enrutador liviano lee sólo las descripciones de las áreas y los perfiles, y cada pedido de la muestra. Devuelve área, quién atiende y un encargo de una línea. El resultado se compara con la fila sin juez.
 
-Lo que se construye y lo que se mide son filas distintas. `--holdout` reparte las unidades (nunca las filas) en tres conjuntos: construcción, ajuste y confirmación. Se retiene el 50 % de las unidades (`--holdout 0.5`) y se parte en dos mitades iguales. Resulta la partición 50 / 25 / 25 que Hastie, Tibshirani y Friedman (2009, sección 7.2) sugieren para datos abundantes. El experimento llama a `propose` con el conjunto de construcción y mide sobre el retenido que se pidió con `--stage`. Los ejemplos de una descripción y los perfiles salen sólo del conjunto de construcción. El resultado informa cuántas filas medidas son un ejemplo citado (`leaked_examples`, debe ser 0). Sin `--holdout`, `--load` mide con las mismas filas con que se escribió y el guion avisa que el resultado no vale como medida.
+Lo que se construye y lo que se mide son filas distintas. `--holdout` reparte las unidades (nunca las filas) en tres conjuntos: construcción, ajuste y confirmación. Se retiene el 50 % de las unidades (`--holdout 0.5`) y se parte en dos mitades iguales. Resulta la partición 50 / 25 / 25 que Hastie, Tibshirani y Friedman (2009, sección 7.2) sugieren para datos abundantes. El experimento llama a `propose` con el conjunto de construcción y mide sobre el retenido que se pidió con `--stage`. Los ejemplos de una descripción y los perfiles salen sólo del conjunto de construcción. El resultado cuenta tres cosas. `from_build_units` son los pedidos medidos que vienen de una unidad de construcción, y la partición lo deja en 0. `leaked_examples` son los pedidos medidos cuyo texto está citado como ejemplo en una descripción, sea cual sea su unidad. `duplicate_of_build` son los que repiten el texto de algún pedido de construcción. Los corpus de un equipo repiten frases, y un pedido idéntico a un ejemplo no es nuevo para el enrutador. Los dos últimos pueden ser mayores que 0 y se leen con esa reserva. Sin `--holdout`, `--load` mide con las mismas filas con que se escribió y el guion avisa que el resultado no vale como medida.
+
+El experimento mide el procedimiento y no la configuración que se carga. Las familias de objetos se arman mirando las etiquetas de todo el corpus. El archivo que se carga usa todas las filas y el experimento usa el conjunto de construcción. `--compare-load load.json` agrega `config_differences`: las áreas que sólo están en una de las dos y las descripciones que difieren.
+
+El conjunto de confirmación se lee una vez. La primera lectura escribe su fecha en `<filas>.confirm.json`; una segunda lectura exige `--again` y queda marcada en `confirm_read`. Una confirmación que se repite hasta que se ve bien no confirma nada.
 
 | Medida | Definición |
 |---|---|
 | `agreement_with_rows.area` | El área elegida es la de la fila. Lleva su intervalo de Wilson |
 | `agreement_with_rows.person` | Se incluye a una persona cuando la fila exige a una persona, y a ninguna cuando no. Si el valor es de una persona con nombre, esa persona debe estar entre las incluidas; otras de más no cuentan en contra. Si lo exige un límite y el valor es del modelo, sirve cualquier persona |
 | `person_extra`, `person_missing` | Se agregó una persona que no hacía falta, o no se incluyó ninguna cuando hacía falta |
-| `baselines` | Lo que obtienen enrutadores sin modelo sobre los mismos pedidos: siempre el área mayor de la construcción, siempre el agente solo y siempre quien pide |
+| `agreement_with_rows.person_precision`, `person_recall` | De los pedidos en que el enrutador incluyó a una persona, en cuántos era la que hacía falta; y de los que exigían una persona, en cuántos la incluyó. `person` no ve el exceso: quien incluye a todos acierta toda fila que exige persona |
+| `baselines` | Lo que obtienen enrutadores sin modelo sobre los mismos pedidos: siempre el área mayor de la construcción, un clasificador bayesiano de los resúmenes de construcción (`area_nb`), siempre el agente solo, siempre quien pide y siempre todas las personas (`person_all`) |
 | `agreement_with_labels` | Con `--labels`, el acuerdo con las personas. Se calcula sobre exactamente los pedidos de las unidades que ellas etiquetaron y que la extracción escribió con el mismo número de pedidos, los mismos que usa `agreement_with_rows`. Trae sus propias líneas base y, con `--raw`, `raw`: la misma medida con el texto original de las unidades de un solo pedido en vez del resumen |
 | `validated`, `valid_for_acceptance` | Si el informe de validación de la sección 3 pasó (`--validation`). `valid_for_acceptance` exige además etiquetas de personas |
 | `confusions` | Pares de áreas que el enrutador confunde, con su conteo |
-| `indicators` | Con `--judge`, el promedio de cada uno de cuatro indicadores (1.1, 1.2, 2.3, 3.3) de −2 a +2 |
+| `indicators` | Con `--judge`, de cada uno de cuatro indicadores (1.1, 1.2, 2.3, 3.3), el promedio de los pedidos que lo puntuaron y cuántos fueron (`mean`, `n`), de −2 a +2. Uno que el juez no puede observar, o cuya cita no está en la evidencia, no se puntúa y no se rellena con 0 |
 
 Una tasa se lee junto a su línea base. En el ejemplo inventado, 69 % de los pedidos no exige a una persona. Un enrutador que elige siempre al agente solo acierta la persona en esa proporción, así que 0,8 aporta poco sobre 0,69. 
 
@@ -350,7 +355,7 @@ El resultado informa cuántos pedidos se pidieron, se sortearon y se descartaron
 
 Comparar dos versiones. `--versus otro-resultado.json` empareja los pedidos que las dos corridas enrutaron y aplica la prueba exacta de McNemar (1947) a los casos en que sólo una acierta. Como los pedidos son los mismos, la diferencia tiene menos error (Miller, 2024, arXiv:2411.00640, consultado el 2026-10-27). Una diferencia de un caso da p igual a 1.
 
-`--judge` usa por omisión el mismo modelo que enruta. Un modelo favorece lo que genera (sección 3), así que el resultado trae `judge.same_model` y, mientras sea verdadero, los indicadores se leen con esa reserva. `--judge-model` fija otro modelo. Los indicadores de un reparto miden la coherencia del reparto con el acuerdo. Son los indicadores 1.1, 1.2, 2.3 y 3.3 de la sección 11, aplicados a un reparto.
+`--judge` usa por omisión el mismo modelo que enruta. Un modelo favorece lo que genera (sección 3). Por eso el resultado trae `judge.same_model`, el guion lo imprime y, mientras sea verdadero, los indicadores se leen con esa reserva. `--judge-model` fija otro modelo. Con `--labels` el juez lee la referencia de las personas y no la de la extracción. Los indicadores de un reparto miden su coherencia con el acuerdo. Son los 1.1, 1.2, 2.3 y 3.3 de la sección 11, con sus cinco anclas en el prompt. Cada puntaje lleva una cita que debe estar en el pedido, la referencia o el encargo. Las anclas están escritas para un trabajo y no para un reparto, y no están validadas contra personas (`judge.validated_against_people`). Hasta validarlas, el juez del reparto es una indicación y no se usa para decidir; la sección 11 trae el procedimiento.
 
 `--accept <proporción>` compara el límite inferior del intervalo de Wilson de área y de persona. Pide además que el límite inferior supere al mejor enrutador sin modelo de `baselines`. Un valor puntual que apenas toca el umbral pasa la mitad de las veces cuando la tasa verdadera es el umbral. Sin `--labels` la única referencia es la extracción. El comando sale con código 2, o con `--allow-unvalidated` compara contra las filas y marca el resultado como no válido. Sin `--accept` sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
 
@@ -366,7 +371,7 @@ Los procedimientos se replican con alguien de quien sólo hay una reunión de in
 | 2 | Correr `analyze`: sus pedidos caen en las áreas existentes o piden una nueva con los cuatro criterios | Si cumple los cuatro nace el área; si no, su trabajo entra al área más cercana | Sí, `analyze` |
 | 3 | Redactar su perfil con `propose` y corregirlo con la persona | Ninguna palabra de la reunión en el perfil | Sí el borrador; la corrección es manual |
 | 4 | Correr el experimento con 26 pedidos donde el valor es suyo y 26 donde no | Lo incluye cuando el valor es suyo y no lo incluye en los otros; el umbral lo fija el equipo | Manual: se eligen los pedidos y se corre `route-experiment.mjs` sobre ellos |
-| 5 | Comparar su perfil completo con uno de una línea en la misma corrida | El completo no puntúa menos en los indicadores. Se compara con `--versus` | Manual: se arma el archivo de carga con la línea y se corre dos veces |
+| 5 | Comparar su perfil completo con uno de una línea en la misma corrida | El completo no puntúa menos en los indicadores. `--versus` sólo compara área y persona, así que los promedios de los indicadores se comparan a mano | Manual: se arma el archivo de carga con la línea, se corre dos veces y se leen los promedios |
 | 6 | Pedir a la persona que marque lo que no la describe | Una corrección por cláusula como máximo | Manual |
 
 ## 11. Evaluación del trabajo
@@ -414,6 +419,17 @@ Usos al configurar. Ninguno tiene guion: son lecturas manuales de los juicios gu
 Escalada. La escalada al modelo mayor ocurre por falla comprobada. El modelo liviano declara que no pudo cerrar, termina bloqueado, o la verificación de la entrega queda en rojo (`src/execute/handler.js`, `src/execute/deliver.js`). Una falla silenciosa sólo la ve el control de cierre del anfitrión. Todo intento se juzga, también el del modelo liviano que falló (con la nota `no_cerro`), así que la comparación entre modelos cuenta los fallos del liviano.
 
 Los límites del modelo liviano (`EXECUTE_LIGHT_LIMITS`) nacen sin valor: `create=1 irreversibility=1 certainty=0`. Por eso todo mensaje con estimaciones parte en el modelo liviano. Se fijan con el punto medio entre la mayor estimación de lo que cerró y la menor de lo que no cerró. Eso exige que los rangos no se crucen en al menos 20 trabajos juzgados (`docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md`).
+
+Validación del juicio. Los doce indicadores no están validados contra personas, a diferencia de las filas. Hasta que lo estén, el juicio es una indicación. No se usa para mover un área al modelo mayor ni para fijar los límites del modelo liviano.
+
+| Paso | Qué se hace | Automatizado |
+|---|---|---|
+| 1 | Dos personas puntúan, sin ver el juicio del modelo, 26 trabajos con las anclas de `KPIS`. Es la misma cuenta de la sección 3. Cada una escribe líneas `{ job, id, score }` | No, lo hacen personas |
+| 2 | `row-validation.mjs judge --first persona.jsonl --second modelo.jsonl` da, por indicador, el kappa ponderado cuadrático (Cohen, 1968) y la proporción de pares a un punto o menos | Sí |
+| 3 | Lo mismo entre dos lecturas del juez sobre el mismo trabajo, que mide cuánto cambia de una vez a otra | Sí |
+| 4 | El equipo fija el umbral antes de medir. Un indicador bajo el umbral no se usa | No, lo decide el equipo |
+
+El juez de trabajos usa el modelo del analizador (`TEXT_MODEL`) y lo registra en `judge_model`. Cuando coincide con el modelo que hizo el trabajo, el juicio se lee con la reserva de la sección 3. Mientras el 4.3 no se puntúe, la meta del eje 4 no se lee como cumplida o incumplida. El eje 4 sólo se compara entre trabajos del mismo cuadrante.
 
 Ruido. La media de un indicador sobre 20 trabajos tiene un error estándar de 0,22 desviaciones. Con una desviación de un punto, dos medias de 20 trabajos difieren con error de 0,32 y margen de 0,62 al 95 %. Una diferencia menor no es una señal.
 
@@ -499,6 +515,9 @@ Las citas con fecha de consulta se leyeron ese día. Las demás son obras public
 | Fisher (1925), *Statistical Methods for Research Workers* | Nivel 0,05 |
 | Durstenfeld (1964), *Algorithm 235: Random permutation*, Commun. ACM 7:420 | Barajado |
 | Kish (1965), *Survey Sampling* | Tamaño efectivo con pesos |
+| Cohen (1968), *Weighted kappa*, Psychological Bulletin 70:213-220 | Acuerdo en una escala ordenada |
+| Angelopoulos et al. (2023), *Prediction-powered inference*, Science 382:669-674 | Estimación asistida por predicciones, medida y no adoptada |
+| Gwet (2008), *Computing inter-rater reliability and its variance in the presence of high agreement*, Br. J. Math. Stat. Psychol. 61:29-48 | Contraste del kappa (AC1) |
 | McNemar (1947), *Note on the sampling error of the difference between correlated proportions*, Psychometrika 12:153-157 | Comparación pareada |
 | Hastie, Tibshirani y Friedman (2009), *The Elements of Statistical Learning*, 2.ª ed., sección 7.2 | Partición de datos |
 | McGrath (1984), *Groups: Interaction and Performance* | Cuadrantes de la tarea |

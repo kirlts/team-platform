@@ -65,7 +65,7 @@ describe('the work of the agent in the sheet', () => {
     expect(within(machine!).getByText('En cola')).toBeTruthy()
     // UD-041: a stretch that has not started carries no word, only its mark and its muted name.
     expect(session!.textContent).toBe('Sesión')
-    expect(deliver!.textContent).toBe('Entrega')
+    expect(deliver!.textContent).toBe('Publicación')
   })
 
   it('a running job shows the stretch it is in, with its time, and the bar', async () => {

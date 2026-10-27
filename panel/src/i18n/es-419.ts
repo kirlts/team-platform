@@ -1181,7 +1181,7 @@ export const es419 = {
   'work.title': 'Trabajo',
   'work.machine': 'Máquina',
   'work.session': 'Sesión',
-  'work.deliver': 'Entrega',
+  'work.deliver': 'Publicación',
   'work.repeats': 'Se repite',
   'work.kept': 'No se repite',
   'error.deliver_busy': 'La entrega de este mensaje ya está en curso',

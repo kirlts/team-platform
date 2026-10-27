@@ -1,6 +1,8 @@
 // Piece B4 with a worker killed without warning: the worker is a real process (`node src/worker.js`, WORKER_MODE=external) with drivers/docker-local against a real
 // Docker daemon. RUN is running, the process gets SIGKILL, another worker starts and nothing is left alive: the container is destroyed (or taken over by the next
 // attempt of the job) and `GET /health` says `machines.open` is 0 again. Without Docker this test FAILS and says so: a skipped test did not pass.
+// It is a `.docker.test.js`: run it with `npm run test:sigkill`. The directed selection leaves those out because its containers (tp-job-<job id>) live for seconds and the tests
+// of the driver that run beside it count the machines of the daemon.
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -109,6 +111,10 @@ describe('B4 with SIGKILL of a real worker process', () => {
     env.db.prepare('UPDATE messages SET estimates_json = ? WHERE id = ?').run(JSON.stringify({ idea: 0.1, idea_guard: false, idea_reason: 'prueba' }), messageId)
     env.db.prepare('INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)').run(messageId, agentId)
     env.db.prepare("UPDATE jobs SET status = 'cancelled' WHERE kind = 'execute' AND status = 'queued'").run()
+    // The machine is named tp-job-<job id> and the daemon is shared with other runs of the driver (the conformance script and its tests start from job 1): the jobs of this test get
+    // ids from a range that depends on this process, so that nobody else's container has the name of one of ours.
+    const first = 100_000 + (process.pid % 800_000)
+    env.db.prepare("INSERT INTO jobs (id, kind, payload_json, status, priority, attempts, max_attempts, run_at, created_at, finished_at) VALUES (?, 'extract', '{}', 'cancelled', 0, 0, 1, ?, ?, ?)").run(first, Date.now(), Date.now(), Date.now())
   })
 
   after(async () => {

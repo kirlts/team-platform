@@ -37,7 +37,7 @@ export function recordDestroy (db, id, { code, stderr = '', now = Date.now() }) 
 const ORPHANS = `
   SELECT m.* FROM execute_machines m LEFT JOIN jobs j ON j.id = m.job_id
    WHERE m.destroyed_at IS NULL
-     AND NOT (j.status = 'running' AND j.attempts = m.attempt AND j.lease_until >= ? AND m.id = (SELECT MAX(id) FROM execute_machines WHERE job_id = m.job_id))`
+     AND COALESCE(j.status = 'running' AND j.attempts = m.attempt AND j.lease_until >= ? AND m.id = (SELECT MAX(id) FROM execute_machines WHERE job_id = m.job_id), 0) = 0` // COALESCE: a purged job has no row, and NULL is not «false» for NOT
 
 /** Open machines with no live owner. `untriedOnly`: only those whose DESTROY has not run yet (the ones that failed wait for the next start). */
 export function orphanMachines (db, { now = Date.now(), untriedOnly = false } = {}) {

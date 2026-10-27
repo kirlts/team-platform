@@ -201,6 +201,7 @@ describe('execute job', () => {
 
       const timing = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: author } })).json()
       assert.equal(timing.trace_id, input.trace_id)
+      assert.deepEqual([timing.delivers, timing.machine], [false, false], 'no delivery command and the local runner: the panel shows only the session (B7)')
       const shown = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: author } })).json()
       assert.equal(shown.trace_id, input.trace_id, 'the message exposes its trace id')
 

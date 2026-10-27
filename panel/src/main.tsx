@@ -5,6 +5,7 @@ import { TeamApiError } from '@team-platform/client'
 import { TeamClientProvider } from '@team-platform/client/react'
 import { client } from '@/lib/client'
 import { watchProse } from '@/lib/prose-width'
+import { watchSession } from '@/lib/session'
 import { initTheme } from '@/lib/theme'
 import { App } from './App'
 import './styles.css'
@@ -21,6 +22,8 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+watchSession(queryClient)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

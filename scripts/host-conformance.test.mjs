@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const SCRIPT = join(ROOT, 'scripts', 'host-conformance.mjs')
-const CASES = ['orders', 'version', 'sequence', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'destroy-run-fails', 'destroy-deadline', 'destroy-twice', 'create-75', 'deliver-75', 'deliver-76']
+const CASES = ['orders', 'version', 'sequence', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'destroy-run-fails', 'destroy-deadline', 'destroy-twice', 'destroy-shutdown', 'create-75', 'deliver-75', 'deliver-76']
 
 /** Runs the script and resolves with { code, out, err }. Asynchronous so that nothing else in this process waits for it. */
 function conformance (args, env = {}) {
@@ -82,11 +82,11 @@ describe('scripts/host-conformance.mjs', () => {
     const dir = localDriver('broken', { 'destroy.sh': 'echo "refusing to destroy anything" >&2\nexit 1\n' })
     const r = await conformance(['--driver', dir])
     assert.equal(r.code, 1, r.out + r.err)
-    for (const id of ['sequence', 'destroy-run-fails', 'destroy-deadline', 'destroy-twice']) assert.equal(verdict(r.out, id), 'FAIL', `${id} should fail:\n${r.out}`)
+    for (const id of ['sequence', 'destroy-run-fails', 'destroy-deadline', 'destroy-twice', 'destroy-shutdown']) assert.equal(verdict(r.out, id), 'FAIL', `${id} should fail:\n${r.out}`)
     assert.match(r.out, /^FAIL sequence: .*destroy ended with 1/m)
     assert.match(r.out, /^FAIL destroy-twice: .*ended with 1 and 1/m)
     for (const id of ['orders', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'create-75', 'deliver-75', 'deliver-76']) assert.equal(verdict(r.out, id), 'ok', `${id} should pass:\n${r.out}`)
-    assert.match(r.out, /contract_version: 1 NOT met: 4 of 13 cases failed \(sequence, destroy-twice, destroy-run-fails, destroy-deadline\)/)
+    assert.match(r.out, /contract_version: 1 NOT met: 5 of 14 cases failed \(sequence, destroy-twice, destroy-run-fails, destroy-deadline, destroy-shutdown\)/)
   })
 
   it('a driver whose DELIVER is not repeatable fails «deliver-repeat» and only that one', async () => {
@@ -103,7 +103,7 @@ describe('scripts/host-conformance.mjs', () => {
     const r = await conformance(['--driver', 'drivers/docker-local'])
     assert.equal(r.code, 0, r.out + r.err)
     for (const id of CASES) assert.equal(verdict(r.out, id), 'ok', `${id}:\n${r.out}`)
-    assert.match(r.out, /^contract_version: 1 met \(13 cases passed/m)
+    assert.match(r.out, /^contract_version: 1 met \(14 cases passed/m)
     const leftover = execFileSync('docker', ['ps', '-a', '--filter', 'label=team-platform.driver=docker-local', '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter((n) => /^tp-job-\d+$/.test(n))
     assert.deepEqual(leftover, [], 'no machine of the run is left')
   })

@@ -222,9 +222,19 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     try { if (resume(trigger).length > 0) kick() } catch (e) { logger.error({ err: e }, 'error while relaunching the failures of the environment') }
   }
 
+  // The machines a dead worker left alive (B4): destroyed when this worker starts (also the ones whose DESTROY failed before) and when a lease expires
+  // (the owner is gone then; only the ones not tried yet, so a host that keeps failing is not called again on every beat). Several at a time: they are independent.
+  function sweepMachines (untriedOnly) {
+    for (const [kind, handlerObj] of Object.entries(handlers)) {
+      if (!handlerObj.sweepMachines) continue
+      Promise.resolve().then(() => handlerObj.sweepMachines({ untriedOnly })).catch((e) => logger.error({ err: e, kind }, 'error while destroying the orphan machines'))
+    }
+  }
+
   function sweepLeases () {
     try {
       queue.recoverExpiredLeases({ spare: workerId, running: [...runningJobs.keys()] })
+      sweepMachines(true)
       sweepUnseen()
       events.transaction(() => attendPendingMentions(db, { now })) // safety net: a restart between the end of a job and the hook above
       sweepHandlers()
@@ -250,6 +260,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     queue.signals.on('cancelled', onCancelled)
     queue.signals.on('leaseFailed', onLeaseFailed)
     queue.recoverExpiredLeases({ spare: workerId, running: [] }) // at startup (MS §7.3): this worker holds nothing yet
+    sweepMachines(false)
     sweepUnseen()
     resumeFailures('start') // a deploy that brings the fix restarts the worker: what failed for the environment goes again, once
     sweepHandlers()

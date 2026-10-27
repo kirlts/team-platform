@@ -1,4 +1,5 @@
 // C16. A deployment does not cut a session of Claude in progress: the service restarts, the session and its machine stay, and the next attempt attaches to them.
+// This is the default (EXECUTE_KEEP_SESSION_ON_SHUTDOWN=1); with 0 the shutdown destroys the machine (piece B4; src/execute/execute.test.js).
 // Measured 2026-10-25, job 156: the session lived 17 minutes after a restart of the service, and a repetition would have started a second one.
 import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'

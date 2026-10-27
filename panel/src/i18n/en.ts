@@ -233,7 +233,6 @@ export const en: Record<MessageKey, Message> = {
 
   'fields.required': 'Required',
   'fields.optional': 'No value',
-  'fields.fill': 'Fill in',
   'fields.add': 'Add {label}',
   'fields.requiredError': 'Required',
 

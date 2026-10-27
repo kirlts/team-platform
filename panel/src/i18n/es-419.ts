@@ -233,7 +233,6 @@ export const es419 = {
 
   'fields.required': 'Obligatorio',
   'fields.optional': 'Sin dato',
-  'fields.fill': 'Completar',
   'fields.add': 'Agregar {label}',
   'fields.requiredError': 'Obligatorio',
 

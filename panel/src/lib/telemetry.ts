@@ -147,6 +147,8 @@ interface OpenTask {
   /** When an element marked `data-ui-stage="progress"` / `"analysis"` was first painted (H-1705): the exact moments, when seen. */
   stageFeedbackAt?: number
   stageAnalysisAt?: number
+  /** The first change to the page seen (not yet painted) since the send began: it stands in when the send ends before the paint callbacks run. */
+  changeSeenAt?: number
 }
 
 /** The attribute the panel puts on the progress of a send and on its analysis, so the telemetry measures what is on screen. */
@@ -178,6 +180,8 @@ export class UiTelemetry {
   private interactionAt: number | undefined
   private changeAt: number | undefined
   private changePending = false
+  /** The first change of the burst whose paint is still awaited (the observer hears it before the paint callback runs). */
+  private changeSeenAt: number | undefined
   private teardown: Array<() => void> = []
 
   constructor(private deps: Deps) {}
@@ -257,10 +261,16 @@ export class UiTelemetry {
   private watchChanges() {
     if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return
     const observer = new MutationObserver(() => {
+      // The change is heard now and painted two frames later. A busy page can end the whole send (analysis and publication) before those frames,
+      // and the stage would be lost (n 0 under load): the moment it was heard is kept for that case, and the painted moment wins when it arrives.
+      const heard = this.deps.now()
+      if (this.changeSeenAt === undefined) this.changeSeenAt = heard
+      if (this.open && this.open.changeSeenAt === undefined && heard >= this.open.startedAt) this.open.changeSeenAt = heard
       if (this.changePending) return
       this.changePending = true
       this.deps.afterPaint(() => {
         this.changePending = false
+        this.changeSeenAt = undefined
         const t = this.deps.now()
         if (this.interactionAt !== undefined && this.changeAt === undefined) this.changeAt = t
         if (this.open && this.open.feedbackAt === undefined && t >= this.open.startedAt) this.open.feedbackAt = t
@@ -486,7 +496,9 @@ export class UiTelemetry {
     const startedAt = this.interactionAt !== undefined && this.interactionAt <= requested ? this.interactionAt : requested
     const seen = this.changeAt !== undefined && this.changeAt >= startedAt ? this.changeAt : undefined
     const baseline = typeof document === 'undefined' ? undefined : new WeakSet<Element>(document.querySelectorAll(`[${UI_STAGE_ATTRIBUTE}]`))
-    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen, baseline }
+    // A change heard after the interaction and not yet painted also counts as seen.
+    const heard = this.changeSeenAt !== undefined && this.changeSeenAt >= startedAt ? this.changeSeenAt : undefined
+    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen, baseline, changeSeenAt: heard }
   }
 
   /** The analysis of the open send is on screen (the job's `done` arrived or the input came back as proposed). */
@@ -529,7 +541,7 @@ export class UiTelemetry {
     // element wins: «first feedback» is the progress painted and «analysis visible» the analysis painted (H-1705). Without
     // them (an analysis that ends before the first paint, a page without the marks) the first change after the
     // interaction and the arrival of the analysis stand in.
-    const feedbackAt = open.stageFeedbackAt ?? open.feedbackAt
+    const feedbackAt = open.stageFeedbackAt ?? open.feedbackAt ?? open.changeSeenAt
     const analysisAt = open.stageAnalysisAt ?? open.analysisAt
     if (feedbackAt !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(feedbackAt - open.startedAt))
     if (analysisAt !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(analysisAt - (feedbackAt ?? open.startedAt)))

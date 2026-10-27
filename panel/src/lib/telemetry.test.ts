@@ -163,6 +163,27 @@ describe('tasks inferred from the traffic', () => {
     change.remove()
   })
 
+  it('a send that ends before the frames of its first change run still has its feedback stage (busy page)', async () => {
+    let t = 1000
+    const sent: Array<{ events: Array<Record<string, unknown>> }> = []
+    const frames: Array<() => void> = [] // the paint callbacks are held: the page is busy and they run after the send ended
+    const telemetry = new UiTelemetry({ now: () => t, send: (b) => sent.push(JSON.parse(b)), afterPaint: (fn) => frames.push(fn), viewport: () => ({ w: 1280, h: 800 }) })
+    instances.push(telemetry)
+    telemetry.configure(true, 50)
+    telemetry.enterScreen('home')
+    document.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    telemetry.request('POST', '/inputs')({ status: 202 })
+    t += 100
+    const change = document.createElement('div')
+    document.body.append(change)
+    await Promise.resolve()
+    t += 900
+    telemetry.analysisVisible()
+    telemetry.request('POST', '/inputs/8c1f/publish')({ status: 200, body: {} })
+    expect(sent.flatMap((b) => b.events).find((e) => e.type === 'task')).toMatchObject({ stage_feedback_ms: 100, stage_analysis_ms: 900 })
+    change.remove()
+  })
+
   it('a send left unpublished when the page goes away is an abandonment', () => {
     const { telemetry, events, advance } = rig()
     instances.push(telemetry)

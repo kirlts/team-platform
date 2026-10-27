@@ -15,7 +15,10 @@
 # reads: `battery-image: node vX.Y.Z`, `battery-image: image sha256:<digest of the pinned base>`, `battery-image: tree <tree sha>`.
 # The exit code is the command's.
 #
-# Settings (all optional): BATTERY_MEMORY (default 12g: the ceiling of the container, a limit of the machine and not a tuned value),
+# The container is bounded like the scope that launches it (rule of the coordinator, 2026-10-27, after a load of 60 cut the SSH of a chain):
+# BATTERY_MEMORY (default 8g) and BATTERY_CPUS (default 6, the 600% of `systemd-run -p CPUQuota=600%`) are limits of the machine, not tuned
+# values; run the script under `systemd-run --user --scope -q -p CPUQuota=600% -p MemoryMax=8G`, one battery at a time.
+# Settings (all optional): BATTERY_MEMORY, BATTERY_CPUS,
 # BATTERY_IMAGE_TAG (default team-platform-battery:<hash of Dockerfile and lockfiles>), TMPDIR (default $HOME/.cache: /tmp is memory).
 set -u -o pipefail
 
@@ -60,7 +63,7 @@ echo "battery-image: image $BATTERY_BASE"
 echo "battery-image: tree $BATTERY_TREE"
 set +e
 exec bash -c "$BATTERY_CMD"'
-docker run --rm --memory "${BATTERY_MEMORY:-12g}" -v "$SRC:/src:ro" \
+docker run --rm --memory "${BATTERY_MEMORY:-8g}" --cpus "${BATTERY_CPUS:-6}" -v "$SRC:/src:ro" \
   -e "BATTERY_CMD=$CMD" -e "BATTERY_TREE=$TREE_SHA" -e "BATTERY_BASE=$BASE" \
   "$TAG" bash -c "$INNER"
 exit $?

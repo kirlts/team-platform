@@ -55,13 +55,13 @@ export function Login() {
         <h1>
           <Wordmark name={t('brand.name')} large />
         </h1>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 -mb-2">
           <label htmlFor="login-email" className="rotulo">
             {t('login.email')}
           </label>
           <Input id="login-email" type="email" autoComplete="username" autoFocus readOnly={pending} aria-invalid={errors.email !== undefined ? true : undefined} aria-describedby={errors.email ? 'login-email-error' : undefined} className={fieldClass('email')} value={email} onChange={(e) => setEmail(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
-          <div className="-mt-2 min-h-5">
+          <div className="-mt-1 min-h-6">
             {errors.email && (
               <p id="login-email-error" role="alert" className="text-sm text-danger">
                 {errors.email}
@@ -75,7 +75,7 @@ export function Login() {
           </label>
           <Input id="login-password" type="password" autoComplete="current-password" readOnly={pending} aria-invalid={errors.password !== undefined ? true : undefined} aria-describedby={errors.password ? 'login-password-error' : undefined} className={fieldClass('password')} value={password} onChange={(e) => setPassword(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
-          <div className="-mt-2 min-h-5">
+          <div className="-mt-1 min-h-6">
             {errors.password && (
               <p id="login-password-error" role="alert" className="text-sm text-danger">
                 {errors.password}

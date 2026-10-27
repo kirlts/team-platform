@@ -3,7 +3,7 @@
 // Dockerfile copies), takes every call that starts a process with the binary it names (a literal, or the one a config property carries) and compares it with what the
 // Dockerfile installs in the image that ships: `apk add`, `npm -g`, binaries copied with COPY, node, and the busybox applets of the Alpine base.
 // It fails naming each binary the image lacks. A binary that lives on purpose only on another machine takes a line next to the call, with its reason:
-//     // fuera-de-la-imagen: <binary> — <reason>
+//     // outside-the-image: <binary> — <reason>
 // A call whose binary cannot be read (a variable) takes `// binario: <name>` next to it, and then <name> is compared like any other. There is no global list of exceptions.
 // The same idea as infra/servidor-de-despliegue/chequeo-previo.py of the host repository, which derives the binaries a run needs from what its scripts invoke.
 import assert from 'node:assert/strict'
@@ -158,7 +158,7 @@ export function shellScriptsInImage (dockerfile) {
 
 /**
  * Every call that starts a process in the given files: { file, line, via, name, status }. status is `binary` (name is read), `declared` (a `// binario:` line), `exception` (a
- * `// fuera-de-la-imagen:` line with its reason) or `unreadable` (the binary comes from a variable and nothing says which).
+ * `// outside-the-image:` line with its reason) or `unreadable` (the binary comes from a variable and nothing says which).
  */
 export function invokedBinaries (files, readSource = read, config = configBinaries(read('src/config.js'))) {
   const sources = new Map(files.map((f) => [f, readSource(f)]))
@@ -209,7 +209,7 @@ export function invokedBinaries (files, readSource = read, config = configBinari
         if (wrapperItself) continue // the call inside the wrapper: its callers are the ones that name the binary
         const above = (lines[line - 2] ?? '').trim().startsWith('//') ? lines[line - 2] : '' // a comment line right above counts; a comment at the end of the previous call does not
         const note = `${lines[line - 1]}\n${above}`
-        const exception = /\/\/\s*fuera-de-la-imagen:\s*([\w.-]+)\s*[—-]\s*(\S.*)$/m.exec(note)
+        const exception = /\/\/\s*outside-the-image:\s*([\w.-]+)\s*[—-]\s*(\S.*)$/m.exec(note)
         const declared = /\/\/\s*binario:\s*([\w.-]+)/.exec(note)
         let name = null
         let status = 'unreadable'
@@ -236,7 +236,7 @@ export function problems (calls, have) {
   for (const c of calls) {
     const where = `${c.file}:${c.line}`
     if (c.status === 'unreadable') out.push(`${where}: ${c.via}(${c.arg}) starts a binary that cannot be read; put \`// binario: <name>\` next to it`)
-    else if (c.status === 'exception') { if (!c.reason?.trim()) out.push(`${where}: the exception for «${c.name}» has no reason`) } else if (!have.has(c.name)) out.push(`${where}: invokes «${c.name}», which the image of the worker does not install (Dockerfile); install it there, or, if it lives on another machine on purpose, put \`// fuera-de-la-imagen: ${c.name} — <reason>\` next to the call`)
+    else if (c.status === 'exception') { if (!c.reason?.trim()) out.push(`${where}: the exception for «${c.name}» has no reason`) } else if (!have.has(c.name)) out.push(`${where}: invokes «${c.name}», which the image of the worker does not install (Dockerfile); install it there, or, if it lives on another machine on purpose, put \`// outside-the-image: ${c.name} — <reason>\` next to the call`)
   }
   return out
 }
@@ -272,7 +272,7 @@ test('the reader: a binary the image lacks fails, a literal and a config binary 
       'spawn(x.bin, [])',
       "run('git', [])",
       '// spawn(\'nothing\', [])',
-      'spawn(v, []) // fuera-de-la-imagen: tool — another machine',
+      'spawn(v, []) // outside-the-image: tool — another machine',
       'spawn(w, [])'
     ].join('\n'),
     'b.js': "import { spawn } from 'node:child_process'\nexport function run (binary, args) {\n  return spawn(binary, args)\n}\n"

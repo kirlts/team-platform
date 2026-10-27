@@ -84,6 +84,12 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
         }),
       )
       for (const r of rows) assert.ok(r.to >= r.text - 1, `the recipients are ${r.to}px wide in a text column of ${r.text}px`)
+      // The «y N más» control of a row is a 44 px target on a phone, and its extra box does not make the row taller.
+      const more = await page.locator('article [data-testid="card-foot"] button[aria-label^="Ver los"]').evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) } }))
+      assert.ok(more.length > 0, 'a row folds its recipients')
+      for (const m of more) assert.ok(m.w >= 44 && m.h >= 44, `the control of the folded recipients is ${m.w}x${m.h} px`)
+      const bell = await page.getByTestId('bell').boundingBox()
+      assert.ok(bell && bell.width >= 44 && bell.height >= 44, `Avisos is ${bell?.width}x${bell?.height} px`)
     } finally {
       await context.close()
     }

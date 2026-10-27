@@ -138,7 +138,7 @@ export function JudgmentBody({ messageId }: { messageId: string }) {
   if (!j) return <p className="text-sm text-muted">{t('judgment.none')}</p>
   return (
     <div data-testid="judgment" className="flex flex-col gap-3 text-sm">
-      <p className="m-0 text-muted">{EXECUTE_MODELS.find((m) => m.id === j.worked_with)?.label ?? j.worked_with ?? ''}</p>
+      <p className="m-0 text-muted">{EXECUTE_MODELS.find((m) => m.id === j.worked_with)?.label ?? j.worked_with ?? ''}{j.calibrated === true ? '' : ` · ${t('judgment.uncalibrated')}`}</p>
       <ul aria-label={t('judgment.axes')} className="m-0 flex list-none flex-col gap-1 p-0">
         {j.axes.map((a) => (
           <li key={a.axis} data-testid="judgment-axis" data-meets={a.meets === null ? undefined : String(a.meets)} className="flex flex-wrap items-baseline gap-x-3">

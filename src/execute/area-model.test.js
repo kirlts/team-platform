@@ -125,6 +125,15 @@ describe('model by area and by estimates', () => {
     assert.match(get(env.db, "SELECT detail_json FROM audit_log WHERE action = 'area.update' ORDER BY id DESC LIMIT 1").detail_json, /fieldValues|guards_json/)
   })
 
+  it('a Guard can carry the name a template gives it (`touches_<key>`): a name keeps through a rewrite, and a text that is not a name is dropped', async () => {
+    const first = await patchArea({ guards: [{ text: 'Nada toca pagos', person: true, key: 'money' }, { text: 'Otra', key: 'Not A Name!' }] })
+    assert.equal(first.statusCode, 200, first.body)
+    assert.deepEqual(first.json().guards.map((g) => [g.id, g.key ?? null]), [[1, 'money'], [2, null]])
+    const again = await patchArea({ guards: [{ id: 1, text: 'Nada toca pagos', person: true }, { id: 2, text: 'Otra' }] })
+    assert.deepEqual(again.json().guards.map((g) => [g.id, g.key ?? null]), [[1, 'money'], [2, null]], 'rewritten without the name, the Guard keeps the one it had')
+    await patchArea({ guards: [] })
+  })
+
   it('modelFor is a function of the estimates and the limits: above create or irreversibility, or below certainty, the larger one; no estimates, the larger one', () => {
     const low = { understand_vs_create: 0.2, irreversibility: 0.1, value_holder: 'model', certainty: 0.9 }
     assert.equal(modelFor(low, LIMITS), 'light')
@@ -266,6 +275,8 @@ describe('model by area and by estimates', () => {
     assert.deepEqual(j.axes.map((a) => [a.axis, a.score, a.target, a.meets]), [[1, 0, 0, true], [2, 1, 2, false], [3, null, 1, null], [4, null, 0, null]])
     assert.equal(j.judge_model, 'claude-haiku-5-5')
     assert.equal(j.worked_with, 'claude-haiku-5-5')
+    assert.equal(j.calibrated, false, 'B3: the judge was never compared with people, so its judgement is shown «sin calibrar»')
+    assert.deepEqual(j.axes.map((a) => [a.kpis, a.defined, a.partial]), [[1, 3, true], [1, 3, true], [0, 3, true], [0, 3, true]], 'each axis says over how many of its indicators it was read')
     process.env.FAKE_JUDGE = 'off'
     const other = await publish('Otro rótulo.')
     await settle(other)

@@ -7,6 +7,7 @@ import { forbidden, notFound } from '../../domain/errors.js'
 import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
 import { timingOfMessage } from '../../telemetry/timing.js'
+import { judgeCalibration } from '../../execute/judge-calibration.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema, replyPatchBody } from '../schemas.js'
@@ -107,7 +108,7 @@ export function registerMessageRoutes (app, ctx) {
   }, async (request) => {
     getMessage(db, request.params.id) // 404 when the message does not exist or is deleted
     await ctx.telemetry?.flush() // a job that has just finished is visible too
-    const timing = timingOfMessage(db, request.params.id)
+    const timing = timingOfMessage(db, request.params.id, { calibration: judgeCalibration(db, config) })
     if (!timing) throw notFound('El mensaje no tiene trabajo de ejecución.')
     return { ...timing, delivers: Boolean(config.execute.deliverCommand), machine: config.execute.runner === 'machine' }
   })

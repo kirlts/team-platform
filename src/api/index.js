@@ -43,6 +43,8 @@ import { createVault, loadMasterKey } from '../domain/vault.js'
 import { buriedHandoffs } from '../domain/escalation.js'
 import { installAgentAuth } from '../execute/agent-auth.js'
 import { CONTRACT_VERSION } from '../execute/contract-version.js'
+import { limitsHoldState } from '../execute/limits-hold.js'
+import { judgeCalibration } from '../execute/judge-calibration.js'
 import { registerExecuteRoutes } from '../execute/routes.js'
 import { isActivePerson } from '../domain/members.js'
 import { machineHealth } from '../execute/machines.js'
@@ -262,7 +264,9 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     const buried = buriedHandoffs(db)
     // B4 invariant: a machine whose DESTROY ran and did not exit 0 is still alive and costing. Zero when healthy; the probe turns `degraded` (it is tried again when the worker starts).
     const machines = machineHealth(db)
-    const basic = { status: buried.length === 0 && machines.failed.length === 0 ? 'ok' : 'degraded', version, contract_version: CONTRACT_VERSION }
+    // Amendment of UD-313: an area with a limit of a person in an instance where nothing can hold the delivery is a limit on paper; the probe says so.
+    const limits = limitsHoldState({ db, config })
+    const basic = { status: buried.length === 0 && machines.failed.length === 0 && !limits.degraded ? 'ok' : 'degraded', version, contract_version: CONTRACT_VERSION }
     // The detail (database, queue, providers) is for an active person of the team: an anonymous probe only sees whether the service is alive.
     let caller = null
     try { caller = await identity.provider.identify(request) } catch { /* no identity: basic response */ }
@@ -275,7 +279,10 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       providers: (modules.getProviders?.()?.describe?.() ?? []).map((s) => ({ slot: s.slot, provider: s.provider, model: s.model, available: s.available, reason: s.reason })),
       analyzer: getProviderSettings(db, config).analyzer,
       handoffs: { buried: buried.length, messages: buried.map((b) => ({ message_id: String(b.message_id), result: b.result })) },
-      machines: { open: machines.open, destroy_failed: machines.failed.length, failed: machines.failed }
+      machines: { open: machines.open, destroy_failed: machines.failed.length, failed: machines.failed },
+      limits,
+      // B3 of the second audit: whether the judge of the jobs was compared with people; while it was not, its judgements are marked «sin calibrar» and decide nothing.
+      judge: (({ calibrated, reason, threshold, people, jobs }) => ({ calibrated, reason, threshold, people, jobs }))(judgeCalibration(db, config))
     }
   }
   const healthSchema = {
@@ -287,7 +294,9 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
           status: { type: 'string' }, version: { type: 'string' }, contract_version: { type: 'integer', description: 'Version of the host contract this core implements (docs/CONTRATO-DE-ANFITRION.md).' },
           db: { type: 'object', additionalProperties: true }, queue: { type: 'object', additionalProperties: true }, worker: { type: 'string' },
           providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }, handoffs: { type: 'object', additionalProperties: true },
-          machines: { type: 'object', additionalProperties: true, description: 'Machines of the execute job without a recorded destruction: `open` (the ones of running jobs included) and `failed`, those whose DESTROY did not exit 0 (the status turns degraded).' }
+          machines: { type: 'object', additionalProperties: true, description: 'Machines of the execute job without a recorded destruction: `open` (the ones of running jobs included) and `failed`, those whose DESTROY did not exit 0 (the status turns degraded).' },
+          judge: { type: 'object', additionalProperties: true, description: 'Whether the judge of the jobs was compared with people (EXECUTE_JUDGE_REFERENCE_FILE): `calibrated` is true when its Krippendorff alpha against them reaches `threshold` in every axis the reference covers; `reason` says why not. Not calibrated, its judgements are shown as «sin calibrar» and decide nothing.' },
+          limits: { type: 'object', additionalProperties: true, description: 'What holds a limit that a person lifts and the wait of an idea: `hold` is `deliver` (the delivery job), `hook` (the delivery orders of EXECUTE_GUARDS_FILE are refused to the session) or `none`. `degraded` (the status turns degraded) when an area has a limit of a person and `hold` is `none`.' }
         }
       },
       503: { description: 'The database is not migrated or does not respond.', ...errorSchema }

@@ -25,7 +25,9 @@ export const INFRA = {
   deliver_env: 'deliver', lease_expired: 'interrupted', system: 'system',
   // The Guard of the idea could not be judged (the model service did not answer): the `infra` error of `idea-guard.js`. The failure of #125 on 2026-10-26 (jobs 204 to 220)
   // ended with this code and was not here, so no start picked it up. `resume.test.js` makes every code thrown with `infra(...)` appear in this table.
-  idea_guard_unavailable: 'service'
+  idea_guard_unavailable: 'service',
+  // The Guards of the area a message was never judged against could not be judged (guards-judge.js): the same kind of failure, relaunched the same way.
+  guards_judge_unavailable: 'service'
 }
 
 /**

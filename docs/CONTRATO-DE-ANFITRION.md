@@ -116,6 +116,7 @@ Su comportamiento está en «Las cinco órdenes».
 | `EXECUTE_DIRECT_SESSION_ENV` | vacía | Lo mismo, sólo para sesiones del modelo liviano | UD-295 |
 | `EXECUTE_OTEL_ENV` | vacía | Pares `CLAVE=valor` para la telemetría propia de `claude -p` (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_*`) | UD-262 |
 | `EXECUTE_DIRECT_STOP_COMMAND` | vacía | Orden del gancho `Stop` de una sesión liviana. Código de salida 2 con el motivo en stderr devuelve la sesión al trabajo | UD-295 |
+| `EXECUTE_JUDGE_REFERENCE_FILE` | vacía | Ruta de un JSON con los puntajes que personas dieron, sin ver los del juez, a trabajos que el juez también juzgó. El juez cuenta para decidir sólo mientras su alfa de Krippendorff contra ellas llega a 0,80 en cada eje (ver «Calibración del juez»). Vacía: el juez nunca se comparó con nadie y sus juicios se muestran «sin calibrar» | Krippendorff (2004), *Content Analysis*, 2.ª ed., p. 241. Opcional: un anfitrión sin ella conserva su comportamiento |
 | `EXECUTE_GUARDS_FILE` | vacía | Ruta de un JSON con las listas del anfitrión para los ganchos de toda sesión. Vacía: la sesión no declara ninguno de estos ganchos. Ver «Guardias de la sesión» | Opcional: un anfitrión sin ella conserva su comportamiento |
 | `EXECUTE_DIRECT_TOOLS` | `Bash,Read,Edit,Write,Grep,Glob,Agent` | Herramientas de una sesión liviana (`--tools`). Vacía: todas | Medición del 2026-10-25: 29.302 tokens con estas siete contra 53.938 con todas |
 | `EXECUTE_STABLE_AS_SYSTEM` | `0` | `1` envía la parte estable del prompt como `--append-system-prompt-file`, que la API guarda en caché entre sesiones | Medición `2026-10-23-tokens-y-cache.md` |
@@ -241,6 +242,7 @@ Gancho `PreToolUse` sobre `Bash`. Antes de ejecutar la orden la compara con las 
 | `builtin` | Lista de reglas nombradas del núcleo que se encienden. Ninguna está encendida por omisión |
 | `protected_branches` | Ramas a las que `protected-push` niega empujar. Omisión: `main` y `master` |
 | `rules` | Reglas propias, en el orden en que se evalúan |
+| `deliveries` | Reglas que nombran las órdenes que entregan; sólo se aplican a una sesión sin `EXECUTE_DELIVER_COMMAND` cuyo mensaje tiene un límite de persona abierto o una idea sin liberar. Ver más abajo |
 
 Reglas nombradas:
 
@@ -263,6 +265,12 @@ Una regla propia es `{ id?, match, unless?, line_requires?, args_required?, mess
 | `line_requires` | Por cada coincidencia de la primera expresión de `match`, el texto de su línea anterior a la coincidencia debe cumplir esta expresión; si no, se niega. Sirve para exigir un envoltorio, por ejemplo que una prueba pesada corra dentro de una orden que reparte la máquina |
 | `args_required` | Por cada coincidencia de la primera expresión de `match`, su primer grupo de captura debe traer una palabra posicional (ni bandera ni número); si no, se niega. Sirve para una prueba que corre todo el proyecto cuando no se le nombran archivos |
 | `message` | Lo que lee el modelo. Obligatorio: debe decir la orden correcta, no sólo que está prohibido |
+
+### `commands.deliveries`: las órdenes que entregan, para el anfitrión sin orden de entrega
+
+Un límite que levanta una persona (UD-313) y la espera de una idea (UD-307) se sostienen en la plataforma cuando el anfitrión declara `EXECUTE_DELIVER_COMMAND`: retiene el trabajo `deliver`. Sin esa orden la sesión entrega por las reglas del anfitrión y la plataforma no ve esa entrega. Para ese caso, `commands.deliveries` es una lista de reglas con la forma de `rules` (`match`, `unless`, `line_requires`, `args_required`, `message`) que nombra las órdenes de Bash que ponen trabajo en producción. No niegan nada por sí solas. Mientras el mensaje toque un límite de persona sin levantar, o una idea no esté liberada, la sesión nace con esas órdenes negadas, con el `message` del anfitrión seguido del motivo que escribe el sistema. Lo que la sesión deja en la rama pasa a la persona que decide en el área como entrega retenida, y la aprobación de una persona en el hilo (`review: approve`) lanza una pasada nueva que puede entregar. Con `EXECUTE_DELIVER_COMMAND` declarada la lista no se usa.
+
+Sin orden de entrega y sin esta lista nada puede negar la entrega. `GET /health` pasa a `degraded` si alguna área tiene un límite de persona, y `limits` dice el modo. El muro cubre lo que se entrega por las órdenes listadas. Un efecto de la sesión mientras trabaja (pagar, enviar, borrar) necesita su propio mecanismo en la Guardia.
 
 ### `tools`: herramientas que se quitan
 
@@ -301,6 +309,12 @@ El anfitrión prueba su archivo ejecutando `team hook` con el evento de Claude C
 ```sh
 echo '{"tool_name":"Bash","tool_input":{"command":"git push --force origin x"}}' | TEAM_GUARDS_FILE=guards.json node scripts/team.mjs hook commands
 ```
+
+## Calibración del juez
+
+El juez de trabajos puntúa con una rúbrica, y esos juicios sirven para mover un área al modelo mayor y para fijar los límites del modelo liviano. Un juicio sólo cuenta para eso mientras el juez esté calibrado contra personas. `EXECUTE_JUDGE_REFERENCE_FILE` es un JSON `{ "version": 1, "units": [{ "job_id": 12, "ratings": { "<persona>": { "1.1": 1, "4.3": null } } }] }`. Cada puntaje es un entero de -2 a 2, o `null` si esa persona juzgó que el indicador no aplica al trabajo. Las personas puntúan sin ver el juicio del juez, que se lee de `execute_judgments` por `job_id`. El núcleo calcula el alfa de Krippendorff ordinal por eje entre el juez y las personas, con un intervalo del 95 % por remuestreo sobre trabajos. Un eje está calibrado con alfa de 0,80 o más y el extremo inferior del intervalo en 0,667 o más. El juez lo está si lo están todos los ejes que el archivo cubre y el archivo trae al menos dos personas. Sin archivo, ilegible o con una forma inválida, el juez no está calibrado y `GET /health` (`judge`) dice por qué. Un juicio de un juez sin calibrar se muestra con `calibrated: false`.
+
+`GET /health` agrega, a una persona del equipo, `limits` (`hold`: `deliver`, `hook` o `none`; `degraded`) y `judge` (`calibrated`, `reason`, `threshold`, `people`, `jobs`). Son campos nuevos y no suben `contract_version`.
 
 ## Marcadores `##team`
 

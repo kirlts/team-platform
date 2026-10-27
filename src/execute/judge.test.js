@@ -75,6 +75,19 @@ describe('the evidence', () => {
   })
 })
 
+describe('the idea of the request', () => {
+  it('reaches the judge as context when the analyzer judged it, and is an empty block when nobody did (UD-307)', () => {
+    const idea = { idea: 0.9, idea_guard: true, idea_reason: 'lo dijo como una posibilidad' }
+    const block = (input) => judgeBlocks(input).find(([title]) => title === 'idea_del_pedido')[1]
+    assert.equal(block(job({ idea })), 'idea: 0.90 de 1\nla Guardia de la idea aplica: sí\nrazón: lo dijo como una posibilidad')
+    assert.equal(block(job({ idea: { idea: null, idea_guard: false } })), 'idea: sin dato\nla Guardia de la idea aplica: no')
+    assert.equal(block(job()), '')
+    assert.equal(block(job({ idea: { understand_vs_create: 0.2 } })), '', 'an assessment from before the Guard says nothing about it')
+    assert.match(buildJudgePrompt(job({ idea })), /<idea_del_pedido>\nidea: 0\.90 de 1/)
+    assert.deepEqual(judgeEvidence(job({ idea })).present.includes('idea_del_pedido'), true)
+  })
+})
+
 describe('the validation of the answer', () => {
   const evidence = judgeEvidence(job())
 

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- El límite de una persona y la espera de una idea se sostienen también sin `EXECUTE_DELIVER_COMMAND` (enmienda de UD-313). El archivo de guardias puede listar en `commands.deliveries` las órdenes que entregan; mientras el límite o la idea esperan, la sesión nace con ellas negadas, lo que deja en la rama pasa a una persona y su `review: approve` lanza la pasada que entrega. Sin la lista, `GET /health` queda `degraded` si hay un límite de persona. Las Guardias instaladas después de evaluar un mensaje se juzgan al arrancar su trabajo (migración `0041`), los `touches_<nombre>` de la salida se cruzan con las que marcó el analizador y una Guardia puede llevar `key`. Aditivo, no sube `contract_version`.
+- El juez de trabajos cuenta para decidir sólo si está calibrado contra personas (`EXECUTE_JUDGE_REFERENCE_FILE`, alfa de Krippendorff ordinal por eje, umbral 0,80). Mientras no, sus juicios salen con `calibrated: false` y el panel dice «Sin calibrar». El juez recibe `idea`, la sesión recibe la descripción del área, y la escalada registra si su disparador es declarado o comprobado.
+
 ## [0.1.0] - 2026-10-27
 
 - Un límite de una persona no se cruza sin que una persona lo levante (UD-313). Si el mensaje toca una Guardia `person` que nadie levantó, la plataforma retiene la entrega antes de correr la orden del anfitrión, con la misma revisión de UD-275; la levanta aprobar la entrega a mano o en el hilo (no la aprobación de antemano ni un agente) y queda en la auditoría como `message.guard_lifted`. Sin Guardias `person` no cambia nada.

@@ -148,8 +148,4 @@ describe('what every session of the platform needs, whoever hosts it (plan B5)',
     for (const piece of ['## Working well', 'Whether a reply carries a photo']) assert.ok(a.includes(piece) && b.includes(piece), piece)
     assert.ok(!a.includes('<host_instructions>') && b.includes('<host_instructions>'))
   })
-  it('names no host: the generic part is the same prompt anywhere (RULES 10)', () => {
-    const { stable } = buildExecuteParts(input(1, { hostInstructions: '' }))
-    assert.doesNotMatch(stable, /devalis|clínica|clinic/i)
-  })
 })

@@ -330,7 +330,7 @@ El límite del modelo liviano se fija con trabajos juzgados y no con una lista c
 
 ## 12. Archivo de carga
 
-`propose` escribe el archivo que carga el cargador de configuración del repositorio. Es idempotente: crea o actualiza por título de área y por nombre de plantilla, y aplicarlo dos veces deja el mismo estado.
+`propose` escribe el archivo de carga y `scripts/apply-load-file.mjs` lo aplica con las funciones del dominio (`createArea`, `updateArea`, `createTemplate`, `updateTemplate`, `updateMember`).
 
 ```json
 {
@@ -355,7 +355,15 @@ El límite del modelo liviano se fija con trabajos juzgados y no con una lista c
 | `members[]` | Un miembro existente, por correo |
 | `validateLoadFile` | Rechaza una plantilla que no se lee, un área o una plantilla repetidas, un miembro sin correo, un área sin `confirmed` booleano, un límite sin texto, sin `person` booleano o sin `mechanism`, y una versión distinta de la 2 |
 
-La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`createArea`, `createTemplate`, `updateMember`) lo que describe una propuesta sobre el equipo inventado.
+```
+node scripts/apply-load-file.mjs load.json --db /data/team.db [--only-confirmed] [--require-mechanism]
+```
+
+El cargador es idempotente. Encuentra un área por su título, una plantilla por su nombre dentro del área, un límite por su texto y un miembro por su correo. Lo que ya tiene el contenido del archivo no se escribe de nuevo y no deja línea en la auditoría. Aplicarlo dos veces deja el mismo estado. Agrega y actualiza, y nunca borra un área, una plantilla ni un límite que el archivo no nombra. Todo ocurre en una transacción.
+
+Antes de escribir rechaza un archivo inválido, un `actor` que no sea una persona activa, un miembro que no existe y un área sin confirmar. `--only-confirmed` aplica las confirmadas y omite las demás. Un límite que no es de persona y no declara mecanismo se aplica y se informa. El producto lo acepta y la descripción ya dice «sin mecanismo declarado». `--require-mechanism` lo rechaza. Cada área creada o actualizada deja `area.method_load` en la auditoría, con quién la confirmó.
+
+Una prueba aplica el archivo dos veces sobre una base real y compara el estado y la auditoría.
 
 ## 13. Perillas
 

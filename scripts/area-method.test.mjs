@@ -808,3 +808,87 @@ test('menor: a border with a neighbour is named only from two confusions', () =>
   const none = propose(rows, team, { purposes, minBorderConfusions: 1000 }).spec
   for (const a of none.areas) assert.ok(!a.description.includes('No entra'), 'no pair reaches 1,000 confusions')
 })
+
+// ---- Marco 1: the loader applies the load file, and applying it twice leaves the same state
+const { applyLoadFile } = await import('./apply-load-file.mjs').catch(() => ({}))
+
+async function freshDatabase (label) {
+  const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), `area-method-${label}-`))
+  const config = loadConfig({ DATA_DIR: dir, HOST: '127.0.0.1', PORT: '0', LOG_LEVEL: 'silent', ADMIN_EMAIL: 'ana@tienda.example', ADMIN_PASSWORD: 'una clave larga de prueba 1' })
+  await initializeDatabase(config)
+  const db = openDatabase(config.dbFile, config.sqlite)
+  for (const m of team.members) if (!get(db, 'SELECT 1 AS ok FROM members WHERE email = ?', m.email)) createMember(db, { email: m.email, name: m.name, role: 'editor', kind: m.kind })
+  return db
+}
+const confirmed = (spec) => ({ ...spec, areas: spec.areas.map((a) => ({ ...a, confirmed: true, confirmed_by: 'ana@tienda.example' })) })
+const snapshot = (db) => JSON.stringify({
+  areas: all(db, 'SELECT title, description, position, guards_json FROM areas WHERE deleted_at IS NULL ORDER BY title'),
+  templates: all(db, 'SELECT area_id, name, body_markdown FROM templates WHERE deleted_at IS NULL ORDER BY area_id, name'),
+  members: all(db, 'SELECT email, profile FROM members ORDER BY email')
+})
+
+test('Marco 1: the loader creates what the file describes, with its guards, and a second application changes nothing', async () => {
+  const db = await freshDatabase('loader')
+  const { spec } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
+  const first = applyLoadFile(db, confirmed(spec))
+  assert.equal(first.created.areas, 3)
+  assert.ok(first.created.templates >= 3)
+  assert.equal(first.updated.members, spec.members.length)
+  const guards = all(db, "SELECT title, guards_json FROM areas WHERE title = 'Catálogo y precios'")
+  assert.deepEqual(JSON.parse(guards[0].guards_json).map((g) => [g.text, g.person]), [['mover dinero o fijar un precio', true], ['datos personales de clientes', false], ['lo que no se deshace', true]])
+  assert.equal(JSON.parse(guards[0].guards_json)[1].mechanism, 'el asistente trabaja con una credencial que no lee la tabla de clientes')
+  assert.equal(JSON.parse(guards[0].guards_json).every((g) => Number.isInteger(g.id)), true, 'the product gave each guard its id')
+  const before = snapshot(db)
+  const auditBefore = get(db, 'SELECT COUNT(*) AS n FROM audit_log').n
+  const second = applyLoadFile(db, confirmed(spec))
+  assert.deepEqual(second.created, { areas: 0, templates: 0 })
+  assert.deepEqual(second.updated, { areas: 0, guards: 0, templates: 0, members: 0 })
+  assert.equal(snapshot(db), before, 'the same state')
+  assert.equal(get(db, 'SELECT COUNT(*) AS n FROM audit_log').n, auditBefore, 'and no line of audit for what did not change')
+})
+
+test('Marco 1: a changed description updates by title; guards and templates of the area that the file does not name stay', async () => {
+  const db = await freshDatabase('update')
+  const { spec } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
+  applyLoadFile(db, confirmed(spec))
+  const catalog = all(db, "SELECT id FROM areas WHERE title = 'Catálogo y precios'")[0].id
+  updateArea(db, catalog, { guards: [...JSON.parse(get(db, 'SELECT guards_json FROM areas WHERE id = ?', catalog).guards_json), { text: 'lo que el panel agregó a mano', mechanism: 'x', person: false }] })
+  createTemplate(db, catalog, { body_markdown: '---\nname: "A mano"\ndescription: "d"\nfields:\n  - { name: request, label: "Qué", required: true }\n---\n## Método\nx\n\n## Formato de salida\nx\n\n## Salida\nx\n' })
+  const edited = confirmed(spec)
+  edited.areas.find((a) => a.title === 'Catálogo y precios').description = `${edited.areas.find((a) => a.title === 'Catálogo y precios').description} Nota.`
+  const result = applyLoadFile(db, edited)
+  assert.equal(result.updated.areas, 1)
+  assert.equal(result.created.areas, 0)
+  assert.equal(all(db, "SELECT id FROM areas WHERE title = 'Catálogo y precios' AND deleted_at IS NULL").length, 1, 'updated, not duplicated')
+  assert.match(get(db, 'SELECT description FROM areas WHERE id = ?', catalog).description, /Nota\.$/)
+  assert.ok(JSON.parse(get(db, 'SELECT guards_json FROM areas WHERE id = ?', catalog).guards_json).some((g) => g.text === 'lo que el panel agregó a mano'), 'a guard the file does not name stays')
+  assert.ok(all(db, 'SELECT name FROM templates WHERE area_id = ? AND deleted_at IS NULL', catalog).some((t) => t.name === 'A mano'), 'a template the file does not name stays')
+})
+
+test('Marco 4: the loader refuses an area the team has not confirmed, and writes nothing', async () => {
+  const db = await freshDatabase('unconfirmed')
+  const { spec } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
+  const before = snapshot(db)
+  assert.throws(() => applyLoadFile(db, spec), /has not confirmed: .*Atención al cliente/)
+  assert.equal(snapshot(db), before)
+  const partial = confirmed(spec)
+  partial.areas[0].confirmed = false
+  assert.throws(() => applyLoadFile(db, partial), /has not confirmed/)
+  const only = applyLoadFile(db, partial, { onlyConfirmed: true })
+  assert.equal(only.created.areas, 2)
+  assert.deepEqual(only.skipped, [partial.areas[0].title])
+})
+
+test('Marco 3: the loader reports a guard without a mechanism and can refuse it; the file needs an actor and members that exist', async () => {
+  const db = await freshDatabase('mechanism')
+  const { spec } = propose(rows, noMechanism, { purposes, actor: 'ana@tienda.example' })
+  assert.throws(() => applyLoadFile(db, confirmed(spec), { requireMechanism: true }), /without a mechanism/)
+  assert.equal(get(db, "SELECT COUNT(*) AS n FROM areas WHERE title = 'Catálogo y precios'").n, 0, 'refused before writing')
+  const result = applyLoadFile(db, confirmed(spec))
+  assert.equal(result.warnings.length, 3, 'one warning per area')
+  const noActor = propose(rows, team, { purposes }).spec
+  assert.throws(() => applyLoadFile(db, confirmed(noActor)), /needs an "actor"/)
+  const ghost = confirmed(propose(rows, team, { purposes, actor: 'ana@tienda.example' }).spec)
+  ghost.members.push({ email: 'nadie@tienda.example', profile: 'x' })
+  assert.throws(() => applyLoadFile(db, ghost), /do not exist|Members that do not exist/)
+})

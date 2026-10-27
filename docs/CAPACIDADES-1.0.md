@@ -156,7 +156,7 @@ Las pruebas `navegador` levantan Chromium contra el servidor real (`e2e/contrato
 | `e2e/contrato/C17-capturas-sin-anonimizar.e2e.test.mjs` | 3 | 3 | 0 | 0 | 3 | verde |
 | `e2e/contrato/C18-nada-queda-sin-atender.e2e.test.mjs` | 2 | 2 | 0 | 0 | 5 | verde |
 
-Las ocho pruebas nuevas de `e2e/capacidades/` se corrieron el 2026-10-26 sobre `d2af8156`, una por archivo, con `node --test <archivo>` y `TMPDIR=$HOME/.cache/claude-tmp/wt-d2-e2e`. Las dos que usan Docker (`maquinas-de-ejecucion` e `instalacion-con-imagen`) exigen un daemon y fallan sin él. Con las capas en caché, la imagen del driver se construyó en 3 s y la de la instancia en 20 s (4 s sin cambios). La construcción desde cero no se midió.
+Las ocho pruebas nuevas de `e2e/capacidades/` se corrieron el 2026-10-26 sobre `d2af8156`, una por archivo, con `node --test <archivo>` y `TMPDIR=$HOME/.cache/claude-tmp/wt-d2-e2e`. Las dos que usan Docker (`maquinas-de-ejecucion` e `instalacion-con-imagen`) exigen un daemon y fallan sin él. Con las capas en caché, la imagen del driver tardó 3 s y la de la instancia 20 s (4 s sin cambios). La construcción desde cero no se midió.
 
 | Archivo | Casos | Pasan | Fallan | Omitidos | Segundos | Resultado |
 |---|---|---|---|---|---|---|

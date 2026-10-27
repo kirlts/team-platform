@@ -121,30 +121,59 @@ El reparto que mide la sección 9 usa lo que las filas dicen. No mide `certainty
 
 ## 3. Validar las filas
 
-Una fila es la estimación de un modelo. Mientras ninguna persona la haya leído, lo que se mide con ella es el acuerdo con esa estimación y no el acierto. La anotación con un modelo generativo se valida contra personas (Pangakis, Wolken y Fasching, 2023, arXiv:2306.00176, consultado el 2026-10-27). Además, el extractor, el enrutador y el juez usan por omisión el mismo modelo y leen el mismo resumen. Un error común a los tres cuenta como acierto. Un modelo también favorece lo que genera (Panickssery, Bowman y Feng, 2024, arXiv:2404.13076, consultado el 2026-10-27).
+Una fila es la estimación de un modelo. Una cifra contra las filas mide cuánto coinciden dos lecturas del mismo texto hechas por el mismo modelo. No es acierto, aunque las filas estén validadas. La coincidencia no acota el acierto en ninguna dirección: un error común a las dos lecturas cuenta como acierto. El acierto sólo se informa contra etiquetas de personas que leyeron el texto original. La anotación con un modelo generativo se valida contra personas (Pangakis, Wolken y Fasching, 2023, arXiv:2306.00176, consultado el 2026-10-27). Un modelo también favorece lo que genera (Panickssery, Bowman y Feng, 2024, arXiv:2404.13076, consultado el 2026-10-27).
 
 ```
-node scripts/row-validation.mjs sample rows.jsonl --team team.json --out sample.jsonl
-node scripts/row-validation.mjs agree rows.jsonl --labels labels.jsonl --team team.json --retest rows2.jsonl --out validation.json
+node scripts/row-validation.mjs sample --units units.jsonl --rows rows.jsonl --team team.json --stage tune --out sample.jsonl
+node scripts/row-validation.mjs agree --units units.jsonl --rows rows.jsonl --labels labels.jsonl --team team.json --reference-rater ana --retest rows2.jsonl --out validation.json
 ```
 
 | Paso | Qué se hace | Automatizado |
 |---|---|---|
-| 1 | `sample` arma una muestra estratificada por área y por si el pedido exige a una persona. Entrega el resumen que identifica cada pedido y ninguna estimación del extractor | Sí |
-| 2 | Una persona etiqueta cada pedido sin ver la extracción: `area`, `value_holder` y `limits`, en `labels.jsonl` con su `rater` | No, la hace una persona |
-| 3 | Una segunda persona etiqueta los pedidos marcados `double` | No, la hace una persona |
-| 4 | Se repite la extracción sobre las mismas unidades (`rows2.jsonl`) | Sí, con `request-rows.mjs` |
-| 5 | `agree` calcula el kappa de Cohen entre la extracción y la primera persona, entre las dos personas y entre las dos corridas | Sí |
+| 1 | `sample` sortea unidades, no resúmenes. Entrega el id, el origen y la fecha de cada una; el texto queda en `units.jsonl` | Sí |
+| 2 | Una persona lee el texto original de cada unidad y lista los pedidos que hay, en el orden del texto: `area`, `value_holder` y `limits` de cada uno. Una unidad sin pedidos lleva una lista vacía. Va en `labels.jsonl`: `{ unit, rater, requests }` | No, la hace una persona |
+| 3 | Una segunda persona etiqueta las unidades marcadas `double` | No, la hace una persona |
+| 4 | Un desacuerdo entre las dos lo resuelve una lectura de adjudicación, con `rater: "adjudicated"` | No, la hace una persona |
+| 5 | Se repite la extracción sobre las mismas unidades (`rows2.jsonl`) | Sí, con `request-rows.mjs` |
+| 6 | `agree` calcula lo que la extracción encontró contra lo que encontraron las personas y los acuerdos | Sí |
 
-Tamaños. Salen de una cuenta: el menor n para el que el intervalo de Wilson de una tasa de 0,8 tiene semiancho 0,15 (`--target-rate`, `--half-width`). Resultan 26 pedidos por área, repartidos entre los dos grupos, y 26 pedidos etiquetados dos veces. Con 21 aciertos de 26 el límite inferior es 0,62, sobre el azar. Si el área tiene menos filas abiertas que ese n, el guion avisa y toma todas. La muestra no incluye filas confidenciales: una persona las lee completas antes de `propose`.
+Muestra. Los estratos son disjuntos. `zero` reúne las unidades donde la extracción no encontró ningún pedido, que es donde se esconde un pedido omitido. Las demás se separan por el límite más raro del equipo que alguno de sus pedidos toca (`limit:<id>`, el de menos unidades) o `none`. Así un límite raro tiene sus propios casos. Cada estrato aporta 26 unidades o todas las que tiene, y 26 unidades se marcan `double`. Ese 26 es el menor n para el que el intervalo de Wilson de una tasa de 0,8 tiene semiancho 0,15 (`--target-rate`, `--half-width`). Con `--stage tune` o `--stage confirm` la muestra sale de las unidades de esa etapa, con la misma partición y la misma semilla que usa el experimento. Hay una muestra para el ajuste y otra para la confirmación. No incluye unidades confidenciales: una persona las lee completas antes de `propose`.
 
-Acuerdo. El kappa de Cohen (1960) corrige el acuerdo por el azar. Se calcula por campo: área, titular del valor, si exige a una persona (derivado con la definición de la sección 2) y cada límite. Como la muestra está estratificada, cada pedido pesa lo que pesa su estrato en el corpus. El intervalo sale de 1.000 remuestreos dentro de cada estrato (Efron y Tibshirani, 1993). El acuerdo entre las dos personas es el techo. Una confusión que también separa a las personas es una ambigüedad del criterio de área y no un error del modelo.
+Referencia. Ninguna etiqueta vale por el nombre de quien la puso. `--reference-rater` nombra a la persona que etiquetó toda la muestra, y con dos personas sin ese nombre el guion se detiene. Donde las dos listan los mismos pedidos, la etiqueta se mantiene. Donde difieren, la referencia es la etiqueta de la lectura adjudicada. Sin ella, la unidad queda fuera de la referencia y se cuenta en `reference.unadjudicated`, y mientras haya una la validación no pasa.
 
-Repetición. La extracción no es determinista: `claude -p` no fija semilla ni temperatura. Las filas de dos corridas se emparejan por orden dentro de la unidad, sólo si ambas encontraron el mismo número de pedidos. Las demás unidades se informan como no alineadas. El kappa se calcula con los pedidos alineados.
+Lo que se mide. Por unidad se compara cuántos pedidos listó la persona y cuántas filas escribió la extracción. Los que sobran en las filas están inventados y los que faltan están omitidos. De ahí salen el recall y la precisión de la extracción por pedido, con su intervalo. Donde los números coinciden, los pedidos se emparejan por orden. Cada campo recibe un kappa de Cohen (1960): área, titular del valor, si exige a una persona y cada límite. La definición de «exige a una persona» es la de la sección 2. Una unidad cuyos números difieren no se puede emparejar y se informa como no alineada. Cada unidad pesa lo que pesa su estrato (unidades de la etapa sobre unidades etiquetadas). El intervalo sale de 1.000 remuestreos de unidades dentro de cada estrato (Efron y Tibshirani, 1993). Los pedidos de una unidad comparten texto y autor.
 
-Umbral. Las filas están validadas cuando cuatro kappa llegan a 0,6 (`--min-kappa`). Son los de área, titular del valor y «exige a una persona» contra la persona, y el de la repetición. Desde 0,61 Landis y Koch (1977) llaman «sustancial» al acuerdo; es una convención y no un estándar. El equipo fija el umbral antes de medir. Sin segunda persona o sin repetición, `validated` es falso y el informe dice qué falta.
+El kappa tiene un intervalo ancho con pocas etiquetas. Con 78 pedidos etiquetados la mitad del intervalo mide 0,15. La medición del 2026-10-27 (`bench/area-method-kappa.mjs`) pasó 300 pares de etiquetas con kappa verdadero conocido por una compuerta de 0,6:
 
-Qué cambia en el resto. `route-experiment.mjs` informa `validated` en su resultado. Sus cifras sobre las filas se llaman `agreement_with_rows`, estén validadas o no: son el acuerdo con la extracción. Con `--labels` agrega `agreement_with_labels`, el acuerdo del enrutador con las personas sobre los pedidos que ellas etiquetaron. Ese es el acierto.
+| Kappa verdadero | Pasa si se mira el valor puntual | Pasa si se mira el límite inferior |
+|---|---|---|
+| 0,5 | 0,10 | 0,00 |
+| 0,6 | 0,51 | 0,03 |
+| 0,7 | 0,92 | 0,32 |
+| 0,8 | 1,00 | 0,86 |
+
+Por eso la compuerta mira el límite inferior de cada kappa, y exige que llegue a 0,6 (`--min-kappa`). Desde 0,61 Landis y Koch (1977) llaman «sustancial» al acuerdo. Es una convención sin respaldo empírico, y el kappa depende de la frecuencia de cada categoría. El equipo fija el umbral antes de medir.
+
+Reglas. `validated` es verdadero sólo si todas se cumplen y no falta nada. Cada una aparece en `rules` con su valor.
+
+| Regla | Qué exige |
+|---|---|
+| `area`, `value_holder`, `needs_person` | Límite inferior del kappa contra la referencia, de 0,6 o más |
+| `limit:<id>` | Lo mismo, para cada límite con al menos 5 pedidos positivos en la muestra (`--min-limit-positives`). Con menos casos la regla falla y dice cuántos hay, salvo que el límite se exima por nombre con `--waive limit:<id>`; la exención queda en la salida |
+| `extraction:recall`, `extraction:precision` | Valor de 0,8 o más (`--target-rate`, la tasa que se espera de una extracción que sirve). El límite inferior se imprime |
+| `extraction:unaligned_share` | Unidades sin alinear, a lo más 0,2 (`--max-unaligned-share`) |
+| `people:*` | Kappa entre las dos personas, valor puntual de 0,6 o más. Es el techo de las etiquetas; con 26 unidades dobles su intervalo mide ±0,25 y mirar el límite inferior pediría un acuerdo casi perfecto |
+| `retest:area`, `retest:needs_person` | Límite inferior del kappa entre las dos corridas, de 0,6 o más |
+| `retest:unaligned_share` | Unidades de la repetición sin alinear, a lo más 0,2 |
+| `reference:unadjudicated` | Ninguna unidad con desacuerdo sin adjudicar |
+
+Falta algo si no hay segunda persona (`second_rater`) o no hay repetición (`retest`). Las dos corridas se emparejan por orden dentro de la unidad, sólo si encontraron el mismo número de pedidos. La extracción no es determinista: `claude -p` no fija semilla ni temperatura.
+
+El analizador del producto. La extracción y el analizador del producto son dos llamadas distintas, y el muro de un límite lo sostiene el analizador (`guards_touched`). `row-validation.mjs analyzer` compara, por límite y por unidad, lo que el analizador tocó con lo que las personas encontraron en la misma unidad: recall, precisión y kappa. Las respuestas del analizador para las unidades etiquetadas se recogen a mano por la API del producto (una línea `{ unit, guards_touched }` por unidad). Mientras no se mida, el kappa por límite de la extracción es un indicio y no una medida del muro.
+
+Qué cambia en el resto. `route-experiment.mjs` informa `validated` y `valid_for_acceptance`. Sus cifras sobre las filas se llaman `agreement_with_rows`, estén validadas o no. Con `--labels` enruta exactamente los pedidos de las unidades etiquetadas y agrega `agreement_with_labels` sobre esos mismos pedidos. Ese es el acierto.
+
+Estimación asistida por predicciones. Con pocas etiquetas y muchas predicciones baratas, la inferencia asistida por predicciones (Angelopoulos et al., 2023) estrecha el intervalo. El método no la adopta en 1.0. La medición del 2026-10-27 (`bench/area-method-ppi.mjs`) usa 78 pedidos etiquetados y una tasa verdadera de 0,8. Con 90 pedidos enrutados, el semiancho es 0,095 contra 0,089 del estimador clásico: no hay ganancia. Con 360 baja a 0,063 si la extracción acierta 0,85 de las veces, y a 0,050 si acierta 0,95. Con 3.600 llega a 0,049 y 0,029. Exige enrutar toda esa cantidad sin etiqueta, con una llamada cada una, y las etiquetas deben ser una muestra uniforme; las nuestras son estratificadas. El conjunto de ajuste de un corpus del tamaño del ejemplo tiene del orden de 90 pedidos.
 
 ## 4. Conjunto de áreas
 
@@ -283,6 +312,7 @@ Criterio de aceptación. Es un procedimiento manual: ningún guion lo ejecuta.
 
 ```
 node scripts/route-experiment.mjs rows.jsonl --holdout --purposes purposes.json --team team.json --stage tune --judge --out result.json
+node scripts/route-experiment.mjs rows.jsonl --holdout --purposes purposes.json --team team.json --stage tune --labels labels.jsonl --reference-rater ana --units units.jsonl --raw --validation validation.json --out result.json
 ```
 
 Un enrutador liviano lee sólo las descripciones de las áreas y los perfiles, y cada pedido de la muestra. Devuelve área, quién atiende y un encargo de una línea. El resultado se compara con la fila sin juez.
@@ -295,14 +325,14 @@ Lo que se construye y lo que se mide son filas distintas. `--holdout` reparte la
 | `agreement_with_rows.person` | Se incluye a una persona cuando la fila exige a una persona, y a ninguna cuando no. Si el valor es de una persona con nombre, esa persona debe estar entre las incluidas; otras de más no cuentan en contra. Si lo exige un límite y el valor es del modelo, sirve cualquier persona |
 | `person_extra`, `person_missing` | Se agregó una persona que no hacía falta, o no se incluyó ninguna cuando hacía falta |
 | `baselines` | Lo que obtienen enrutadores sin modelo sobre los mismos pedidos: siempre el área mayor de la construcción, siempre el agente solo y siempre quien pide |
-| `agreement_with_labels` | Con `--labels`, el acuerdo con las personas sobre los pedidos que etiquetaron |
-| `validated` | Si el informe de validación de la sección 3 pasó (`--validation`) |
+| `agreement_with_labels` | Con `--labels`, el acuerdo con las personas. Se calcula sobre exactamente los pedidos de las unidades que ellas etiquetaron y que la extracción escribió con el mismo número de pedidos, los mismos que usa `agreement_with_rows`. Trae sus propias líneas base y, con `--raw`, `raw`: la misma medida con el texto original de las unidades de un solo pedido en vez del resumen |
+| `validated`, `valid_for_acceptance` | Si el informe de validación de la sección 3 pasó (`--validation`). `valid_for_acceptance` exige además etiquetas de personas |
 | `confusions` | Pares de áreas que el enrutador confunde, con su conteo |
 | `indicators` | Con `--judge`, el promedio de cada uno de cuatro indicadores (1.1, 1.2, 2.3, 3.3) de −2 a +2 |
 
-Una tasa se lee junto a su línea base. En el ejemplo inventado, 69 % de los pedidos no exige a una persona. Un enrutador que elige siempre al agente solo acierta la persona en esa proporción, así que 0,8 aporta poco sobre 0,69. Con `--accept` el comando compara contra `agreement_with_labels` si existe y contra las filas si no.
+Una tasa se lee junto a su línea base. En el ejemplo inventado, 69 % de los pedidos no exige a una persona. Un enrutador que elige siempre al agente solo acierta la persona en esa proporción, así que 0,8 aporta poco sobre 0,69. 
 
-La muestra se estratifica por área. Cada área aporta 26 pedidos o todos los que tiene. Es la cuenta de la sección 3, que da un intervalo de Wilson de semiancho 0,15. Si `--sample` pide menos que 26 por área, el total sube y el resultado lo avisa. Lo que falta para llegar a `--sample` se sortea del resto. El sorteo es un barajado Fisher-Yates con semilla (Durstenfeld, 1964). Cada pedido pesa lo que pesa su área en el corpus. Las tasas globales usan esos pesos y su intervalo usa el tamaño efectivo de Kish (1965). Las filas de un área que se funde se miden contra el área en que se funde.
+Sin `--labels`, la muestra se estratifica por área. Cada área aporta 26 pedidos o todos los que tiene. Es la cuenta de la sección 3, que da un intervalo de Wilson de semiancho 0,15. Si `--sample` pide menos que 26 por área, el total sube y el resultado lo avisa. Lo que falta para llegar a `--sample` se sortea del resto. El sorteo es un barajado Fisher-Yates con semilla (Durstenfeld, 1964). Cada pedido pesa lo que pesa su área en el corpus. Las tasas globales usan esos pesos y su intervalo usa el tamaño efectivo de Kish (1965). Las filas de un área que se funde se miden contra el área en que se funde. Los pedidos de unidades confidenciales no se enrutan. Con `--labels` no hay sorteo. Se enrutan los pedidos etiquetados de la etapa y cada uno pesa lo que pesa el estrato de su unidad. Los avisos cubren las áreas con pocos pedidos y las unidades sin alinear.
 
 El resultado informa cuántos pedidos se pidieron, se sortearon y se descartaron. También trae avisos: un área con menos pedidos que los del intervalo, o un corpus menor que la muestra. `by_area` da la tasa de cada área con su intervalo, que es donde se ve una área chica. `merge_suggestions` lista los pares en que el enrutador confunde un área con otra más veces de las que la acierta.
 
@@ -310,7 +340,7 @@ Comparar dos versiones. `--versus otro-resultado.json` empareja los pedidos que 
 
 `--judge` usa por omisión el mismo modelo que enruta. Un modelo favorece lo que genera (sección 3), así que el resultado trae `judge.same_model` y, mientras sea verdadero, los indicadores se leen con esa reserva. `--judge-model` fija otro modelo. Los indicadores de un reparto miden la coherencia del reparto con el acuerdo. Son los indicadores 1.1, 1.2, 2.3 y 3.3 de la sección 11, aplicados a un reparto.
 
-`--accept <proporción>` hace fallar el comando si el área o la persona quedan por debajo. Sin él sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
+`--accept <proporción>` compara el límite inferior del intervalo de Wilson de área y de persona. Pide además que el límite inferior supere al mejor enrutador sin modelo de `baselines`. Un valor puntual que apenas toca el umbral pasa la mitad de las veces cuando la tasa verdadera es el umbral. Sin `--labels` la única referencia es la extracción. El comando sale con código 2, o con `--allow-unvalidated` compara contra las filas y marca el resultado como no válido. Sin `--accept` sólo se informan los números, porque el umbral es del equipo. La cuota que gasta una corrida se lee en el informe de uso del proveedor.
 
 Se corrige la descripción donde hay una confusión de dos casos o más. La corrección se prueba contra el conjunto de ajuste (`--stage tune`) y se repite hasta que una versión nueva ya no mejora el área ni la persona. Las descripciones se ajustan con una muestra y se confirman con otra. El conjunto de confirmación (`--stage confirm`) se lee una vez, al final, y no sirve para seguir corrigiendo.
 
@@ -433,7 +463,9 @@ Una prueba aplica el archivo dos veces sobre una base real y compara el estado y
 | `--sample` (experimento) | 26 por área | La misma cuenta; `--sample` fija el total y no baja de 26 por área |
 | `--min-border-confusions` | 2 | Una confusión aislada puede venir de una fila mal extraída; dos casos ya son un patrón. Es del equipo |
 | `--holdout` (experimento) | 0,5 | Partición 50 / 25 / 25 de Hastie, Tibshirani y Friedman (2009), sección 7.2 |
-| `--min-kappa` (validación) | 0,6 | Desde 0,61 el acuerdo es «sustancial» (Landis y Koch, 1977); es una convención y es del equipo |
+| `--min-kappa` (validación) | 0,6 | Desde 0,61 el acuerdo es «sustancial» (Landis y Koch, 1977); es una convención y es del equipo. Se aplica al límite inferior |
+| `--max-unaligned-share` (validación) | 0,2 | Perilla del equipo: con más de una unidad de cada cinco sin alinear, el kappa describe sólo la parte del corpus donde las dos lecturas ya coincidían en cuántos pedidos hay |
+| `--min-limit-positives` (validación) | 5 | Cortesía declarada: el kappa de una categoría con menos de 5 casos cambia con una sola etiqueta |
 | `--resamples` (validación) | 1000 | Al menos 1.000 remuestreos para intervalos por percentiles (Efron y Tibshirani, 1993) |
 | Tope de límites y de frases | 3 | Una descripción cabe en 1.024 caracteres (`TEMPLATE_DESCRIPTION_MAX`); no tiene opción |
 

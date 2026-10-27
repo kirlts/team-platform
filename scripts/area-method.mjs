@@ -48,6 +48,11 @@ export const DEFAULTS = Object.freeze({
   // Kappa that a field of the extraction needs against the people who read the same requests: 0.6 is where «substantial» agreement starts (Landis and Koch 1977,
   // Biometrics 33:159-174). It is the team's to raise; it is fixed before measuring.
   minKappa: 0.6,
+  // The retest must pair the requests of all but this share of the units. A team's knob: with more than one unit in five unpaired the second run does not reproduce the count of
+  // requests, and the kappa describes only the part of the corpus where the two runs already agreed on how many there were.
+  maxUnalignedShare: 0.2,
+  // A limit enters the gate of the validation when at least five requests of the sample touch it: the kappa of a rarer category swings with one label (declared courtesy of the team).
+  minLimitPositives: 5,
   // Resamples of the interval of a kappa: at least 1,000 for percentile intervals (Efron and Tibshirani 1993, An Introduction to the Bootstrap).
   resamples: 1000,
   // Share of the units kept out of the construction of descriptions and profiles. Half is held out and split again into a tuning set and a confirmation set, which gives
@@ -718,7 +723,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')

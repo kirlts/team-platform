@@ -18,7 +18,7 @@
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
-import { keyRows } from './row-validation.mjs'
+import { keyRows, referenceLabels, rowsByUnit, unitStrata } from './row-validation.mjs'
 import { KPIS } from '../src/execute/judge.js'
 
 // The four indicators that apply to a routing: the others judge a finished job.
@@ -122,11 +122,11 @@ export function scoreRouting (route, row, team) {
  * (no person), and always the person who asks (the agent when the one who asks is not a person). A measure of the routing means nothing without them
  * (docs/METODO-DE-REPARTO.md, section «Medir el reparto»).
  */
-export function baselines (sample, team, majorityArea) {
+export function baselines (sample, team, majorityArea, reference = (r) => r) {
   const agent = team.members.find((m) => m.kind === 'agent')?.name ?? team.members[0].name
   const people = new Set(team.members.filter((m) => (m.kind ?? 'person') === 'person').map((m) => m.name))
   const total = sample.reduce((t, r) => t + (r.weight ?? 1), 0)
-  const rate = (route) => total ? sample.filter((r) => scoreRouting(route(r), r, team)[route.field]).reduce((t, r) => t + (r.weight ?? 1), 0) / total : 0
+  const rate = (route) => total ? sample.filter((r) => scoreRouting(route(r), reference(r), team)[route.field]).reduce((t, r) => t + (r.weight ?? 1), 0) / total : 0
   const area = (r) => ({ area: majorityArea, attends: [agent] })
   area.field = 'area_agrees'
   const alone = (r) => ({ area: r.area, attends: [agent] })
@@ -147,11 +147,49 @@ export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, 
   return { load: spec, skipped, report, test: sets[stage], buildUnits: new Set(sets.build.map((r) => r.unit)), buildRows: sets.build, sets: { build: sets.build.length, tune: sets.tune.length, confirm: sets.confirm.length }, stage }
 }
 
-/** Runs the sample through the router (and the judge when asked). `provider.complete({ system, messages, schema, effort })`. */
-export async function runExperiment (rows, load, team, { provider, families = {}, size = null, perArea, merge = {}, judge = false, parallel = 6, seed = 7, held = null, buildUnits = null, buildRows = null, labels = [], validation = null, models = {} } = {}) {
+/**
+ * The sample when people have labeled units: exactly the requests of the labeled units of this pool, so that the router and the people look at the same requests. A unit counts when
+ * the extraction wrote as many rows as the person listed requests (they are paired by order; the others are `unaligned` and left out). Every request carries its `label`
+ * and the weight of its stratum (units of the pool in the stratum over labeled units in it). Confidential units are never routed.
+ */
+export function labeledSample (rows, reference, team, { merge = {} } = {}) {
+  const open = rows.filter((r) => !r.confidential)
+  const byUnit = rowsByUnit(open)
+  const strata = unitStrata([...byUnit.keys()], byUnit, team)
+  const population = new Map()
+  for (const st of strata.values()) population.set(st, (population.get(st) ?? 0) + 1)
+  const usable = [...reference.values()].filter((l) => byUnit.has(l.unit) && byUnit.get(l.unit).length === l.requests.length)
+  const labeled = new Map()
+  for (const l of usable) labeled.set(strata.get(l.unit), (labeled.get(strata.get(l.unit)) ?? 0) + 1)
+  const sample = usable.flatMap((l) => byUnit.get(l.unit).map((row, i) => ({ ...row, label: { ...l.requests[i], area: merge[l.requests[i].area] ?? l.requests[i].area }, unit_reference: l, weight: population.get(strata.get(l.unit)) / labeled.get(strata.get(l.unit)) })))
+  const outsideThePool = [...reference.values()].filter((l) => !byUnit.has(l.unit)).length
+  const unaligned = [...reference.values()].filter((l) => byUnit.has(l.unit) && byUnit.get(l.unit).length !== l.requests.length).length
+  return { sample, units: usable.length, unaligned, outsideThePool }
+}
+
+const labelRow = (row) => ({ ...row, area: row.label.area, value_holder: row.label.value_holder, holder: row.label.holder ?? '', limits: row.label.limits ?? [] })
+
+/**
+ * Runs the sample through the router (and the judge when asked). `provider.complete({ system, messages, schema, effort })`. With `reference` (the labels of people, from
+ * `referenceLabels`) it routes the labeled requests and reports the agreement with the people next to the agreement with the rows, on the same requests; `unitTexts` (unit id to
+ * `{ text, author }`) adds the same measure on the original text of the units that have a single request (`--raw`).
+ */
+export async function runExperiment (rows, load, team, { provider, families = {}, size = null, perArea, merge = {}, judge = false, parallel = 6, seed = 7, held = null, buildUnits = null, buildRows = null, reference = null, referenceRater = null, unitTexts = null, validation = null, models = {} } = {}) {
   validateTeam(team)
-  const drawn = drawSample(withAreas(rows, families), load, { size, merge, seed, ...(perArea ? { perArea } : {}) })
+  const tagged = withAreas(rows, families)
+  const labeledRun = reference ? labeledSample(tagged, reference, team, { merge }) : null
+  const loaded = new Set(load.areas.map((a) => a.title))
+  const drawn = labeledRun
+    ? { sample: labeledRun.sample.flatMap((r) => (loaded.has(r.area) ? [r] : loaded.has(merge[r.area]) ? [{ ...r, area: merge[r.area], area_before_merge: r.area }] : [])), discarded: labeledRun.sample.filter((r) => !loaded.has(r.area) && !loaded.has(merge[r.area])).length, merged: labeledRun.sample.filter((r) => !loaded.has(r.area) && loaded.has(merge[r.area])).length, confidential: rows.filter((r) => r.confidential).length, warnings: [] }
+    : drawSample(tagged, load, { size, merge, seed, ...(perArea ? { perArea } : {}) })
   const sample = drawn.sample
+  if (labeledRun) {
+    const perAreaNeeded = perArea ?? wilsonSampleSize(DEFAULTS.targetRate, DEFAULTS.halfWidth)
+    const counts = sample.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map())
+    for (const [area, n] of [...counts.entries()].sort()) if (n < perAreaNeeded) drawn.warnings.push({ kind: 'area_short', area, available: n, needed: perAreaNeeded })
+    if (labeledRun.unaligned) drawn.warnings.push({ kind: 'unaligned_units', units: labeledRun.unaligned })
+    if (labeledRun.outsideThePool) drawn.warnings.push({ kind: 'labels_outside_the_pool', units: labeledRun.outsideThePool })
+  }
   const system = routerPrompt(load, team)
   const schema = routerSchema(load, team)
   const out = []
@@ -161,6 +199,7 @@ export async function runExperiment (rows, load, team, { provider, families = {}
       const row = sample[next++]
       const route = (await provider.complete({ system, messages: [{ role: 'user', content: `Lo pide: ${row.who}\nPedido: ${row.summary}` }], schema, effort: 'low' })).json
       const result = { key: row.key, unit: row.unit, weight: row.weight, reference_area: row.area, area: route.area, attends: route.attends, brief: route.brief, ...scoreRouting(route, row, team) }
+      if (row.label) { const l = scoreRouting(route, labelRow(row), team); result.label_area_agrees = l.area_agrees; result.label_person_agrees = l.person_agrees }
       if (judge) {
         const j = (await provider.complete({ system: judgeSystem, messages: [{ role: 'user', content: `${referenceText(row, team)}\nReparto: área ${route.area}; atiende ${route.attends.join(', ')}; encargo: ${route.brief}` }], schema: judgeSchema(), effort: 'low' })).json
         result.indicators = Object.fromEntries((j?.indicators ?? []).map((k) => [k.id, k.score]))
@@ -169,19 +208,44 @@ export async function runExperiment (rows, load, team, { provider, families = {}
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(parallel, sample.length)) }, worker))
-  const reference = withAreas(buildRows ?? rows, families)
-  const largest = [...reference.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
-  const labelled = humanReference(out, sample, labels, team)
+  const referenceRows = withAreas(buildRows ?? rows, families)
+  const largest = [...referenceRows.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  const withLabels = out.filter((r) => 'label_area_agrees' in r)
+  const raw = labeledRun && unitTexts ? await routeRaw(sample, unitTexts, { provider, system, schema, team, load, parallel }) : null
+  const labelled = labeledRun ? {
+    n: withLabels.length, units: labeledRun.units, rater: referenceRater,
+    area: rateOf(withLabels.filter((r) => r.label_area_agrees), withLabels), person: rateOf(withLabels.filter((r) => r.label_person_agrees), withLabels),
+    baselines: baselines(sample.filter((r) => r.label), team, largest, labelRow), raw
+  } : null
   return {
     ...summarize(out),
     sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, confidential_left_out: drawn.confidential, merged: drawn.merged, warnings: drawn.warnings },
     validated: validation?.validated === true,
+    valid_for_acceptance: Boolean(labeledRun) && validation?.validated === true,
     baselines: baselines(sample, team, largest),
     agreement_with_labels: labelled,
     judge: judge ? { model: models.judge ?? null, router_model: models.router ?? null, same_model: Boolean(models.judge && models.judge === models.router) } : null,
     holdout: held,
     leaked_examples: leakedExamples(sample, load, buildUnits)
   }
+}
+
+/** The same measure on the ORIGINAL text of the units that have a single request: the router reads what a person wrote and not the summary the extractor wrote of it. */
+async function routeRaw (sample, unitTexts, { provider, system, schema, team, load, parallel }) {
+  const single = [...new Map(sample.filter((r) => r.label && sample.filter((x) => x.unit === r.unit).length === 1 && unitTexts.has(r.unit)).map((r) => [r.unit, r])).values()]
+  const out = []
+  let next = 0
+  const worker = async () => {
+    while (next < single.length) {
+      const row = single[next++]
+      const u = unitTexts.get(row.unit)
+      const route = (await provider.complete({ system, messages: [{ role: 'user', content: `Lo pide: ${u.author ?? row.who}\nPedido: ${u.text}` }], schema, effort: 'low' })).json
+      const l = scoreRouting(route, labelRow(row), team)
+      out.push({ weight: row.weight, area_agrees: l.area_agrees, person_agrees: l.person_agrees })
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(parallel, single.length)) }, worker))
+  return { n: out.length, area: rateOf(out.filter((r) => r.area_agrees), out), person: rateOf(out.filter((r) => r.person_agrees), out) }
 }
 
 /**
@@ -212,22 +276,6 @@ export function compareRuns (a, b) {
     return { only_first: onlyA, only_second: onlyB, p: Math.round(mcnemarExact(onlyA, onlyB) * 10000) / 10000 }
   }
   return { paired: pairs.length, area: block('area_agrees'), person: block('person_agrees') }
-}
-
-/**
- * The agreement with the labels of people, for the sampled requests that a person labeled (the first rater by name). The reference row is rebuilt from the label:
- * area, who holds the value, the limits it touches. It is the only measure of the routing that is not the extraction judged by itself.
- */
-export function humanReference (results, sample, labels, team) {
-  if (!labels.length) return null
-  const rater = [...new Set(labels.map((l) => l.rater))].sort()[0]
-  const byKey = new Map(labels.filter((l) => l.rater === rater).map((l) => [l.key, l]))
-  const scored = results.filter((r) => byKey.has(r.key)).map((r) => {
-    const l = byKey.get(r.key)
-    const row = sample.find((x) => x.key === r.key)
-    return { ...scoreRouting(r, { ...row, area: l.area, value_holder: l.value_holder, holder: l.holder ?? '', limits: l.limits ?? [] }, team), weight: r.weight }
-  })
-  return { rater, n: scored.length, area: rateOf(scored.filter((x) => x.area_agrees), scored), person: rateOf(scored.filter((x) => x.person_agrees), scored) }
 }
 
 /**
@@ -283,10 +331,27 @@ export function summarize (results) {
   }
 }
 
+/**
+ * Whether the result meets `--accept`. The threshold is read against the LOWER bound of the Wilson interval, and no lower than the best router with no model (always the largest
+ * area; always the agent alone or always the one who asks): a rate that does not beat them proves nothing, and a point value that only touches the threshold passes half of the time
+ * when the truth is the threshold. Without the labels of people the only reference is the extraction itself: code 2, unless `allowUnvalidated`, which compares against the rows and
+ * says the result is not valid.
+ */
+export function acceptDecision (result, accept, { allowUnvalidated = false } = {}) {
+  const labelled = result.agreement_with_labels
+  if (!labelled && !allowUnvalidated) return { code: 2, valid: false, message: '--accept necesita --labels: sin etiquetas de personas sólo hay acuerdo con la extracción. Con --allow-unvalidated se compara contra las filas y el resultado queda marcado como no válido.' }
+  const ref = labelled ?? { area: result.agreement_with_rows.area, person: result.agreement_with_rows.person, baselines: result.baselines }
+  const floorArea = Math.max(accept, ref.baselines.area_majority.rate)
+  const floorPerson = Math.max(accept, ref.baselines.person_agent_alone.rate, ref.baselines.person_asker.rate)
+  const passes = ref.area.lower >= floorArea && ref.person.lower >= floorPerson
+  const valid = Boolean(labelled) && result.valid_for_acceptance !== false
+  return { code: passes ? 0 : 1, valid, message: `--accept: límite inferior de área ${ref.area.lower.toFixed(2)} (piso ${floorArea.toFixed(2)}) y de persona ${ref.person.lower.toFixed(2)} (piso ${floorPerson.toFixed(2)})${labelled ? '' : ' contra las filas: resultado no válido'}${labelled && result.valid_for_acceptance === false ? '; las filas no están validadas' : ''}` }
+}
+
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl] [--validation validation.json] [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const { createClaudeCliProviders } = await import('../bench/claude-cli-provider.mjs')
@@ -294,6 +359,7 @@ async function main (argv) {
   const rows = keyRows(readJsonl(rowsFile))
   const team = readJson(option('--team'))
   const families = option('--families') ? readJson(option('--families')) : {}
+  const referenceInfo = option('--labels') ? referenceLabels(readJsonl(option('--labels')), { referenceRater: option('--reference-rater') ?? null }) : null
   let load
   let merge = {}
   let pool = rows
@@ -317,7 +383,9 @@ async function main (argv) {
   }
   const result = await runExperiment(pool, load, team, {
     provider, families, size: option('--sample') ? Number(option('--sample')) : null, merge, judge: rest.includes('--judge'), parallel: Number(option('--parallel', 6)), held, buildUnits, buildRows,
-    labels: option('--labels') ? readJsonl(option('--labels')) : [], validation: option('--validation') ? readJson(option('--validation')) : null,
+    reference: referenceInfo?.reference ?? null, referenceRater: referenceInfo?.main ?? null,
+    unitTexts: rest.includes('--raw') && option('--units') ? new Map(readJsonl(option('--units')).map((u) => [u.id, { text: u.text, author: u.author }])) : null,
+    validation: option('--validation') ? readJson(option('--validation')) : null,
     models: { router: option('--model', 'claude-haiku-5-5'), judge: option('--judge-model', option('--model', 'claude-haiku-5-5')) }
   })
   if (option('--versus')) result.comparison = compareRuns(result, readJson(option('--versus')))
@@ -326,9 +394,11 @@ async function main (argv) {
   const a = result.agreement_with_rows
   console.error(`acuerdo con las filas: área ${a.area.k}/${result.n}, persona ${a.person.k}/${result.n} (de más ${a.person_extra}, de menos ${a.person_missing}); sin modelo: área ${result.baselines.area_majority.rate.toFixed(2)}, persona ${result.baselines.person_agent_alone.rate.toFixed(2)}`)
   if (!result.validated) console.error('Las filas no están validadas por personas (row-validation.mjs): el número es el acuerdo con la extracción, no el acierto.')
-  const accept = option('--accept')
-  const reference = result.agreement_with_labels ?? a
-  if (accept !== undefined && (reference.area.rate < Number(accept) || reference.person.rate < Number(accept))) process.exit(1)
+  if (option('--accept') !== undefined) {
+    const decision = acceptDecision(result, Number(option('--accept')), { allowUnvalidated: rest.includes('--allow-unvalidated') })
+    console.error(decision.message)
+    if (decision.code) process.exit(decision.code)
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main(process.argv.slice(2))

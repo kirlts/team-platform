@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Writes `rows.jsonl`, the invented corpus of the routing method (a small online shop of bicycle parts). Every value is invented; run it to regenerate the file:
+// Writes `rows.jsonl` and `corpus-units.jsonl`, the invented corpus of the routing method (a small online shop of bicycle parts): the requests an extractor found, and the texts they
+// came from, including messages with no request. Every value is invented; run it to regenerate both files:
 //
-//   node bench/fixtures/area-method/generate.mjs > bench/fixtures/area-method/rows.jsonl
+//   node bench/fixtures/area-method/generate.mjs
 //
 // The corpus is not separable on purpose, so that the tests exercise confusions and not only the happy path:
 //   - 12 % of the requests of an area are phrased with the words of a neighbouring area («el costo de envío de un producto» belongs to the catalog), and one in four
@@ -9,6 +10,8 @@
 //   - 5 % of the rows carry the object of a neighbour, the way an extractor errs on an ambiguous summary;
 //   - the dimensions are drawn around the mean of the intent with a standard deviation of 0.12, and some rows have no stated maximize or sacrifice;
 //   - 15 % of the units hold two requests, and 8 % of the rows come from a recorded meeting (confidential).
+import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { seededRandom } from '../../../scripts/area-method.mjs'
 
 const rand = seededRandom(20261026)
@@ -104,4 +107,22 @@ for (let i = 0; i < requests.length;) {
   }
   i += size
 }
-process.stdout.write(`${rows.map((r) => JSON.stringify(r)).join('\n')}\n`)
+const here = (name) => fileURLToPath(new URL(name, import.meta.url))
+writeFileSync(here('rows.jsonl'), `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`)
+
+// The texts. Another generator, so that the rows above do not change when the texts do. A unit's text says each of its requests in a sentence with some conversation around it;
+// messages with no request are greetings and thanks, which an extractor leaves out.
+const talk = seededRandom(20261027)
+const choose = (list) => list[Math.floor(talk() * list.length)]
+const OPEN = ['Hola equipo.', 'Buen día.', 'Les escribo por esto.', 'Una cosa antes de seguir.', '']
+const CLOSE = ['Gracias.', 'Avísenme cuando esté.', 'Quedo atento.', '']
+const byUnit = new Map()
+for (const r of rows) byUnit.set(r.unit, [...(byUnit.get(r.unit) ?? []), r])
+const texts = [...byUnit.entries()].map(([id, list]) => ({
+  id, source: list[0].source, date: list[0].date, author: list[0].who, confidential: list[0].confidential,
+  text: [choose(OPEN), ...list.map((r) => `${r.summary}.`), choose(CLOSE)].filter(Boolean).join(' ')
+}))
+for (let i = 1; i <= 60; i++) {
+  texts.push({ id: `z${String(i).padStart(3, '0')}`, source: 'chat del equipo', date: new Date(start + Math.floor(talk() * 56 * 86400000)).toISOString().slice(0, 10), author: choose(['Ana', 'Beto', 'Carla']), confidential: false, text: choose(['Gracias por todo.', 'Buen día equipo.', 'Recibido, gracias.', 'Perfecto, nos vemos el lunes.', 'Jajaja buenísimo.']) })
+}
+writeFileSync(here('corpus-units.jsonl'), `${texts.map((t) => JSON.stringify(t)).join('\n')}\n`)

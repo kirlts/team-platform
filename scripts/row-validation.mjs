@@ -1,17 +1,22 @@
 #!/usr/bin/env node
-// Validates the rows of the extraction against people before any measure of the method counts.
+// Validates the extraction against people who read the ORIGINAL text, before any measure of the method counts as accuracy.
 //
-//   node scripts/row-validation.mjs sample rows.jsonl --team team.json [--families f.json] --out sample.jsonl
-//   node scripts/row-validation.mjs agree  rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--retest rows2.jsonl] [--min-kappa 0.6] [--out validation.json]
+//   node scripts/row-validation.mjs sample   --units units.jsonl --rows rows.jsonl --team team.json [--families f.json] [--stage all|tune|confirm] [--holdout 0.5]
+//                                            [--target-rate 0.8] [--half-width 0.15] [--with-text] --out sample.jsonl
+//   node scripts/row-validation.mjs agree    --units units.jsonl --rows rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--stage ...]
+//                                            [--reference-rater name] [--retest rows2.jsonl] [--min-kappa 0.6] [--max-unaligned-share 0.2] [--waive limit:id] [--min-limit-positives 5] [--resamples 1000] [--out validation.json]
+//   node scripts/row-validation.mjs analyzer --units units.jsonl --labels labels.jsonl --analysis analysis.jsonl --team team.json [--reference-rater name] [--out analyzer.json]
 //
-// `sample` draws a stratified sample of the rows that are not confidential and writes one line per request, with the summary that identifies it and none of the fields
-// the extractor estimated, so a person labels it blind. `labels.jsonl` has one line per label: `{ key, rater, area, value_holder, limits }` (`value_holder` is
-// `person` or `model`, `limits` the ids of the limits of the team the request touches). Every request of the sample is labeled by the first rater and the requests
-// marked `double` by a second one. `agree` computes the agreement between the extraction and the people, between two people, and between two runs of the extraction.
+// `sample` draws UNITS, not summaries: a person reads the original text of each unit and lists the requests in it, so a request the extractor left out, split badly or made up is seen.
+// The sample file names the unit; the text stays in `units.jsonl` (`--with-text` writes it into the sheet for working locally). `labels.jsonl` has one line per unit and rater:
+// `{ unit, rater, requests: [{ area, value_holder, limits }] }`, the requests in the order of the text. `agree` measures what the extraction found against what the people found
+// (requests left out and made up, and the agreement of area, value holder, whether a person is needed and each limit), the agreement between two people, and between two runs of
+// the extraction. `analyzer` does the same for the guards that the product's analyzer touched (`guards_touched`), whose answers are collected from the API by hand.
 // Why this exists and how to read it: docs/METODO-DE-REPARTO.md, section «Validar las filas».
-import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, areaTitle, hiddenAreas, readJson, readJsonl, requiresPerson, seededRandom, shuffle, validateRows, validateTeam, wilsonSampleSize, withAreas } from './area-method.mjs'
+import { DEFAULTS, areaTitle, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, validateRows, validateTeam, wilson, wilsonSampleSize } from './area-method.mjs'
 
 /** The rows with a `key` that names each request: the unit and the order of the request inside the unit, in the order of the file. */
 export function keyRows (rows) {
@@ -23,45 +28,85 @@ export function keyRows (rows) {
   })
 }
 
-/** The sizes of the validation: requests per area, and requests labeled twice. Both come from the interval count of `wilsonSampleSize`, not from a round number. */
+/** The sizes of the validation: units per stratum, and units labeled twice. Both come from the interval count of `wilsonSampleSize`, not from a round number. */
 export function validationSizes ({ targetRate = DEFAULTS.targetRate, halfWidth = DEFAULTS.halfWidth, z = DEFAULTS.z } = {}) {
   const n = wilsonSampleSize(targetRate, halfWidth, z)
-  return { per_area: n, double: n }
+  return { per_stratum: n, double: n }
 }
 
-const stratumOf = (row, team) => `${row.area}|${requiresPerson(row, team) ? 'person' : 'model'}`
+// ---- units, strata and stages
+export function rowsByUnit (rows) {
+  const by = new Map()
+  for (const r of rows) by.set(r.unit, [...(by.get(r.unit) ?? []), r])
+  return by
+}
 
 /**
- * A stratified sample for the people who label. Strata: area, and whether the request needs a person (the extraction says so, and only to choose: the estimates
- * use the weights of the strata). Each area gets `per_area` requests split in two halves; when a half does not have that many rows the other takes the rest.
- * Only rows that are not confidential are drawn; the rows of a confidential unit are read by a person without a sample (docs, section «Material de partida»).
+ * The stratum of every unit: `zero` when the extraction found no request in it (where a request left out hides), otherwise the rarest limit of the team that one of its
+ * requests touches (`limit:<id>`, rarest by number of units, so that a rare limit has its own cases), or `none`. The strata are disjoint, which is what lets a weight per stratum
+ * (units in the population over units labeled) give unbiased estimates.
  */
-export function drawValidationSample (rows, team, { families = {}, seed = DEFAULTS.seed, ...knobs } = {}) {
-  validateTeam(team)
+export function unitStrata (unitIds, byUnit, team) {
+  const touches = (id) => new Set((byUnit.get(id) ?? []).flatMap((r) => r.limits ?? []))
+  const count = Object.fromEntries((team.limits ?? []).map((l) => [l.id, unitIds.filter((id) => touches(id).has(l.id)).length]))
+  return new Map(unitIds.map((id) => {
+    if (!(byUnit.get(id) ?? []).length) return [id, 'zero']
+    const mine = (team.limits ?? []).filter((l) => touches(id).has(l.id)).sort((a, b) => count[a.id] - count[b.id] || a.id.localeCompare(b.id))
+    return [id, mine.length ? `limit:${mine[0].id}` : 'none']
+  }))
+}
+
+/**
+ * The stage a unit belongs to. Units with requests take the stage that `splitUnits` gave them. A unit with none has no row to be split by, so it takes one from a hash of its id and the seed
+ * with the same proportions: the sample of a stage and the experiment of that stage agree on which units are in it.
+ */
+export function stageMap (rows, unitIds, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
+  const sets = splitUnits(rows, { holdout, seed })
+  const stage = new Map()
+  for (const [name, list] of Object.entries(sets)) for (const r of list) stage.set(r.unit, name)
+  for (const id of unitIds) {
+    if (stage.has(id)) continue
+    const u = parseInt(createHash('sha256').update(`${seed}:${id}`).digest('hex').slice(0, 8), 16) / 0x100000000
+    stage.set(id, u < 1 - holdout ? 'build' : u < 1 - holdout / 2 ? 'tune' : 'confirm')
+  }
+  return stage
+}
+
+function candidates (units, rows, team, { stage = 'all', holdout, splitSeed, families = {} } = {}) {
   validateRows(rows)
-  const hidden = hiddenAreas(rows, families)
-  const tagged = keyRows(withAreas(rows, families, hidden)).filter((r) => !r.confidential && !hidden.has(r.area))
+  const open = units.filter((u) => !u.confidential)
+  const ids = units.map((u) => u.id)
+  const byUnit = rowsByUnit(rows)
+  const stages = stage === 'all' ? null : stageMap(rows, ids, { holdout, seed: splitSeed })
+  const chosen = open.filter((u) => !stages || stages.get(u.id) === stage)
+  const strata = unitStrata(chosen.map((u) => u.id), byUnit, team)
+  return { chosen, strata, byUnit, families }
+}
+
+/**
+ * The sample for the people who label: units of one stage (or all), `per_stratum` of each stratum (or all it has), and `double` of them marked for a second person. Only units
+ * that are not confidential are drawn; the confidential ones are read by a person without a sample.
+ */
+export function drawValidationSample (units, rows, team, { stage = 'all', holdout = DEFAULTS.holdout, splitSeed = DEFAULTS.seed, seed = DEFAULTS.seed, withText = false, families = {}, ...knobs } = {}) {
+  validateTeam(team)
+  const { chosen, strata } = candidates(units, rows, team, { stage, holdout, splitSeed, families })
   const sizes = validationSizes(knobs)
   const rand = seededRandom(seed)
-  const chosen = []
+  const picked = []
   const short = []
-  for (const area of [...new Set(tagged.map((r) => r.area))].sort()) {
-    const pools = ['person', 'model'].map((kind) => shuffle(tagged.filter((r) => stratumOf(r, team) === `${area}|${kind}`), rand))
-    const half = Math.ceil(sizes.per_area / 2)
-    const take = pools.map((p) => Math.min(p.length, half))
-    let spare = sizes.per_area - take[0] - take[1] // a half that has fewer rows than it should hand its quota to the other half
-    for (let i = 0; i < 2 && spare > 0; i++) { const extra = Math.min(pools[i].length - take[i], spare); take[i] += extra; spare -= extra }
-    const picked = pools.flatMap((p, i) => p.slice(0, take[i]))
-    if (picked.length < sizes.per_area) short.push({ area, available: tagged.filter((r) => r.area === area).length, needed: sizes.per_area })
-    chosen.push(...picked)
+  for (const name of [...new Set(strata.values())].sort()) {
+    const pool = shuffle(chosen.filter((u) => strata.get(u.id) === name), rand)
+    if (pool.length < sizes.per_stratum) short.push({ stratum: name, available: pool.length, needed: sizes.per_stratum })
+    picked.push(...pool.slice(0, sizes.per_stratum).map((u) => ({ u, stratum: name })))
   }
-  const doubled = new Set(shuffle(chosen.map((r) => r.key), rand).slice(0, sizes.double))
+  const doubled = new Set(shuffle(picked.map((p) => p.u.id), rand).slice(0, sizes.double))
   return {
-    items: chosen.map((r) => ({ key: r.key, unit: r.unit, date: r.date, summary: r.summary, double: doubled.has(r.key) })),
-    sizes, short
+    items: picked.map(({ u, stratum }) => ({ unit: u.id, source: u.source ?? '', date: u.date ?? '', stratum, double: doubled.has(u.id), ...(withText ? { text: u.text } : {}) })),
+    sizes, short, stage
   }
 }
 
+// ---- kappa and the bootstrap by unit
 /** Cohen's kappa (1960, Educ. Psychol. Meas. 20:37-46) of pairs `{ a, b, w }` with weights: the observed agreement against the one expected from the marginals. */
 export function weightedKappa (pairs) {
   const total = pairs.reduce((s, p) => s + p.w, 0)
@@ -75,24 +120,39 @@ export function weightedKappa (pairs) {
   return { kappa: (observed - expected) / (1 - expected), observed, expected }
 }
 
-/** The kappa with a percentile interval from a bootstrap that resamples inside each stratum, seeded. */
-export function kappaWithInterval (items, { resamples = DEFAULTS.resamples, seed = DEFAULTS.seed } = {}) {
-  const point = weightedKappa(items)
-  if (point.kappa === null) return { ...point, lower: null, upper: null, n: 0 }
+const round3 = (x) => Math.round(x * 1000) / 1000
+
+/**
+ * Percentile interval of a statistic of `items` (each with `unit` and `stratum`) by a seeded bootstrap that resamples UNITS inside each stratum: the requests of one unit
+ * share text and author and are not independent, so they travel together.
+ */
+export function bootstrapByUnit (items, statistic, { resamples = DEFAULTS.resamples, seed = DEFAULTS.seed } = {}) {
   const rand = seededRandom(seed)
-  const byStratum = new Map()
-  for (const it of items) byStratum.set(it.stratum, [...(byStratum.get(it.stratum) ?? []), it])
+  const strata = new Map()
+  for (const it of items) {
+    const units = strata.get(it.stratum) ?? new Map()
+    units.set(it.unit, [...(units.get(it.unit) ?? []), it])
+    strata.set(it.stratum, units)
+  }
+  const groups = [...strata.values()].map((units) => [...units.values()])
   const draws = []
   for (let b = 0; b < resamples; b++) {
     const sample = []
-    for (const group of byStratum.values()) for (let i = 0; i < group.length; i++) sample.push(group[Math.floor(rand() * group.length)])
-    const k = weightedKappa(sample).kappa
-    if (k !== null) draws.push(k)
+    for (const g of groups) for (let i = 0; i < g.length; i++) sample.push(...g[Math.floor(rand() * g.length)])
+    const v = statistic(sample)
+    if (v !== null && Number.isFinite(v)) draws.push(v)
   }
   draws.sort((x, y) => x - y)
+  if (!draws.length) return { lower: null, upper: null }
   const at = (q) => draws[Math.min(draws.length - 1, Math.max(0, Math.floor(q * draws.length)))]
-  const round = (x) => Math.round(x * 1000) / 1000
-  return { kappa: round(point.kappa), observed: round(point.observed), lower: round(at(0.025)), upper: round(at(0.975)), n: items.length }
+  return { lower: round3(at(0.025)), upper: round3(at(0.975)) }
+}
+
+/** The kappa of weighted items with a bootstrap interval by unit. */
+export function kappaWithInterval (items, knobs = {}) {
+  const point = weightedKappa(items)
+  if (point.kappa === null) return { ...point, lower: null, upper: null, n: 0 }
+  return { kappa: round3(point.kappa), observed: round3(point.observed), ...bootstrapByUnit(items, (s) => weightedKappa(s).kappa, knobs), n: items.length }
 }
 
 const FIELDS = {
@@ -101,75 +161,142 @@ const FIELDS = {
   needs_person: (x, team) => String(requiresPerson(x, team))
 }
 
-/** The agreement of one field between two sources over keyed items `{ key, stratum, w, left, right }`. */
-function fieldAgreement (items, field, team, knobs) {
-  const pairs = items.map((it) => ({ a: field(it.left, team), b: field(it.right, team), w: it.w, stratum: it.stratum }))
-  return kappaWithInterval(pairs, knobs)
+function agreementBlock (items, team, knobs) {
+  const field = (f) => kappaWithInterval(items.map((it) => ({ ...it, a: f(it.left, team), b: f(it.right, team) })), knobs)
+  return {
+    area: field(FIELDS.area), value_holder: field(FIELDS.value_holder), needs_person: field(FIELDS.needs_person),
+    limits: Object.fromEntries((team.limits ?? []).map((l) => {
+      const touches = (x) => String((x.limits ?? []).includes(l.id))
+      return [l.id, { ...kappaWithInterval(items.map((it) => ({ ...it, a: touches(it.left), b: touches(it.right) })), knobs), positives: items.filter((it) => it.left.limits?.includes(l.id) || it.right.limits?.includes(l.id)).length }]
+    }))
+  }
 }
 
-const limitAgreements = (items, team, knobs) => Object.fromEntries((team.limits ?? []).map((l) => {
-  const touches = (x) => String((x.limits ?? []).includes(l.id))
-  const pairs = items.map((it) => ({ a: touches(it.left), b: touches(it.right), w: it.w, stratum: it.stratum }))
-  return [l.id, kappaWithInterval(pairs, knobs)]
-}))
+// ---- the reference of the people
+/** The ADJUDICATED rater: a person who reads the labels of two raters on a unit and writes the one that is right. */
+export const ADJUDICATOR = 'adjudicated'
 
-const agreementBlock = (items, team, knobs) => ({
-  area: fieldAgreement(items, FIELDS.area, team, knobs),
-  value_holder: fieldAgreement(items, FIELDS.value_holder, team, knobs),
-  needs_person: fieldAgreement(items, FIELDS.needs_person, team, knobs),
-  limits: limitAgreements(items, team, knobs)
-})
+const sameRequests = (a, b) => a.length === b.length && a.every((x, i) => x.area === b[i].area && x.value_holder === b[i].value_holder && JSON.stringify([...(x.limits ?? [])].sort()) === JSON.stringify([...(b[i].limits ?? [])].sort()))
 
 /**
- * The agreement between the extraction and the people (kappa of area, value holder, whether a person is needed and each limit, weighted by the strata of the sample), the
- * agreement between two people on the requests they both labeled, and, with a second run of the extraction, the agreement between the two runs.
+ * The reference label of every unit, by a procedure that does not depend on the names of the raters. `referenceRater` is the person who labeled the whole sample. Where a second
+ * person labeled the same unit: if they list the same requests the label stands; if they differ it is the label of an `adjudicated` rater, and with none the unit is left out of
+ * the reference (counted in `unadjudicated`), because there is no way to say which of the two is right. With two people and no `referenceRater` it throws.
  */
-export function agreement (rows, labels, team, { families = {}, minKappa = DEFAULTS.minKappa, resamples = DEFAULTS.resamples, seed = DEFAULTS.seed, retest = null } = {}) {
+export function referenceLabels (labels, { referenceRater = null } = {}) {
+  const people = [...new Set(labels.map((l) => l.rater).filter((r) => r !== ADJUDICATOR))].sort()
+  if (people.length === 0) throw new Error('The labels file has no labels from a person.')
+  if (people.length > 1 && !referenceRater) throw new Error(`Two or more raters (${people.join(', ')}): name the one who labeled the whole sample with --reference-rater. The order of their names decides nothing.`)
+  const main = referenceRater ?? people[0]
+  if (!people.includes(main)) throw new Error(`The reference rater ${main} has no labels.`)
+  const second = people.find((r) => r !== main) ?? null
+  const find = (rater, unit) => labels.find((l) => l.rater === rater && l.unit === unit)
+  const reference = new Map()
+  let unadjudicated = 0
+  for (const l of labels.filter((x) => x.rater === main)) {
+    const other = second ? find(second, l.unit) : null
+    const judged = find(ADJUDICATOR, l.unit)
+    if (judged) reference.set(l.unit, judged)
+    else if (!other || sameRequests(l.requests, other.requests)) reference.set(l.unit, l)
+    else unadjudicated++
+  }
+  return { reference, main, second, unadjudicated, find }
+}
+
+// ---- the agreement
+const rowLabel = (r, families) => ({ area: areaTitle(r, families), value_holder: r.value_holder, limits: r.limits ?? [] })
+
+/**
+ * What the extraction found against what the people found, for the labeled units. Per unit, the requests the person listed (`p`) and the rows the extraction wrote (`r`): the ones
+ * in excess are made up and the ones missing are left out (`recall` and `precision` of the extraction, by request). Where the counts agree the requests are paired by order and
+ * their area, value holder and limits are compared with Cohen's kappa. A unit whose counts differ is `unaligned` and cannot be paired; its share is a rule of the gate.
+ * Every estimate weighs a unit by its stratum (units in the stage over units labeled) and its interval resamples units.
+ *
+ * The gate is on the LOWER bound of the interval of each kappa, not on the point value: with 78 labels the interval is about 0.29 wide and a point value of 0.6 passes 45 % of the
+ * time when the true kappa is 0.6 (bench/area-method-kappa.mjs). `minKappa` is the floor that lower bound must reach, fixed by the team before measuring. The agreement between
+ * two people is the ceiling of the labels: its point value reaches the same floor (with 26 units labeled twice its interval is too wide to gate on). The recall and the precision of
+ * the extraction reach `targetRate` as point values (their lower bound is printed). A limit enters the gate when at least `minLimitPositives` requests of the sample touch it; one
+ * with fewer is listed and fails unless it is waived by name. `validated` is true only when every rule holds, nothing is missing and the reference has no unadjudicated unit.
+ */
+export function agreement (units, rows, labels, team, { families = {}, stage = 'all', holdout = DEFAULTS.holdout, splitSeed = DEFAULTS.seed, seed = DEFAULTS.seed, minKappa = DEFAULTS.minKappa, targetRate = DEFAULTS.targetRate, resamples = DEFAULTS.resamples, retest = null, referenceRater = null, maxUnalignedShare = DEFAULTS.maxUnalignedShare, minLimitPositives = DEFAULTS.minLimitPositives, waive = [] } = {}) {
   validateTeam(team)
-  const hidden = hiddenAreas(rows, families)
-  const tagged = keyRows(withAreas(rows, families, hidden)).filter((r) => !r.confidential && !hidden.has(r.area))
-  const byKey = new Map(tagged.map((r) => [r.key, r]))
+  const { chosen, strata, byUnit } = candidates(units, rows, team, { stage, holdout, splitSeed, families })
   const population = new Map()
-  for (const r of tagged) { const k = stratumOf(r, team); population.set(k, (population.get(k) ?? 0) + 1) }
-  const raters = [...new Set(labels.map((l) => l.rater))].sort()
-  if (raters.length === 0) throw new Error('The labels file has no labels.')
-  const labelOf = (rater, key) => labels.find((l) => l.rater === rater && l.key === key)
-  const first = raters[0]
-  const labeled = labels.filter((l) => l.rater === first && byKey.has(l.key))
-  const sampleOfStratum = new Map()
-  for (const l of labeled) { const k = stratumOf(byKey.get(l.key), team); sampleOfStratum.set(k, (sampleOfStratum.get(k) ?? 0) + 1) }
-  const items = labeled.map((l) => {
-    const row = byKey.get(l.key)
-    const stratum = stratumOf(row, team)
-    return { key: l.key, stratum, w: population.get(stratum) / sampleOfStratum.get(stratum), left: row, right: { area: l.area, value_holder: l.value_holder, limits: l.limits ?? [] } }
-  })
+  for (const id of chosen.map((u) => u.id)) population.set(strata.get(id), (population.get(strata.get(id)) ?? 0) + 1)
+  const { reference, main, second, unadjudicated, find } = referenceLabels(labels, { referenceRater })
+  const inSample = [...reference.values()].filter((l) => strata.has(l.unit))
+  const labeledOf = new Map()
+  for (const l of inSample) labeledOf.set(strata.get(l.unit), (labeledOf.get(strata.get(l.unit)) ?? 0) + 1)
   const knobs = { resamples, seed }
+  const items = []
+  const counts = []
+  let unaligned = 0
+  for (const l of inSample) {
+    const stratum = strata.get(l.unit)
+    const w = population.get(stratum) / labeledOf.get(stratum)
+    const mine = (byUnit.get(l.unit) ?? []).map((r) => rowLabel(r, families))
+    counts.push({ unit: l.unit, stratum, w, p: l.requests.length, r: mine.length })
+    if (mine.length !== l.requests.length) { unaligned++; continue }
+    mine.forEach((left, i) => items.push({ unit: l.unit, stratum, w, left, right: l.requests[i] }))
+  }
   const extraction = agreementBlock(items, team, knobs)
+  const rate = (sample, num, den) => { const d = sample.reduce((s, c) => s + c.w * den(c), 0); return d > 0 ? sample.reduce((s, c) => s + c.w * num(c), 0) / d : null }
+  const matched = (c) => Math.min(c.p, c.r)
+  const exhaustiveness = {
+    units: counts.length, requests_by_people: counts.reduce((s, c) => s + c.p, 0), rows: counts.reduce((s, c) => s + c.r, 0),
+    omitted: counts.reduce((s, c) => s + Math.max(0, c.p - c.r), 0), invented: counts.reduce((s, c) => s + Math.max(0, c.r - c.p), 0),
+    recall: { value: round3(rate(counts, matched, (c) => c.p) ?? 0), ...bootstrapByUnit(counts, (s) => rate(s, matched, (c) => c.p), knobs) },
+    precision: { value: round3(rate(counts, matched, (c) => c.r) ?? 0), ...bootstrapByUnit(counts, (s) => rate(s, matched, (c) => c.r), knobs) },
+    unaligned_units: unaligned, unaligned_share: counts.length ? round3(unaligned / counts.length) : 0
+  }
   let humans = null
-  if (raters.length > 1) {
-    const both = labeled.map((l) => [l, labelOf(raters[1], l.key)]).filter(([, b]) => b)
-    humans = both.length ? agreementBlock(both.map(([a, b]) => ({ key: a.key, stratum: stratumOf(byKey.get(a.key), team), w: 1, left: a, right: b })), team, knobs) : null
+  let peopleUnaligned = 0
+  if (second) {
+    const both = labels.filter((l) => l.rater === main).map((l) => [l, find(second, l.unit)]).filter(([, b]) => b)
+    const pairs = []
+    for (const [a, b] of both) {
+      if (a.requests.length !== b.requests.length) { peopleUnaligned++; continue }
+      a.requests.forEach((left, i) => pairs.push({ unit: a.unit, stratum: 'people', w: 1, left, right: b.requests[i] }))
+    }
+    humans = pairs.length ? { units: both.length, unaligned_units: peopleUnaligned, ...agreementBlock(pairs, team, knobs) } : null
   }
   const run = retest ? testRetest(rows, retest, team, { families, resamples, seed }) : null
-  const kappas = { area: extraction.area.kappa, value_holder: extraction.value_holder.kappa, needs_person: extraction.needs_person.kappa, ...(run ? { retest_area: run.area.kappa, retest_needs_person: run.needs_person.kappa } : {}) }
+  const rules = []
+  const lowerRule = (name, k) => rules.push({ name, kappa: k.kappa, lower: k.lower, floor: minKappa, on: 'lower', pass: k.lower !== null && k.lower >= minKappa })
+  for (const name of ['area', 'value_holder', 'needs_person']) lowerRule(name, extraction[name])
+  for (const l of team.limits ?? []) {
+    const k = extraction.limits[l.id]
+    if (k.positives >= minLimitPositives) lowerRule(`limit:${l.id}`, k)
+    else rules.push({ name: `limit:${l.id}`, positives: k.positives, needed: minLimitPositives, waived: waive.includes(`limit:${l.id}`), pass: waive.includes(`limit:${l.id}`), note: 'too few cases in the sample to measure it' })
+  }
+  rules.push({ name: 'extraction:recall', value: exhaustiveness.recall.value, lower: exhaustiveness.recall.lower, floor: targetRate, on: 'point', pass: exhaustiveness.recall.value >= targetRate })
+  rules.push({ name: 'extraction:precision', value: exhaustiveness.precision.value, lower: exhaustiveness.precision.lower, floor: targetRate, on: 'point', pass: exhaustiveness.precision.value >= targetRate })
+  rules.push({ name: 'extraction:unaligned_share', value: exhaustiveness.unaligned_share, ceiling: maxUnalignedShare, pass: exhaustiveness.unaligned_share <= maxUnalignedShare })
+  if (humans) for (const name of ['area', 'value_holder', 'needs_person']) rules.push({ name: `people:${name}`, kappa: humans[name].kappa, lower: humans[name].lower, floor: minKappa, on: 'point', pass: humans[name].kappa !== null && humans[name].kappa >= minKappa })
+  if (run) {
+    lowerRule('retest:area', run.area)
+    lowerRule('retest:needs_person', run.needs_person)
+    rules.push({ name: 'retest:unaligned_share', value: run.unaligned_share, ceiling: maxUnalignedShare, pass: run.unaligned_share <= maxUnalignedShare })
+  }
+  rules.push({ name: 'reference:unadjudicated', value: unadjudicated, ceiling: 0, pass: unadjudicated === 0 })
   const missing = [...(run ? [] : ['retest']), ...(humans ? [] : ['second_rater'])]
-  const failing = Object.entries(kappas).filter(([, k]) => !(k >= minKappa)).map(([name]) => name)
+  const failing = rules.filter((r) => !r.pass).map((r) => r.name)
   return {
     validated: failing.length === 0 && missing.length === 0,
-    min_kappa: minKappa, failing, missing,
-    sample: { labeled: items.length, strata: Object.fromEntries([...population.entries()].map(([k, N]) => [k, { rows: N, labeled: sampleOfStratum.get(k) ?? 0 }])), raters },
-    extraction_vs_people: extraction, between_people: humans, retest: run
+    min_kappa: minKappa, rules, failing, missing,
+    reference: { rater: main, second_rater: second, adjudicated: labels.filter((l) => l.rater === ADJUDICATOR).length, unadjudicated },
+    sample: { stage, labeled_units: inSample.length, strata: Object.fromEntries([...population.entries()].map(([k, N]) => [k, { units: N, labeled: labeledOf.get(k) ?? 0 }])) },
+    extraction_vs_people: { ...extraction, exhaustiveness }, between_people: humans, retest: run
   }
 }
 
 /**
  * The agreement between two runs of the extraction over the same units. Requests are paired by order inside a unit, and only when both runs found the same number
- * of requests there: when they differ, the unit is reported as unaligned and does not enter the kappa. The kappa is unweighted: every aligned request counts once.
+ * of requests there: when they differ, the unit is reported as unaligned and does not enter the kappa (`unaligned_share` says how many were left out). The kappa is unweighted.
  */
 export function testRetest (rowsA, rowsB, team, { families = {}, resamples = DEFAULTS.resamples, seed = DEFAULTS.seed } = {}) {
-  const group = (rows) => { const m = new Map(); for (const r of rows) m.set(r.unit, [...(m.get(r.unit) ?? []), r]); return m }
-  const a = group(rowsA)
-  const b = group(rowsB)
+  const a = rowsByUnit(rowsA)
+  const b = rowsByUnit(rowsB)
   const items = []
   let aligned = 0
   let unaligned = 0
@@ -177,35 +304,67 @@ export function testRetest (rowsA, rowsB, team, { families = {}, resamples = DEF
     const listB = b.get(unit)
     if (!listB || listB.length !== listA.length) { unaligned++; continue }
     aligned++
-    listA.forEach((x, i) => items.push({ stratum: 'all', w: 1, left: { ...x, area: areaTitle(x, families) }, right: { ...listB[i], area: areaTitle(listB[i], families) } }))
+    listA.forEach((x, i) => items.push({ unit, stratum: 'all', w: 1, left: rowLabel(x, families), right: rowLabel(listB[i], families) }))
   }
-  const knobs = { resamples, seed }
-  return { aligned_units: aligned, unaligned_units: unaligned, ...agreementBlock(items, team, knobs) }
+  return { aligned_units: aligned, unaligned_units: unaligned, unaligned_share: aligned + unaligned ? round3(unaligned / (aligned + unaligned)) : 0, ...agreementBlock(items, team, { resamples, seed }) }
+}
+
+/**
+ * The guards that the product's analyzer touched (`guards_touched`, collected from the API for the labeled units, one line `{ unit, guards_touched }` each, with the id or the text of the
+ * guard) against the limits the people found in the unit. This measures the component that holds the wall, which is not the extractor. Per limit, by unit and unweighted: recall,
+ * precision (Wilson) and kappa. A limit of the team is matched to a guard by its text.
+ */
+export function analyzerAgreement (labels, analyses, team, { referenceRater = null, resamples = DEFAULTS.resamples, seed = DEFAULTS.seed } = {}) {
+  const { reference, main } = referenceLabels(labels, { referenceRater })
+  const byUnit = new Map(analyses.map((a) => [a.unit, new Set((a.guards_touched ?? []).map(String))]))
+  const idOf = (token) => (team.limits ?? []).find((l) => l.id === token || l.text === token)?.id ?? null
+  const touched = new Map([...byUnit.entries()].map(([u, set]) => [u, new Set([...set].map(idOf).filter(Boolean))]))
+  const units = [...reference.values()].filter((l) => touched.has(l.unit))
+  const per = Object.fromEntries((team.limits ?? []).map((l) => {
+    const pairs = units.map((u) => ({ unit: u.unit, stratum: 'all', w: 1, a: String(touched.get(u.unit).has(l.id)), b: String(u.requests.some((r) => (r.limits ?? []).includes(l.id))) }))
+    const tp = pairs.filter((p) => p.a === 'true' && p.b === 'true').length
+    const analyzerPositive = pairs.filter((p) => p.a === 'true').length
+    const humanPositive = pairs.filter((p) => p.b === 'true').length
+    const r = wilson(tp, humanPositive)
+    const pr = wilson(tp, analyzerPositive)
+    const k = weightedKappa(pairs)
+    return [l.id, { units: pairs.length, human_positive: humanPositive, analyzer_positive: analyzerPositive, recall: { value: humanPositive ? round3(tp / humanPositive) : null, lower: round3(r.lower) }, precision: { value: analyzerPositive ? round3(tp / analyzerPositive) : null, lower: round3(pr.lower) }, kappa: k.kappa === null ? null : round3(k.kappa), ...(k.kappa === null ? {} : bootstrapByUnit(pairs, (s) => weightedKappa(s).kappa, { resamples, seed })) }]
+  }))
+  return { reference_rater: main, units: units.length, limits: per }
 }
 
 function main (argv) {
-  const [command, rowsFile, ...rest] = argv
+  const [command, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  if (!['sample', 'agree'].includes(command) || !rowsFile || !option('--team') || (command === 'agree' && !option('--labels'))) {
-    console.error('Uso: node scripts/row-validation.mjs sample rows.jsonl --team team.json [--families f.json] [--target-rate 0.8] [--half-width 0.15] --out sample.jsonl\n     node scripts/row-validation.mjs agree rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--retest rows2.jsonl] [--min-kappa 0.6] [--resamples 1000] [--out validation.json]')
+  const need = command === 'analyzer' ? ['--units', '--labels', '--analysis', '--team'] : command === 'agree' ? ['--units', '--rows', '--labels', '--team'] : ['--units', '--rows', '--team']
+  if (!['sample', 'agree', 'analyzer'].includes(command) || need.some((f) => !option(f))) {
+    console.error('Uso: node scripts/row-validation.mjs sample --units units.jsonl --rows rows.jsonl --team team.json [--families f.json] [--stage all|tune|confirm] [--holdout 0.5] [--target-rate 0.8] [--half-width 0.15] [--with-text] --out sample.jsonl\n     node scripts/row-validation.mjs agree --units units.jsonl --rows rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--stage ...] [--reference-rater name] [--retest rows2.jsonl] [--min-kappa 0.6] [--max-unaligned-share 0.2] [--waive limit:id] [--min-limit-positives 5] [--resamples 1000] [--out validation.json]\n     node scripts/row-validation.mjs analyzer --units units.jsonl --labels labels.jsonl --analysis analysis.jsonl --team team.json [--reference-rater name] [--out analyzer.json]')
     process.exit(2)
   }
-  const rows = readJsonl(rowsFile)
   const team = readJson(option('--team'))
   const families = option('--families') ? readJson(option('--families')) : {}
+  const emit = (value, text = null) => { const out = text ?? `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), out); else process.stdout.write(out) }
+  const stage = { stage: option('--stage', 'all'), holdout: option('--holdout') ? Number(option('--holdout')) : DEFAULTS.holdout }
   try {
+    const units = readJsonl(option('--units'))
     if (command === 'sample') {
-      const { items, sizes, short } = drawValidationSample(rows, team, { families, ...(option('--target-rate') ? { targetRate: Number(option('--target-rate')) } : {}), ...(option('--half-width') ? { halfWidth: Number(option('--half-width')) } : {}) })
-      const text = items.map((i) => JSON.stringify(i)).join('\n') + '\n'
-      if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
-      console.error(`${items.length} pedidos para etiquetar (${sizes.per_area} por área), ${items.filter((i) => i.double).length} para una segunda persona`)
-      for (const s of short) console.error(`Aviso: el área ${s.area} tiene ${s.available} filas abiertas y la muestra pide ${s.needed}.`)
+      const { items, sizes, short } = drawValidationSample(units, readJsonl(option('--rows')), team, { families, ...stage, withText: rest.includes('--with-text'), ...(option('--target-rate') ? { targetRate: Number(option('--target-rate')) } : {}), ...(option('--half-width') ? { halfWidth: Number(option('--half-width')) } : {}) })
+      emit(items, `${items.map((i) => JSON.stringify(i)).join('\n')}\n`)
+      console.error(`${items.length} unidades para leer en su texto original (${sizes.per_stratum} por estrato), ${items.filter((i) => i.double).length} para una segunda persona`)
+      for (const s of short) console.error(`Aviso: el estrato ${s.stratum} tiene ${s.available} unidades y la muestra pide ${s.needed}.`)
       return
     }
-    const result = agreement(rows, readJsonl(option('--labels')), team, { families, minKappa: option('--min-kappa') ? Number(option('--min-kappa')) : DEFAULTS.minKappa, ...(option('--resamples') ? { resamples: Number(option('--resamples')) } : {}), retest: option('--retest') ? readJsonl(option('--retest')) : null })
-    const text = `${JSON.stringify(result, null, 2)}\n`
-    if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
-    console.error(result.validated ? 'Validadas: todo campo supera el kappa mínimo.' : `No validadas. Bajo el mínimo: ${result.failing.join(', ') || 'ninguno'}. Falta: ${result.missing.join(', ') || 'nada'}.`)
+    if (command === 'analyzer') {
+      emit(analyzerAgreement(readJsonl(option('--labels')), readJsonl(option('--analysis')), team, { referenceRater: option('--reference-rater') ?? null }))
+      return
+    }
+    const result = agreement(units, readJsonl(option('--rows')), readJsonl(option('--labels')), team, {
+      families, ...stage, minKappa: option('--min-kappa') ? Number(option('--min-kappa')) : DEFAULTS.minKappa, ...(option('--resamples') ? { resamples: Number(option('--resamples')) } : {}),
+      referenceRater: option('--reference-rater') ?? null, ...(option('--max-unaligned-share') ? { maxUnalignedShare: Number(option('--max-unaligned-share')) } : {}), ...(option('--min-limit-positives') ? { minLimitPositives: Number(option('--min-limit-positives')) } : {}),
+      retest: option('--retest') ? readJsonl(option('--retest')) : null, waive: rest.flatMap((x, i) => (x === '--waive' ? [rest[i + 1]] : []))
+    })
+    emit(result)
+    console.error(result.validated ? `Validadas: el límite inferior de cada kappa llega a ${result.min_kappa}.` : `No validadas. Reglas que fallan: ${result.failing.join(', ') || 'ninguna'}. Falta: ${result.missing.join(', ') || 'nada'}.`)
     if (!result.validated) process.exit(1)
   } catch (error) { console.error(error.message); process.exit(1) }
 }

@@ -414,48 +414,82 @@ test('B2: without a hold-out the leak is counted, and with it the count is zero'
   assert.equal(clean.leaked_examples, 0)
 })
 
-// ---- B1: nothing counts until people have validated the rows
+// ---- B1 and B2 (reaudit): nothing counts until people have read the ORIGINAL text, and the gate is on the lower bound of the interval
 const AREA_OF = (r) => r.object.charAt(0).toUpperCase() + r.object.slice(1)
+const corpusUnits = readJsonl(path.join(fixtures, 'corpus-units.jsonl'))
+const truthOf = (unit) => rows.filter((r) => r.unit === unit).map((r) => ({ area: AREA_OF(r), value_holder: r.value_holder, limits: r.limits }))
 
-/** Labels that a careful person would write for the sample: the extraction's own values, with `flip` of every `every`-th label changed to another area. */
-function labelsFor (items, { rater = 'p1', every = Infinity, only = null } = {}) {
-  const byKey = new Map(validation.keyRows(rows).map((r) => [r.key, r]))
+/**
+ * What a careful person writes for a sample of units: the requests of the extraction itself, with the changes the test asks for. `every` changes the area of every n-th request;
+ * `omit` adds a request the extraction did not find to every n-th unit; `invent` drops the last request of every n-th unit (so the extraction made one up).
+ */
+function labelsFor (items, { rater = 'p1', every = Infinity, only = null, omit = Infinity, invent = Infinity, random = null } = {}) {
   const others = ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente']
-  return items.filter((i) => !only || only(i)).map((i, n) => {
-    const r = byKey.get(i.key)
-    const area = AREA_OF(r)
-    const flipped = (n + 1) % every === 0
-    return { key: i.key, rater, area: flipped ? others.find((a) => a !== area) : area, value_holder: r.value_holder, holder: r.holder, limits: r.limits }
+  let n = 0
+  return items.filter((i) => !only || only(i)).map((i, k) => {
+    let requests = truthOf(i.unit).map((r) => {
+      n++
+      if (random) return { area: random.pick(others), value_holder: random.pick(['person', 'model']), limits: random.pick([[], ['money']]) }
+      return n % every === 0 ? { ...r, area: others.find((a) => a !== r.area) } : r
+    })
+    if ((k + 1) % omit === 0) requests = [...requests, { area: 'Catálogo y precios', value_holder: 'model', limits: [] }]
+    if ((k + 1) % invent === 0 && requests.length) requests = requests.slice(0, -1)
+    return { unit: i.unit, rater, requests }
   })
 }
 
-test('B1: the sample sizes come from the interval count, not from a round number', () => {
+test('B1 (reaudit): the sample sizes come from the interval count, not from a round number', () => {
   const sizes = validation.validationSizes()
-  assert.equal(sizes.per_area, method.wilsonSampleSize(0.8, 0.15))
-  assert.equal(sizes.per_area, 26)
-  assert.ok(method.wilson(Math.round(0.8 * 26), 26).upper - method.wilson(Math.round(0.8 * 26), 26).lower <= 0.3)
-  assert.ok(method.wilson(Math.round(0.8 * 25), 25).upper - method.wilson(Math.round(0.8 * 25), 25).lower > 0.3, 'one less and the margin is not reached')
-  assert.equal(validation.validationSizes({ halfWidth: 0.1 }).per_area, method.wilsonSampleSize(0.8, 0.1))
+  assert.equal(sizes.per_stratum, method.wilsonSampleSize(0.8, 0.15))
+  assert.equal(sizes.per_stratum, 26)
+  assert.equal(validation.validationSizes({ halfWidth: 0.1 }).per_stratum, method.wilsonSampleSize(0.8, 0.1))
 })
 
-test('B1: the sample is stratified, blind and never takes a confidential row', () => {
-  const { items, sizes, short } = validation.drawValidationSample(rows, team, { seed: 3 })
-  const byKey = new Map(validation.keyRows(rows).map((r) => [r.key, r]))
-  for (const i of items) {
-    assert.deepEqual(Object.keys(i).sort(), ['date', 'double', 'key', 'summary', 'unit'], 'no estimate of the extractor travels with the request')
-    assert.equal(byKey.get(i.key).confidential, false)
-  }
-  const perArea = items.reduce((m, i) => m.set(AREA_OF(byKey.get(i.key)), (m.get(AREA_OF(byKey.get(i.key))) ?? 0) + 1), new Map())
-  for (const a of ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente']) assert.equal(perArea.get(a), sizes.per_area)
-  assert.deepEqual(short.map((s) => s.area), ['Contabilidad'], 'an area with fewer rows than the sample needs is announced')
+test('B1 (reaudit): the sample is of units, to be read in the original text, and has a stratum for what the extraction left out and one for each limit', () => {
+  const { items, sizes, short, stage } = validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 })
+  assert.equal(stage, 'all')
+  for (const i of items) assert.deepEqual(Object.keys(i).sort(), ['date', 'double', 'source', 'stratum', 'unit'], 'no summary and no estimate of the extractor: the person reads the unit')
+  const byStratum = items.reduce((m, i) => m.set(i.stratum, (m.get(i.stratum) ?? 0) + 1), new Map())
+  assert.deepEqual([...byStratum.keys()].sort(), ['limit:customer_data', 'limit:money', 'none', 'zero'])
+  for (const n of byStratum.values()) assert.equal(n, sizes.per_stratum)
+  assert.deepEqual(short, [])
   assert.equal(items.filter((i) => i.double).length, sizes.double)
-  const needs = (key) => method.requiresPerson(byKey.get(key), team)
-  const catalog = items.filter((i) => AREA_OF(byKey.get(i.key)) === 'Catálogo y precios')
-  assert.ok(catalog.filter((i) => needs(i.key)).length >= 10, 'the requests that need a person are not left to chance')
-  assert.deepEqual(validation.drawValidationSample(rows, team, { seed: 3 }).items, items)
+  const confidential = new Set(corpusUnits.filter((u) => u.confidential).map((u) => u.id))
+  assert.ok(items.every((i) => !confidential.has(i.unit)))
+  assert.ok(items.filter((i) => i.stratum === 'zero').every((i) => !rows.some((r) => r.unit === i.unit)), 'the zero stratum is made of messages with no row')
+  assert.deepEqual(validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 }).items, items)
+  const withText = validation.drawValidationSample(corpusUnits, rows, team, { seed: 3, withText: true }).items
+  assert.equal(withText[0].text, corpusUnits.find((u) => u.id === withText[0].unit).text)
 })
 
-test('B1: Cohen kappa of a known table, with weights', () => {
+test('B1 (reaudit): a rare limit gets its own stratum with all its cases', () => {
+  const rare = rows.map((r, i) => (r.unit === 'u010' || r.unit === 'u050' || r.unit === 'u090' ? { ...r, limits: ['irreversible'] } : r))
+  const { items, short } = validation.drawValidationSample(corpusUnits, rare, team, { seed: 3 })
+  const picked = items.filter((i) => i.stratum === 'limit:irreversible').map((i) => i.unit).sort()
+  assert.deepEqual(picked, ['u010', 'u050', 'u090'], 'the three units of the rare limit are all in the sample')
+  assert.deepEqual(short.map((s) => s.stratum), ['limit:irreversible'], 'and the shortfall is announced')
+})
+
+test('B1 (reaudit): requests the extraction left out or made up are counted, and a message with no row can hide an omission', () => {
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 })
+  const exact = validation.agreement(corpusUnits, rows, labelsFor(items), team, { resamples: 100 })
+  assert.equal(exact.extraction_vs_people.exhaustiveness.omitted, 0)
+  assert.equal(exact.extraction_vs_people.exhaustiveness.invented, 0)
+  assert.equal(exact.extraction_vs_people.exhaustiveness.recall.value, 1)
+  const missed = validation.agreement(corpusUnits, rows, labelsFor(items, { omit: 4 }), team, { resamples: 100 })
+  const m = missed.extraction_vs_people.exhaustiveness
+  assert.ok(m.omitted >= 20 && m.recall.value < 0.95, `${m.omitted} omitted, recall ${m.recall.value}`)
+  assert.ok(m.recall.lower < m.recall.value && m.recall.value < m.recall.upper + 1e-9)
+  const made = validation.agreement(corpusUnits, rows, labelsFor(items, { invent: 4 }), team, { resamples: 100 })
+  assert.ok(made.extraction_vs_people.exhaustiveness.invented >= 15)
+  assert.ok(made.extraction_vs_people.exhaustiveness.precision.value < 1)
+  // the person finds a request in a message the extraction left with none
+  const zero = items.filter((i) => i.stratum === 'zero')
+  const hidden = labelsFor(items).map((l) => (zero.slice(0, 5).some((z) => z.unit === l.unit) ? { ...l, requests: [{ area: 'Catálogo y precios', value_holder: 'model', limits: [] }] } : l))
+  assert.equal(validation.agreement(corpusUnits, rows, hidden, team, { resamples: 100 }).extraction_vs_people.exhaustiveness.omitted, 5)
+})
+
+test('B1 (reaudit): Cohen kappa of a known table, with weights, and an interval that resamples units', () => {
   const pair = (a, b, n) => Array.from({ length: n }, () => ({ a, b, w: 1 }))
   const table = [...pair('y', 'y', 20), ...pair('y', 'n', 5), ...pair('n', 'y', 10), ...pair('n', 'n', 15)]
   assert.ok(Math.abs(validation.weightedKappa(table).kappa - 0.4) < 1e-9, 'po 0.7, pe 0.5: kappa 0.4')
@@ -463,66 +497,199 @@ test('B1: Cohen kappa of a known table, with weights', () => {
   assert.ok(Math.abs(validation.weightedKappa(weighted).kappa - 0.4) < 1e-9, 'a weight of 20 is twenty copies')
   assert.equal(validation.weightedKappa(pair('y', 'y', 5)).kappa, 1)
   assert.equal(validation.weightedKappa([]).kappa, null)
-  const ci = validation.kappaWithInterval(table.map((t, i) => ({ ...t, stratum: i % 2 })), { resamples: 300, seed: 1 })
-  assert.ok(ci.lower < 0.4 && 0.4 < ci.upper && ci.lower > 0 && ci.upper < 0.7, JSON.stringify(ci))
+  const withUnits = table.map((t, i) => ({ ...t, unit: `u${Math.floor(i / 5)}`, stratum: 'all' }))
+  const byUnit = validation.kappaWithInterval(withUnits, { resamples: 300, seed: 1 })
+  assert.ok(byUnit.lower < 0.4 && 0.4 < byUnit.upper)
+  // five requests per unit that all agree or all differ: resampling units gives a wider interval than resampling requests
+  const clustered = [...Array(10).keys()].flatMap((u) => Array.from({ length: 5 }, () => ({ unit: `c${u}`, stratum: 'all', w: 1, a: u < 6 ? 'y' : 'n', b: u < 3 || u > 7 ? 'y' : 'n' })))
+  const singles = clustered.map((c, i) => ({ ...c, unit: `s${i}` }))
+  const width = (items) => { const k = validation.kappaWithInterval(items, { resamples: 400, seed: 2 }); return k.upper - k.lower }
+  assert.ok(width(clustered) > width(singles), 'requests of one unit are not independent')
 })
 
-test('B1: the extraction is validated only when people, a second person and a second run agree', () => {
-  const { items } = validation.drawValidationSample(rows, team, { seed: 3 })
-  const first = labelsFor(items, { every: 10 }) // one label in ten differs: a careful person against a good extraction
-  const second = labelsFor(items, { rater: 'p2', only: (i) => i.double })
-  const rerun = rows.map((r, i) => (i % 15 === 0 ? { ...r, object: 'atención al cliente' } : r))
-  const complete = validation.agreement(rows, [...first, ...second], team, { retest: rerun, resamples: 200 })
-  assert.equal(complete.validated, true, JSON.stringify([complete.failing, complete.missing]))
-  assert.ok(complete.extraction_vs_people.area.kappa >= 0.6 && complete.extraction_vs_people.area.kappa < 1)
-  assert.ok(complete.extraction_vs_people.area.lower < complete.extraction_vs_people.area.kappa)
-  assert.ok(complete.between_people.area.kappa > 0.7 && complete.between_people.area.kappa < 1, `between people ${complete.between_people.area.kappa}`)
-  assert.ok(complete.retest.aligned_units > 0 && complete.retest.area.kappa < 1)
-  const noRetest = validation.agreement(rows, [...first, ...second], team, { resamples: 100 })
-  assert.deepEqual([noRetest.validated, noRetest.missing], [false, ['retest']])
-  const noSecond = validation.agreement(rows, first, team, { retest: rerun, resamples: 100 })
-  assert.deepEqual([noSecond.validated, noSecond.missing], [false, ['second_rater']])
-  const careless = validation.agreement(rows, [...labelsFor(items, { every: 2 }), ...second], team, { retest: rerun, resamples: 100 })
-  assert.equal(careless.validated, false)
-  assert.ok(careless.failing.includes('area'), 'half of the labels differ: the area does not agree')
+const agreeing = (extra = {}) => {
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 })
+  const rerun = rows.map((r, i) => (i % 40 === 0 ? { ...r, object: 'atención al cliente' } : r))
+  const first = labelsFor(items, { every: 25 })
+  const second = first.filter((l) => items.find((i) => i.unit === l.unit).double).map((l) => ({ ...l, rater: 'p2' })) // a second person who reads it the same way
+  return { items, first, second, rerun, run: (labels, options = {}) => validation.agreement(corpusUnits, rows, labels, team, { resamples: 200, referenceRater: 'p1', retest: rerun, waive: ['limit:irreversible'], ...extra, ...options }) }
+}
+
+test('B2 (reaudit): the extraction is validated when people, a second person and a second run agree, with the lower bound of every kappa above the floor', () => {
+  const { first, second, run } = agreeing()
+  const done = run([...first, ...second])
+  assert.equal(done.validated, true, JSON.stringify([done.failing, done.missing]))
+  for (const r of done.rules.filter((x) => x.on === 'lower')) assert.ok(r.lower >= done.min_kappa, `${r.name}: ${r.lower}`)
+  assert.ok(done.rules.length >= 12)
+  assert.deepEqual(run([...first, ...second], { retest: null }).missing, ['retest'])
+  assert.deepEqual(run(first).missing, ['second_rater'])
 })
 
-test('B1: a run of the extraction with another number of requests in a unit is reported as unaligned', () => {
+test('B2 (reaudit): a point kappa above the floor with an interval that reaches under it does not validate', () => {
+  const { first, second, run } = agreeing()
+  const noisy = labelsFor(validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 }).items, { every: 4 })
+  const result = run([...noisy, ...second])
+  const area = result.rules.find((r) => r.name === 'area')
+  assert.ok(area.kappa >= 0.6 && area.lower < 0.6, `kappa ${area.kappa}, lower ${area.lower}: the case of the gate`)
+  assert.equal(result.validated, false)
+  assert.ok(result.failing.includes('area'))
+})
+
+test('B2 (reaudit): with two raters the reference does not depend on whose name comes first', () => {
+  const { first, second, run } = agreeing()
+  assert.throws(() => run([...first, ...second], { referenceRater: null }), /--reference-rater/)
+  const renamed = [...first.map((l) => ({ ...l, rater: 'zeta' })), ...second.map((l) => ({ ...l, rater: 'alfa' }))]
+  const a = run(renamed, { referenceRater: 'zeta' })
+  assert.equal(a.reference.rater, 'zeta')
+  assert.deepEqual(a.extraction_vs_people.area, run([...first, ...second]).extraction_vs_people.area, 'the same reference whatever the names')
+  assert.throws(() => run(renamed, { referenceRater: 'nadie' }), /has no labels/)
+})
+
+test('B2 (reaudit): a disagreement between two people with no adjudication leaves the unit out of the reference and stops the validation; an adjudicated label resolves it', () => {
+  const { items, first, second, run } = agreeing()
+  const double = items.filter((i) => i.double)
+  const disputed = second.map((l, i) => (i < 4 ? { ...l, requests: l.requests.map((r) => ({ ...r, area: 'Atención al cliente', value_holder: 'person' })).concat([{ area: 'Atención al cliente', value_holder: 'model', limits: [] }]) } : l))
+  const open = run([...first, ...disputed])
+  assert.equal(open.reference.unadjudicated, 4)
+  assert.ok(open.failing.includes('reference:unadjudicated'))
+  assert.equal(open.validated, false)
+  const adjudicated = disputed.slice(0, 4).map((l) => ({ unit: l.unit, rater: 'adjudicated', requests: first.find((f) => f.unit === l.unit).requests }))
+  const resolved = run([...first, ...disputed, ...adjudicated])
+  assert.equal(resolved.reference.unadjudicated, 0)
+  assert.equal(resolved.reference.adjudicated, 4)
+  assert.ok(double.length > 4)
+})
+
+test('B2 (reaudit): labels from a second person who answers at random are not a validation, even if the first copies the extraction', () => {
+  const { items, first, run } = agreeing()
+  const random = seededRandom(11)
+  const chaos = labelsFor(items, { rater: 'p2', only: (i) => i.double, random: { pick: (list) => list[Math.floor(random() * list.length)] } })
+  const result = run([...first, ...chaos])
+  assert.equal(result.validated, false)
+  assert.ok(result.failing.some((n) => n.startsWith('people:')), result.failing.join(','))
+})
+
+test('B2 (reaudit): the kappa of each limit with enough cases decides, and a limit with too few cases fails unless it is waived by name', () => {
+  const { items, first, second, run } = agreeing()
+  const wrongMoney = first.map((l) => ({ ...l, requests: l.requests.map((r) => ({ ...r, limits: r.limits.filter((x) => x !== 'money') })) }))
+  const result = run([...wrongMoney, ...second])
+  assert.ok(result.failing.includes('limit:money'), 'the people do not see the limit money where the extraction does')
+  const unwaived = run([...first, ...second], { waive: [] })
+  const rare = unwaived.rules.find((r) => r.name === 'limit:irreversible')
+  assert.equal(rare.pass, false, 'no request of the sample touches it, so it cannot be measured')
+  assert.equal(rare.positives, 0)
+  assert.equal(unwaived.validated, false)
+  const waived = run([...first, ...second], { waive: ['limit:irreversible'] })
+  assert.equal(waived.rules.find((r) => r.name === 'limit:irreversible').waived, true)
+  assert.equal(waived.validated, true, 'waived by name, and the output says so')
+  assert.equal(items.length >= 104, true)
+})
+
+test('B2 (reaudit): the second run must pair the requests of all but a share of the units', () => {
+  const { first, second, run } = agreeing()
+  const shifted = rows.flatMap((r, i) => (i % 3 === 0 ? [] : [r])) // a third of the requests vanish: many units change their count
+  const result = run([...first, ...second], { retest: shifted })
+  const share = result.rules.find((r) => r.name === 'retest:unaligned_share')
+  assert.ok(share.value > 0.2)
+  assert.equal(share.pass, false)
+  assert.equal(result.validated, false)
+  assert.ok(result.retest.unaligned_share === share.value)
+})
+
+test('B2 (reaudit): the analyzer of the product is measured limit by limit against the people', () => {
+  const { items, first } = agreeing()
+  const truthLimits = new Map(first.map((l) => [l.unit, l.requests.flatMap((r) => r.limits)]))
+  const analyses = first.map((l, i) => ({ unit: l.unit, guards_touched: i % 5 === 0 ? [] : [...new Set(truthLimits.get(l.unit))].map((id) => (id === 'money' ? 'mover dinero o fijar un precio' : id)) }))
+  const result = validation.analyzerAgreement(first, analyses, team, { resamples: 100 })
+  assert.equal(result.reference_rater, 'p1')
+  assert.ok(result.limits.money.human_positive > 5)
+  assert.ok(result.limits.money.recall.value < 1 && result.limits.money.recall.value > 0.5, 'a fifth of the answers missed the limit')
+  assert.equal(result.limits.money.precision.value, 1)
+  assert.equal(items.length >= 78, true)
+})
+
+test('B1 (reaudit): a run of the extraction with another number of requests in a unit is reported as unaligned', () => {
   const dropped = rows.filter((r, i) => i !== 1)
   const run = validation.testRetest(rows, dropped, team)
   assert.ok(run.unaligned_units >= 1)
   assert.equal(run.aligned_units + run.unaligned_units, new Set(rows.map((r) => r.unit)).size)
 })
 
-test('B1: the experiment names its measures by what they measure, brings the trivial routers next to them and says whether the rows are validated', async () => {
-  const { spec } = propose(rows, team, { purposes })
-  const provider = { async complete (req) { return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } } // always the same area and no person
-  const result = await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 60 })
-  assert.equal(result.area_rate, undefined, 'the old name is gone')
-  assert.equal(result.area_match, undefined)
-  assert.equal(result.validated, false)
-  assert.ok(result.agreement_with_rows.area.lower <= result.agreement_with_rows.area.rate && result.agreement_with_rows.area.rate <= result.agreement_with_rows.area.upper)
-  assert.equal(result.baselines.area_majority.area.length > 0, true)
-  assert.ok(result.baselines.person_agent_alone.rate > 0.5 && result.baselines.person_agent_alone.rate < 1)
-  assert.ok(result.baselines.person_asker.rate >= 0 && result.baselines.person_asker.rate <= 1)
-  // a router that is the baseline «always the agent alone» obtains exactly the baseline
-  assert.equal(result.agreement_with_rows.person.rate, Math.round(result.baselines.person_agent_alone.rate * result.n) / result.n > 0 ? result.agreement_with_rows.person.rate : 0)
-  assert.equal(Math.round(result.agreement_with_rows.person.rate * 1000), Math.round(result.baselines.person_agent_alone.rate * 1000))
-  assert.equal(result.agreement_with_labels, null)
-  const ok = await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 60, validation: { validated: true } })
-  assert.equal(ok.validated, true)
+// ---- B3 (reaudit): the people and the experiment look at the same requests
+test('B3 (reaudit): the sample of a stage is made of the units of that stage, the same ones the experiment measures', () => {
+  const stageOf = method.splitUnits(rows, { holdout: 0.5, seed: 7 })
+  const tuneUnits = new Set(stageOf.tune.map((r) => r.unit))
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { stage: 'tune', seed: 3 })
+  assert.ok(items.length > 40)
+  for (const i of items) if (rows.some((r) => r.unit === i.unit)) assert.ok(tuneUnits.has(i.unit), `${i.unit} is not a tune unit`)
+  const confirm = validation.drawValidationSample(corpusUnits, rows, team, { stage: 'confirm', seed: 3 }).items
+  assert.equal(items.filter((i) => confirm.some((c) => c.unit === i.unit)).length, 0, 'tune and confirm never share a unit')
+  const built = experiment.buildAndSplit(validation.keyRows(rows), team, { stage: 'tune', purposes })
+  assert.deepEqual(new Set(built.test.map((r) => r.unit)), tuneUnits)
 })
 
-test('B1: with labels from people the experiment also reports the agreement with them', async () => {
+test('B3 (reaudit): with labels the experiment routes exactly the labeled requests and reports both agreements on them, with weights per stratum', async () => {
   const { spec } = propose(rows, team, { purposes })
-  const { items } = validation.drawValidationSample(rows, team, { seed: 3 })
+  const built = experiment.buildAndSplit(validation.keyRows(rows), team, { stage: 'tune', purposes })
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { stage: 'tune', seed: 3 })
   const labels = labelsFor(items)
-  const byKey = new Map(validation.keyRows(rows).map((r) => [r.key, r]))
-  const provider = { async complete (req) { const text = req.messages[0].content; const row = items.find((i) => text.includes(i.summary)); const r = row && byKey.get(row.key); return { json: { area: r ? AREA_OF(r) : 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
-  const result = await runExperiment(validation.keyRows(rows).filter((r) => items.some((i) => i.key === r.key)), spec, team, { provider, size: items.length, labels })
-  assert.ok(result.agreement_with_labels.n > 50)
-  assert.ok(result.agreement_with_labels.area.rate > 0.9)
+  const { reference } = validation.referenceLabels(labels)
+  const routed = []
+  const provider = { async complete (req) { routed.push(req.messages[0].content); const hit = built.test.find((r) => req.messages[0].content.includes(r.summary)); return { json: { area: hit ? AREA_OF(hit) : 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const result = await runExperiment(built.test, built.load, team, { provider, reference, referenceRater: 'p1', held: { stage: 'tune', sets: built.sets }, buildUnits: built.buildUnits })
+  const expected = built.test.filter((r) => !r.confidential && reference.has(r.unit) && rows.filter((x) => x.unit === r.unit).length === reference.get(r.unit).requests.length && built.load.areas.some((a) => a.title === AREA_OF(r)))
+  assert.equal(result.n, expected.length, 'the requests of the labeled units, no other')
+  assert.equal(result.agreement_with_labels.n, result.n, 'and the people labeled every one of them')
   assert.equal(result.agreement_with_labels.rater, 'p1')
+  assert.ok(result.agreement_with_labels.area.rate > 0.9 && result.agreement_with_rows.area.rate > 0.9)
+  assert.ok(result.agreement_with_labels.baselines.area_majority.rate < 0.6)
+  const strata = new Set(result.results.map((r) => r.weight))
+  assert.ok(strata.size >= 2, 'the weights differ by stratum')
+  assert.ok(Math.abs(result.results.reduce((t, r) => t + r.weight, 0) - built.test.filter((r) => !r.confidential && new Set(result.results.map((x) => x.unit)).has(r.unit) || false).length) < built.test.length, 'weights stay in scale')
+  assert.equal(result.valid_for_acceptance, false, 'the rows are not validated')
+  assert.ok(spec.areas.length >= 3)
+})
+
+test('B3 (reaudit): the original text of the labeled units can be routed too', async () => {
+  const built = experiment.buildAndSplit(validation.keyRows(rows), team, { stage: 'tune', purposes })
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { stage: 'tune', seed: 3 })
+  const { reference } = validation.referenceLabels(labelsFor(items))
+  const seen = []
+  const provider = { async complete (req) { seen.push(req.messages[0].content); return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const unitTexts = new Map(corpusUnits.map((u) => [u.id, { text: u.text, author: u.author }]))
+  const result = await runExperiment(built.test, built.load, team, { provider, reference, referenceRater: 'p1', unitTexts })
+  assert.ok(result.agreement_with_labels.raw.n > 10)
+  assert.ok(seen.some((s) => /Gracias\.|Hola equipo\.|Buen día\./.test(s)) || seen.some((s) => corpusUnits.some((u) => s.includes(u.text))), 'the router read the text the person wrote')
+})
+
+test('B3 (reaudit): --accept reads the lower bound against the best router with no model, and without labels it refuses or marks the result', () => {
+  const rate = (k, n) => { const w = method.wilson(k, n); return { k, n, rate: k / n, lower: w.lower, upper: w.upper } }
+  const labelled = { agreement_with_labels: { area: rate(60, 78), person: rate(70, 78), baselines: { area_majority: { area: 'x', rate: 0.34 }, person_agent_alone: { rate: 0.69 }, person_asker: { rate: 0.6 } } }, agreement_with_rows: {}, baselines: {} }
+  const pass = experiment.acceptDecision(labelled, 0.7, {})
+  assert.equal(pass.code, 1, 'a point rate of 0.77 with a lower bound of 0.66 does not meet 0.7')
+  const strong = { ...labelled, agreement_with_labels: { ...labelled.agreement_with_labels, area: rate(75, 78), person: rate(78, 78) } }
+  assert.equal(experiment.acceptDecision(strong, 0.7, {}).code, 0)
+  const floor = experiment.acceptDecision({ ...strong, agreement_with_labels: { ...strong.agreement_with_labels, baselines: { ...strong.agreement_with_labels.baselines, person_agent_alone: { rate: 0.99 } } } }, 0.5, {})
+  assert.equal(floor.code, 1, 'it must beat the best router with no model, not only the threshold')
+  const none = { agreement_with_rows: { area: rate(70, 78), person: rate(70, 78) }, baselines: { area_majority: { rate: 0.3 }, person_agent_alone: { rate: 0.6 }, person_asker: { rate: 0.5 } }, agreement_with_labels: null }
+  assert.equal(experiment.acceptDecision(none, 0.5, {}).code, 2, 'no labels: it does not compare')
+  const allowed = experiment.acceptDecision(none, 0.5, { allowUnvalidated: true })
+  assert.equal(allowed.valid, false)
+})
+
+
+test('B1 (reaudit): the experiment names its measures by what they measure, brings the trivial routers next to them and says whether the rows are validated', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const provider = { async complete () { return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } } // always the same area and no person
+  const result = await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 60 })
+  assert.equal(result.area_rate, undefined, 'the old name is gone')
+  assert.equal(result.validated, false)
+  assert.equal(result.valid_for_acceptance, false)
+  assert.ok(result.agreement_with_rows.area.lower <= result.agreement_with_rows.area.rate && result.agreement_with_rows.area.rate <= result.agreement_with_rows.area.upper)
+  assert.ok(result.baselines.person_agent_alone.rate > 0.5 && result.baselines.person_agent_alone.rate < 1)
+  assert.equal(Math.round(result.agreement_with_rows.person.rate * 1000), Math.round(result.baselines.person_agent_alone.rate * 1000), 'a router that is the baseline obtains exactly the baseline')
+  assert.equal(result.agreement_with_labels, null)
+  assert.equal((await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 60, validation: { validated: true } })).validated, true)
 })
 
 // ---- D5: the sample of the experiment
@@ -969,7 +1136,7 @@ test('B4 (reaudit): seeded phrases never appear in an output of analyze, propose
   clean('analyze', analyze(whole, team, { permutations: 99, repeats: 1 }))
   clean('windows', method.analyzeWindows(whole, team, { permutations: 99, repeats: 1 }))
   clean('labels', method.labels(whole))
-  clean('validation sample', validation.drawValidationSample(whole, team))
+  clean('validation sample', validation.drawValidationSample(corpusUnits.map((u) => (confidentialUnits.has(u.id) ? { ...u, confidential: true } : u)), whole, team))
   const echo = { async complete (req) { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: req.messages[0].content } } } }
   const keyed = validation.keyRows(whole)
   const whole2 = await runExperiment(keyed, result.spec, team, { provider: echo, size: 200 })
@@ -982,4 +1149,14 @@ test('B4 (reaudit): seeded phrases never appear in an output of analyze, propose
     clean(`experiment ${stage}`, run)
     assert.ok(built.test.some((r) => r.confidential), `${stage}: the held-out set has confidential rows, so the test is not empty`)
   }
+})
+
+test('B1 (reaudit): a row that does not validate is counted by reason and not lost in silence', async () => {
+  const provider = { async complete () { return { json: { requests: [fakeRow('u1'), fakeRow('u9'), fakeRow('u1', { summary: '' }), fakeRow('u1', { severity: 3 }), fakeRow('u1', { value_holder: 'nobody' }), fakeRow('u1', { urgency: -1 })] } } } }
+  const result = await extractRows(oneUnit('texto A'), team, { provider, model: 'm' })
+  assert.equal(result.rows.length, 1)
+  assert.deepEqual(result.dropped, { unknown_unit: 1, no_summary: 1, out_of_range: 2, bad_value_holder: 1 })
+  const counter = { n: 0 }
+  finishRows([fakeRow('u1', { summary: '' })], [{ id: 'u1' }], team, counter)
+  assert.deepEqual(counter.dropped, { no_summary: 1 })
 })

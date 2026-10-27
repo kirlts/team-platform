@@ -141,7 +141,12 @@ export function finishRows (requests, batch, team, counter = { n: 0 }, meta = {}
   const inRange = (x) => typeof x === 'number' && x >= 0 && x <= 1
   return requests.flatMap((r) => {
     const unit = byId.get(String(r.unit).replace(/[[\]\s]/g, ''))
-    if (!unit || !r.summary || !VALUE_HOLDERS.includes(r.value_holder) || !['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'].every((k) => inRange(r[k]))) return []
+    // A row that does not validate is not kept, and it is not lost without a trace: the reason is counted and the script prints it.
+    const drop = (reason) => { counter.dropped ??= {}; counter.dropped[reason] = (counter.dropped[reason] ?? 0) + 1; return [] }
+    if (!unit) return drop('unknown_unit')
+    if (!r.summary) return drop('no_summary')
+    if (!VALUE_HOLDERS.includes(r.value_holder)) return drop('bad_value_holder')
+    if (!['understand_vs_create', 'severity', 'irreversibility', 'missing_value', 'urgency'].every((k) => inRange(r[k]))) return drop('out_of_range')
     const holder = r.value_holder === 'person' && people.has(r.holder) ? r.holder : ''
     return [{ ...r, holder, unit: unit.id, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : (unit.date ?? ''), summary: clean(r.summary, counter), intent: clean(r.intent, counter), object: clean(r.object, counter), module: clean(r.module, counter), maximize: clean(r.maximize, counter), sacrifice: clean(r.sacrifice, counter),
       limits: (r.limits ?? []).filter((id) => limits.has(id)), source: unit.source ?? '', confidential: unit.confidential === true, model: meta.model ?? '', script_version: EXTRACTOR_VERSION }]
@@ -173,7 +178,7 @@ export async function extractRows (units, team, { provider, model = provider?.mo
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(parallel, batches.length)) }, worker))
-  return { rows: results.flat(), batches: batches.length, redacted: counter.n, failed }
+  return { rows: results.flat(), batches: batches.length, redacted: counter.n, failed, dropped: counter.dropped ?? {} }
 }
 
 async function main (argv) {
@@ -188,12 +193,14 @@ async function main (argv) {
   const provider = createClaudeCliProviders({ model }).text
   const cacheDir = option('--cache', null)
   if (cacheDir) mkdirSync(cacheDir, { recursive: true })
-  const { rows, batches, redacted, failed } = await extractRows(readJsonl(unitsFile), readJson(option('--team')), {
+  const { rows, batches, redacted, failed, dropped } = await extractRows(readJsonl(unitsFile), readJson(option('--team')), {
     provider, model, parallel: Number(option('--parallel', 6)), cacheDir, onBatch: (e) => console.error(e.error ? `lote ${e.index}: ${e.error}` : `lote ${e.index}: ${e.rows} pedidos`)
   })
   writeFileSync(option('--out'), '')
   for (const r of rows) appendFileSync(option('--out'), `${JSON.stringify(r)}\n`)
   console.error(`${batches} lotes, ${rows.length} pedidos, ${redacted} datos reemplazados, ${failed} lotes fallidos`)
+  const lost = Object.entries(dropped)
+  if (lost.length) console.error(`Filas descartadas por no validar: ${lost.map(([reason, n]) => `${n} ${reason}`).join(', ')}`)
   if (failed) process.exit(1)
 }
 

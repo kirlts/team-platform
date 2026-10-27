@@ -1,19 +1,33 @@
 #!/bin/sh
-# `main` sólo avanza al commit de `desarrollo` que el despliegue puso en producción. Todo trabajo se fusiona a `desarrollo`.
-# Un empujón a `main` sale únicamente si el despliegue lo declara (DEPLOY_PUBLISHES_MAIN=<el mismo sha que se empuja>,
-# la marca que exporta sólo el guion de despliegue del repositorio que despliega) y el sha es `desarrollo` o un
-# ancestro suyo, por avance rápido. Borrar `main` o reescribirla no sale nunca. Se activa con `git config core.hooksPath .githooks`.
-# Lo mismo lo mide, del lado del servidor, .github/workflows/main-solo-desde-desarrollo.yml (el repositorio es privado en el
-# plan gratuito: la protección de rama devuelve 403 «Upgrade to GitHub Pro»).
+# `main` sólo avanza al commit de `desarrollo` que una publicación declara. Todo trabajo se fusiona a `desarrollo`.
+# Un empujón a `main` sale únicamente si lleva la marca de ese mismo sha y el sha es `desarrollo` o un ancestro suyo,
+# por avance rápido. Borrar `main` o reescribirla no sale nunca. Se activa con `git config core.hooksPath .githooks`.
+#
+# Las marcas que se aceptan (la marca es el sha que se empuja, no un permiso general):
+#   RELEASE_PUBLISHES_MAIN=<sha>  la emite scripts/publish-main.sh, la puerta del canónico: corre la batería y la conformidad
+#                                 sobre ese sha y recién entonces empuja. Es la marca vigente.
+#   DEPLOY_PUBLISHES_MAIN=<sha>   la emite el guion de despliegue de un anfitrión que todavía publica `main` por su cuenta.
+#                                 Es la marca heredada y se retira (plan canónico 2026, §9, C5).
+#
+# Condición de retiro de DEPLOY_PUBLISHES_MAIN: cuando el despliegue del anfitrión deje de exportarla (pieza C5, que se hace en
+# el anfitrión) y `publish-main.sh` haya publicado `main` al menos una vez. Entonces se borra la línea marcada «RETIRO-DEPLOY»
+# de abajo y el gancho rechaza la marca vieja. Qué la traería de vuelta: que la puerta no pueda correr la batería en la máquina
+# que publica.
+#
+# Lo mismo lo mide, del lado del servidor, .github/workflows/main-solo-desde-desarrollo.yml, que es un espejo opcional: el
+# repositorio es privado en el plan gratuito (la protección de rama devuelve 403 «Upgrade to GitHub Pro») y nada depende de que corra.
 CERO=0000000000000000000000000000000000000000
 MAIN=""; MAIN_REMOTO=""
 while read -r _local local_sha remote_ref remote_sha; do
   [ "$remote_ref" = "refs/heads/main" ] && { MAIN="$local_sha"; MAIN_REMOTO="$remote_sha"; }
 done
 [ -n "$MAIN" ] || exit 0
-no() { echo "  «main» no se empuja: $1" >&2; echo "  Todo se fusiona a «desarrollo»; «main» lo mueve el despliegue." >&2; exit 1; }
+no() { echo "  «main» no se empuja: $1" >&2; echo "  Todo se fusiona a «desarrollo»; «main» lo publica scripts/publish-main.sh." >&2; exit 1; }
 [ "$MAIN" != "$CERO" ] || no "no se borra."
-[ "${DEPLOY_PUBLISHES_MAIN:-}" = "$MAIN" ] || no "sólo lo empuja el despliegue, con la marca de ese sha."
+MARCADO=0
+[ "${RELEASE_PUBLISHES_MAIN:-}" = "$MAIN" ] && MARCADO=1
+[ "${DEPLOY_PUBLISHES_MAIN:-}" = "$MAIN" ] && MARCADO=1 # RETIRO-DEPLOY: marca heredada, ver la condición de retiro arriba
+[ "$MARCADO" = 1 ] || no "sólo lo empuja la publicación (scripts/publish-main.sh), con la marca de ese sha."
 DESTINO="${2:-origin}"
 DES=$(git ls-remote "$DESTINO" refs/heads/desarrollo 2>/dev/null | cut -f1)
 [ -n "$DES" ] || no "no pude leer «desarrollo» del remoto."

@@ -6,7 +6,7 @@
 # Exits 0 if <nuevo-main> is <desarrollo> or an ancestor of it and, with <main-anterior>, it moves forward without rewriting history.
 # Exits 1 otherwise, and prints on standard output the last commit of the history of <nuevo-main> (first parent)
 # that does meet the rule: where `main` must be sent back to. It is used by the `main-solo-desde-desarrollo.yml` workflow
-# (server side) and by the test `scripts/main-solo-desde-desarrollo.test.sh`. The `.githooks/pre-push` hook
+# (server side, an optional mirror) and by the test `scripts/main-solo-desde-desarrollo.test.sh`. The `.githooks/pre-push` hook
 # applies the same rule before pushing.
 set -eu
 NUEVO="${1:?usage: main-solo-desde-desarrollo.sh <nuevo-main> <desarrollo> [<main-anterior>]}"

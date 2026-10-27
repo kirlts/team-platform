@@ -28,6 +28,7 @@
     "src/events/": ["src/events/*.test.js", "src/api/*.test.js"],
     "scripts/": ["scripts/*.test.mjs"],
     "e2e/": ["e2e/contrato/C*.e2e.test.mjs"],
+    "drivers/fly-machines/": ["src/execute/drivers-fly-machines.test.js"],
     "drivers/": ["src/execute/drivers-docker-local.test.js", "scripts/host-conformance.test.mjs"],
     "templates/": ["src/analyze/*.test.js", "src/api/template-output.test.js"],
     "Dockerfile": ["src/image-imports.test.js", "src/image-prune.test.js"],

@@ -1,7 +1,8 @@
 // The reference driver of the machine contract (drivers/docker-local/) against a real Docker daemon and the real `runMachine` of the worker, with a
 // fake `claude` inside the container: the four hooks (create, run, collect, destroy), the codes 0, 75 and the others, `##team quota`, the last stdout
 // line as value, a destroy that always runs and is idempotent, and the example `deliver.sh` with its `##team wait` marks.
-// Without Docker this test FAILS and says so: a skipped test did not pass (the rule of the repository).
+// Without a Docker daemon it is skipped with its reason (src/testing/requires.js). When the change touches what it walks, the directed run demands the daemon
+// (TEAM_REQUIRE_ENV=docker, scripts/test-dirigido.mjs) and then it FAILS without one: a skipped test did not pass.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -12,6 +13,7 @@ import { after, before, describe, it } from 'node:test'
 import { loadConfig } from '../config.js'
 import { waitPlace, referenceOf } from './deliver.js'
 import { fillCommand, runMachine, spawnStreaming, writeMachineFiles } from './runners.js'
+import { requires } from '../testing/requires.js'
 
 const DRIVER = fileURLToPath(new URL('../../drivers/docker-local/', import.meta.url))
 const IMAGE = 'team-platform-agent:test'
@@ -52,7 +54,7 @@ fi
 echo '{"type":"result","subtype":"success","is_error":false,"session_id":"sess-1","total_cost_usd":0}'
 `
 
-describe('drivers/docker-local', () => {
+describe('drivers/docker-local', { skip: requires('docker') }, () => {
   let dir, repo, state, jobs, counter
   const machines = []
   const saved = {}
@@ -82,7 +84,7 @@ describe('drivers/docker-local', () => {
 
   before(() => {
     try { execFileSync('docker', ['info'], { stdio: 'ignore' }) } catch {
-      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and does not skip without one')
+      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and it was demanded (TEAM_REQUIRE_ENV=docker)')
     }
     dir = mkdtempSync(join(tmpdir(), 'driver-docker-'))
     jobs = join(dir, 'jobs'); mkdirSync(jobs)

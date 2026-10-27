@@ -1,5 +1,5 @@
 // scripts/host-conformance.mjs as a process, the way a host runs it: green against the reference driver with a real Docker daemon (as
-// src/execute/drivers-docker-local.test.js does; without Docker this test FAILS and says so, a skipped test did not pass), and red, naming the case, against a driver
+// src/execute/drivers-docker-local.test.js does; without a Docker daemon that one case is skipped with its reason, or fails if the run demands the daemon: TEAM_REQUIRE_ENV=docker), and red, naming the case, against a driver
 // broken on purpose, a usage error, a missing order and a driver that declares another contract version.
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
@@ -7,6 +7,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { join, resolve } from 'node:path'
 import { after, describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { requires } from '../src/testing/requires.js'
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const SCRIPT = join(ROOT, 'scripts', 'host-conformance.mjs')
@@ -105,9 +106,9 @@ describe('scripts/host-conformance.mjs', () => {
     assert.match(r.out, /^FAIL deliver-repeat: .*the references differ/m)
   })
 
-  it('the reference driver docker-local passes every case against a real Docker daemon, twice at the same time on the same daemon, and the run says the contract_version it meets', async () => {
+  it('the reference driver docker-local passes every case against a real Docker daemon, twice at the same time on the same daemon, and the run says the contract_version it meets', { skip: requires('docker') }, async () => {
     try { execFileSync('docker', ['info'], { stdio: 'ignore' }) } catch {
-      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and does not skip without one')
+      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and it was demanded (TEAM_REQUIRE_ENV=docker)')
     }
     // Both runs start from job 1 on the same daemon: before instances they named the same machines (tp-job-<id>) and destroyed each other's. The first fixes its
     // instance so that its leftovers can be asked for; the second takes the one the driver derives from its own state directory, which is the default every host gets.

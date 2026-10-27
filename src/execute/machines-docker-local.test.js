@@ -1,6 +1,6 @@
 // Piece B4 against real containers (drivers/docker-local): a machine that a dead worker left alive is destroyed when the next worker starts, an orderly
-// shutdown during RUN destroys the machine, and a DESTROY that the driver refuses stays registered. Without Docker this test FAILS and says so: a
-// skipped test did not pass (the rule of the repository).
+// shutdown during RUN destroys the machine, and a DESTROY that the driver refuses stays registered. Without a Docker daemon it is skipped with its
+// reason (src/testing/requires.js); where the change touches what it walks the directed run demands the daemon (TEAM_REQUIRE_ENV=docker) and then it FAILS without one.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -12,6 +12,7 @@ import { loadConfig } from '../config.js'
 import { get } from '../db/index.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { makeEnv, until } from '../testing/helpers.js'
+import { requires } from '../testing/requires.js'
 import { createWorker } from '../worker.js'
 import { createExecuteHandler } from './handler.js'
 import { machineHealth, nameMachine, openMachine, recordDestroy } from './machines.js'
@@ -37,7 +38,7 @@ echo '{"type":"system","subtype":"init","session_id":"sess-b4"}'
 sleep 120
 `
 
-describe('B4 against drivers/docker-local', () => {
+describe('B4 against drivers/docker-local', { skip: requires('docker') }, () => {
   let env, dir, state, jobs, counter, vault
   const machines = []
   const saved = {}
@@ -60,7 +61,7 @@ describe('B4 against drivers/docker-local', () => {
 
   before(async () => {
     try { execFileSync('docker', ['info'], { stdio: 'ignore' }) } catch {
-      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and does not skip without one')
+      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and it was demanded (TEAM_REQUIRE_ENV=docker)')
     }
     env = await makeEnv()
     vault = createVault(loadMasterKey({ dataDir: env.dir }))

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-27
+
+- La imagen base del Dockerfile se fija por digest (`node:24-alpine` y `alpine:3.24`, consultados el 2026-10-27 con `docker buildx imagetools inspect`), y la etapa `battery` parte de la misma imagen que la de producción.
+- La batería de una publicación corre dentro de esa imagen (`scripts/battery-image.sh`, usado por `scripts/publish-main.sh` y `scripts/battery-record.mjs run`): el registro guarda el `node` de adentro, el digest fijado como `imagen_base` y las pruebas saltadas por entorno con su motivo. La conformidad con docker-local corre fuera de la imagen, en la máquina que publica, y el registro lo declara.
+- Las pruebas que exigen Docker, git con identidad o ganchos, Chromium o red lo declaran con `src/testing/requires.js` y, si el entorno no lo trae, se saltan con el motivo escrito en lugar de fallar. Una guardia (`src/testing/environment-declared.test.js`) falla si una prueba usa Docker o commits sin declararlo. Las que sólo fallaban por falta de identidad de git ahora la configuran en su repositorio temporal.
+
 ## [0.1.0] - 2026-10-27
 
 - Un límite de una persona no se cruza sin que una persona lo levante (UD-313). Si el mensaje toca una Guardia `person` que nadie levantó, la plataforma retiene la entrega antes de correr la orden del anfitrión, con la misma revisión de UD-275; la levanta aprobar la entrega a mano o en el hilo (no la aprobación de antemano ni un agente) y queda en la auditoría como `message.guard_lifted`. Sin Guardias `person` no cambia nada.

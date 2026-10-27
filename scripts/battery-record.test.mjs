@@ -6,10 +6,12 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { spawn, spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildRecord, buildVerification, externalBases, failedFiles, failedNames, finalBase, hostFingerprint, imageBase, parseCounts, pickBase, readNote, verificationProblems, writeNote } from './battery-record.mjs'
+import { baseOf, buildRecord, buildVerification, externalBases, failedFiles, failedNames, finalBase, hostFingerprint, imageBase, imageMarkers, inImage, lookupDigest, parseCounts, pickBase, readNote, skippedTests, verificationProblems, writeNote } from './battery-record.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_ENV = { GIT_AUTHOR_NAME: 'author', GIT_AUTHOR_EMAIL: 'a@t', GIT_COMMITTER_NAME: 'author', GIT_COMMITTER_EMAIL: 'a@t', GIT_CONFIG_NOSYSTEM: '1' }
+// Two tests call writeNote() in this process, whose git commands inherit this environment: the identity is the test's own, not the machine's.
+Object.assign(process.env, GIT_ENV)
 let base
 let counter = 0
 
@@ -383,4 +385,58 @@ test('regenerate rejects a detailed record with an order that did not exit 0 and
   assert.notEqual(w.status, 0)
   assert.match(w.stderr, /not valid|did not exit 0/)
   assert.equal(verifRef(t), '')
+})
+
+// ---- the battery runs in the pinned image ------------------------------------------------------------------------------------
+
+const IMAGE_DIGEST = `sha256:${'d'.repeat(64)}`
+const OUTPUT = `battery-image: node v24.22.1\nbattery-image: image ${IMAGE_DIGEST}\nbattery-image: tree ${'a'.repeat(40)}\n\n﹣ a test that needs docker (0.2ms) # requires docker: \`docker info\` did not run (ENOENT)\n  ﹣ inner (1ms) # requires git-identity: git has no user.name\nok 3 - tap form # SKIP requires chromium: not installed\n✔ passes (1ms)\n`
+
+test('the markers of the image and the tests it skipped are read from the output, with their reasons', () => {
+  assert.deepEqual(imageMarkers(OUTPUT), { node: 'v24.22.1', image: IMAGE_DIGEST, tree: 'a'.repeat(40) })
+  assert.deepEqual(imageMarkers('npm run test:completa\n'), {}, 'an output that did not run in the image has no markers')
+  assert.deepEqual(skippedTests(OUTPUT), [
+    { test: 'a test that needs docker', reason: 'requires docker: `docker info` did not run (ENOENT)' },
+    { test: 'inner', reason: 'requires git-identity: git has no user.name' },
+    { test: 'tap form', reason: 'requires chromium: not installed' },
+  ])
+})
+
+test('a pinned reference names its digest without asking a registry', () => {
+  assert.deepEqual(lookupDigest(`node:24-alpine@${IMAGE_DIGEST}`), { digest: IMAGE_DIGEST })
+  assert.deepEqual(imageBase(`FROM node:24-alpine@${IMAGE_DIGEST} AS battery\nFROM alpine:3.24@${IMAGE_DIGEST} AS base\n`), [{ ref: `node:24-alpine@${IMAGE_DIGEST}`, digest: IMAGE_DIGEST }, { ref: `alpine:3.24@${IMAGE_DIGEST}`, digest: IMAGE_DIGEST }])
+})
+
+test('a record of orders that ran in the image carries the Node and the digest of the image, the tests it skipped, and the order that ran outside is marked', () => {
+  const inside = { name: 'complete', cmd: 'npm run test:completa', where: 'image', exit: 0, seconds: 1, tests: 3, pass: 2, fail: 0, node: 'v24.22.1', image: IMAGE_DIGEST, tree: 'a'.repeat(40), skipped_tests: skippedTests(OUTPUT), log_sha256: 'a'.repeat(64) }
+  const outside = { name: 'conformance', cmd: 'node scripts/host-conformance.mjs', where: 'host', node: 'v24.20.0', exit: 0, seconds: 2, log_sha256: 'b'.repeat(64) }
+  const rec = buildRecord({ sha: 'c'.repeat(40), tree: 'e'.repeat(40), results: [inside, outside], bases: [], nodeVersion: 'v99.0.0' })
+  assert.equal(rec.node, 'v24.22.1', 'the Node of the image, not the one of the machine that publishes')
+  assert.equal(rec.image, IMAGE_DIGEST)
+  assert.deepEqual(rec.skipped_tests.map((t) => [t.order, t.test]), [['complete', 'a test that needs docker'], ['complete', 'inner'], ['complete', 'tap form']])
+  assert.deepEqual(rec.commands.map((c) => [c.name, c.where, c.node]), [['complete', 'image', undefined], ['conformance', 'host', 'v24.20.0']])
+  // An old-style result (no markers) keeps the old shape: no `image`, no `skipped_tests`.
+  const plain = buildRecord({ sha: 'c'.repeat(40), tree: 'e'.repeat(40), results: [{ name: 'complete', cmd: 'x', exit: 0, seconds: 1, log_sha256: 'b'.repeat(64) }], bases: [], nodeVersion: 'v24.1.0' })
+  assert.equal('image' in plain, false)
+  assert.equal('skipped_tests' in plain, false)
+  assert.equal(plain.node, 'v24.1.0')
+})
+
+test('the verification names the image the battery ran in, whatever base the host declares, and says so when they differ', () => {
+  const warnings = []
+  const pinned = `sha256:${'1'.repeat(64)}`
+  const other = `sha256:${'2'.repeat(64)}`
+  const bases = [{ ref: 'node:24-alpine', digest: other }]
+  assert.deepEqual(baseOf({ baseImage: 'node:24-alpine', dockerfile: null, bases, imageDigest: pinned, warn: (m) => warnings.push(m) }), { digest: pinned })
+  assert.equal(warnings.length, 1)
+  assert.ok(warnings[0].includes(`declares node:24-alpine (${other})`) && warnings[0].includes(pinned), warnings[0])
+  assert.deepEqual(baseOf({ baseImage: 'node:24-alpine', dockerfile: null, bases: [{ ref: 'node:24-alpine', digest: pinned }], imageDigest: pinned, warn: (m) => warnings.push(m) }), { digest: pinned })
+  assert.equal(warnings.length, 1, 'no warning when they agree')
+  assert.deepEqual(baseOf({ baseImage: 'node:24-alpine', dockerfile: null, bases, imageDigest: undefined }), { digest: other }, 'without the image, the host declaration decides as before')
+})
+
+test('inImage quotes the command and the tree so that bash gets them back as they were', () => {
+  const line = inImage("echo 'a b'", '/tmp/x y')
+  const argv = spawnSync('bash', ['-c', `set -- ${line.slice(line.indexOf(' --tree ') + 1)}; printf '%s|' "$@"`], { encoding: 'utf8' }).stdout
+  assert.equal(argv, "--tree|/tmp/x y|--|echo 'a b'|")
 })

@@ -38,7 +38,7 @@ El equipo aporta tres cosas. Ninguna sale del repositorio.
 
 **Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. Se recomiendan cuatro semanas o más. `confidential` es obligatorio y booleano en cada unidad. Una unidad sin él se rechaza: «abierto» por omisión es la forma en que una reunión grabada llega a una salida. Una reunión grabada lleva `confidential: true`.
 
-Las filas de una unidad confidencial suman a los conteos, las medias y las proporciones: tamaño, quién pide, límites tocados, fracción que exige a una persona. Ninguna palabra suya llega a una salida. Eso excluye las frases de «Se maximiza» y «Se sacrifica», los ejemplos, los nombres de módulos y de intenciones, y el título de un área. Vale para el informe de `analyze`, el archivo de carga, la lista de áreas descartadas y los perfiles. Una prueba siembra frases únicas en filas confidenciales y verifica que no aparecen.
+Las filas de una unidad confidencial suman a los conteos, las medias y las proporciones. Eso incluye el tamaño, quién pide y los límites tocados. Ninguna palabra suya llega a una salida. Eso excluye las frases de «Se maximiza» y «Se sacrifica», los ejemplos, los nombres de módulos y de intenciones, y el título de un área. Vale para el informe de `analyze`, el archivo de carga, la lista de áreas descartadas y los perfiles. Una prueba siembra frases únicas en filas confidenciales y verifica que no aparecen.
 
 Un área con más de la mitad de sus filas confidenciales (`--max-confidential-share`) no se propone y en toda salida se llama «Área confidencial N». La red de privacidad de la extracción reemplaza correos y cifras largas. No detecta nombres de personas ni de empresas, así que una persona lee las filas de una unidad confidencial antes de correr `propose`. Un lote de extracción nunca mezcla unidades confidenciales con abiertas.
 
@@ -95,9 +95,13 @@ Un área existe si cumple los cuatro criterios.
 | Criterio | Umbral y perilla | Fuente del umbral |
 |---|---|---|
 | Volumen | al menos 5 % de las filas (`--min-share`) | Con una muestra de 60 pedidos, 5 % son 3 casos, el mínimo para medir el reparto del área |
-| Se reconoce por el texto | el límite inferior de su recall en validación cruzada supera su proporción en el corpus | Clasificador bayesiano sobre el resumen y el módulo; 5 pliegues (`--folds`) y 1,96 desviaciones (`--z`, percentil 97,5 de la normal). Por debajo de la proporción, un enrutador que sólo lee el pedido no puede elegir el área |
+| Se reconoce por el texto | los límites inferiores de Wilson de su recall y de su precisión superan su proporción en el corpus | Clasificador bayesiano sobre el resumen, sin el módulo, que es parte del objeto del que sale el área. Validación cruzada de 5 pliegues (`--folds`) repetida 10 veces (`--repeats`), con 1,96 desviaciones (`--z`). Los pliegues se arman por unidad: dos pedidos de un mismo mensaje nunca quedan a ambos lados |
 | Mapa propio | sus diez módulos más frecuentes comparten a lo más la mitad con los de cada otra área (`--max-overlap`) | Definición: más de la mitad en común es el mismo mapa |
 | Tratamiento distinto | su límite dominante difiere del de cada otra área, o alguna dimensión difiere en 0,5 desviaciones estándar o más (`--min-effect`) | Cohen (1988): 0,5 es el efecto mediano |
+
+La proporción es la línea base. Un clasificador que no lee el texto obtiene esa precisión, ya sea que reparta por proporciones o elija siempre el área mayor. Obtiene ese recall si reparte por proporciones. Exigir las dos cotas evita que un área dominante apruebe sólo por absorber todo. El intervalo es el de Wilson (1927) y no el de Wald. Con 3 aciertos de 3, Wald da un límite inferior de 1 y Wilson da 0,44 (Brown, Cai y DasGupta, 2001). El criterio es un diagnóstico del corpus y no del enrutador. Dice si el texto de los pedidos separa las áreas, no si un modelo que lee una descripción las elige bien. Eso lo mide la sección 8.
+
+Medición del 2026-10-26 (`bench/area-method-recognition.mjs`, corpus inventados con una proporción conocida de palabras sin señal). Con texto sin señal, ninguna de las áreas aprueba en 30 corpus, sea cual sea su proporción (70/20/10 y 92/5/3/2). Con señal hasta 0,7 de palabras compartidas, las cuatro áreas de 60, 40, 20 y 12 filas aprueban en los 30 corpus. La franja de transición va de 0,75 a 0,9. Dentro de ella, con una sola partición, entre 2 y 15 de 32 veredictos cambiaban sólo por la semilla de los pliegues. Con 10 repeticiones cambian entre 0 y 5. Con esa evidencia el criterio se conserva.
 
 El informe incluye por área su perfil. Lleva tamaño, pedidos por semana, medias de las dimensiones y fracción que exige a una persona. Lleva también quién pide, quién tiene el valor, los límites más tocados, lo que se maximiza y se sacrifica, los módulos y las intenciones. Con las mismas filas el informe es idéntico: las particiones usan una semilla fija.
 
@@ -259,6 +263,7 @@ La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`cr
 | `--min-template` | 20 | Error estándar de 0,22 desviaciones |
 | `--z` | 1,96 | Percentil 97,5 de la normal |
 | `--folds` | 5 | Validación cruzada de 5 pliegues |
+| `--repeats` | 10 | Medición del 2026-10-26: con 1 partición, 2 a 15 de 32 veredictos cambiaban sólo con la semilla; con 10, 0 a 5 |
 | `--map-size` | 10 | Los diez módulos más frecuentes definen el mapa; una lista más larga llega a módulos que aparecen una vez |
 | `--person-value-above` | 0,5 | Definición: el valor que falta es de una persona cuando pasa de la mitad de la escala |
 | `--seed` | 7 | Semilla fija para repetir el informe |

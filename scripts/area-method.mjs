@@ -31,6 +31,13 @@ export const DEFAULTS = Object.freeze({
   z: 1.96,
   // 5 folds: the usual cross-validation size that keeps at least 80 % of the rows for training.
   folds: 5,
+  // The rate the method expects of a routing that works, and the half width wanted for the interval of any rate it measures. With 0.8 and 0.15 a Wilson interval
+  // needs 26 requests (`wilsonSampleSize`): a rate observed at 0.8 then has its lower bound near 0.62, above a coin toss. Both are the team's to change.
+  targetRate: 0.8,
+  halfWidth: 0.15,
+  // Repeats of the cross-validation (see `recognition`). Measured 2026-10-26 on 8 invented corpora of 4 areas (60, 40, 20 and 12 rows) with 30 fold seeds each: with 1 draw, of 32
+  // area verdicts changed with the seed alone (noise 0.75 to 0.9: 2, 7, 12 and 15); with 10 draws, 0, 1, 4 and 5 (bench/area-method-recognition.mjs).
+  repeats: 10,
   // Fixed seed so a report can be reproduced (any integer would do).
   seed: 7,
   // Definition: the missing value is mostly in a person's hands when it passes half of the scale.
@@ -51,6 +58,42 @@ const STOP = new Set(`de la el en y a que los las del se un una con por para no 
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 const sd = (xs) => { const m = mean(xs); return xs.length > 1 ? Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1)) : 0 }
 const round = (x, d = 3) => Math.round(x * 10 ** d) / 10 ** d
+
+/**
+ * Wilson score interval for `k` successes in `n` trials (Wilson 1927, J. Am. Stat. Assoc. 22:209-212). Unlike the Wald interval it stays inside [0, 1] and does not
+ * collapse to a point when k = 0 or k = n (Brown, Cai and DasGupta 2001, Statistical Science 16:101-133, recommend it from n = 0 upwards for small samples).
+ * With 3 of 3 the Wald lower bound is 1; Wilson's is 0.44.
+ */
+export function wilson (k, n, z = DEFAULTS.z) {
+  if (!(n > 0)) return { p: 0, lower: 0, upper: 1, n: 0 }
+  const p = k / n
+  const z2 = z * z
+  const centre = (p + z2 / (2 * n)) / (1 + z2 / n)
+  const half = (z / (1 + z2 / n)) * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))
+  return { p, lower: Math.max(0, centre - half), upper: Math.min(1, centre + half), n }
+}
+
+/**
+ * The smallest n for which a Wilson interval around the rate `p` has a half width of at most `halfWidth`. This is the written count behind every sample size
+ * of the method: the margin the team wants, the rate it expects and the interval above; nothing is a round number.
+ */
+export function wilsonSampleSize (p = DEFAULTS.targetRate, halfWidth = DEFAULTS.halfWidth, z = DEFAULTS.z) {
+  for (let n = 1; n < 100000; n++) {
+    const w = wilson(Math.round(p * n), n, z)
+    if ((w.upper - w.lower) / 2 <= halfWidth) return n
+  }
+  throw new Error('No sample size reaches that half width.')
+}
+
+/** A new array in a uniformly random order: Fisher-Yates in the form of Durstenfeld (1964, Commun. ACM 7:420), with a seeded generator. */
+export function shuffle (items, rand) {
+  const a = [...items]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 /** Standardized difference of two samples with the pooled standard deviation; 0 when either has fewer than two values or both are constant. */
 export function cohenD (a, b) {
@@ -204,17 +247,40 @@ export function profileOf (rows, team, opts = {}, totalRows = rows.length, weeks
   }
 }
 
-// ---- how well a group is recognized by the text alone: multinomial naive Bayes with Laplace smoothing, cross-validated
-export function recognition (rows, labelOf, { folds = DEFAULTS.folds, seed = DEFAULTS.seed, z = DEFAULTS.z } = {}) {
-  const labels = rows.map(labelOf)
-  const tokens = rows.map((r) => words(`${r.summary} ${r.module ?? ''}`))
+// ---- how well a group is recognized by the text alone: multinomial naive Bayes with Laplace smoothing, cross-validated by unit
+/**
+ * Assigns the groups (units) to `folds` folds: the groups are shuffled with the seed and each goes to the fold that holds the fewest rows, so the rows of one
+ * unit are never on both sides of a partition and the folds stay balanced.
+ */
+export function foldsByGroup (groups, folds, seed) {
   const rand = seededRandom(seed)
-  const order = rows.map((_, i) => i).sort(() => rand() - 0.5)
-  const fold = new Array(rows.length)
-  order.forEach((i, k) => { fold[i] = k % folds })
+  const size = new Map()
+  for (const g of groups) size.set(g, (size.get(g) ?? 0) + 1)
+  const load = new Array(folds).fill(0)
+  const foldOf = new Map()
+  for (const g of shuffle([...size.keys()], rand)) {
+    const f = load.indexOf(Math.min(...load))
+    foldOf.set(g, f)
+    load[f] += size.get(g)
+  }
+  return groups.map((g) => foldOf.get(g))
+}
+
+/**
+ * Recognition of every class by the words of the summary, with the unit as the group of the folds. The text is the summary only: the module is part of the
+ * object the label comes from, so using it would hand the classifier the answer. Per class it reports recall and precision with their Wilson bounds and the
+ * baseline of a classifier that does not read: its share of the corpus (a guess drawn by the proportions, or the majority class for everything, gets that
+ * precision, and the proportional guess gets that recall).
+ */
+export function recognition (rows, labelOf, { folds = DEFAULTS.folds, seed = DEFAULTS.seed, z = DEFAULTS.z, repeats = DEFAULTS.repeats, groupOf = (r, i) => r.unit ?? i } = {}) {
+  const labels = rows.map(labelOf)
+  const tokens = rows.map((r) => words(r.summary))
   const classes = [...new Set(labels)]
-  const hits = new Map(classes.map((c) => [c, { n: 0, ok: 0 }]))
+  const stat = new Map(classes.map((c) => [c, { n: 0, ok: 0, predicted: 0 }]))
   const confusion = {}
+  // Repeated cross-validation: the partition by unit is drawn `repeats` times with consecutive seeds and the counts are averaged, so the verdict does not hang on one draw.
+  for (let rep = 0; rep < repeats; rep++) {
+  const fold = foldsByGroup(rows.map(groupOf), folds, seed + rep)
   for (let f = 0; f < folds; f++) {
     const model = new Map(classes.map((c) => [c, { docs: 0, total: 0, count: new Map() }]))
     const vocabulary = new Set()
@@ -234,21 +300,26 @@ export function recognition (rows, labelOf, { folds = DEFAULTS.folds, seed = DEF
         for (const t of tokens[i]) score += Math.log(((m.count.get(t) ?? 0) + 1) / (m.total + vocabulary.size + 1)) // Laplace: +1
         if (!best || score > best.score) best = { c, score }
       }
-      const h = hits.get(labels[i])
-      h.n++
-      if (best?.c === labels[i]) h.ok++
+      stat.get(labels[i]).n++
+      if (best) stat.get(best.c).predicted++
+      if (best?.c === labels[i]) stat.get(best.c).ok++
       else if (best) { const key = `${labels[i]} -> ${best.c}`; confusion[key] = (confusion[key] ?? 0) + 1 }
     })
   }
-  const total = rows.length
-  const accuracy = [...hits.values()].reduce((a, h) => a + h.ok, 0) / total
-  const base = Math.max(...[...hits.values()].map((h) => h.n)) / total
-  const bound = (p, n) => p - z * Math.sqrt((p * (1 - p)) / Math.max(n, 1))
-  return {
-    accuracy: round(accuracy), base: round(base), lower: round(bound(accuracy, total)),
-    per_class: Object.fromEntries([...hits.entries()].map(([c, h]) => [c, { n: h.n, recall: round(h.ok / (h.n || 1)), lower: round(bound(h.ok / (h.n || 1), h.n)) }])),
-    confusion: Object.fromEntries(Object.entries(confusion).sort((a, b) => b[1] - a[1]))
   }
+  for (const h of stat.values()) { h.n = Math.round(h.n / repeats); h.ok = Math.round(h.ok / repeats); h.predicted = Math.round(h.predicted / repeats) }
+  for (const k of Object.keys(confusion)) confusion[k] = Math.round(confusion[k] / repeats)
+  const total = rows.length
+  const accuracy = [...stat.values()].reduce((a, h) => a + h.ok, 0) / total
+  const base = Math.max(...[...stat.values()].map((h) => h.n)) / total
+  const perClass = Object.fromEntries([...stat.entries()].map(([c, h]) => {
+    const recall = wilson(h.ok, h.n, z)
+    const precision = wilson(h.ok, h.predicted, z)
+    const share = h.n / total
+    return [c, { n: h.n, share: round(share), recall: round(recall.p), recall_lower: round(recall.lower), precision: round(precision.p), precision_lower: round(precision.lower), baseline: round(share) }]
+  }))
+  const overall = wilson(Math.round(accuracy * total), total, z)
+  return { accuracy: round(accuracy), base: round(base), lower: round(overall.lower), per_class: perClass, confusion: Object.fromEntries(Object.entries(confusion).sort((a, b) => b[1] - a[1])) }
 }
 
 const dominantLimit = (profile) => profile.limits[0]?.id ?? null
@@ -279,7 +350,7 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
     const recall = recognized.per_class[title]
     const criteria = {
       volume: { pass: p.share >= o.minShare, value: p.share, min: o.minShare },
-      recognized_by_text: { pass: recall.lower > p.share, recall: recall.recall, lower: recall.lower, chance: p.share },
+      recognized_by_text: { pass: recall.recall_lower > recall.baseline && recall.precision_lower > recall.baseline, recall: recall.recall, recall_lower: recall.recall_lower, precision: recall.precision, precision_lower: recall.precision_lower, baseline: recall.baseline },
       own_map: { pass: Object.values(overlaps).every((v) => v <= o.maxOverlap), overlap_with: overlaps, max: o.maxOverlap },
       distinct_treatment: { pass: Object.values(effects).every((e) => e.distinct), against: effects, min_effect: o.minEffect }
     }
@@ -482,7 +553,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minShare', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'personValueAbove', 'maxConfidentialShare'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minShare', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'personValueAbove', 'maxConfidentialShare', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')

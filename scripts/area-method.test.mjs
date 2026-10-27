@@ -17,6 +17,8 @@ import { loadConfig } from '../src/config.js'
 import { createArea, createTemplate } from '../src/domain/areas.js'
 import { createMember, updateMember } from '../src/domain/members.js'
 
+import { syntheticCorpus } from '../bench/fixtures/area-method/synthetic.mjs'
+
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bench', 'fixtures', 'area-method')
 const rows = readJsonl(path.join(fixtures, 'rows.jsonl'))
 const team = readJson(path.join(fixtures, 'team.json'))
@@ -290,4 +292,55 @@ test('B3: the privacy net also cleans intent and object, and leaves an ISO date 
   assert.match(row.intent, /\[número\]/)
   assert.match(row.object, /\[correo\]/)
   assert.equal(counter.n, 2)
+})
+
+// ---- B4: the criterion «se reconoce por el texto»
+const recognized = (corpus, options) => recognition(corpus, (r) => r.object, options)
+
+test('B4: the Wilson interval stays inside [0, 1] and does not collapse at the extremes', () => {
+  const three = method.wilson(3, 3)
+  assert.ok(three.lower > 0.43 && three.lower < 0.45, `3 of 3 has a lower bound of ${three.lower}, not 1`)
+  assert.equal(three.upper, 1)
+  const none = method.wilson(0, 5)
+  assert.equal(none.lower, 0)
+  assert.ok(none.upper > 0.4)
+  assert.deepEqual(method.wilson(0, 0), { p: 0, lower: 0, upper: 1, n: 0 })
+  for (const [k, n] of [[1, 1], [0, 1], [7, 7], [1, 40]]) { const w = method.wilson(k, n); assert.ok(w.lower >= 0 && w.upper <= 1 && w.lower <= w.p && w.p <= w.upper) }
+})
+
+test('B4: a dominant area on text without signal is not recognized', () => {
+  for (const sizes of [{ big: 140, middle: 40, small: 20 }, { big: 230, a: 10, b: 6, c: 4 }]) {
+    for (const a of analyze(syntheticCorpus({ sizes, noise: 1, seed: 9 }), team).areas) assert.equal(a.criteria.recognized_by_text.pass, false, `${a.title}: ${JSON.stringify(a.criteria.recognized_by_text)}`)
+  }
+})
+
+test('B4: three rows with three hits do not pass, and an area with real signal passes even when it has 12 rows', () => {
+  const tiny = recognized(syntheticCorpus({ sizes: { a: 3, b: 3, c: 3 }, noise: 0, seed: 2 }))
+  for (const c of Object.values(tiny.per_class)) assert.ok(c.recall_lower < 0.5 && c.precision_lower < 0.5, `3 hits of 3 keep a lower bound of ${c.recall_lower}, not 1`)
+  for (const a of analyze(syntheticCorpus({ sizes: { a: 60, b: 40, c: 20, d: 12 }, noise: 0.5, seed: 3 }), team).areas) assert.equal(a.criteria.recognized_by_text.pass, true, `${a.title}: ${JSON.stringify(a.criteria.recognized_by_text)}`)
+})
+
+test('B4: the module does not count as text: a module that names the area does not make a silent summary recognizable', () => {
+  for (const a of analyze(syntheticCorpus({ sizes: { a: 60, b: 40, c: 30 }, noise: 1, seed: 4, leak: true }), team).areas) assert.equal(a.criteria.recognized_by_text.pass, false, a.title)
+})
+
+test('B4: the folds are drawn by unit, so repeated requests of one message cannot sit on both sides', () => {
+  const corpus = syntheticCorpus({ sizes: { a: 60, b: 60 }, noise: 1, seed: 5, perUnit: 6, unitWords: true }) // the 6 rows of a unit share the summary; the text says nothing about the area
+  const byRow = recognized(corpus, { groupOf: (_r, i) => i }) // what the method did: the same summary in the training and the test side
+  const byUnit = recognized(corpus)
+  assert.ok(byRow.accuracy > 0.8, `by row the classifier remembers the summary: ${byRow.accuracy}`)
+  assert.ok(byUnit.accuracy < 0.7, `by unit it has nothing to remember: ${byUnit.accuracy}`)
+  const groups = corpus.map((r) => r.unit)
+  const fold = method.foldsByGroup(groups, 5, 7)
+  const seen = new Map()
+  groups.forEach((g, i) => { assert.equal(seen.get(g) ?? fold[i], fold[i], `unit ${g} on two folds`); seen.set(g, fold[i]) })
+  const load = [0, 1, 2, 3, 4].map((f) => fold.filter((x) => x === f).length)
+  assert.ok(Math.max(...load) - Math.min(...load) <= 6, `balanced folds: ${load}`)
+})
+
+test('B4: the criterion needs the precision as well as the recall', () => {
+  const r = recognized(syntheticCorpus({ sizes: { big: 140, middle: 40, small: 20 }, noise: 1, seed: 9 }))
+  const big = r.per_class.big
+  assert.ok(big.recall_lower > big.baseline, `an area that absorbs everything has recall ${big.recall_lower}`)
+  assert.ok(big.precision_lower <= big.baseline, 'but its precision does not beat the share')
 })

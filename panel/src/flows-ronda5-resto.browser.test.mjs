@@ -2,7 +2,7 @@
 // dev-server.mjs serving panel/dist: `npm run test:flows`. Each test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 process.env.PANEL_DEV_AUTO_PUBLISH = '1'
 
@@ -35,6 +35,7 @@ async function open(viewport, scheme, who, path = '/') {
     }
   } else await page.goto(origin)
   await settled(page)
+  if (who && path === '/settings') await openFolds(page)
   return { page, context }
 }
 

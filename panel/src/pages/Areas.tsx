@@ -37,7 +37,7 @@ export function Areas() {
   if (me && me.role !== 'editor') {
     return (
       <Page cols={12}>
-        <PageHeader title={t('nav.areas')} />
+        <PageHeader reserve title={t('nav.areas')} />
         <p role="status" className="text-sm text-muted">
           {t('areas.editorOnly')}
         </p>
@@ -128,10 +128,11 @@ function AreaList() {
     <UndoProvider stack={undo}>
       <Page cols={12}>
         <PageHeader
+          reserve
           title={t('nav.areas')}
           aside={
-            <div className="flex items-center gap-2">
-              <UndoButtons stack={undo} />
+            <div className="flex flex-wrap items-center gap-2">
+              <UndoButtons stack={undo} compact />
               <MoreMenu items={[{ key: 'deleted', label: t('restore.areas'), checked: showDeleted, onCheckedChange: setShowDeleted, testId: 'show-deleted' }]} />
               {!none && create}
             </div>
@@ -216,7 +217,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
       <RowCheck id={area.id} title={area.title} selection={selection} align="row" />
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
-      <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="py-1 text-sm font-semibold hover:text-accent-deep hover:underline">
+      <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="py-1 text-sm font-semibold hover:text-accent-deep hover:underline pointer-coarse:py-[11px]">
         {head}
         <span className="whitespace-nowrap">
           {tail}
@@ -227,7 +228,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
       <span className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 sm:contents">
         {(['open', 'answered'] as const).map((status) =>
           counts[status] > 0 ? (
-            <Link key={status} to={areaMessagesPath(area.id, status)} aria-label={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} title={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} className="justify-self-end rounded-full hover:bg-hover">
+            <Link key={status} to={areaMessagesPath(area.id, status)} aria-label={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} title={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} className="justify-self-end rounded-full hover:bg-hover pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">
               <Figure status={status} n={counts[status]} />
             </Link>
           ) : (
@@ -236,13 +237,13 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
             </span>
           ),
         )}
-        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline">
+        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11">
           <span className="tabular-nums">{templateCount}</span>
           <span className="sm:sr-only"> {t('areas.templateCount', { n: templateCount }).replace(/^\S+\s*/, '')}</span>
         </Link>
       </span>
       <div className="col-start-2 col-span-2 min-w-0 sm:col-auto">
-        <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-sm text-muted" />
+        <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-sm text-muted pointer-coarse:min-h-11" />
       </div>
       <Button size="sm" variant="ghost" className="max-sm:col-start-3 max-sm:row-start-1 justify-self-end text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" data-repeat-ok="per-area" onClick={() => void remove()}>
         <Trash2 size={16} aria-hidden /> {t('bulk.delete')}

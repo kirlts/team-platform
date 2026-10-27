@@ -85,6 +85,7 @@ El desenfoque se usa en pocas superficies grandes. Las filas no lo llevan, por c
 | Cuerpo (`text-sm`, `text-base`) | Source Sans 3 | 15 px | Títulos de fila, valores, controles |
 | Lectura (`text-read`) | Source Sans 3 | 17 px | El texto de una propuesta (UD-030) y, en peso 700, el título de cada mensaje propuesto (J3-B-02) |
 | Encabezado (`text-lg`) | Source Sans 3 | 18,75 px | Escala de razón 1,25: 12, 15, 18,75, 23,4 |
+| Identificador (`font-mono`) | Pila monoespaciada del sistema (`--font-mono`: `ui-monospace`, `SF Mono`, `Menlo`, `Consolas`) | 12 a 15 px | Sólo lo que se copia o se compara carácter a carácter: el modelo de una función, el final de una clave, el nombre y la dirección de un proveedor, el código de un bloque de Markdown. Nunca prosa: el editor de la descripción del proyecto usa Source Sans 3. No se empaqueta ni se pide a un servidor: un cero y una o se distinguen con la que trae el sistema |
 
 Los tamaños son tokens de `@theme` (`--text-xs`, `--text-sm`, `--text-read`, `--text-lg`). Ningún componente escribe un tamaño propio por debajo del encabezado: `src/type-scale.test.ts` lo exige en el código y `test:fit` mide cada texto visible en el navegador (las iniciales de un avatar son decoración y quedan exentas).
 
@@ -331,3 +332,15 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 - Los valores de Nombre, Correo y Rol de Configuración son texto plano porque no se editan ahí; su ayuda dice quién los cambia y dónde (UD-122).
 - En Equipo, la acción «Desactivar» comparte la fila del rol en teléfono. La lista mantiene en la página la fila cuyo perfil se abre (`reveal`).
 - En la entrada, el aviso de error va bajo la tarjeta y no reserva una fila dentro de ella: el margen bajo la nota es el del logo sobre la tarjeta (UD-170 para la nota).
+
+## Gestión: Equipo, Áreas, Área, Configuración y Conexiones (ronda del 2026-10-27)
+
+- La cabecera de estas cinco vistas reserva el alto del botón principal (`PageHeader reserve`) y centra el título en él: el título cae a la misma altura con o sin acción, con áreas o sin ellas. Deshacer y Rehacer van en su variante `compact` (sólo íconos, con nombre accesible): con el botón principal caben en 390 px sin empujarlo fuera de la pantalla, y el contenedor de acciones envuelve en vez de desbordar `<main>`.
+- Nombre, correo y extracto del perfil de una fila de Equipo se envuelven; ninguno se corta (UD-016: UD-241 enmendó sólo las tarjetas de las listas de mensajes). El extracto es el primer párrafo entero y «Ver más» avisa que hay más; el perfil completo se abre en la ventana.
+- Un cambio de rol se confirma bajo la barra superior con su Deshacer, igual que desactivar.
+- «Aplicar» de una función de Proveedores sólo se dibuja mientras haya un cambio por aplicar, a la derecha de «Diagnosticar», que no se mueve. Un control apagado todo el tiempo no dice qué falta.
+- Configuración no lleva ayuda visible por omisión (Voz de instrumento): la ayuda de cada ajuste la lee un lector de pantalla (`SettingHint`, `sr-only`) y se dibuja sólo donde sin ella la persona se equivoca, que son las tres acciones de Datos (borran, quitan, gastan). Proveedores y claves, Datos y Auditoría son filas plegadas (`SettingsBox fold`); su contenido se dibuja, y se lee del servidor, al abrirlas. La Cola queda abierta: «Ejecuciones» dentro de ella ya es un pliegue, y un pliegue no contiene otro.
+- Una cifra que no se pudo leer no es un cero: la Cola dibuja el error con Reintentar (`LoadState`) en lugar de los cinco conteos.
+- Con puntero táctil (`pointer: coarse`) todo control de estas vistas mide 44 px (`--touch-min`): botones, campos y selectores (`styles.css`), segmentos de `Segmented`, pestañas de `StateTabs`, enlaces de conteo de Áreas, botón del extracto, nombre y correo editables, cierre de ventana. La casilla de una fila mide 20 px y su marco invisible llega a 44.
+- Una ventana de contenido (Guardias, Perfil) lleva 20 px a los lados y 16 px arriba y abajo, y sus casillas son `ui/checkbox`.
+- Conexiones sigue visible y apagada, sin función por fila: lo fijan MASTER-SPEC §4.1, `idea.md`, UD-037 y UD-220 (3). Una dirección `/connections/<otra>` dice «Página no encontrada».

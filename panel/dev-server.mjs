@@ -927,9 +927,9 @@ function control(path, query) {
     framing = {}
     inputs.clear()
     seedOps()
-    seedAudit()
     eventLog.length = 0
     restoreArray(members, initial.members)
+    seedAudit() // after the members are back: the log names them, and a reset that follows deleting members answered 500
     restoreArray(areas, initial.areas)
     restoreArray(templates, initial.templates)
     restoreArray(providers, initial.providers)

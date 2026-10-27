@@ -239,6 +239,13 @@ export function watchRequests(page, { quietMs = 500 } = {}) {
   }
 }
 
+/** Opens the folded boxes of Configuración (Proveedores y claves, Datos, Cola, Auditoría): their content is drawn, and read from the server, once they are open. */
+export async function openFolds(page) {
+  await page.locator('main [data-data-reset]').first().waitFor() // the boxes are drawn when the view is; «Datos» is for every member
+  const closed = page.locator('main :is([data-providers], [data-data-reset], [data-audit], [data-queue-box]) h2 button[aria-expanded="false"]')
+  while ((await closed.count()) > 0) await closed.first().click()
+}
+
 /** Opens the window of a template from the view of an area (UD-297): the name of its row, the first one or the one called `name`. */
 export async function openTemplate(page, name) {
   const open = name ? page.getByRole('button', { name: `Abrir ${name}`, exact: true }) : page.getByTestId('template-open').first()

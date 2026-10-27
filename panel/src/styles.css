@@ -879,6 +879,10 @@
     .btn:where(.w-8, .w-10) {
       min-width: var(--touch-min);
     }
+    /* Fields and selects of the panel are 40 px tall with a pointer: with a finger they are as tall as a button. */
+    .well:where(.h-10) {
+      min-height: var(--touch-min);
+    }
   }
 
   /* Smallest target of a control (WCAG 2.2, criterion 2.5.8, 24 by 24 CSS px): the box itself, not a bigger invisible one. */

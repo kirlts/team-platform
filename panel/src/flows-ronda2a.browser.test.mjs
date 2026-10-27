@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel, settled, openTemplates, openTemplate } from './browser-support.mjs'
+import { login, openFolds, openTemplate, openTemplates, settled, startPanel } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -432,6 +432,7 @@ describe('areas, templates and settings', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
+      await openFolds(page)
       const mark = page.locator('li[data-connection="anthropic"] span[data-status]').first()
       await mark.waitFor()
       const style = await mark.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), bg: getComputedStyle(el).backgroundColor, border: getComputedStyle(el).borderTopWidth }))

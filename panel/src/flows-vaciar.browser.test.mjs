@@ -1,7 +1,7 @@
 // UD-240: «Datos» in Configuración. The Editor empties the test data with one click and no step that confirms it (UD-253); a member never sees the section.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -29,6 +29,7 @@ async function session(who) {
   await page.goto(`${origin}/settings`)
   await page.getByRole('heading', { name: 'Cuenta' }).waitFor()
   await settled(page)
+  await openFolds(page)
   return { page, context }
 }
 

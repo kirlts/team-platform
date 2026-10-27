@@ -75,6 +75,18 @@ describe('the evidence', () => {
   })
 })
 
+describe('the profile of who asked (third audit, H-8)', () => {
+  it('reaches the judge as evidence a quote may come from, and is an empty block when the person wrote none', () => {
+    const author = { name: 'Ana', profile: 'Soy médica: leo resultados, no código.' }
+    assert.equal(judgeBlocks(job({ author })).find(([t]) => t === 'perfil_de_quien_pidio')[1], 'Ana\nSoy médica: leo resultados, no código.')
+    assert.match(buildJudgePrompt(job({ author })), /<perfil_de_quien_pidio>\nAna\nSoy médica/)
+    assert.ok(judgeEvidence(job({ author })).present.includes('perfil_de_quien_pidio'))
+    assert.ok(judgeEvidence(job({ author })).text.includes('leo resultados'))
+    assert.equal(judgeBlocks(job({ author: { name: 'Ana', profile: '' } })).find(([t]) => t === 'perfil_de_quien_pidio')[1], '')
+    assert.ok(!judgeEvidence(job()).present.includes('perfil_de_quien_pidio'))
+  })
+})
+
 describe('the idea of the request', () => {
   it('reaches the judge as context when the analyzer judged it, and is an empty block when nobody did (UD-307)', () => {
     const idea = { idea: 0.9, idea_guard: true, idea_reason: 'lo dijo como una posibilidad' }

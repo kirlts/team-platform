@@ -133,14 +133,16 @@ export function judgeSchema () {
 
 /**
  * The evidence blocks of a job, in the order the judge reads them: `[title, text]`. `area` and `project` are the descriptions of the space the work is measured against (`{ title, description }`
- * and `{ name, description }`); `firstProposal` is the first complete proposal of the work when the platform has one (it has none yet: 4.3 stays out until it does).
+ * and `{ name, description }`); `author` is `{ name, profile }` of the person who asked; `firstProposal` is the first complete proposal of the work when the platform has one (it has none yet: 4.3 stays out until it does).
  */
-export function judgeBlocks ({ message, expectation, guards, output, detail, captures, stats, area = null, project = null, firstProposal = '', idea = null }) {
+export function judgeBlocks ({ message, expectation, guards, output, detail, captures, stats, area = null, project = null, firstProposal = '', idea = null, author = null }) {
   return [
     ['mensaje', `${message.title}\n\n${message.body}`],
     ['lo_esperado', expectation],
     ['guardias_tocadas', guards.map((g) => `G${g.id}: ${g.text}${g.mechanism ? ` (la sostiene: ${g.mechanism})` : ''}`).join('\n')],
     ['idea_del_pedido', typeof idea?.idea_guard === 'boolean' ? [`idea: ${typeof idea.idea === 'number' ? `${idea.idea.toFixed(2)} de 1` : 'sin dato'}`, `la Guardia de la idea aplica: ${idea.idea_guard ? 'sí' : 'no'}`, idea.idea_reason ? `razón: ${idea.idea_reason}` : ''].filter(Boolean).join('\n') : ''],
+    // Third audit of the method (H-8): who asked, as they wrote about themselves. 3.2 and 3.3 depend on what that person understands and can decide, and a judge that does not know them reads against a generic reader.
+    ['perfil_de_quien_pidio', author?.profile ? `${author.name ?? ''}\n${author.profile}`.trim() : ''],
     ['descripcion_del_area', area ? `${area.title}\n${area.description ?? ''}` : ''],
     ['descripcion_del_proyecto', project ? `${project.name ?? ''}\n${project.description ?? ''}` : ''],
     ['primera_propuesta', firstProposal],

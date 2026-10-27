@@ -315,6 +315,7 @@ describe('model by area and by estimates', () => {
 
   it('the judge reads the anchors of the levels and the description of the area and of the project as evidence', async () => {
     startWorker()
+    env.db.prepare("UPDATE members SET profile = 'Soy médica: leo resultados, no código.' WHERE email = 'ana@x.org'").run()
     const before = judgePrompts.length
     const id = await publish('Cambiar otro rótulo.')
     await settle(id)
@@ -324,6 +325,7 @@ describe('model by area and by estimates', () => {
     const area = get(env.db, 'SELECT a.title, a.description FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ?', id)
     assert.ok(prompt.includes(`<descripcion_del_area>\n${area.title}\n${area.description}`.trim()), 'the description of the area is evidence')
     assert.match(prompt, /<descripcion_del_proyecto>\n[\s\S]*\n<\/descripcion_del_proyecto>/)
+    assert.match(prompt, /<perfil_de_quien_pidio>\nAna\nSoy médica: leo resultados, no código\.\n<\/perfil_de_quien_pidio>/, 'third audit, H-8: the judge reads who asked')
     assert.match(prompt, /<primera_propuesta>\n\(vacío\)\n<\/primera_propuesta>/, 'there is no first proposal to hand over yet')
   })
 

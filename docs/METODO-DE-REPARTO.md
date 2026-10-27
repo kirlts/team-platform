@@ -28,7 +28,8 @@ Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo
 | Probar con un miembro nuevo | ninguno | unidades del miembro | su perfil y su lugar en las áreas | En parte, sección 10 |
 | Evaluar un trabajo | `src/execute/judge.js` | un trabajo terminado | juicio de doce indicadores | Sí, dentro del producto |
 | Validar el juicio contra personas | `scripts/row-validation.mjs judge` | puntajes de personas y del juez | kappa por indicador | En parte, sección 11 |
-| Fijar los límites del modelo liviano | `scripts/light-limits.mjs` | trabajos del modelo liviano con su resultado | `EXECUTE_LIGHT_LIMITS` | En parte, sección 11 |
+| Fijar los límites del modelo liviano | `scripts/light-jobs.mjs`, `scripts/light-limits.mjs` | base de la instalación, trabajos del modelo liviano con su resultado | `EXECUTE_LIGHT_LIMITS` | Sí, sección 11 |
+| Medir las reasignaciones | `scripts/reassignment-rate.mjs` | base de la instalación | tasa de mensajes movidos de área, con su intervalo | Sí, sección 9 |
 | Leer las anclas de los indicadores | `scripts/anchors.mjs` | ninguna | las anclas de los cinco niveles | Sí |
 
 Nivel de evidencia (detalle de la tabla de arriba). Todas las mediciones de este documento usan corpus inventados con dimensiones independientes, y ninguna corrida del método sobre material real está documentada. Lo que se afirma de los umbrales vale para esos corpus. Antes de confiar en un número sobre material de un equipo, las filas se validan con personas (sección 3).

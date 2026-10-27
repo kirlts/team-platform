@@ -736,7 +736,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       const areaRow = get(db, 'SELECT title, description FROM areas WHERE id = ?', message.area_id)
       const judged = {
         message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touchedIds.includes(g.id) || declaredIds.includes(g.id)), output: visible, detail: rec.detail,
-        area: areaRow ?? null, project: getProject(db, config), idea: idea ?? null,
+        area: areaRow ?? null, project: getProject(db, config), idea: idea ?? null, author: author ? { name: author.name, profile: author.profile } : null,
         captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: costOfResult(result) ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(goesOn ? { no_cerro: 'sí' } : {}), ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
       }
       judgment = await runJudge({ providers: getProviders(), logger, signal: ctx.signal, prompt: buildJudgePrompt(judged), evidence: judgeEvidence(judged) })

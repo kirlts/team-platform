@@ -611,3 +611,30 @@ test('D6: every row records the model and the version of the script that wrote i
   assert.equal(result.rows[0].script_version, extraction.EXTRACTOR_VERSION)
   assert.match(extraction.EXTRACTOR_VERSION, /^\d+\.\d+\.\d+$/)
 })
+
+// ---- D1: the volume is derived from the interval, not from a share
+test('D1: the minimum of rows of an area is the count of the interval and not a share of the corpus', () => {
+  const min = method.wilsonSampleSize(DEFAULTS.targetRate, DEFAULTS.halfWidth)
+  assert.equal(min, 26)
+  const big = { sizes: { A: 700, B: 700, C: min, D: min - 1 }, noise: 0.3, seed: 31 } // c is 1.3 % of the corpus
+  const by = Object.fromEntries(analyze(syntheticCorpus(big), team).areas.map((a) => [a.title, a]))
+  assert.equal(by.C.criteria.volume.pass, true, '26 rows of 2,000 pass: a 5 % share would have refused them')
+  assert.equal(by.D.criteria.volume.pass, false, 'one row less does not')
+  assert.equal(by.C.criteria.volume.min_rows, 26)
+  const small = Object.fromEntries(analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team).areas.map((a) => [a.title, a]))
+  assert.equal(small.A.criteria.volume.pass, true, '30 rows of 60 pass because they are enough to measure, not because they are half')
+  const wider = analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team, { halfWidth: 0.1 })
+  assert.equal(wider.areas[0].criteria.volume.min_rows, method.wilsonSampleSize(0.8, 0.1))
+  assert.equal(wider.areas[0].criteria.volume.pass, false, 'a tighter margin asks for more rows')
+})
+
+test('D1: the report says when it has nothing to route between', () => {
+  const tiny = analyze(syntheticCorpus({ sizes: { a: 1, b: 1, c: 1 }, noise: 0.3, seed: 33 }), team)
+  assert.ok(tiny.warnings.some((w) => w.kind === 'corpus_small'))
+  assert.ok(tiny.warnings.some((w) => w.kind === 'single_area'))
+  const alone = analyze(rows, { ...team, members: [team.members[0]] })
+  assert.ok(alone.warnings.some((w) => w.kind === 'single_member'))
+  assert.deepEqual(analyze(rows, team).warnings, [])
+  const thin = analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team)
+  assert.ok(thin.warnings.some((w) => w.kind === 'confirmation_short'))
+})

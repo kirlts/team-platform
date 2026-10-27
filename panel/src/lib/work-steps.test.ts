@@ -17,6 +17,11 @@ describe('stepOfPhase', () => {
 })
 
 describe('workSteps', () => {
+  it('the session lasts what its `run` phase lasts: copying the transcript and destroying the machine are not counted in it (the same figure as in «Tiempos»)', () => {
+    const w = workSteps({ ...base, job_status: 'done', phases: [phase('create', 95000), phase('run', 210000), phase('collect', 5000), phase('destroy', 8000)] })
+    expect(w.steps.map((s) => `${s.key}:${s.ms}`)).toEqual(['machine:95000', 'session:210000'])
+  })
+
   it('a queued job shows the stretches the instance will run, all pending', () => {
     const w = workSteps({ ...base, job_status: 'queued', machine: true, delivers: true })
     expect(w.state).toBe('queued')
@@ -47,7 +52,7 @@ describe('workSteps', () => {
   it('while the delivery runs, the machine and the session are done', () => {
     const w = workSteps({ ...base, phase: 'deliverVerify', elapsed_ms: 5000, phases: [phase('create', 1000), phase('run', 2000), phase('collect', 300), phase('destroy', 200)], deliver: { job_id: '4', job_status: 'running', phase: 'deliverVerify', attempts: 1 } })
     expect(states({ ...base, phase: 'deliverVerify', elapsed_ms: 5000, phases: [phase('create', 1000), phase('run', 2000), phase('collect', 300), phase('destroy', 200)], deliver: { job_id: '4', job_status: 'running', phase: 'deliverVerify', attempts: 1 } })).toEqual(['machine:done', 'session:done', 'deliver:running'])
-    expect(w.steps[1]!.ms).toBe(2500)
+    expect(w.steps[1]!.ms).toBe(2000) // the `run` phase only: copying the transcript and destroying the machine are not the session's time
   })
 
   it('a session without a machine (local runner) has no machine stretch', () => {

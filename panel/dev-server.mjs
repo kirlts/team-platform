@@ -292,7 +292,7 @@ function seedMessage(m, rs = []) {
   return msg
 }
 
-seedMessage({ assessment: { expectation: 'Cambiar el color del botón y mostrar el antes y el después.', guards: [1], estimates: { understand_vs_create: 0.15, irreversibility: 0.1, value_holder: 'model', certainty: 0.9, reason: 'Es un ajuste de estilo con la causa dicha.' }, by: null }, area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
+seedMessage({ assessment: { expectation: 'Cambiar el color del botón y mostrar el antes y el después.', guards: [1], estimates: { understand_vs_create: 0.15, irreversibility: 0.1, value_holder: 'model', certainty: 0.9, reason: 'Es un ajuste de estilo con la causa dicha.', idea: 0.1, idea_guard: false, idea_reason: 'Describe algo que falla, no una posibilidad.' }, by: null }, area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
 seedMessage({ assessment: { expectation: 'Investigar el formato del archivo y proponer cómo exportarlo; después, implementarlo.', guards: [], estimates: { understand_vs_create: 0.6, irreversibility: 0.2, value_holder: 'model', certainty: 0.7, reason: 'Hay que diseñar el formato.' }, by: null }, area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
   { author_id: 'u-ana', kind: 'clarification', body: '¿El formato es CSV o una hoja de cálculo? Cambia el esfuerzo.', created_at: ago(120) },
   { author_id: 'u-diego', kind: 'answer', body: 'CSV alcanza.', created_at: ago(90) },
@@ -907,9 +907,46 @@ function control(path, query) {
     const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
     const msg = seedMessage({ area_id: 'a-feature', author_id: 'u-carla', title: 'Subir fotos clínicas a la ficha', body: 'Quiero subir fotos del paciente desde el teléfono a su ficha.', created_at: ago(60), assignee_ids: ['u-ana'], attachment_ids: [] }, [
       { author_id: 'u-claude', kind: 'clarification', created_at: ago(8), attachment_ids: [shot('0:02', 'Paso 1 · Abrir la ficha', 210), shot('0:05', 'Paso 2 · Apretar Tomar fotografía', 160)],
-        body: 'La ficha del paciente ahora permite tomar una fotografía y guardarla en su historial. Cambia lo que ve la recepción.\n\nRiesgo: la foto queda con datos de una persona. Mirar el paso 2 antes de entregar.\n\nCambio listo para revisar: toca datos de personas. Todavía no llega a producción. Cómo queda, en «Propuesta».\n\n**Resultado**: needs_decision' }
+        body: 'La ficha del paciente ahora permite tomar una fotografía y guardarla en su historial. Cambia lo que ve la recepción.\n\nRiesgo: la foto queda con datos de una persona. Mirar el paso 2 antes de entregar.\n\nCambio listo para revisar: toca datos de personas. Todavía no llega a producción. Cómo queda, en «Propuesta».' }
     ])
-    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Toca datos de personas', job_id: 'j-rev0', agent_id: 'u-claude', delivering_job_id: null })
+    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Toca datos de personas', job_id: 'j-rev0', agent_id: 'u-claude', delivering_job_id: null, state: 'held' })
+    return { message_id: msg.id }
+  }
+  if (path === '/_control/idea-guard') {
+    // UD-307: the Guard of the idea applies. Claude built and showed the idea, nothing is delivered, the thread says «Lista para ver» and the message waits for a person with its review held.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
+    const msg = seedMessage({
+      assessment: { expectation: 'Mostrar cómo se vería un resumen semanal por área; la decisión de publicarlo es de una persona.', guards: [], estimates: { understand_vs_create: 0.7, irreversibility: 0.3, value_holder: 'person', certainty: 0.6, reason: 'Es una posibilidad sin fecha ni acuerdo.', idea: 0.9, idea_guard: true, idea_reason: 'Quien escribe comparte una posibilidad para ver, no un cambio acordado.' }, by: null },
+      area_id: 'a-idea', author_id: 'u-carla', title: 'Un resumen semanal por área en Inicio', body: 'Sería bueno ver un resumen de lo cerrado y lo abierto por área cada lunes, arriba de las listas.', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [],
+    }, [
+      { author_id: 'u-claude', kind: 'clarification', created_at: ago(9), attachment_ids: [shot('0:03', 'Resumen en Inicio', 260), shot('0:08', 'Resumen por área', 190)],
+        body: 'Lista para ver. No está en producción: respóndeme en este hilo qué quieres que haga con esto.\n\nInicio ahora muestra una franja con lo cerrado y lo abierto de cada área. Se ve en «Propuesta».' },
+    ])
+    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Idea para ver', job_id: 'j-idea0', agent_id: 'u-claude', delivering_job_id: null, state: 'held' })
+    return { message_id: msg.id }
+  }
+  if (path === '/_control/handoff') {
+    // UD-269: Claude could not decide. The reply is the question with its recommendation, the agent left the assignees and the person who decides in the area holds the message.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const msg = seedMessage({
+      assessment: { expectation: 'Exportar los mensajes cerrados del mes; falta saber dónde se entrega el archivo.', guards: [], estimates: { understand_vs_create: 0.4, irreversibility: 0.5, value_holder: 'person', certainty: 0.5, reason: 'Falta un criterio del negocio.', idea: 0.1, idea_guard: false, idea_reason: 'Pide un cambio decidido.' }, by: null },
+      area_id: 'a-feature', author_id: 'u-diego', title: 'Entregar el resumen mensual al cliente', body: 'El cliente quiere recibir cada mes el resumen de lo cerrado.', created_at: ago(70), assignee_ids: ['u-ana'], attachment_ids: [],
+    }, [
+      { author_id: 'u-claude', kind: 'clarification', created_at: ago(12),
+        body: 'Necesito una decisión: ¿el resumen llega por correo o se descarga desde la plataforma?\n\nRecomendación: por correo, el primer día de cada mes.\n\nSi la respuesta es otra: el cliente tendría que entrar a la plataforma para verlo.' },
+    ])
+    return { message_id: msg.id }
+  }
+  if (path === '/_control/extraction') {
+    // UD-071: the text read from what the message carries: the speech of an audio and of a video, and the text of a document, shown with each medium.
+    const voice = seedAttachment('audio', 'audio/wav', 'nota-con-texto.wav', silentWav(8))
+    attachments.get(voice).transcript = 'Primero, el botón Enviar no se distingue en el tema oscuro. Segundo, la lista tarda en abrir cuando hay muchos mensajes.'
+    const video = seedAttachment('video', 'video/webm', 'recorrido-con-voz.webm', readFileSync(new URL('./dev-fixtures/sample.webm', import.meta.url)))
+    attachments.get(video).transcript = SPOKEN_SAMPLE
+    const pdf = seedAttachment('document', 'application/pdf', 'informe-del-cliente.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'))
+    attachments.get(pdf).transcript = 'Informe del cliente. Resumen: la lista de pacientes tarda en abrir con más de mil filas. Pedido: que abra en menos de dos segundos.'
+    const msg = seedMessage({ area_id: 'a-error', author_id: 'u-bruno', title: 'Nota de voz, video y un informe', body: 'Lo dije hablando y dejé la grabación y el informe del cliente.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [voice, video, pdf] })
     return { message_id: msg.id }
   }
   if (path === '/_control/reset') {

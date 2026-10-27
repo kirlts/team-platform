@@ -133,8 +133,8 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       const text = await trace.innerText()
       assert.match(text, /Entrada/)
       assert.match(text, /Costo/)
-      assert.match(text, /US\$ 0\.\d{4}/)
-      assert.match(await trace.locator('[data-span="job.analyze"]').innerText(), /\d+(\.\d)? s/)
+      assert.match(text, /US\$ 0,\d{4}/)
+      assert.match(await trace.locator('[data-span="job.analyze"]').innerText(), /\d+(,\d)? s/)
       await carla.getByRole('button', { name: 'Traza' }).click()
       assert.equal(await carla.locator('[data-trace]').count(), 0, 'the same button closes it')
 

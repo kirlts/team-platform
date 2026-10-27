@@ -38,7 +38,7 @@ describe('History of executions in the Cola (UD-262)', () => {
       await figure('Costo medio').waitFor()
       assert.equal(await figure('Ejecuciones').innerText(), '5')
       assert.equal(await figure('Con error').innerText(), '1')
-      assert.equal(await figure('Costo medio').innerText(), 'US$ 1.62')
+      assert.equal(await figure('Costo medio').innerText(), 'US$ 1,62')
       assert.equal(await figure('Entrega').innerText(), '50 %')
       assert.equal(await figure('Resueltas').innerText(), '20 %')
       assert.deepEqual(await block.locator('[data-runs-phase]').evaluateAll((els) => els.map((e) => e.getAttribute('data-runs-phase'))), ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'total_ms', 'create_ms', 'run_ms', 'destroy_ms', 'tools_ms', 'delivery_ms'], 'a phase nobody reported has no row')

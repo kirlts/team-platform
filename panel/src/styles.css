@@ -737,6 +737,12 @@
     mask-image: linear-gradient(to bottom, transparent 0, black 14px);
   }
 
+  /* The lane of the thread says there is more below its last visible row: that row fades instead of being cut. */
+  [data-lane='reply-thread'][data-more='true'] {
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+    mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+  }
+
   .btn-gel:hover:not(:disabled) {
     --gel-t: var(--color-gel-hover-top, var(--color-gel-top));
     --gel-b: var(--color-gel-hover-bottom, var(--color-gel-bottom));

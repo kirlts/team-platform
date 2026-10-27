@@ -1,5 +1,5 @@
-// GET /attachments/:id/transcript: the text extracted from an audio or a video, for the panel's gallery.
-// Same access as the file: the sender before publishing, the whole team after; a link, a photo or a file without text has none.
+// GET /attachments/:id/transcript: the text extracted from an attachment (the speech of an audio or a video, the description of a photo, the text of a document or a link), for the panel's gallery.
+// Same access as the file: the sender before publishing, the whole team after; an attachment without extracted text has none.
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -15,7 +15,7 @@ async function team () {
   return env
 }
 
-test('the transcript of an audio is served with the access of the file and is absent where there is no text', async () => {
+test('the extracted text of an attachment is served with the access of the file and is absent where there is none', async () => {
   const env = await team()
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x', links: 'https://example.org' }, [
     { field: 'files', name: 'nota.wav', type: 'audio/wav', content: 'RIFF' },
@@ -34,8 +34,10 @@ test('the transcript of an audio is served with the access of the file and is ab
   assert.equal((await ask(env.c.ana, audio)).json().text, '00:00 Hola equipo')
   assert.equal((await ask(null, audio)).statusCode, 401)
   assert.equal((await ask(env.c.beto, audio)).statusCode, 404) // unpublished: only the sender
-  assert.equal((await ask(env.c.ana, photo)).statusCode, 404) // a photo has a description, not a transcript
-  assert.equal((await ask(env.c.ana, link)).statusCode, 404)
+  assert.equal((await ask(env.c.ana, photo)).json().text, 'una foto') // the description of a photo is text the person can read too
+  assert.equal(typeof (await ask(env.c.ana, link)).json().text, 'string') // the worker read the link in the analysis: its text is served too
+  run(env.db, 'UPDATE attachments SET extracted_text = NULL WHERE id = ?', link.id)
+  assert.equal((await ask(env.c.ana, link)).statusCode, 404) // without extracted text there is nothing to serve
   assert.equal((await env.app.inject({ url: '/api/attachments/99999/transcript', headers: { cookie: env.c.ana } })).statusCode, 404)
 
   await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: [{ ...view.proposal.messages[0], attachment_ids: [audio.id] }] })

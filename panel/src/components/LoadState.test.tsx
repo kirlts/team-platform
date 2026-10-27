@@ -1,4 +1,5 @@
 // J3-D3-03: the waiting rows of a list keep the place of its rows, with the height of the same row (`--spacing-card-row`), not a figure of their own.
+// The second block of a screen that is waiting keeps its bars and does not say «Cargando» again.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -32,5 +33,11 @@ describe('LoadState', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8')
     expect(css).toMatch(/--spacing-card-row:\s*\d+px/)
     expect(css).toMatch(/--spacing-card-text:\s*\d+px/)
+  })
+
+  it('says «Cargando» once, in the first block; the quiet one is only bars and is hidden from assistive technology', () => {
+    render(<I18nProvider language="es-419"><LoadState query={waiting} /><LoadState query={waiting} rows={2} quiet /></I18nProvider>)
+    expect(screen.getAllByText('Cargando')).toHaveLength(1)
+    expect(screen.getAllByRole('status')).toHaveLength(1)
   })
 })

@@ -13,7 +13,7 @@ export interface GalleryItem {
   name?: string
   size?: number
   mime?: string
-  /** Address of the extracted text (audio and video), only when the server has one. */
+  /** Address of the extracted text (the speech of an audio or a video, the description of a photo, the text of a document or a link), only when the server has one. */
   transcriptSrc?: string
 }
 
@@ -24,7 +24,7 @@ export function transcriptUrl(id: string): string {
   return client.transcriptUrl(id)
 }
 
-/** The gallery items of a list of attachments. A transcript is offered only where the server says it extracted text. */
+/** The gallery items of a list of attachments. The extracted text is offered only where the server says it has one. */
 export function toGalleryItems(attachments: readonly Attachment[] | undefined, scope: AttachmentScope = 'message'): GalleryItem[] {
   const file = scope === 'reply' ? client.replyAttachmentUrl : client.attachmentUrl
   return (attachments ?? []).map((a) => ({
@@ -35,7 +35,7 @@ export function toGalleryItems(attachments: readonly Attachment[] | undefined, s
     name: a.name,
     size: a.size,
     mime: a.mime,
-    transcriptSrc: a.extracted && (a.kind === 'audio' || a.kind === 'video') ? (scope === 'reply' ? client.replyTranscriptUrl(a.id) : transcriptUrl(a.id)) : undefined, // a reply's speech is read too (UD-279)
+    transcriptSrc: a.extracted ? (scope === 'reply' ? client.replyTranscriptUrl(a.id) : transcriptUrl(a.id)) : undefined, // a reply's text is read too (UD-279)
   }))
 }
 

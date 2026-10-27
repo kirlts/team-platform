@@ -371,7 +371,7 @@ export function createResources(t: Transport) {
       reset: (scope: ResetScope) => call<ResetResult>(routes.opsReset, { search: CONFIRM, body: { scope } }),
     },
     attachments: {
-      /** The text the server extracted from an audio or a video (`GET /attachments/:id/transcript`). */
+      /** The text the server extracted from an attachment: speech, description of a photo, text of a document or a link (`GET /attachments/:id/transcript`). */
       transcript: (id: string) => call<{ text?: string }>(routes.attachmentTranscript, { params: { id } }),
     },
   }

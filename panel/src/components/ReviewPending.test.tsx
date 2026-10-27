@@ -1,4 +1,4 @@
-// UD-275 amended by UD-280: while a change waits for review the sheet shows one line of state and no actions; the review is a reply that mentions Claude.
+// UD-275 amended by UD-280: while a change waits for review the sheet shows one line of state, with nothing to press; the review itself is a reply in the thread that mentions Claude.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -70,24 +70,33 @@ describe('the line «Cambio listo para revisar» (UD-275, UD-280)', () => {
   })
 
   for (const who of ['editor', 'member'] as const) {
-    it(`a ${who} sees one short line and no buttons or links`, async () => {
+    it(`a ${who} sees the line and nothing to press: the review is written in the reply field (UD-280.1)`, async () => {
       role = who
       calls.length = 0
       render(<Mount><ReviewPending message={message()} /></Mount>)
       const block = await screen.findByTestId('review-pending')
       expect(screen.getByTestId('review-reason').textContent).toBe('Cambio listo para revisar')
-      expect(block.querySelectorAll('button, a, input, textarea').length).toBe(0)
-      expect(block.textContent).toBe('Cambio listo para revisar')
+      // No «Entregar», «Pedir cambios», «Descartar» nor «Responder a Claude»: the line has no control at all.
+      await waitFor(() => expect(block.querySelectorAll('button, a, input, textarea').length).toBe(0))
+      expect(screen.queryByTestId('review-reply')).toBeNull()
       expect(calls).toEqual([])
     })
   }
 
-  it('a delivery approved by a reply shows its progress, still without actions', async () => {
+  it('a failed delivery is retried from the thread: the line says it and has no control', async () => {
+    role = 'member'
+    render(<Mount><ReviewPending message={message({ state: 'failed' })} /></Mount>)
+    await screen.findByTestId('review-pending')
+    expect(screen.getByTestId('review-reason').textContent).toBe('La entrega falló')
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('a delivery approved by a reply shows its progress', async () => {
     role = 'editor'
     render(<Mount><ReviewPending message={message({ delivering_job_id: '88' })} /></Mount>)
     await screen.findByTestId('review-progress')
     act(() => store.progress({ job_id: '88', percent: 50, phrase: 'Entrega: despliegue' }))
     await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Entrega: despliegue'))
-    expect(screen.getByTestId('review-pending').querySelectorAll('button').length).toBe(0)
+    expect(screen.queryByRole('button')).toBeNull() // a delivery in course is followed, not answered
   })
 })

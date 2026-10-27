@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { TeamApiError } from '@team-platform/client'
-import { seconds, Timing } from './Timing'
+import { Timing } from './Timing'
 
 const timing = {
   message_id: '7', job_id: '3', job_status: 'done', trace_id: 'a'.repeat(32), phase: null, elapsed_ms: null,
@@ -40,12 +40,6 @@ function wrap(ids: string[]) {
   )
 }
 
-describe('seconds', () => {
-  it('writes milliseconds, seconds and minutes', () => {
-    expect([seconds(420), seconds(41000), seconds(94000), seconds(1_320_000)]).toEqual(['420 ms', '41 s', '1 min 34 s', '22 min 0 s'])
-  })
-})
-
 describe('Timing', () => {
   it('shows nothing when no assignee is an agent', async () => {
     answer = () => timing
@@ -54,7 +48,7 @@ describe('Timing', () => {
     expect(container.querySelector('[data-timing]')).toBeNull()
   })
 
-  it('is folded, and opening it draws the figures, the phases and the slowest tool first', async () => {
+  it('is folded, and opening it draws the figures, the phases and the tree, which holds the slowest steps in their place', async () => {
     answer = () => timing
     wrap(['u1', 'u2'])
     const toggle = await screen.findByRole('button', { name: 'Tiempos' })
@@ -64,17 +58,29 @@ describe('Timing', () => {
     expect((await screen.findByText('Primera respuesta')).nextElementSibling?.textContent).toBe('41 s')
     expect(screen.getByText('Respuesta final').nextElementSibling?.textContent).toBe('22 min 0 s')
     expect(screen.getByText('Total').nextElementSibling?.textContent).toBe('23 min 0 s')
+    expect(document.querySelector('[data-timing-slow]')).toBeNull() // with the tree the list would say the same steps twice
+    expect(document.querySelector('[data-span="execute.machine.run"]')).not.toBeNull()
+  })
+
+  it('without the tree (its spans are gone) the slowest tools stand alone, the slowest first', async () => {
+    answer = () => ({ ...timing, tree: null })
+    wrap(['u1', 'u2'])
+    fireEvent.click(await screen.findByRole('button', { name: 'Tiempos' }))
+    await screen.findByText('Primera respuesta')
     const slow = screen.getAllByRole('listitem').filter((li) => li.hasAttribute('data-timing-slow'))
     expect(slow[0].textContent).toContain('Orden: npm test')
     expect(slow[0].textContent).toContain('1 min 34 s')
-    expect(document.querySelector('[data-span="execute.machine.run"]')).not.toBeNull()
+    expect(document.querySelector('[data-span]')).toBeNull()
   })
 
   it('names the delivery as a phase while it runs and after it ended (UD-263)', async () => {
     answer = () => ({ ...timing, job_status: 'running', phase: 'deliverVerify', elapsed_ms: 12000, phases: [...timing.phases, { name: 'deliver', duration_ms: 48000, offset_ms: null, status: 'ok' }] })
     wrap(['u2'])
     fireEvent.click(await screen.findByRole('button', { name: 'Tiempos' }))
-    expect((await screen.findByText(/Entrega: verificación/)).textContent).toBe('Entrega: verificación · 12 s')
+    // The running phase is a name and a time, like every other figure of the part.
+    const running = await screen.findByText(/Entrega: verificación/)
+    expect(running.textContent).toBe('Entrega: verificación')
+    expect(running.nextElementSibling?.textContent).toBe('12 s')
     expect(screen.getByText('Entrega').nextElementSibling?.textContent).toBe('48 s')
   })
 

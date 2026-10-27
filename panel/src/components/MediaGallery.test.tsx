@@ -159,6 +159,21 @@ describe('gallery helpers', () => {
     expect(reply[1].transcriptSrc).toBeUndefined()
   })
 
+  it('offers the text read from a photo, a document or a link as well, and says it is not a transcript', () => {
+    const atts = [
+      { id: 'i1', kind: 'image' as const, name: 'f.png', extracted: true },
+      { id: 'd1', kind: 'document' as const, name: 'a.pdf', extracted: true },
+      { id: 'l1', kind: 'link' as const, name: 'https://x.org', extracted: true },
+      { id: 'd2', kind: 'document' as const, name: 'b.pdf' },
+    ]
+    const items = toGalleryItems(atts)
+    expect(items.map((i) => i.transcriptSrc)).toEqual(['/api/attachments/i1/transcript', '/api/attachments/d1/transcript', '/api/attachments/l1/transcript', undefined])
+    // The text of a photo, a document or a link sits under the viewer, outside the slides: they keep the height of their medium.
+    wrap(<MediaGallery items={items} />)
+    expect(document.querySelector('[data-gallery-extracted]')).not.toBeNull()
+    expect(document.querySelector('[data-gallery-viewer] [data-gallery-transcript]')).toBeNull()
+  })
+
   it('waits for the stream when a file is not readable yet, draws no error, and loads by itself when something is published', () => {
     const store = new EventsStore()
     wrap(

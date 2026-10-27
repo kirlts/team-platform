@@ -60,7 +60,7 @@ function runClaude({ bin, args, prompt, cwd, env, timeoutMs, signal }) {
     if (signal?.aborted) { reject(abortedError(signal)); return; }
     let child;
     try {
-      // fuera-de-la-imagen: claude — ANALYZER=harness runs on a host that installed Claude Code (config.harnessBin); the image does not and its analyzer is a provider
+      // outside-the-image: claude — ANALYZER=harness runs on a host that installed Claude Code (config.harnessBin); the image does not and its analyzer is a provider
       child = spawn(bin, args, { cwd, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     } catch (cause) {
       reject(new HarnessUnavailableError(`No se pudo ejecutar «${bin}»: ${cause.message}`, { bin, cause }));

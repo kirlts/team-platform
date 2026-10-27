@@ -420,6 +420,10 @@ export function loadConfig (env = process.env, overrides = {}) {
       // Measurement 2026-10-23-tokens-y-cache.md: the part of the prompt that is the same for every job goes in `--append-system-prompt-file`, which the API caches
       // across sessions; in the user message it is written again by each session (measured 2026-10-23, 2026-10-23-tokens-y-cache.md).
       stableAsSystem: boolVar(env, 'EXECUTE_STABLE_AS_SYSTEM', false),
+      // An orderly shutdown of the worker (a deploy) during RUN: by default it destroys the machine (DESTROY) and the job goes back to the queue; the next attempt creates its own.
+      // With 1 the machine and its session stay for the next attempt, which calls CREATE and RUN again and the host's RUN re-attaches (measured 2026-10-25, job 156: the session
+      // lived 17 min after the restart and a repetition would have started a second one). Off by default: a host whose RUN cannot re-attach would leave the machine alive.
+      keepSessionOnShutdown: boolVar(env, 'EXECUTE_KEEP_SESSION_ON_SHUTDOWN', false),
       otelEnv: otelPairs(env.EXECUTE_OTEL_ENV) // UD-262: KEY=VALUE pairs given to `claude -p` for its own telemetry (CLAUDE_CODE_ENABLE_TELEMETRY, OTEL_*)
     },
 

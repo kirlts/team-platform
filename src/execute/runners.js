@@ -9,7 +9,7 @@
 //                                        DESTROY, only if the machine was reached; copies the session transcript out of the machine
 //                                        and prints where it left it (a path or an object key) as its last stdout line
 //               EXECUTE_MACHINE_DESTROY  placeholders {job_id} {workdir} {machine}; runs always: after success, failure,
-//                                        timeout, abort or an orderly shutdown of the worker, and also when CREATE failed half way. What a sudden death
+//                                        timeout, abort or an orderly shutdown of the worker (unless EXECUTE_KEEP_SESSION_ON_SHUTDOWN), and also when CREATE failed half way. What a sudden death
 //                                        of the worker leaves is destroyed by the sweep of src/execute/machines.js when the next worker starts
 // The delivery (UD-263) is one more host command, EXECUTE_DELIVER_COMMAND, run by src/execute/deliver.js with the same placeholders
 // plus {message_id} and {branch}.
@@ -146,7 +146,8 @@ export function destroyMachine ({ config, jobId, workdir, machine }) {
  * ({ code, stderr }). The timeout covers CREATE and RUN together.
  *
  * `track` (optional) is the register of machines (src/execute/machines.js): `begin(machine)` runs BEFORE CREATE with the default name and returns
- * a handle, `named(handle, machine)` after CREATE printed its name, and `destroyed(handle, { code, stderr })` after DESTROY. A `begin` that throws
+ * a handle, `named(handle, machine)` after CREATE (the name it printed, or the default one), `parked(handle)` when a shutdown leaves the machine on purpose and
+ * `destroyed(handle, { code, stderr })` after DESTROY. A `begin` that throws
  * stops the job before anything is created (a machine nobody wrote down is one nobody can sweep); the other two are courtesies and never fail the job.
  */
 export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {}, phase = (name, fn) => fn(), createGate = null, track = null }) {
@@ -170,10 +171,8 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
       created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
     } finally { gate?.leave(created) }
     const named = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
-    if (named) {
-      machine = named
-      try { track?.named(handle, machine) } catch (e) { log(`could not record the name of machine ${machine}: ${e.message}`) }
-    }
+    if (named) machine = named
+    try { track?.named(handle, machine) } catch (e) { log(`could not record the name of machine ${machine}: ${e.message}`) }
     if (created.code !== 0) {
       result = { ...created, phase: 'create', machine }
       return result
@@ -182,6 +181,15 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
     result = { ...ran, timedOut: ran.timedOut || created.timedOut, phase: 'run', machine }
     return result
   } finally {
+    // EXECUTE_KEEP_SESSION_ON_SHUTDOWN: a worker that shuts down (a deploy) while the session runs leaves the machine and the session alone, if the host asked for it: its RUN keeps
+    // the session apart from this connection, and the worker that takes the job next calls RUN again and attaches to it (2026-10-25, job 156). The register keeps the machine as
+    // parked, so that the sweep of the next start does not destroy it while its job is coming back. An abort before RUN (a machine still being created) has no session to keep.
+    if (x.keepSessionOnShutdown && signal?.aborted && signal.reason === 'shutdown' && result?.phase === 'run') {
+      result.detached = true
+      try { track?.parked(handle) } catch (e) { log(`could not record that machine ${machine} stays: ${e.message}`) }
+      log(`shutdown: machine ${machine} and its session stay for the next attempt of job ${jobId}`)
+      return result
+    }
     // Before destroying: afterwards the transcript is gone. A failure here is recorded and never fails the job.
     // stderr keeps its END: on a machine its start is ssh and useradd noise and the cause comes last (job 132, 2026-10-24).
     // Not when the job was aborted (cancelled, lease lost, shutdown): nobody reads that transcript and the worker is on its way out.

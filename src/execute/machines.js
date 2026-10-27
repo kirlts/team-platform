@@ -22,6 +22,20 @@ export function nameMachine (db, id, machine) {
   runSql(db, 'UPDATE execute_machines SET machine = ? WHERE id = ?', machine, id)
 }
 
+/** An orderly shutdown left this machine alive on purpose for the next attempt of the job. */
+export function parkMachine (db, id) {
+  runSql(db, 'UPDATE execute_machines SET parked = 1 WHERE id = ?', id)
+}
+
+/**
+ * CREATE of the next attempt named `machine`: the parked rows of the job that name the same machine continue under the new row and are deleted; the ones that
+ * name another machine are not coming back, so they become plain rows (an orphan of a running job) and the sweep destroys them.
+ */
+export function adoptParked (db, { jobId, machine, exceptId }) {
+  runSql(db, 'DELETE FROM execute_machines WHERE job_id = ? AND parked = 1 AND destroyed_at IS NULL AND machine = ? AND id <> ?', jobId, machine, exceptId)
+  runSql(db, 'UPDATE execute_machines SET parked = 0 WHERE job_id = ? AND parked = 1 AND destroyed_at IS NULL AND id <> ?', jobId, exceptId)
+}
+
 /** Records the result of a DESTROY: exit 0 closes the row; anything else keeps it open with the message. */
 export function recordDestroy (db, id, { code, stderr = '', now = Date.now() }) {
   if (code === 0) {
@@ -32,12 +46,14 @@ export function recordDestroy (db, id, { code, stderr = '', now = Date.now() }) 
   }
 }
 
-// The row of a job that a live worker still holds: the newest machine of a `running` job, in the attempt that created it, with its lease in force.
-// Every other open row has no owner. An older row of the same job (a DESTROY that failed in an earlier attempt) is an orphan too.
+// A row that has an owner: (1) the newest machine of a `running` job, in the attempt that created it, with its lease in force; (2) a parked machine (an orderly
+// shutdown kept it on purpose) whose job is still to run: `queued` or `running`. Every other open row has no owner. An older row of the same job (a DESTROY
+// that failed in an earlier attempt) is an orphan too.
 const ORPHANS = `
   SELECT m.* FROM execute_machines m LEFT JOIN jobs j ON j.id = m.job_id
    WHERE m.destroyed_at IS NULL
-     AND COALESCE(j.status = 'running' AND j.attempts = m.attempt AND j.lease_until >= ? AND m.id = (SELECT MAX(id) FROM execute_machines WHERE job_id = m.job_id), 0) = 0` // COALESCE: a purged job has no row, and NULL is not «false» for NOT
+     AND COALESCE((j.status = 'running' AND j.attempts = m.attempt AND j.lease_until >= ? AND m.id = (SELECT MAX(id) FROM execute_machines WHERE job_id = m.job_id))
+                  OR (m.parked = 1 AND j.status IN ('queued', 'running')), 0) = 0` // COALESCE: a purged job has no row, and NULL is not «false» for NOT
 
 /** Open machines with no live owner. `untriedOnly`: only those whose DESTROY has not run yet (the ones that failed wait for the next start). */
 export function orphanMachines (db, { now = Date.now(), untriedOnly = false } = {}) {

@@ -269,6 +269,12 @@ test('on a touch screen the controls of the management views are as tall as a fi
         return out
       })
       assert.deepEqual(small, [], `${path}: controls under 44 px`)
+      if (path === '/areas') {
+        // The name of an area keeps the space before its last word when the link is as tall as a finger.
+        const names = await page.evaluate(() => [...document.querySelectorAll('main a[aria-label^="Abrir "]')].map((a) => [a.getAttribute('aria-label').slice('Abrir '.length), a.innerText.trim()]))
+        assert.ok(names.length > 0)
+        for (const [title, shown] of names) assert.equal(shown, title)
+      }
       // The check box of a row is 20 px and its invisible frame reaches 44: the corners of the frame hit the box.
       const hit = await page.evaluate(() => {
         const box = document.querySelector('main [role="checkbox"]')

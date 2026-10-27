@@ -43,7 +43,7 @@ export const ORDEN = {
  * Starts the instance. `execute` overrides the EXECUTE_* configuration; `estimates` is what the fake analyzer says about each message;
  * `progressUnitMs` shortens the «minute» of the progress notices. Returns the handle every test of the suite uses.
  */
-export async function iniciarCiclo ({ execute = {}, estimates = null, martinProfile = 'Trátame de tú.', progressUnitMs = 60_000, config: extraConfig = {} } = {}) {
+export async function iniciarCiclo ({ execute = {}, estimates = null, martinProfile = 'Trátame de tú.', progressUnitMs = 60_000, config: extraConfig = {}, listenHost = '127.0.0.1' } = {}) {
   resetSession()
   let currentEstimates = estimates
   let assignee = 'Claude'
@@ -68,15 +68,16 @@ export async function iniciarCiclo ({ execute = {}, estimates = null, martinProf
   const martinId = await addMember(env, { email: 'martin@x.org', name: 'Martín' })
   updateMember(env.db, martinId, { profile: martinProfile })
   const martin = await login(env, 'martin@x.org')
-  await env.app.listen({ host: '127.0.0.1', port: 0 }) // an ephemeral port: the session calls back with `team`
-  const teamUrl = `http://127.0.0.1:${env.app.server.address().port}`
+  await env.app.listen({ host: listenHost, port: 0 }) // an ephemeral port: the session calls back with `team`; `listenHost` opens it to a machine that reaches the host from outside (Docker)
+  const port = env.app.server.address().port
+  const teamUrl = `http://127.0.0.1:${port}`
   const baseExecute = structuredClone(env.config.execute) // the product's own defaults
 
   let worker = null
   let cases = 0
   let lastConfig = null
   const c = {
-    env, state, agentId, martinId, editor, martin, panel, teamUrl,
+    env, state, agentId, martinId, editor, martin, panel, teamUrl, port,
     get config () { return lastConfig },
     set estimates (v) { currentEstimates = v },
     /** Who the fake analyzer assigns the next messages to: `Claude` (omission) or the name of a person (`Ed`). */

@@ -1,9 +1,8 @@
 import { Send } from '@/components/icons'
-import { useEffect, useLayoutEffect, useRef, useState, type Ref } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { useMe, useMembers } from '@team-platform/client/react'
-import { useNotices } from '@/lib/notices'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
@@ -24,14 +23,14 @@ export interface SendDraft {
  * «Enviar como» (UD-255): every active person of the team, the member of the session first selected. A member of kind
  * agent is not offered: the API refuses to send in its name.
  */
-function SendAs({ value, onChange, anchor }: { value: string; onChange: (id: string) => void; anchor: Ref<HTMLLabelElement> }) {
+function SendAs({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const t = useT()
   const me = useMe().data
   const members = useMembers().data ?? []
   const people = members.filter((m) => m.active !== false && (m as { kind?: string }).kind !== 'agent')
   if (me && !people.some((m) => m.id === me.id)) people.unshift(me)
   return (
-    <label ref={anchor} className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-2 max-md:min-w-[14rem] max-md:flex-1">
+    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:min-w-[14rem] max-md:flex-1 md:ml-auto">
       <span className="shrink-0">{t('compose.sendAs')}</span>
       <span className="min-w-0 flex-1 md:w-44 md:flex-none">
         <NativeSelect data-testid="compose-send-as" className="pointer-coarse:h-11" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -61,29 +60,16 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   const author = sendAs || me?.id || ''
   /** «Para» (UD-291): the members the send is addressed to. Empty means the automatic routing assigns, as it always did. */
   const [recipients, setRecipients] = useState<string[]>([])
-  const notices = useNotices()
-  /** «Enviar como»: the notice of a change of author is drawn next to it. */
-  const sendAsBox = useRef<HTMLLabelElement>(null)
   const members = useMembers().data ?? []
-  /** Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). It is said where the person is looking, with the way back. */
+  /**
+   * Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). The effect is said under the controls, where the
+   * change was made, with the way back; it stays until the next thing the person does (an edit, another choice, the send), so it never floats over a control.
+   */
+  const [left, setLeft] = useState<{ name: string; sendAs: string; recipients: string[] } | null>(null)
   const changeAuthor = (id: string) => {
-    const before = { sendAs, recipients }
     setSendAs(id)
     setRecipients((list) => list.filter((x) => x !== id))
-    if (recipients.includes(id)) {
-      const name = members.find((m) => m.id === id)?.name ?? ''
-      notices.show({
-        text: t('compose.leftTo', { name, to: t('compose.to') }),
-        near: () => sendAsBox.current,
-        action: {
-          label: t('undo.undo'),
-          run: () => {
-            setSendAs(before.sendAs)
-            setRecipients(before.recipients)
-          },
-        },
-      })
-    }
+    setLeft(recipients.includes(id) ? { name: members.find((m) => m.id === id)?.name ?? '', sendAs, recipients } : null)
   }
   const [dragging, setDragging] = useState(false)
   const textArea = useRef<HTMLTextAreaElement>(null)
@@ -95,11 +81,11 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
 
   const empty = !text.trim() && draft.empty
   // Growing (more lines, attachments, a link) happens over the page, never pushing it down.
-  const expanded = grown || !draft.empty || draft.linkOpen || !!draft.recording
+  const expanded = grown || !draft.empty || draft.linkOpen || !!draft.recording || !!left
   // The slot is measured only while the bar is empty, which is the one state that is always one row: measuring while it grows
   // would take the grown height for the resting one.
   const emptyNow = useRef(true)
-  emptyNow.current = !text && draft.empty && !draft.linkOpen && !draft.recording
+  emptyNow.current = !text && draft.empty && !draft.linkOpen && !draft.recording && !left
 
   // The field grows with its text up to a maximum and from there it scrolls inside.
   useEffect(() => {
@@ -133,6 +119,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
     // The files are handed over: only the previews are released, the Files themselves live on in the upload.
     draft.clear()
     setText('')
+    setLeft(null)
     setRecipients([])
     textArea.current?.focus()
   }
@@ -167,7 +154,10 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
             aria-label={t('compose.label')}
             data-testid="compose-text"
             placeholder={t('compose.placeholder')}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value)
+              setLeft(null)
+            }}
             onPaste={draft.onPaste}
             onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
             data-scrolled={scrolled}
@@ -183,21 +173,37 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
       </div>
       {/* The files sit with the text they go with, before the controls: the same order as the reply form. Under the action they read as something sent apart. */}
       <MediaDraftList draft={draft} />
-      {/* The controls sit under the field, grouped by function: what adds content on the left, who sends and the one action on the right. On a phone the tools go first, then the author, and the action takes the row. */}
+      {/* Two rows that do not depend on how many people are chosen: who it goes to and in whose name on top, the tools and the one action below. A row that held everything split in two when «Para» grew, and left a gap where the tools ended. On a phone the tools go first, then the author row, and the action takes the row. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 pb-3 pt-2">
-        <div className="flex flex-wrap items-center gap-1 max-md:order-1 max-md:gap-0">
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 max-md:order-2 md:order-1">
+          <div className="min-w-0" data-testid="compose-to">
+            <RecipientsEditor ids={recipients} onChange={(ids) => { setRecipients(ids); setLeft(null) }} max={2} to={t('compose.to')} authorId={author} />
+          </div>
+          {author && <SendAs value={author} onChange={changeAuthor} />}
+          {left && (
+            <p role="status" data-testid="compose-left-to" className="flex w-full items-center gap-3 text-sm text-fg">
+              {t('compose.leftTo', { name: left.name, to: t('compose.to') })}
+              <button
+                type="button"
+                className="inline-flex min-h-6 items-center font-semibold text-accent hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                onClick={() => {
+                  setSendAs(left.sendAs)
+                  setRecipients(left.recipients)
+                  setLeft(null)
+                }}
+              >
+                {t('undo.undo')}
+              </button>
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-1 max-md:order-1 max-md:gap-0 md:order-2">
           <ClipMenu draft={draft} labeled />
           <CaptureButtons draft={draft} labeled />
         </div>
-        <div className="flex items-center gap-3 max-md:contents md:ml-auto">
-          <div className="min-w-0 max-md:order-2" data-testid="compose-to">
-            <RecipientsEditor ids={recipients} onChange={setRecipients} max={2} to={t('compose.to')} authorId={author} />
-          </div>
-          {author && <SendAs value={author} onChange={changeAuthor} anchor={sendAsBox} />}
-          <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center">
-            <Send size={16} aria-hidden /> {t('compose.send')}
-          </Button>
-        </div>
+        <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center md:order-3 md:ml-auto">
+          <Send size={16} aria-hidden /> {t('compose.send')}
+        </Button>
       </div>
     </div>
     </div>

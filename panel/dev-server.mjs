@@ -415,6 +415,12 @@ function emit(memberId, name, data) {
   for (const s of streams) if (ev.member_id === null || ev.member_id === s.member_id) writeEvent(s.res, ev)
 }
 
+/** The events of an input go to its author and to whoever sent it on their behalf (UD-273), as the API publishes them. */
+function emitForInput(input, name, data) {
+  emit(input.author_id, name, data)
+  if (input.sent_by_id && input.sent_by_id !== input.author_id) emit(input.sent_by_id, name, data)
+}
+
 function writeEvent(res, ev) {
   res.write(`id: ${ev.seq}\nevent: ${ev.name}\ndata: ${JSON.stringify(ev.data)}\n\n`)
 }
@@ -523,15 +529,15 @@ function runJob(input) {
       const problem = autoPublish ? proposalProblem(input.proposal, input) : 'auto_publish_off'
       if (autoPublish && !problem) {
         const message_ids = publishProposal(input, input.proposal)
-        emit(input.author_id, 'progress', { job_id: input.job_id, input_id: input.id, percent: 100, phrase: 'Publicado', at: new Date().toISOString() })
-        emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true, status: 'done', input_status: 'published', message_ids })
+        emitForInput(input, 'progress', { job_id: input.job_id, input_id: input.id, percent: 100, phrase: 'Publicado', at: new Date().toISOString() })
+        emitForInput(input, 'done', { job_id: input.job_id, input_id: input.id, done: true, status: 'done', input_status: 'published', message_ids })
         return
       }
       if (autoPublish) {
         input.error = typeof problem === 'string' ? problem : problem.message
         input.error_code = 'publish_blocked'
       }
-      emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true, status: 'done', input_status: 'proposed', message_ids: [] })
+      emitForInput(input, 'done', { job_id: input.job_id, input_id: input.id, done: true, status: 'done', input_status: 'proposed', message_ids: [] })
       return
     }
     if (input.text.includes('[simular falla]') && done === steps.length - 1) {
@@ -539,12 +545,12 @@ function runJob(input) {
       input.updated_at = new Date().toISOString()
       input.error = 'El proveedor de modelo no respondió.'
       input.error_code = 'analysis_failed'
-      emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true })
+      emitForInput(input, 'done', { job_id: input.job_id, input_id: input.id, done: true })
       return
     }
     const step = steps[done]
     input.status = step.status
-    emit(input.author_id, 'progress', { job_id: input.job_id, input_id: input.id, percent: Math.round((done / total) * 100), phrase: step.phrase, at: new Date().toISOString() })
+    emitForInput(input, 'progress', { job_id: input.job_id, input_id: input.id, percent: Math.round((done / total) * 100), phrase: step.phrase, at: new Date().toISOString() })
     done += 1
     schedule(input, tick, STEP_MS)
   }
@@ -1279,7 +1285,8 @@ const server = createServer(async (req, res) => {
         const everyone = [...inputs.values()].filter((i) => !wanted.length || wanted.includes(i.status)).sort((a, b) => b.created_at.localeCompare(a.created_at))
         return send(res, 200, pageOf(everyone.map((i) => ({ ...inputView(i), author_name: members.find((x) => x.id === i.author_id)?.name ?? null }))))
       }
-      const mine = [...inputs.values()].filter((i) => i.author_id === me.id && (!wanted.length || wanted.includes(i.status)))
+      // The tray is of the author and of whoever sent on their behalf (UD-273), as the API does.
+      const mine = [...inputs.values()].filter((i) => (i.author_id === me.id || i.sent_by_id === me.id) && (!wanted.length || wanted.includes(i.status)))
       // `order=desc` is the history of sends (every state, newest first); `mine=1` alone keeps the tray order.
       if (url.searchParams.get('order') === 'desc') mine.sort((a, b) => b.created_at.localeCompare(a.created_at))
       return send(res, 200, envelope(mine.map(inputView)))
@@ -1320,7 +1327,7 @@ const server = createServer(async (req, res) => {
     }
     if (m) {
       const input = inputs.get(m[1])
-      if (!input || (input.author_id !== me.id && m[2] !== 'reprocess')) return fail(res, 404, 'No existe')
+      if (!input || (input.author_id !== me.id && m[2] !== 'reprocess' && !(!m[2] && method === 'GET' && input.sent_by_id === me.id))) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') {
         return send(res, 200, inputView(input))
       }

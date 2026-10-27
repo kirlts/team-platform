@@ -1181,7 +1181,7 @@ export const en: Record<MessageKey, Message> = {
   'work.title': 'Work',
   'work.machine': 'Machine',
   'work.session': 'Session',
-  'work.deliver': 'Delivery',
+  'work.deliver': 'Publishing',
   'work.repeats': 'Runs again',
   'work.kept': 'Not repeated',
   'error.deliver_busy': 'The delivery of this message is already running',

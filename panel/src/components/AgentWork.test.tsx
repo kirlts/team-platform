@@ -65,7 +65,7 @@ describe('the work of the agent in the sheet', () => {
     expect(within(machine!).getByText('En cola')).toBeTruthy()
     // UD-041: a stretch that has not started carries no word, only its mark and its muted name.
     expect(session!.textContent).toBe('Sesión')
-    expect(deliver!.textContent).toBe('Entrega')
+    expect(deliver!.textContent).toBe('Publicación')
   })
 
   it('a running job shows the stretch it is in, with its time, and the bar', async () => {
@@ -109,9 +109,19 @@ describe('the work of the agent in the sheet', () => {
     // mark and word say it; the name keeps its own color
     expect(within(session!).getByText('Sesión').className).not.toContain('text-danger')
     expect(within(machine!).queryByText('Falló')).toBeNull()
-    for (const li of [machine!, session!]) {
-      // the time is the last cell of the first line in both rows, whatever the row adds under its name
-      expect(li.children[2]!.textContent).toMatch(/\d+ s/)
+    // the retry repeats everything: no row says so, the button does; the time is the last cell of the first line whatever the row adds under its name
+    expect(document.querySelector('[data-work-repeats]')).toBeNull()
+    expect(machine!.children).toHaveLength(3)
+    for (const li of [machine!, session!]) expect(li.children[2]!.textContent).toMatch(/\d+ s/)
+  })
+
+  it('a retry that leaves some stretch as it is says what each row does, and the time column holds still', async () => {
+    answer = () => timing({ job_status: 'done', phases: [phase('create', 1000), phase('run', 2000), phase('deliver', 900, 'error')], deliver: { job_id: '4', job_status: 'failed', phase: null, attempts: 1 } })
+    const replies = [{ id: 'r1', retryable: true, retry_action: 'publish' }] as unknown as MessageDetail['replies']
+    render(<Mount><AgentWork message={message({ replies })} /></Mount>)
+    await screen.findByTestId('agent-work')
+    for (const li of screen.getAllByRole('listitem')) {
+      expect(li.children[2]!.textContent).toMatch(/\d+ m?s/)
       expect(li.children[3]!.querySelector('[data-work-repeats]')).not.toBeNull()
     }
   })
@@ -127,12 +137,13 @@ describe('the work of the agent in the sheet', () => {
     await waitFor(() => expect(posted).toEqual(['/messages/m1/replies/r1/retry']))
   })
 
-  it('a failed session with a work retry repeats every stretch; without a retry it says nothing about repeating', async () => {
+  it('without a retry no row says anything about repeating', async () => {
     answer = () => timing({ job_status: 'failed', phases: [phase('create', 1000), phase('run', 2000, 'error')] })
     const replies = [{ id: 'r1', retryable: true, retry_action: 'work' }] as unknown as MessageDetail['replies']
     const { unmount } = render(<Mount><AgentWork message={message({ replies })} /></Mount>)
     await screen.findByTestId('agent-work')
-    expect(screen.getAllByRole('listitem').map((li) => li.querySelector('[data-work-repeats]')?.textContent)).toEqual(['Se repite', 'Se repite'])
+    expect(await screen.findByTestId('work-retry')).toBeTruthy()
+    expect(screen.getByTestId('work-retry').textContent).toContain('Reintentar trabajo')
     unmount()
     render(<Mount><AgentWork message={message()} /></Mount>)
     await waitFor(() => expect(screen.getByTestId('agent-work')).toBeTruthy())

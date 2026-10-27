@@ -1,3 +1,6 @@
+# Espejo opcional de la regla de `main` (plan canónico 2026, pieza C3). Nada del canónico depende de que este flujo corra: la regla la
+# hace cumplir `scripts/publish-main.sh` con el gancho `.githooks/pre-push` en la máquina que publica, y sin presupuesto de GitHub
+# este flujo simplemente no corre. Mide una sola cosa, sin marca alguna: que `main` sea `desarrollo` o un ancestro suyo, por avance rápido.
 # `main` sólo avanza a un commit que ya está en `desarrollo`. El repositorio es privado en el plan gratuito y la protección de rama
 # no existe (`gh api repos/kirlts/team-platform/branches/main/protection` responde 403 «Upgrade to GitHub Pro»), así que del lado del
 # servidor esto mide en cada empujón a `main` y, si el commit nuevo no es `desarrollo` ni ancestro suyo (o reescribe `main`), abre un
@@ -58,5 +61,5 @@ jobs:
         run: |
           set -eu
           gh label create alerta --color B60205 --description "Aviso para Claude Code" 2>/dev/null || true
-          gh issue create --label alerta --title "Algo llegó a main sin pasar por desarrollo" --body "main recibió \`$NUEVO\` (empujó $ACTOR), que no es desarrollo ni ancestro suyo, o reescribió main. Se devolvió main a \`${VALIDO:-nada: sin commit válido}\`. Todo se fusiona a desarrollo; main lo mueve el despliegue."
+          gh issue create --label alerta --title "Algo llegó a main sin pasar por desarrollo" --body "main recibió \`$NUEVO\` (empujó $ACTOR), que no es desarrollo ni ancestro suyo, o reescribió main. Se devolvió main a \`${VALIDO:-nada: sin commit válido}\`. Todo se fusiona a desarrollo; main lo publica scripts/publish-main.sh."
           exit 1

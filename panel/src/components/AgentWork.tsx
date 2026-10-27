@@ -23,7 +23,7 @@ function Mark({ state }: { state: StepState }) {
 
 /**
  * The work of an agent on a message, by stretch (machine, session, delivery), while it is waiting, running or failed: each stretch with its state and
- * its time, the one running with the bar of its job under it, and, when a notice of the thread offers «Reintentar», which stretches the retry repeats; on a phone,
+ * its time, the one running with the bar of its job under it, and, when a notice of the thread offers «Reintentar», which stretches the retry repeats (said per row only when it leaves some as they are: «Reintentar trabajo» already says it repeats all); on a phone,
  * where the thread is below the first screen, the same button is also here, next to what it repeats. Once the
  * work ends the stretches are one more figure of «Detalles»; nothing is drawn for a message no agent works.
  */
@@ -54,10 +54,10 @@ function Work({ message }: { message: MessageDetail }) {
             <Mark state={s.state} />
             <span className={cn('min-w-0 break-words', s.state === 'pending' && 'text-muted')}>{t(STEP_LABEL[s.key])}</span>
             <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])}</span>
-            {(s.state === 'failed' || s.repeats !== null) && (
+            {(s.state === 'failed' || (work.partial && s.repeats !== null)) && (
               <span className="col-start-2 col-end-4 flex flex-wrap gap-x-3 text-xs text-muted">
                 {s.state === 'failed' && <span data-work-failed className="text-danger">{t('timing.state.failed')}</span>}
-                {s.repeats !== null && <span data-work-repeats={String(s.repeats)}>{t(s.repeats ? 'work.repeats' : 'work.kept')}</span>}
+                {work.partial && s.repeats !== null && <span data-work-repeats={String(s.repeats)}>{t(s.repeats ? 'work.repeats' : 'work.kept')}</span>}
               </span>
             )}
             {s.state === 'running' && work.state === 'running' && (

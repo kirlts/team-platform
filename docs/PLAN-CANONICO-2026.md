@@ -1,9 +1,9 @@
 # Plan 2026 del Team Platform canónico
 
-Fecha: 2026-10-26, 23:40 (Chile); consolidado a las 00:50 del 27. Lo pidió Martín: «Quiero que todo lo que hemos hecho en Team Platform tratemos
+Fecha: 2026-10-26, 23:40 (Chile); consolidado a las 21:50 del 26. Lo pidió Martín: «Quiero que todo lo que hemos hecho en Team Platform tratemos
 de integrarlo en la versión canónica de Team Platform, que es el repositorio Team Platform, porque siempre fue
 conceptualizado como un sistema open source». Y fijó el límite del plan: «quiero que todo lo que tú recomendaste sea
-lo que implementemos, excepto esta cuestión de la identidad que te acabo de corregir». Y a las 00:45 del 27 cerró
+lo que implementemos, excepto esta cuestión de la identidad que te acabo de corregir». Y a las 21:45 del 26 cerró
 el punto de la identidad: «no perdamos tiempo en esto. Solo me importa que lo que vaya integrándose al canónico lo
 haga siguiendo su estética actual sin estropearla». No hay rediseño: `panel/DISENO.md` es el referente, y toda
 pantalla que entre se juzga contra él. Una implementación puede no usar el panel canónico y poner el suyo.
@@ -203,7 +203,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | Decisión | Fuente |
 |---|---|
 | El canónico es open source bajo MIT; toda dependencia nueva compatible | UD-004 |
-| No hay rediseño: lo que entra sigue la estética actual sin estropearla; un anfitrión puede usar su propio panel | Martín, 2026-10-26 y 00:45 del 27 |
+| No hay rediseño: lo que entra sigue la estética actual sin estropearla; un anfitrión puede usar su propio panel | Martín, 2026-10-26, 21:45 |
 | Todo lo recomendado se implementa, salvo esa corrección | Martín, 2026-10-26: «quiero que todo lo que tú recomendaste sea lo que implementemos» |
 | Ningún archivo versionado nombra otros proyectos, clientes ni personas | Regla 10, 2026-10-20 |
 | Nada depende de tener presupuesto en GitHub | Martín, 2026-10-26 |
@@ -215,7 +215,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 | Sin tope de máquinas ni sesiones simultáneas; el tope es el gasto del día | UD-304 |
 | Lo caído se relanza al arrancar; nunca lo relanza una persona | decisión del 2026-10-25 |
 | Nivel ligero a un modelo chico hasta su límite medido, con escalada | decisión del 2026-10-25 |
-| Ninguna pregunta queda abierta | las tres direcciones de identidad se descartaron el 27-10 |
+| Ninguna pregunta queda abierta | las tres direcciones de identidad se descartaron el 26-10 |
 
 ## 11. Falsación del plan
 

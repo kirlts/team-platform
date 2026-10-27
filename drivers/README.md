@@ -88,7 +88,7 @@ EXECUTE_DELIVER_COMMAND=bash /opt/team-platform/drivers/docker-local/deliver.sh 
 | `TP_DOCKER_PASS_ENV` | Variables que pasan del trabajador a la sesión, por nombre. Omisión `ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN` |
 | `TP_DOCKER_STATE` | Candado de creación y transcripciones (`transcripts/<job_id>`) |
 
-Si el trabajador corre dentro de un contenedor, necesita el cliente `docker` y el socket del host montado. `EXECUTE_TEAM_URL` tiene que ser una dirección que la máquina alcance: `127.0.0.1` es el contenedor mismo, por eso el ejemplo usa `host.docker.internal`, que create.sh agrega a cada máquina.
+Si el trabajador corre dentro de un contenedor, necesita el cliente `docker` y el socket del host montado. `compose.driver.example.yml` agrega el cliente con `DRIVER_PACKAGES="bash docker-cli"`; el socket lo monta el archivo de compose del anfitrión. `EXECUTE_TEAM_URL` tiene que ser una dirección que la máquina alcance: `127.0.0.1` es el contenedor mismo, por eso el ejemplo usa `host.docker.internal`, que create.sh agrega a cada máquina.
 
 Diferencias con un anfitrión de producción. run.sh no se reengancha: si el trabajador se reinicia con una sesión en curso, el trabajo siguiente vuelve a copiar y a empezar. La entrega de ejemplo sólo comprueba que la rama existe y sale 0 con el commit como referencia. El anfitrión reemplaza lo que hay entre `##team phase deploy` y la última línea.
 

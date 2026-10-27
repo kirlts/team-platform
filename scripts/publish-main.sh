@@ -5,7 +5,7 @@
 #   scripts/publish-main.sh [--dry-run] [<sha>]
 #
 #   <sha>       what to publish: `origin/desarrollo` (the default), or a commit that is `desarrollo` or an ancestor of it.
-#               `main` only moves forward to it by fast-forward (scripts/main-solo-desde-desarrollo.sh is the rule).
+#               `main` only moves forward to it by fast-forward (the rule is in the script next to this one, see its header).
 #   --dry-run   does everything except tag and push: the same worktree, the same battery, the same conformance run.
 #
 # What it does, in this order, on THAT sha and nowhere else (a temporary worktree under .claude/worktrees/, removed when it ends):

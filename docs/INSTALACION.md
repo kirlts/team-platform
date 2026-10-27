@@ -26,6 +26,18 @@ La aplicación escucha en el puerto 3000 del contenedor. `compose.yml` lo public
   - Sin red, sin `curl` o con un contenido que no coincide con el SHA-256, el instalador avisa y sigue: el servicio funciona validando sólo el largo. Con `--no-start` no se toca el volumen; la lista se instala en la primera corrida sin esa opción.
   - `BLOCKLIST_URL` y `BLOCKLIST_SHA256` del entorno reemplazan la fuente (un espejo propio).
 
+## La versión que se instala
+
+`main` es lo que el canónico publicó, no una dirección estable: avanza cada vez que `scripts/publish-main.sh` pasa la batería y la conformidad sobre un commit de `desarrollo`. Una instalación fija la versión por una de estas tres referencias y no sigue `main`:
+
+| Referencia | Cuándo | Ejemplo |
+|---|---|---|
+| Etiqueta `vX.Y.Z` | Lo normal: cada publicación de `main` lleva su etiqueta y una sección en `docs/CHANGELOG.md` | `git checkout v0.1.0` |
+| Sha de commit | Un anfitrión que necesita un commit exacto, por ejemplo uno anterior a la etiqueta siguiente | `git checkout <sha>` |
+| Digest de la imagen | Un anfitrión que construye la imagen una vez y despliega esa | `docker build -t team-platform:<sha> .` y se despliega el digest que `docker image inspect` informa |
+
+Qué significa cada número: el patch trae correcciones y cambios que nadie tiene que atender al instalarlos; el minor trae una capacidad nueva o una variable nueva con omisión (el contrato de anfitrión sólo crece de forma aditiva); el major cambia `contract_version` o algo que rompe una instalación que funciona. El número sale de `package.json` `version` y sube con un commit a `desarrollo` que corre `node scripts/prepare-release.mjs <patch|minor|major|current>`, que además mueve lo de `[Unreleased]` en `docs/CHANGELOG.md` a la versión. Quien actualiza lee las líneas de `docs/CHANGELOG.md` entre su versión y la nueva, y corre la conformidad de su driver (siguiente sección de este documento) antes de cambiar la referencia.
+
 ## 1. Sola en un VPS
 
 Servidor con Debian o Ubuntu, un dominio con registro A hacia su IP.
@@ -164,11 +176,11 @@ docker compose logs -f
 docker compose ps
 ```
 
-Actualizar, con respaldo previo:
+Actualizar, con respaldo previo, a la versión que se decide (etiqueta, sha o digest; ver «La versión que se instala»):
 
 ```sh
 scripts/backup.sh
-git pull
+git fetch --tags && git checkout v0.1.0
 docker compose up -d --build
 ```
 

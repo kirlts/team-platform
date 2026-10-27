@@ -52,7 +52,7 @@ export async function anfitrionJwt ({ issuer = 'https://anfitrion.example', audi
   const sign = (claims, aud = audience, exp = '5m') => new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuer(issuer).setAudience(aud).setIssuedAt().setExpirationTime(exp).sign(keys.privateKey)
   return {
     config: { jwksUrl: `http://127.0.0.1:${server.address().port}/jwks.json`, jwksCooldownMs: 0, issuer, audience },
-    firmar: async (claims, aud) => ({ authorization: `Bearer ${await sign(claims, aud)}` }),
+    firmar: async (claims, aud, exp) => ({ authorization: `Bearer ${await sign(claims, aud, exp)}` }),
     cerrar: () => new Promise((resolve) => server.close(resolve))
   }
 }

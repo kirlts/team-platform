@@ -86,7 +86,7 @@ describe('scripts/host-conformance.mjs', () => {
     assert.match(r.out, /^FAIL sequence: .*destroy ended with 1/m)
     assert.match(r.out, /^FAIL destroy-twice: .*ended with 1 and 1/m)
     for (const id of ['orders', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'create-75', 'deliver-75', 'deliver-76']) assert.equal(verdict(r.out, id), 'ok', `${id} should pass:\n${r.out}`)
-    assert.match(r.out, /contract_version: 1 NOT met: 4 of 13 cases failed \(sequence, destroy-run-fails, destroy-deadline, destroy-twice\)/)
+    assert.match(r.out, /contract_version: 1 NOT met: 4 of 13 cases failed \(sequence, destroy-twice, destroy-run-fails, destroy-deadline\)/)
   })
 
   it('a driver whose DELIVER is not repeatable fails «deliver-repeat» and only that one', async () => {

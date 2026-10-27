@@ -68,7 +68,9 @@ Requirements:
   git, to prepare the host repository some drivers use. Network: none beyond what the driver itself needs.
   The environment of the five orders is the one of this process plus the lines of conformance.sh; set EXECUTE_CONTRACT_VERSION there or here to declare the version.
   A 75 of CREATE, a 75 of DELIVER and a 76 of DELIVER are injected in front of the driver's order, because each driver reaches them its own way; the cases say so.
-Not covered: that the machine reaches EXECUTE_TEAM_URL (the double does not call the API), and the quotas of a real cloud.
+The 75 of DELIVER carries the mark ##team wait before-machine; in-machine is not exercised, it fails the job at once by design.
+Not covered: that the machine reaches EXECUTE_TEAM_URL (the double does not call the API), the quotas of a real cloud, and DESTROY after a shutdown of the worker
+during RUN (the worker leaves the machine alone then; the sweep of orphan machines is piece B4 of the plan).
 `
 
 const CASES = [
@@ -319,6 +321,9 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
       const messageId = testEnv.db.prepare('SELECT id FROM messages WHERE input_id = ?').get(inputId).id
       const kinds = delivers ? ['execute', 'deliver'] : ['execute']
       try { await until(() => jobsOf(messageId, 'execute').length > 0 && settled(messageId, kinds), { timeoutMs: CASE_WAIT_MS, everyMs: 100 }) } catch { /* the cases read what there is and say what is missing */ }
+      // The job can be closed (its own cap, a deadline) while the order that retires the machine is still running: the verdict reads the log once DESTROY of the last CREATE has ended.
+      const retired = () => { const log = readLog(files.log); const at = log.map((l) => l.order).lastIndexOf('create'); return at < 0 || log.slice(at).some((l) => l.order === 'destroy') }
+      try { await until(retired, { timeoutMs: HOOK_TIMEOUT_MS, everyMs: 100 }) } catch { /* the cases say that no DESTROY ran */ }
       await worker.stop(); worker = null
       const [execJob] = jobsOf(messageId, 'execute')
       const deliverJobs = jobsOf(messageId, 'deliver')

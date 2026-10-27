@@ -25,9 +25,11 @@ const changed = [...new Set([...git('diff', '--name-only', mergeBase), ...git('l
 const selected = new Set(config.always.flatMap((g) => globSync(g, { cwd: root })))
 const prefixes = Object.keys(config.areas).sort((a, b) => b.length - a.length)
 let touchesPanel = false
+let touchesClient = false
 const panelChanged = []
 for (const file of changed) {
   if (file.startsWith('panel/') || file.startsWith('packages/client/')) touchesPanel = true
+  if (config.client.paths.some((p) => file === p || file.startsWith(p))) touchesClient = true
   if (file.startsWith('panel/')) panelChanged.push(file)
   const prefix = prefixes.find((p) => file === p || file.startsWith(p))
   if (prefix) {
@@ -58,8 +60,9 @@ const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f)).so
 const browserFiles = files.filter((f) => f.endsWith('.browser.test.mjs'))
 const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)
-if (touchesPanel) console.error('The panel or the client package changed: its unit tests and browser tests run here; also `npm run test:panel` for tsc and `npm run test:client`.')
-if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
+if (touchesPanel) console.error('The panel or the client package changed: the unit tests and browser tests of the panel run here; also `npm run test:panel` for tsc.')
+if (touchesClient) console.error('The client package or what shapes the API changed: the suite of packages/client (vitest, against the real API) runs here.')
+if (args.includes('--list')) { console.log([...files, ...(touchesClient ? [`${config.client.run} (vitest)`] : [])].join('\n')); process.exit(0) }
 // A selection with browser tests needs the browser of this Playwright version: it is asked once, before anything starts, and a machine
 // without it fails here in a second with the browser named (2026-10-25: the deploy server hung 20 minutes in the first browser test).
 if (browserFiles.length) {
@@ -76,6 +79,12 @@ if (nodeFiles.length) {
 // The unit tests of the panel take about four seconds (one jsdom per worker), so a change in the panel runs them all.
 if (panelCode.length) {
   const r = spawnSync('npx', ['vitest', 'run'], { cwd: path.join(root, 'panel'), stdio: 'inherit' })
+  status = status || (r.status ?? 1)
+}
+// The client package talks to the real API in process (about ten seconds): it is the one that notices a route, a role or a code of the server
+// that changed under it.
+if (touchesClient) {
+  const r = spawnSync('npx', ['vitest', 'run'], { cwd: path.join(root, config.client.run), stdio: 'inherit' })
   status = status || (r.status ?? 1)
 }
 if (browserFiles.length) {

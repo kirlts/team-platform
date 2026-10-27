@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Measures how much a model agrees with the extracted rows when it routes requests reading only the descriptions of the areas and the profiles of the members.
 //
-//   node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes purposes.json [--stage tune|confirm]) --team team.json [--families f.json]
+//   node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes purposes.json [--stage tune|confirm] [--descriptions edits.json] [--min-border-confusions n]) --team team.json [--families f.json]
 //        [--sample n] [--judge] [--judge-model m] [--labels labels.jsonl] [--validation validation.json] [--versus other-result.json] [--accept 0.8]
 //        [--model claude-haiku-5-5] [--parallel 6] [--out result.json]
 //
@@ -17,7 +17,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
+import { DEFAULTS, analyze, hiddenAreas, propose, validateLoadFile, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
 import { keyRows, referenceLabels, rowsByUnit, unitStrata } from './row-validation.mjs'
 import { loadProvider } from './request-rows.mjs'
 import { KPIS } from '../src/execute/judge.js'
@@ -176,11 +176,19 @@ export function baselines (sample, team, majorityArea, reference = (r) => r, pre
  * Builds the descriptions and the profiles with the construction side of the rows and returns the held-out set to measure them on. `stage` is `tune` while the
  * descriptions are being corrected and `confirm` for the one reading that is reported; a unit is never on both sides.
  */
-export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, ...proposal } = {}) {
+export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, descriptions = null, ...proposal } = {}) {
   if (!['tune', 'confirm'].includes(stage)) throw new Error('stage must be tune or confirm')
   const sets = splitUnits(rows, { holdout, seed })
   // The construction side is already the share that is left after holding out: its minimum is the interval count, not four times as much.
   const { spec, skipped, report } = propose(sets.build, team, { ...proposal, holdout: 0 })
+  // `descriptions` (area title to text) is what the team corrected or confirmed after reading the draft: it replaces the draft text of that area, so the correction is what is measured on the
+  // held-out set and not a new draft. A title that the construction side does not propose is an error: the correction would be measured on nothing.
+  if (descriptions) {
+    const unknown = Object.keys(descriptions).filter((t) => !spec.areas.some((a) => a.title === t))
+    if (unknown.length) throw new Error(`The descriptions name areas that the construction side does not propose: ${unknown.join(', ')}`)
+    for (const a of spec.areas) if (typeof descriptions[a.title] === 'string') a.description = descriptions[a.title]
+    validateLoadFile(spec)
+  }
   return { load: spec, skipped, report, test: sets[stage], buildUnits: new Set(sets.build.map((r) => r.unit)), buildRows: sets.build, sets: { build: sets.build.length, tune: sets.tune.length, confirm: sets.confirm.length }, stage }
 }
 
@@ -252,19 +260,22 @@ export async function runExperiment (rows, load, team, { provider, families = {}
   const referenceRows = withAreas(buildRows ?? rows, families)
   const predictArea = referenceRows.length ? trainNaiveBayes(referenceRows, (r) => r.area) : null // the construction rows when there is a split, the whole corpus otherwise
   const largest = [...referenceRows.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  // The rate of «always the largest area» is computed with the real title, but the title of an area made mostly of confidential rows never leaves: it is printed under its neutral name.
+  const hidden = hiddenAreas(buildRows ?? rows, families)
+  const shown = (b) => ({ ...b, area_majority: { ...b.area_majority, area: hidden.get(largest) ?? b.area_majority.area } })
   const withLabels = out.filter((r) => 'label_area_agrees' in r)
   const raw = labeledRun && unitTexts ? await routeRaw(sample, unitTexts, { provider, system, schema, team, load, parallel }) : null
   const labelled = labeledRun ? {
     n: withLabels.length, units: labeledRun.units, rater: referenceRater,
     area: rateOf(withLabels.filter((r) => r.label_area_agrees), withLabels), person: rateOf(withLabels.filter((r) => r.label_person_agrees), withLabels),
-    baselines: baselines(sample.filter((r) => r.label), team, largest, labelRow, predictArea), raw
+    baselines: shown(baselines(sample.filter((r) => r.label), team, largest, labelRow, predictArea)), raw
   } : null
   return {
     ...summarize(out),
     sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, confidential_left_out: drawn.confidential, merged: drawn.merged, warnings: drawn.warnings },
     validated: validation?.validated === true,
     valid_for_acceptance: Boolean(labeledRun) && validation?.validated === true,
-    baselines: baselines(sample, team, largest, (r) => r, predictArea),
+    baselines: shown(baselines(sample, team, largest, (r) => r, predictArea)),
     agreement_with_labels: labelled,
     judge: judge ? { model: models.judge ?? null, router_model: models.router ?? null, same_model: Boolean(models.judge && models.judge === models.router), dropped: out.reduce((t, r) => { for (const [k, n] of Object.entries(r.judge_dropped ?? {})) t[k] = (t[k] ?? 0) + n; return t }, {}), validated_against_people: false } : null,
     holdout: held,
@@ -432,13 +443,14 @@ export function acceptDecision (result, accept, { allowUnvalidated = false } = {
   const floorPerson = Math.max(accept, ref.baselines.person_agent_alone.rate, ref.baselines.person_asker.rate, ref.baselines.person_all?.rate ?? 0)
   const passes = ref.area.lower >= floorArea && ref.person.lower >= floorPerson
   const valid = Boolean(labelled) && result.valid_for_acceptance !== false
-  return { code: passes ? 0 : 1, valid, message: `--accept: límite inferior de área ${ref.area.lower.toFixed(2)} (piso ${floorArea.toFixed(2)}) y de persona ${ref.person.lower.toFixed(2)} (piso ${floorPerson.toFixed(2)})${labelled ? '' : ' contra las filas: resultado no válido'}${labelled && result.valid_for_acceptance === false ? '; las filas no están validadas' : ''}` }
+  // Exit code: 1 when the lower bounds do not reach the floors; 3 when they do but the result is not valid (no labels of people, or rows not validated): a pass that proves nothing is not a pass.
+  return { code: passes ? (valid ? 0 : 3) : 1, passes, valid, floors: { area: round3(floorArea), person: round3(floorPerson) }, message: `--accept: límite inferior de área ${ref.area.lower.toFixed(2)} (piso ${floorArea.toFixed(2)}) y de persona ${ref.person.lower.toFixed(2)} (piso ${floorPerson.toFixed(2)})${labelled ? '' : ' contra las filas: resultado no válido'}${labelled && result.valid_for_acceptance === false ? '; las filas no están validadas' : ''}` }
 }
 
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm] [--descriptions edits.json] [--min-border-confusions n]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const provider = await loadProvider(option('--provider'), option('--model', 'claude-haiku-5-5'))
@@ -457,7 +469,7 @@ async function main (argv) {
     confirm = confirmGate(`${rowsFile}.confirm.json`, { stage: option('--stage', 'tune'), again: rest.includes('--again') })
     if (!confirm.allowed) { console.error(confirm.message); process.exit(2) }
     const fraction = option('--holdout') && !option('--holdout').startsWith('--') ? Number(option('--holdout')) : undefined
-    const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')) })
+    const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')), ...(option('--descriptions') ? { descriptions: readJson(option('--descriptions')) } : {}), ...(option('--min-border-confusions') ? { minBorderConfusions: Number(option('--min-border-confusions')) } : {}) })
     load = built.load
     merge = Object.fromEntries(built.skipped.filter((x) => x.merge_into).map((x) => [x.title, x.merge_into]))
     pool = built.test
@@ -480,14 +492,16 @@ async function main (argv) {
   if (confirm) result.confirm_read = { repeated: confirm.repeated, first_read_at: confirm.first_read_at ?? null, reads: confirm.reads ?? null }
   if (holdout && option('--compare-load')) result.config_differences = configDifferences(load, readJson(option('--compare-load')))
   if (option('--versus')) result.comparison = compareRuns(result, readJson(option('--versus')))
+  const decision = option('--accept') !== undefined ? acceptDecision(result, Number(option('--accept')), { allowUnvalidated: rest.includes('--allow-unvalidated') }) : null
+  if (decision) result.accept = { threshold: Number(option('--accept')), passes: decision.passes ?? false, valid: decision.valid, floors: decision.floors ?? null, exit_code: decision.code }
   const text = `${JSON.stringify(result, null, 2)}\n`
   if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
   const a = result.agreement_with_rows
   if (result.judge?.same_model) console.error('El juez es el mismo modelo que enruta: los indicadores se leen con esa reserva (--judge-model).')
   console.error(`acuerdo con las filas: área ${a.area.k}/${result.n}, persona ${a.person.k}/${result.n} (de más ${a.person_extra}, de menos ${a.person_missing}); sin modelo: área ${result.baselines.area_majority.rate.toFixed(2)}, persona ${result.baselines.person_agent_alone.rate.toFixed(2)}`)
   if (!result.validated) console.error('Las filas no están validadas por personas (row-validation.mjs): el número es el acuerdo con la extracción, no el acierto.')
-  if (option('--accept') !== undefined) {
-    const decision = acceptDecision(result, Number(option('--accept')), { allowUnvalidated: rest.includes('--allow-unvalidated') })
+  if (result.n === 0) { console.error('El experimento no enrutó ningún pedido (0 de 0): no hay nada que medir. Revisa que el archivo de carga tenga áreas con filas y que --sample no sea 0.'); process.exit(4) }
+  if (decision) {
     console.error(decision.message)
     if (decision.code) process.exit(decision.code)
   }

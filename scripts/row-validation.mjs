@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, areaTitle, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, validateRows, validateTeam, wilson, wilsonSampleSize } from './area-method.mjs'
+import { DEFAULTS, areaTitle, readJson, readJsonl, requiresPerson, seededRandom, shuffle, unitStage, validateRows, validateTeam, wilson, wilsonSampleSize } from './area-method.mjs'
 
 /** The rows with a `key` that names each request: the unit and the order of the request inside the unit, in the order of the file. */
 export function keyRows (rows) {
@@ -56,20 +56,9 @@ export function unitStrata (unitIds, byUnit, team) {
   }))
 }
 
-/**
- * The stage a unit belongs to. Units with requests take the stage that `splitUnits` gave them. A unit with none has no row to be split by, so it takes one from a hash of its id and the seed
- * with the same proportions: the sample of a stage and the experiment of that stage agree on which units are in it.
- */
+/** The stage of every unit: the hash of its id and the seed (`unitStage`), the same for units with rows and units with none. */
 export function stageMap (rows, unitIds, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
-  const sets = splitUnits(rows, { holdout, seed })
-  const stage = new Map()
-  for (const [name, list] of Object.entries(sets)) for (const r of list) stage.set(r.unit, name)
-  for (const id of unitIds) {
-    if (stage.has(id)) continue
-    const u = parseInt(createHash('sha256').update(`${seed}:${id}`).digest('hex').slice(0, 8), 16) / 0x100000000
-    stage.set(id, u < 1 - holdout ? 'build' : u < 1 - holdout / 2 ? 'tune' : 'confirm')
-  }
-  return stage
+  return new Map([...new Set([...rows.map((r) => r.unit), ...unitIds])].map((id) => [id, unitStage(id, { holdout, seed })]))
 }
 
 function candidates (units, rows, team, { stage = 'all', holdout, splitSeed, families = {} } = {}) {
@@ -227,10 +216,11 @@ const rowLabel = (r, families) => ({ area: areaTitle(r, families), value_holder:
  * their area, value holder and limits are compared with Cohen's kappa. A unit whose counts differ is `unaligned` and cannot be paired; its share is a rule of the gate.
  * Every estimate weighs a unit by its stratum (units in the stage over units labeled) and its interval resamples units.
  *
- * The gate is on the LOWER bound of the interval of each kappa, not on the point value: with 78 labels the interval is about 0.29 wide and a point value of 0.6 passes 45 % of the
- * time when the true kappa is 0.6 (bench/area-method-kappa.mjs). `minKappa` is the floor that lower bound must reach, fixed by the team before measuring. The agreement between
- * two people is the ceiling of the labels: its point value reaches the same floor (with 26 units labeled twice its interval is too wide to gate on). The recall and the precision of
- * the extraction reach `targetRate` as point values (their lower bound is printed). A limit enters the gate when at least `minLimitPositives` requests of the sample touch it; one
+ * The gate is on the LOWER bound of the interval of every estimate (the kappas, the recall and the precision of the extraction, and the agreement between two people), not on the point
+ * value: with 78 labels the interval of a kappa is about 0.29 wide and a point value of 0.6 passes 45 % of the time when the true kappa is 0.6 (bench/area-method-kappa.mjs), and the
+ * recall of the extraction with a true value of 0.80 passed 48 % of the times on its point value with 104 requests and 11 % when it was 0.75 (reaudit 3, 2026-10-27, 1,000 simulated
+ * samples). `minKappa` and `targetRate` are the floors that lower bound must reach, fixed by the team before measuring. The sample that a lower bound needs is in the document (section 3):
+ * the interval of a kappa is as narrow as the pairs allow, and 26 units labeled twice leave it too wide to pass. A limit enters the gate when at least `minLimitPositives` requests of the sample touch it; one
  * with fewer is listed and fails unless it is waived by name. `validated` is true only when every rule holds, nothing is missing and the reference has no unadjudicated unit.
  */
 export function agreement (units, rows, labels, team, { families = {}, stage = 'all', holdout = DEFAULTS.holdout, splitSeed = DEFAULTS.seed, seed = DEFAULTS.seed, minKappa = DEFAULTS.minKappa, targetRate = DEFAULTS.targetRate, resamples = DEFAULTS.resamples, retest = null, referenceRater = null, maxUnalignedShare = DEFAULTS.maxUnalignedShare, minLimitPositives = DEFAULTS.minLimitPositives, waive = [] } = {}) {
@@ -284,10 +274,10 @@ export function agreement (units, rows, labels, team, { families = {}, stage = '
     if (k.positives >= minLimitPositives) lowerRule(`limit:${l.id}`, k)
     else rules.push({ name: `limit:${l.id}`, positives: k.positives, needed: minLimitPositives, waived: waive.includes(`limit:${l.id}`), pass: waive.includes(`limit:${l.id}`), note: 'too few cases in the sample to measure it' })
   }
-  rules.push({ name: 'extraction:recall', value: exhaustiveness.recall.value, lower: exhaustiveness.recall.lower, floor: targetRate, on: 'point', pass: exhaustiveness.recall.value >= targetRate })
-  rules.push({ name: 'extraction:precision', value: exhaustiveness.precision.value, lower: exhaustiveness.precision.lower, floor: targetRate, on: 'point', pass: exhaustiveness.precision.value >= targetRate })
+  rules.push({ name: 'extraction:recall', value: exhaustiveness.recall.value, lower: exhaustiveness.recall.lower, floor: targetRate, on: 'lower', pass: exhaustiveness.recall.lower !== null && exhaustiveness.recall.lower >= targetRate })
+  rules.push({ name: 'extraction:precision', value: exhaustiveness.precision.value, lower: exhaustiveness.precision.lower, floor: targetRate, on: 'lower', pass: exhaustiveness.precision.lower !== null && exhaustiveness.precision.lower >= targetRate })
   rules.push({ name: 'extraction:unaligned_share', value: exhaustiveness.unaligned_share, ceiling: maxUnalignedShare, pass: exhaustiveness.unaligned_share <= maxUnalignedShare })
-  if (humans) for (const name of ['area', 'value_holder', 'needs_person']) rules.push({ name: `people:${name}`, kappa: humans[name].kappa, lower: humans[name].lower, floor: minKappa, on: 'point', pass: humans[name].kappa !== null && humans[name].kappa >= minKappa })
+  if (humans) for (const name of ['area', 'value_holder', 'needs_person']) rules.push({ name: `people:${name}`, kappa: humans[name].kappa, lower: humans[name].lower, floor: minKappa, on: 'lower', pass: humans[name].lower !== null && humans[name].lower >= minKappa })
   if (run) {
     lowerRule('retest:area', run.area)
     lowerRule('retest:needs_person', run.needs_person)

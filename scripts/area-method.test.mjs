@@ -1,6 +1,7 @@
 // The routing method over an invented corpus (bench/fixtures/area-method): the criteria, the proposal, the load file and the extraction and
 // the routing experiment with a fake provider. Nothing here reaches a model or the network.
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
@@ -383,11 +384,25 @@ test('B2: the split is by unit, reproducible, and the tuning and confirmation se
   const units = (list) => new Set(list.map((r) => r.unit))
   for (const [a, b] of [['build', 'tune'], ['build', 'confirm'], ['tune', 'confirm']]) assert.equal([...units(sets[a])].filter((u) => units(sets[b]).has(u)).length, 0, `${a} and ${b} share a unit`)
   assert.equal(sets.build.length + sets.tune.length + sets.confirm.length, rows.length)
-  assert.ok(Math.abs(sets.tune.length - sets.confirm.length) < rows.length * 0.05)
+  // The stage comes from a hash per unit, so the sizes vary like a binomial: 324 units give a standard deviation of about 9 units on a side (measured on seeds 1 to 7: gaps of 7 to 27 rows of 364).
+  assert.ok(Math.abs(sets.tune.length - sets.confirm.length) < rows.length * 0.1)
   assert.ok(sets.build.length > rows.length * 0.4 && sets.build.length < rows.length * 0.6)
   assert.deepEqual(method.splitUnits(rows, { holdout: 0.5, seed: 7 }), sets)
   assert.notDeepEqual(method.splitUnits(rows, { holdout: 0.5, seed: 8 }).tune, sets.tune)
   assert.throws(() => method.splitUnits(rows.slice(0, 2), { holdout: 0.5 }), /too few/)
+})
+
+test('B1 (reaudit 3): adding a unit, or losing the rows of one, moves no other unit to another stage', () => {
+  const stageOf = (list) => new Map(list.flatMap((set, i) => set.map((r) => [r.unit, ['build', 'tune', 'confirm'][i]])))
+  const sets = (list) => { const s = method.splitUnits(list, { holdout: 0.5, seed: 7 }); return stageOf([s.build, s.tune, s.confirm]) }
+  const before = sets(rows)
+  const extra = [...rows, ...Array.from({ length: 40 }, (_, i) => ({ ...rows[0], unit: `new-unit-${i}` }))]
+  const after = sets(extra)
+  for (const [unit, stage] of before) assert.equal(after.get(unit), stage, `${unit} moved`)
+  const firstUnit = rows[0].unit
+  const without = sets(rows.filter((r) => r.unit !== firstUnit))
+  for (const [unit, stage] of without) assert.equal(before.get(unit), stage, `${unit} moved when ${firstUnit} lost its rows`)
+  assert.equal(method.unitStage('a', { seed: 7 }), method.unitStage('a', { seed: 7 }))
 })
 
 test('B2: nothing in the held-out rows reaches the descriptions or the profiles', () => {
@@ -859,12 +874,29 @@ test('D2: the permutation p-value is never zero and the same seed gives the same
   for (const d of Object.values(first.dimensions)) assert.ok(d.p >= 1 / 100 && d.p_adjusted >= d.p)
 })
 
-test('D2: two limits tied for the first place leave the area with no dominant limit', () => {
-  const mk = (limits, n, base) => Array.from({ length: n }, (_, i) => ({ ...rows[0], unit: `${base}${i}`, object: base, summary: `${base} pedido ${i}`, limits: limits[i % limits.length] }))
-  const tied = [...mk([['money'], ['customer_data']], 40, 'tied'), ...mk([['money']], 40, 'plain')]
-  const report = analyze(tied, team, { holdout: 0, permutations: 99, repeats: 1 })
-  const against = report.areas.find((a) => a.title === 'Tied').criteria.distinct_treatment.against.Plain
-  assert.equal(against.limit_differs, false, 'a tie of 20 and 20 does not decide the criterion')
+test('D1 (reaudit 3): two areas with the same profile of limits are not called distinct by a limit more often than alpha', () => {
+  // Reaudit 3 measured the earlier rule (the dominant limit differs) at 31 % of the pairs with 104 requests per area and 39 % with 26, for profiles .30/.25/.20 in both areas.
+  // 40 pairs of 104 requests and a count of 4 or less of 40: the criterion at alpha 0.05 expects 2 (Holm bounds it by alpha); 4 or less has a probability above 0.95 (binomial 40, 0.05).
+  const rand = seededRandom(3)
+  const profile = [['money', 0.3], ['customer_data', 0.25], ['irreversible', 0.2]]
+  const make = (name, t) => Array.from({ length: 104 }, (_, i) => ({ ...rows[0], unit: `${name}${t}-${i}`, object: name, summary: `${name} pedido ${i}`, severity: 0.5, irreversibility: 0.5, missing_value: 0.5, urgency: 0.5, understand_vs_create: 0.5, limits: profile.filter(([, p]) => rand() < p).map(([id]) => id) }))
+  let distinct = 0 // `pass` of the criterion is true when the area differs from the other
+  for (let t = 0; t < 40; t++) {
+    const x = make('p', t)
+    const y = make('q', t)
+    const report = analyze([...x, ...y], team, { holdout: 0, permutations: 199, repeats: 1, seed: t + 1 })
+    if (report.areas.find((a) => a.title === 'P').criteria.distinct_treatment.pass) distinct++
+  }
+  assert.ok(distinct <= 4, `${distinct}/40 pairs with the same limits called distinct`)
+})
+
+test('D1 (reaudit 3): a limit that one area touches and the other does not is a dimension of the test, and the verdict has no «dominant limit»', () => {
+  const mk = (name, withMoney) => Array.from({ length: 60 }, (_, i) => ({ ...rows[0], unit: `${name}${i}`, object: name, summary: `${name} pedido ${i}`, limits: withMoney ? ['money'] : [] }))
+  const report = analyze([...mk('conlimite', true), ...mk('sinlimite', false)], team, { holdout: 0, permutations: 199, repeats: 1 })
+  const against = report.areas.find((a) => a.title === 'Conlimite').criteria.distinct_treatment.against.Sinlimite
+  assert.equal(against.distinct, true)
+  assert.equal(against.dimensions['limit:money'].differs, true)
+  assert.equal('limit_differs' in against, false)
 })
 
 // ---- D3: «two runs in a row» are two cuts of the data by date
@@ -881,7 +913,8 @@ test('D3: an area that is kept in both windows is stable, one that appears late 
   const late = syntheticCorpus({ sizes: { Antigua: 120, Otra: 120 }, noise: 0.3, seed: 41, leak: true })
     .map((r, i) => ({ ...r, date: i % 2 ? '2026-03-10' : '2026-05-10' }))
     .map((r) => (r.object === 'Otra' ? { ...r, date: '2026-05-12', severity: r.severity * 0.3 + 0.65 } : r)) // «Otra» only exists from May, and it is treated differently
-  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', holdout: 0, permutations: 99, repeats: 1 })
+  // 199 permutations: the smallest p-value is 0.005, and Holm over the 5 dimensions and the limit of the fixture (6 tests) multiplies it by 6, under alpha; with 99 it would be 0.06.
+  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', holdout: 0, permutations: 199, repeats: 1 })
   assert.equal(windows.areas.Antigua.keep[1], true)
   assert.deepEqual(windows.areas.Otra.keep, [false, true])
   assert.equal(windows.areas.Otra.stable_keep, false, 'one window is not enough to create an area')
@@ -1254,6 +1287,32 @@ test('B4 (reaudit): seeded phrases never appear in an output of analyze, propose
   }
 })
 
+test('B2 (reaudit 3): the title of a confidential area is in no output, baselines included', async () => {
+  const secret = Array.from({ length: 400 }, (_, i) => ({ ...rows[0], unit: `zk${i}`, object: 'zkobjconfidencial', module: 'm', summary: `Resumen reservado ${i}`, confidential: true }))
+  const corpus = [...rows, ...secret]
+  const keyed = validation.keyRows(corpus)
+  const echo = { async complete () { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: 'x' } } } }
+  const spec = propose(corpus, team, { purposes }).spec
+  const whole = await runExperiment(keyed, spec, team, { provider: echo, size: 100 })
+  assert.match(whole.baselines.area_majority.area, /^Área confidencial \d+$/, 'the largest area is the confidential one and is printed under its neutral name')
+  assert.ok(!JSON.stringify(whole).toLowerCase().includes('zkobjconfidencial'), 'whole corpus')
+  for (const stage of ['tune', 'confirm']) {
+    const built = experiment.buildAndSplit(keyed, team, { stage, purposes })
+    const run = await runExperiment(built.test, built.load, team, { provider: echo, size: 100, buildRows: built.buildRows, buildUnits: built.buildUnits })
+    assert.ok(!JSON.stringify({ run, built: { load: built.load, skipped: built.skipped, report: built.report } }).toLowerCase().includes('zkobjconfidencial'), stage)
+  }
+})
+
+test('D6 (reaudit 3): an area hidden in one window and another hidden in both keep their number across windows', () => {
+  const dated = (object, n, from, confidential) => Array.from({ length: n }, (_, i) => ({ ...rows[0], unit: `${object}-${from}-${i}`, object, confidential, date: `${from}-${String(1 + (i % 27)).padStart(2, '0')}` }))
+  const corpus = [...dated('xsecreto', 40, '2026-01', true), ...dated('zsecreto', 40, '2026-01', true), ...dated('zsecreto', 40, '2026-03', true), ...dated('xsecreto', 40, '2026-03', false), ...rows.map((r, i) => ({ ...r, date: i % 2 ? '2026-01-15' : '2026-03-15' }))]
+  const stability = method.analyzeWindows(corpus, team, { cut: '2026-02-01', permutations: 99, repeats: 1 })
+  const names = Object.keys(stability.areas).filter((t) => /^Área confidencial/.test(t))
+  assert.deepEqual(names.sort(), ['Área confidencial 1', 'Área confidencial 2'])
+  assert.ok(!JSON.stringify(stability).includes('secreto'))
+  for (const n of names) assert.deepEqual(stability.areas[n].rows, [40, 40], n)
+})
+
 test('B1 (reaudit): a row that does not validate is counted by reason and not lost in silence', async () => {
   const provider = { async complete () { return { json: { requests: [fakeRow('u1'), fakeRow('u9'), fakeRow('u1', { summary: '' }), fakeRow('u1', { severity: 3 }), fakeRow('u1', { value_holder: 'nobody' }), fakeRow('u1', { urgency: -1 })] } } } }
   const result = await extractRows(oneUnit('texto A'), team, { provider, model: 'm' })
@@ -1502,4 +1561,91 @@ test('Coherence I8: the idea guard of the analyzer is measured against what the 
   assert.equal(result.idea.precision.value, 0.75)
   assert.equal(result.idea.kappa, 0.5)
   assert.equal(validation.analyzerAgreement(labels, analyses.map(({ idea_guard: _drop, ...a }) => a), team, { resamples: 50 }).idea, null, 'without the answer of the analyzer there is nothing to compare')
+})
+
+// ---- Reaudit 3
+const here = path.dirname(fileURLToPath(import.meta.url))
+const runScript = (script, args) => spawnSync(process.execPath, [path.join(here, script), ...args], { encoding: 'utf8' })
+const scratch = (name) => { const dir = mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), `${name}-`)); return dir }
+
+test('D3 (reaudit 3): the recall of the extraction is gated on its lower bound, not on the point value', () => {
+  const { items } = validation.drawValidationSample(corpusUnits, rows, team, { seed: 3 })
+  const result = validation.agreement(corpusUnits, rows, labelsFor(items, { omit: 6 }), team, { resamples: 200 })
+  const recall = result.rules.find((r) => r.name === 'extraction:recall')
+  assert.ok(recall.value >= 0.8 && recall.lower < 0.8, `value ${recall.value}, lower ${recall.lower}`)
+  assert.equal(recall.on, 'lower')
+  assert.equal(recall.pass, false, 'a point value of 0.84 with a lower bound of 0.78 does not reach 0.8')
+  for (const r of result.rules.filter((x) => /^(extraction:(recall|precision)|people:)/.test(x.name))) assert.equal(r.on, 'lower', r.name)
+})
+
+test('D2 (reaudit 3): a result that passes but is not valid exits with 3 and says so in the result', () => {
+  const rate = (k, n) => { const w = method.wilson(k, n); return { k, n, rate: k / n, lower: w.lower, upper: w.upper } }
+  const none = { agreement_with_rows: { area: rate(78, 78), person: rate(78, 78) }, baselines: { area_majority: { rate: 0.3 }, person_agent_alone: { rate: 0.6 }, person_asker: { rate: 0.5 } }, agreement_with_labels: null }
+  const decision = experiment.acceptDecision(none, 0.5, { allowUnvalidated: true })
+  assert.equal(decision.passes, true)
+  assert.equal(decision.valid, false)
+  assert.equal(decision.code, 3)
+  assert.deepEqual(Object.keys(decision.floors), ['area', 'person'])
+  const labelled = { agreement_with_labels: { ...none.agreement_with_rows, area: rate(78, 78), person: rate(78, 78), baselines: none.baselines }, valid_for_acceptance: false, agreement_with_rows: {}, baselines: {} }
+  assert.equal(experiment.acceptDecision(labelled, 0.5, {}).code, 3, 'labels of people but rows not validated: not valid either')
+})
+
+test('D4 (reaudit 3): propose with no area and an experiment that routes nothing exit with a code other than 0', () => {
+  const dir = scratch('d4')
+  const small = path.join(dir, 'small.jsonl')
+  writeFileSync(small, `${rows.slice(0, 40).map((r) => JSON.stringify(r)).join('\n')}\n`)
+  const run = runScript('area-method.mjs', ['propose', small, '--team', path.join(fixtures, 'team.json'), '--purposes', path.join(fixtures, 'purposes.json'), '--out', path.join(dir, 'load.json')])
+  assert.notEqual(run.status, 0, run.stderr)
+  assert.match(run.stderr, /corpus_small/)
+  assert.equal(existsSync(path.join(dir, 'load.json')), false, 'no empty load file is written')
+  const { spec } = propose(rows, team, { purposes })
+  const renamed = { ...spec, areas: spec.areas.map((a, i) => ({ ...a, title: `Otra ${i}`, description: a.description })) }
+  const load = path.join(dir, 'renamed.json')
+  writeFileSync(load, JSON.stringify(renamed))
+  const provider = path.join(dir, 'provider.mjs')
+  writeFileSync(provider, "export default () => ({ async complete () { return { json: { area: 'Otra 0', attends: ['Asistente'], brief: 'x' } } } })\n")
+  const exp = runScript('route-experiment.mjs', [path.join(fixtures, 'rows.jsonl'), '--load', load, '--team', path.join(fixtures, 'team.json'), '--provider', provider, '--out', path.join(dir, 'out.json')])
+  assert.equal(exp.status, 4, exp.stderr)
+  assert.match(exp.stderr, /0 de 0/)
+})
+
+test('D5 (reaudit 3): a unit id with a space or a bracket is refused before the model is asked, and the others keep their rows', async () => {
+  for (const id of ['msg 12', '2026-03-04 10:22', 'a[1]']) assert.throws(() => extraction.validateUnits([{ id, confidential: false }]), /Unit ids may only hold/, id)
+  assert.doesNotThrow(() => extraction.validateUnits([{ id: 'msg_12.a:b-3', confidential: false }]))
+  const provider = { async complete () { return { json: { requests: [fakeRow('msg_12.a:b-3')] } } } }
+  const result = await extractRows([{ id: 'msg_12.a:b-3', text: 'texto', confidential: false }], team, { provider, model: 'm' })
+  assert.equal(result.rows.length, 1)
+})
+
+test('D9 (reaudit 3): the privacy net replaces numbers of 7 and 8 digits, ids, phones and addresses, and leaves an ISO date', () => {
+  const counter = { n: 0 }
+  const row = fakeRow('u1', { summary: 'Cliente 2234567 y 22345678, rut 12.345.678-5, tel +56 9 8765 4321, mail ana@x.org, fecha 2026-03-04' })
+  const [done] = finishRows([row], [{ id: 'u1' }], team, counter)
+  assert.ok(!/\b2234567\b|22345678|12\.345\.678|8765 4321|ana@x\.org/.test(done.summary), done.summary)
+  assert.ok(done.summary.includes('2026-03-04'))
+  assert.ok(counter.n >= 5)
+})
+
+test('Menor (reaudit 3): the resampling of units says how often each area is kept, reproducibly, and names no confidential title', () => {
+  const secret = Array.from({ length: 60 }, (_, i) => ({ ...rows[0], unit: `zk${i}`, object: 'zkobjconfidencial', summary: `Reservado ${i}`, confidential: true }))
+  const corpus = [...rows, ...secret]
+  const a = method.resampleAreas(corpus, team, { draws: 6, permutations: 99, repeats: 1, holdout: 0 })
+  assert.deepEqual(method.resampleAreas(corpus, team, { draws: 6, permutations: 99, repeats: 1, holdout: 0 }), a)
+  assert.equal(a.draws, 6)
+  for (const share of Object.values(a.kept_share)) assert.ok(share >= 0 && share <= 1)
+  assert.ok(!JSON.stringify(a).toLowerCase().includes('zkobjconfidencial'))
+  assert.ok(Object.keys(a.kept_share).includes('Catálogo y precios'))
+})
+
+test('B3 (reaudit 3): descriptions corrected by the team are the ones measured on the held-out set, and a title the build does not propose is an error', async () => {
+  const draft = experiment.buildAndSplit(rows, team, { stage: 'tune', purposes })
+  const title = draft.load.areas[0].title
+  const edited = draft.load.areas[0].description.replace(/Se maximiza: [^.]*\./, 'Se maximiza: zzcorregido.')
+  assert.notEqual(edited, draft.load.areas[0].description)
+  const built = experiment.buildAndSplit(rows, team, { stage: 'tune', purposes, descriptions: { [title]: edited } })
+  assert.equal(built.load.areas[0].description, edited)
+  assert.deepEqual(built.test.map((r) => r.unit), draft.test.map((r) => r.unit), 'the same held-out set: only the text changed')
+  assert.ok(experiment.routerPrompt(built.load, team).includes('zzcorregido'), 'the router reads the correction')
+  assert.throws(() => experiment.buildAndSplit(rows, team, { stage: 'tune', purposes, descriptions: { 'Área que no existe': 'x' } }), /does not propose/)
+  assert.throws(() => experiment.buildAndSplit(rows, team, { stage: 'tune', purposes, descriptions: { [title]: 'sin cláusulas' } }), /Se maximiza/)
 })

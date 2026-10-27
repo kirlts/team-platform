@@ -90,6 +90,10 @@ export function rowsSchema (team) {
 export function validateUnits (units) {
   const bad = units.map((u, i) => [u, i]).filter(([u]) => typeof u?.confidential !== 'boolean')
   if (bad.length) throw new Error(`Every unit needs a boolean "confidential"; ${bad.length} do not (first at line ${bad[0][1] + 1}).`)
+  // The model hands the id back inside brackets and `finishRows` strips brackets and spaces before looking it up, so an id with a space or a bracket (`msg 12`, `a[1]`) would never be found
+  // and all its rows would be dropped as an unknown unit (reaudit 3, D5). The characters allowed are the ones of a file name or a message id: letters, digits, dot, underscore, colon and hyphen.
+  const badId = units.filter((u) => !/^[A-Za-z0-9._:-]+$/.test(String(u?.id ?? '')))
+  if (badId.length) throw new Error(`Unit ids may only hold letters, digits and . _ : - (no spaces or brackets); ${badId.length} do not, first ${JSON.stringify(String(badId[0]?.id ?? ''))}.`)
   // The split by unit and the key of a request rest on the id: two units with the same one would be one.
   const seen = new Set()
   const repeated = [...new Set(units.filter((u) => (seen.has(u.id) ? true : (seen.add(u.id), false))).map((u) => u.id))]
@@ -125,7 +129,8 @@ const unitBlock = (u) => `[${u.id}] fuente: ${u.source ?? ''} | fecha de la unid
 // of people or companies: the rows of a confidential meeting are read by a person before `propose` (docs/METODO-DE-REPARTO.md, section 2).
 // An ISO date (2026-03-04) is not a number to hide.
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-const PERSONAL = [[/[\w.+-]+@[\w-]+\.[\w.]+/g, '[correo]', () => true], [/\+?\d[\d\s.-]{7,}\d/g, '[número]', (m) => !ISO_DATE.test(m)]]
+// A run of 7 digits or more (with spaces, dots or hyphens inside): the shortest identity number or phone of the countries of the team is 7 digits (reaudit 3 measured that `22345678` and `2234567` went through the earlier pattern, which wanted 9 characters).
+const PERSONAL = [[/[\w.+-]+@[\w-]+\.[\w.]+/g, '[correo]', () => true], [/\+?\d[\d\s.-]{5,}\d/g, '[número]', (m) => !ISO_DATE.test(m)]]
 const clean = (text, counter) => PERSONAL.reduce((t, [re, to, applies]) => t.replace(re, (m) => { if (!applies(m)) return m; counter.n++; return to }), String(text ?? ''))
 
 /**

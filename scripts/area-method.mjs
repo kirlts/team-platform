@@ -2,7 +2,7 @@
 // Builds a routing configuration (areas, guards, templates, member profiles) from the corpus of requests of one team.
 //
 //   node scripts/area-method.mjs labels  rows.jsonl
-//   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--cut [AAAA-MM-DD]] [--out report.json]
+//   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--cut [AAAA-MM-DD]] [--bootstrap N] [--out report.json]
 //   node scripts/area-method.mjs propose rows.jsonl --team team.json --purposes purposes.json --actor ed@x.org
 //                                        [--families families.json] [--intents intents.json] [--intent-fields fields.json] [--out load.json]
 //
@@ -137,15 +137,25 @@ export function seededRandom (seed) {
 }
 
 /**
+ * The stage of one unit, from a hash of `seed:id` alone: `build` for the share `1 - holdout` of the hash range, then `tune` and `confirm` with a quarter of the range each at the
+ * default holdout (half of the held-out share each). The stage does not depend on the other units, so adding a unit, or a unit that loses its rows in a new extraction, moves no other
+ * one: a confirmation set read last week is the same set next week. 4294967296 is 2^32, the range of the 32 bits taken from the digest.
+ */
+export function unitStage (id, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
+  const u = parseInt(createHash('sha256').update(`${seed}:${id}`).digest('hex').slice(0, 8), 16) / 4294967296
+  return u < 1 - holdout ? 'build' : u < 1 - holdout / 2 ? 'tune' : 'confirm'
+}
+
+/**
  * Splits the rows by unit into the construction side and two held-out sets: `tune` (the descriptions are corrected against it) and `confirm` (it is read once, at the end).
  * A unit is always on one side only, so the examples of a description and the profiles of the members, which come from `build`, never contain a request that is measured.
+ * The side of a unit is `unitStage`, so it does not change when the corpus grows.
  */
 export function splitUnits (rows, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
-  const units = shuffle([...new Set(rows.map((r) => r.unit))].sort(), seededRandom(seed))
-  const held = Math.round(units.length * holdout)
-  if (held < 2 || units.length - held < 1) throw new Error(`${units.length} units are too few to hold out ${holdout}: the tuning and the confirmation sets need one unit each at least.`)
-  const side = new Map()
-  units.forEach((u, i) => side.set(u, i >= held ? 'build' : i % 2 === 0 ? 'tune' : 'confirm'))
+  const units = [...new Set(rows.map((r) => r.unit))].sort()
+  const side = new Map(units.map((u) => [u, unitStage(u, { holdout, seed })]))
+  const count = (name) => units.filter((u) => side.get(u) === name).length
+  if (count('build') < 1 || count('tune') < 1 || count('confirm') < 1) throw new Error(`${units.length} units are too few to hold out ${holdout}: the construction, the tuning and the confirmation sets need one unit each at least.`)
   const pick = (name) => rows.filter((r) => side.get(r.unit) === name)
   return { build: pick('build'), tune: pick('tune'), confirm: pick('confirm') }
 }
@@ -388,13 +398,21 @@ export function holm (pValues) {
  * is at most `alpha`. The dimensions are estimates of a model and correlated with one another, and the rows of one unit are not independent: the test does not assume
  * either, but it does not model the second either, so a result near alpha is read with that in mind.
  */
-export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = DEFAULTS.alpha, permutations = DEFAULTS.permutations, rand }) {
-  const column = (rows, dim) => rows.map((r) => Number(r[dim]) || 0)
+export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = DEFAULTS.alpha, permutations = DEFAULTS.permutations, limits = [], rand }) {
   const all = [...a, ...b]
-  const observed = DIMENSIONS.map((dim) => cohenD(column(a, dim), column(b, dim)))
-  if (a.length < 2 || b.length < 2) return { dimensions: Object.fromEntries(DIMENSIONS.map((dim, i) => [dim, { d: round(observed[i], 2), p: 1, p_adjusted: 1, differs: false }])), any_differs: false, biggest_effect: 0 }
-  const hits = DIMENSIONS.map(() => 0)
-  const columns = DIMENSIONS.map((dim) => Float64Array.from(column(all, dim)))
+  // Each limit of the team that some of the rows touch is one more dimension: an indicator, 1 when the row touches it. A limit nobody touches has no variance and says nothing; the choice
+  // depends on the pooled rows only, which a permutation of the areas does not change, so it does not bias the test. Holm's adjustment then runs over all of them: two areas with the same
+  // profile of limits are called distinct by a limit no more often than `alpha` (the earlier rule, «the dominant limit differs», did it in 31 % of the pairs of 104 requests: reaudit 3, D1).
+  const touched = limits.filter((id) => all.some((r) => (r.limits ?? []).includes(id)))
+  const dims = [...DIMENSIONS.map((name) => ({ name, value: (r) => Number(r[name]) || 0 })), ...touched.map((id) => ({ name: `limit:${id}`, value: (r) => ((r.limits ?? []).includes(id) ? 1 : 0) }))]
+  const column = (rows, dim) => rows.map(dim.value)
+  // Two groups with no variance inside and different means (one touches a limit in every request, the other in none) have an unbounded standardized difference, and `cohenD` returns 0 for them.
+  // It stands here for infinity, capped at 99 so that it prints (a real standardized difference does not get near it).
+  const effect = (x, y) => { const d = cohenD(x, y); const gap = x.length >= 2 && y.length >= 2 ? mean(x) - mean(y) : 0; return d === 0 && gap !== 0 ? Math.sign(gap) * 99 : d }
+  const observed = dims.map((dim) => effect(column(a, dim), column(b, dim)))
+  if (a.length < 2 || b.length < 2) return { dimensions: Object.fromEntries(dims.map((dim, i) => [dim.name, { d: round(observed[i], 2), p: 1, p_adjusted: 1, differs: false }])), any_differs: false, biggest_effect: 0 }
+  const hits = dims.map(() => 0)
+  const columns = dims.map((dim) => Float64Array.from(column(all, dim)))
   const na = a.length
   const nb = b.length
   const order = Int32Array.from(all.map((_, i) => i))
@@ -404,7 +422,7 @@ export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = D
     for (let i = na; i < na + nb; i++) { const x = col[order[i]]; sb += x; qb += x * x }
     const ma = sa / na; const mb = sb / nb
     const pooled = Math.sqrt(((qa - na * ma * ma) + (qb - nb * mb * mb)) / (na + nb - 2))
-    return pooled === 0 ? 0 : (ma - mb) / pooled
+    return pooled === 0 ? (ma === mb ? 0 : Math.sign(ma - mb) * 99) : (ma - mb) / pooled
   }
   for (let k = 0; k < permutations; k++) {
     for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const t = order[i]; order[i] = order[j]; order[j] = t } // Fisher-Yates in place
@@ -412,14 +430,10 @@ export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = D
   }
   const p = hits.map((h) => (h + 1) / (permutations + 1))
   const adjusted = holm(p)
-  const dimensions = Object.fromEntries(DIMENSIONS.map((dim, i) => [dim, { d: round(observed[i], 2), p: round(p[i], 4), p_adjusted: round(adjusted[i], 4), differs: Math.abs(observed[i]) >= minEffect && adjusted[i] <= alpha }]))
+  const dimensions = Object.fromEntries(dims.map((dim, i) => [dim.name, { d: round(observed[i], 2), p: round(p[i], 4), p_adjusted: round(adjusted[i], 4), differs: Math.abs(observed[i]) >= minEffect && adjusted[i] <= alpha }]))
   return { dimensions, any_differs: Object.values(dimensions).some((x) => x.differs), biggest_effect: Math.max(...observed.map(Math.abs)) }
 }
 
-/**
- * The limit an area touches most. When two limits tie for the first place the area has no dominant limit (null): the order of the counts would otherwise decide the
- * criterion. Two areas differ by limit only when both have one and they are not the same.
- */
 /**
  * A multinomial naive Bayes (Laplace smoothing) trained on the summaries of `rows`, as a function from a text to the label it predicts. It is the router with no model that the experiment
  * has to beat: it reads the same words, from the construction rows, and costs nothing.
@@ -444,14 +458,10 @@ export function trainNaiveBayes (rows, labelOf) {
   }
 }
 
-const dominantLimit = (profile) => {
-  const [first, second] = profile.limits
-  return first && second && first.n === second.n ? null : first?.id ?? null
-}
 const overlap = (a, b) => { const small = Math.min(a.length, b.length); return small === 0 ? 0 : a.filter((m) => b.includes(m)).length / small }
 
 /** Measures every candidate area against the four criteria of the method. Returns the report. */
-export function analyze (rows, team, { families = {}, ...overrides } = {}) {
+export function analyze (rows, team, { families = {}, hiddenTitles = null, ...overrides } = {}) {
   validateTeam(team)
   validateRows(rows)
   const o = { ...DEFAULTS, ...overrides }
@@ -459,7 +469,8 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   // An area is decided on the whole corpus and measured on the confirmation set, which is a quarter of the units (half of the held-out half): for that set to have `minRows` requests the
   // area needs four times as many. With `holdout: 0` nothing is held out and the minimum is the interval count.
   const rowsNeeded = o.holdout > 0 ? Math.ceil(minRows / (o.holdout / 2)) : minRows
-  const hidden = hiddenAreas(rows, families, o.maxConfidentialShare)
+  // `hiddenTitles` is the numbering of the whole corpus when the rows are one window of it (`analyzeWindows`): the same area has the same neutral name in every window.
+  const hidden = hiddenTitles ?? hiddenAreas(rows, families, o.maxConfidentialShare)
   const tagged = withAreas(rows, families, hidden)
   const weeks = weeksOf(tagged)
   const titles = [...new Set(tagged.map((r) => r.area))]
@@ -477,12 +488,9 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
       const [x, y] = [title, t].sort() // one test per pair of areas, whichever of the two is being described
       const key = `${x}|${y}`
       // One generator per pair, seeded from the seed and the titles: adding an area does not change the p-values of the pairs that were already there.
-      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, rand: seededRandom((o.seed ^ pairSeed(key)) >>> 0) }))
+      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, limits: (team.limits ?? []).map((l) => l.id), rand: seededRandom((o.seed ^ pairSeed(key)) >>> 0) }))
       const test = tests.get(key)
-      const mine = dominantLimit(p)
-      const theirs = dominantLimit(profiles.get(t))
-      const limitDiffers = mine !== null && theirs !== null && mine !== theirs
-      return [t, { biggest_effect: round(test.biggest_effect, 2), limit_differs: limitDiffers, dimensions: test.dimensions, distinct: limitDiffers || test.any_differs }]
+      return [t, { biggest_effect: round(test.biggest_effect, 2), dimensions: test.dimensions, distinct: test.any_differs }]
     }))
     const recall = recognized.per_class[title]
     const criteria = {
@@ -520,7 +528,12 @@ export function analyzeWindows (rows, team, { cut = null, ...options } = {}) {
   const before = rows.filter((r) => r.date < boundary)
   const after = rows.filter((r) => r.date >= boundary)
   if (!before.length || !after.length) throw new Error(`The cut ${boundary} leaves one window with no rows.`)
-  const reports = [analyze(before, team, options), analyze(after, team, options)]
+  // The neutral names are numbered over the titles that are hidden in any window, and a title hidden in one window is hidden in both: «Área confidencial 1» is one area in the whole report.
+  const { families = {} } = options
+  const share = options.maxConfidentialShare ?? DEFAULTS.maxConfidentialShare
+  const titles0 = [...new Set([before, after].flatMap((part) => [...hiddenAreas(part, families, share).keys()]))].sort()
+  const hiddenTitles = new Map(titles0.map((t, i) => [t, `Área confidencial ${i + 1}`]))
+  const reports = [analyze(before, team, { ...options, hiddenTitles }), analyze(after, team, { ...options, hiddenTitles })]
   const titles = [...new Set(reports.flatMap((r) => r.areas.map((a) => a.title)))].sort()
   const find = (report, title) => report.areas.find((a) => a.title === title)
   const areas = Object.fromEntries(titles.map((title) => {
@@ -529,6 +542,39 @@ export function analyzeWindows (rows, team, { cut = null, ...options } = {}) {
     return [title, { keep, stable_keep: keep.every(Boolean), volume_fail_both: found.every((a) => !a || !a.criteria.volume.pass), rows: found.map((a) => a?.profile.n ?? 0) }]
   }))
   return { cut: boundary, windows: [{ until: boundary, rows: before.length }, { since: boundary, rows: after.length }], areas }
+}
+
+/**
+ * How much the set of areas depends on which units the corpus happens to hold: the units are drawn with replacement (a bootstrap by unit, Efron and Tibshirani 1993: the requests of one
+ * unit travel together), each draw is analyzed and the share of the draws that keep each area is reported. `differs_share` is the share of draws in which the verdict of the area is not
+ * the one of the whole corpus; an area with a share above 0 is one that the corpus does not settle (reaudit 3 measured 5 of 30 draws changing the verdict on a corpus of three well
+ * separated areas, and 9 of 30 with noise). The neutral names of the confidential areas are the ones of the whole corpus. Nothing here reads a text.
+ */
+export function resampleAreas (rows, team, { draws = 20, families = {}, ...options } = {}) {
+  validateRows(rows)
+  const o = { ...DEFAULTS, ...options }
+  const hiddenTitles = hiddenAreas(rows, families, o.maxConfidentialShare)
+  const whole = analyze(rows, team, { families, hiddenTitles, ...options })
+  const full = new Map(whole.areas.map((a) => [a.title, a.keep]))
+  const units = [...new Set(rows.map((r) => r.unit))].sort()
+  const byUnit = new Map()
+  for (const r of rows) byUnit.set(r.unit, [...(byUnit.get(r.unit) ?? []), r])
+  const kept = new Map([...full.keys()].map((t) => [t, 0]))
+  const differs = new Map([...full.keys()].map((t) => [t, 0]))
+  for (let b = 0; b < draws; b++) {
+    const rand = seededRandom((o.seed + 7919 * (b + 1)) >>> 0) // 7919: a prime, so the draws of consecutive seeds do not repeat each other
+    const draw = Array.from({ length: units.length }, (_, i) => ({ from: units[Math.floor(rand() * units.length)], copy: i }))
+    const sample = draw.flatMap(({ from, copy }) => byUnit.get(from).map((r) => ({ ...r, unit: `${from}#${copy}` })))
+    const report = analyze(sample, team, { families, hiddenTitles, ...options })
+    const verdict = new Map(report.areas.map((a) => [a.title, a.keep]))
+    for (const t of full.keys()) {
+      const keep = verdict.get(t) === true
+      if (keep) kept.set(t, kept.get(t) + 1)
+      if (keep !== full.get(t)) differs.set(t, differs.get(t) + 1)
+    }
+  }
+  const share = (m) => Object.fromEntries([...m.entries()].map(([t, n]) => [t, round(n / draws)]))
+  return { draws, kept_share: share(kept), differs_share: share(differs), unsettled: [...differs.entries()].filter(([, n]) => n > 0).map(([t]) => t).sort() }
 }
 
 // ---- writing the descriptions: four clauses plus limits, with what enters and what does not
@@ -777,7 +823,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth', 'holdout'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth', 'holdout', 'bootstrap'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')
@@ -792,13 +838,17 @@ function main (argv) {
   if (!option('--team')) { console.error('Falta --team'); process.exit(2) }
   const team = readJson(option('--team'))
   const load = (flag, fallback) => (option(flag) ? readJson(option(flag)) : fallback)
-  const common = { families: load('--families', {}), ...numeric }
+  const { bootstrap, ...knobs } = numeric
+  const common = { families: load('--families', {}), ...knobs }
   try {
-    if (command === 'analyze') out({ ...analyze(rows, team, common), ...(rest.includes('--cut') ? { stability: analyzeWindows(rows, team, { ...common, cut: option('--cut') && !option('--cut').startsWith('--') ? option('--cut') : null }) } : {}) })
+    if (command === 'analyze') out({ ...analyze(rows, team, common), ...(bootstrap ? { resampling: resampleAreas(rows, team, { ...common, draws: bootstrap }) } : {}), ...(rest.includes('--cut') ? { stability: analyzeWindows(rows, team, { ...common, cut: option('--cut') && !option('--cut').startsWith('--') ? option('--cut') : null }) } : {}) })
     else {
       const result = propose(rows, team, { ...common, purposes: load('--purposes', {}), intents: load('--intents', {}), intentFields: load('--intent-fields', {}), actor: option('--actor') })
       for (const w of result.warnings) console.error(`Aviso: el límite «${w.guard}» del área ${w.area} no tiene mecanismo declarado: queda como un pedido al modelo.`)
       if (result.skipped.length) console.error(`Áreas que no cumplen los criterios: ${result.skipped.map((s) => `${s.title} (${s.failed.join(', ')}; se uniría a ${s.merge_into})`).join('; ')}`)
+      // What the report says about the corpus (few rows, one member, fewer than two areas) is printed here too: `propose` used to end in silence with an empty file.
+      for (const w of result.report.warnings) console.error(`Aviso (${w.kind}): ${w.detail ?? JSON.stringify(w)}`)
+      if (result.spec.areas.length === 0) { console.error('Ninguna área cumple los criterios: no hay nada que repartir y no se escribe el archivo de carga. Revisa el informe de `analyze` (volumen, texto, mapa, tratamiento).'); process.exit(3) }
       out(result.spec)
     }
   } catch (error) { console.error(error.message); process.exit(1) }

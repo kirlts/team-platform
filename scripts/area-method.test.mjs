@@ -1268,6 +1268,32 @@ test('B4 (reaudit): seeded phrases never appear in an output of analyze, propose
   }
 })
 
+test('B2 (reaudit 3): the title of a confidential area is in no output, baselines included', async () => {
+  const secret = Array.from({ length: 400 }, (_, i) => ({ ...rows[0], unit: `zk${i}`, object: 'zkobjconfidencial', module: 'm', summary: `Resumen reservado ${i}`, confidential: true }))
+  const corpus = [...rows, ...secret]
+  const keyed = validation.keyRows(corpus)
+  const echo = { async complete () { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: 'x' } } } }
+  const spec = propose(corpus, team, { purposes }).spec
+  const whole = await runExperiment(keyed, spec, team, { provider: echo, size: 100 })
+  assert.match(whole.baselines.area_majority.area, /^Área confidencial \d+$/, 'the largest area is the confidential one and is printed under its neutral name')
+  assert.ok(!JSON.stringify(whole).toLowerCase().includes('zkobjconfidencial'), 'whole corpus')
+  for (const stage of ['tune', 'confirm']) {
+    const built = experiment.buildAndSplit(keyed, team, { stage, purposes })
+    const run = await runExperiment(built.test, built.load, team, { provider: echo, size: 100, buildRows: built.buildRows, buildUnits: built.buildUnits })
+    assert.ok(!JSON.stringify({ run, built: { load: built.load, skipped: built.skipped, report: built.report } }).toLowerCase().includes('zkobjconfidencial'), stage)
+  }
+})
+
+test('D6 (reaudit 3): an area hidden in one window and another hidden in both keep their number across windows', () => {
+  const dated = (object, n, from, confidential) => Array.from({ length: n }, (_, i) => ({ ...rows[0], unit: `${object}-${from}-${i}`, object, confidential, date: `${from}-${String(1 + (i % 27)).padStart(2, '0')}` }))
+  const corpus = [...dated('xsecreto', 40, '2026-01', true), ...dated('zsecreto', 40, '2026-01', true), ...dated('zsecreto', 40, '2026-03', true), ...dated('xsecreto', 40, '2026-03', false), ...rows.map((r, i) => ({ ...r, date: i % 2 ? '2026-01-15' : '2026-03-15' }))]
+  const stability = method.analyzeWindows(corpus, team, { cut: '2026-02-01', permutations: 99, repeats: 1 })
+  const names = Object.keys(stability.areas).filter((t) => /^Área confidencial/.test(t))
+  assert.deepEqual(names.sort(), ['Área confidencial 1', 'Área confidencial 2'])
+  assert.ok(!JSON.stringify(stability).includes('secreto'))
+  for (const n of names) assert.deepEqual(stability.areas[n].rows, [40, 40], n)
+})
+
 test('B1 (reaudit): a row that does not validate is counted by reason and not lost in silence', async () => {
   const provider = { async complete () { return { json: { requests: [fakeRow('u1'), fakeRow('u9'), fakeRow('u1', { summary: '' }), fakeRow('u1', { severity: 3 }), fakeRow('u1', { value_holder: 'nobody' }), fakeRow('u1', { urgency: -1 })] } } } }
   const result = await extractRows(oneUnit('texto A'), team, { provider, model: 'm' })

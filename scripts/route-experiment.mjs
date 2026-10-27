@@ -17,7 +17,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, analyze, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
+import { DEFAULTS, analyze, hiddenAreas, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
 import { keyRows, referenceLabels, rowsByUnit, unitStrata } from './row-validation.mjs'
 import { loadProvider } from './request-rows.mjs'
 import { KPIS } from '../src/execute/judge.js'
@@ -252,19 +252,22 @@ export async function runExperiment (rows, load, team, { provider, families = {}
   const referenceRows = withAreas(buildRows ?? rows, families)
   const predictArea = referenceRows.length ? trainNaiveBayes(referenceRows, (r) => r.area) : null // the construction rows when there is a split, the whole corpus otherwise
   const largest = [...referenceRows.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  // The rate of «always the largest area» is computed with the real title, but the title of an area made mostly of confidential rows never leaves: it is printed under its neutral name.
+  const hidden = hiddenAreas(buildRows ?? rows, families)
+  const shown = (b) => ({ ...b, area_majority: { ...b.area_majority, area: hidden.get(largest) ?? b.area_majority.area } })
   const withLabels = out.filter((r) => 'label_area_agrees' in r)
   const raw = labeledRun && unitTexts ? await routeRaw(sample, unitTexts, { provider, system, schema, team, load, parallel }) : null
   const labelled = labeledRun ? {
     n: withLabels.length, units: labeledRun.units, rater: referenceRater,
     area: rateOf(withLabels.filter((r) => r.label_area_agrees), withLabels), person: rateOf(withLabels.filter((r) => r.label_person_agrees), withLabels),
-    baselines: baselines(sample.filter((r) => r.label), team, largest, labelRow, predictArea), raw
+    baselines: shown(baselines(sample.filter((r) => r.label), team, largest, labelRow, predictArea)), raw
   } : null
   return {
     ...summarize(out),
     sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, confidential_left_out: drawn.confidential, merged: drawn.merged, warnings: drawn.warnings },
     validated: validation?.validated === true,
     valid_for_acceptance: Boolean(labeledRun) && validation?.validated === true,
-    baselines: baselines(sample, team, largest, (r) => r, predictArea),
+    baselines: shown(baselines(sample, team, largest, (r) => r, predictArea)),
     agreement_with_labels: labelled,
     judge: judge ? { model: models.judge ?? null, router_model: models.router ?? null, same_model: Boolean(models.judge && models.judge === models.router), dropped: out.reduce((t, r) => { for (const [k, n] of Object.entries(r.judge_dropped ?? {})) t[k] = (t[k] ?? 0) + n; return t }, {}), validated_against_people: false } : null,
     holdout: held,

@@ -461,7 +461,7 @@ const dominantLimit = (profile) => {
 const overlap = (a, b) => { const small = Math.min(a.length, b.length); return small === 0 ? 0 : a.filter((m) => b.includes(m)).length / small }
 
 /** Measures every candidate area against the four criteria of the method. Returns the report. */
-export function analyze (rows, team, { families = {}, ...overrides } = {}) {
+export function analyze (rows, team, { families = {}, hiddenTitles = null, ...overrides } = {}) {
   validateTeam(team)
   validateRows(rows)
   const o = { ...DEFAULTS, ...overrides }
@@ -469,7 +469,8 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   // An area is decided on the whole corpus and measured on the confirmation set, which is a quarter of the units (half of the held-out half): for that set to have `minRows` requests the
   // area needs four times as many. With `holdout: 0` nothing is held out and the minimum is the interval count.
   const rowsNeeded = o.holdout > 0 ? Math.ceil(minRows / (o.holdout / 2)) : minRows
-  const hidden = hiddenAreas(rows, families, o.maxConfidentialShare)
+  // `hiddenTitles` is the numbering of the whole corpus when the rows are one window of it (`analyzeWindows`): the same area has the same neutral name in every window.
+  const hidden = hiddenTitles ?? hiddenAreas(rows, families, o.maxConfidentialShare)
   const tagged = withAreas(rows, families, hidden)
   const weeks = weeksOf(tagged)
   const titles = [...new Set(tagged.map((r) => r.area))]
@@ -530,7 +531,12 @@ export function analyzeWindows (rows, team, { cut = null, ...options } = {}) {
   const before = rows.filter((r) => r.date < boundary)
   const after = rows.filter((r) => r.date >= boundary)
   if (!before.length || !after.length) throw new Error(`The cut ${boundary} leaves one window with no rows.`)
-  const reports = [analyze(before, team, options), analyze(after, team, options)]
+  // The neutral names are numbered over the titles that are hidden in any window, and a title hidden in one window is hidden in both: «Área confidencial 1» is one area in the whole report.
+  const { families = {} } = options
+  const share = options.maxConfidentialShare ?? DEFAULTS.maxConfidentialShare
+  const titles0 = [...new Set([before, after].flatMap((part) => [...hiddenAreas(part, families, share).keys()]))].sort()
+  const hiddenTitles = new Map(titles0.map((t, i) => [t, `Área confidencial ${i + 1}`]))
+  const reports = [analyze(before, team, { ...options, hiddenTitles }), analyze(after, team, { ...options, hiddenTitles })]
   const titles = [...new Set(reports.flatMap((r) => r.areas.map((a) => a.title)))].sort()
   const find = (report, title) => report.areas.find((a) => a.title === title)
   const areas = Object.fromEntries(titles.map((title) => {

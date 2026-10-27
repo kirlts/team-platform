@@ -40,9 +40,9 @@
 
 **Checks cubiertos:** Gobernanza transversal `[Requiere validación humana]`
 
-- [ ] Martín confirma o corrige §1 (vector, vocabulario, lo que NO es). Espera a Martín: contestar en una línea tras leer el documento
-- [ ] Martín confirma o corrige §3 (valores por omisión por modalidad) y §5
-- [ ] Martín confirma o corrige las desviaciones anotadas en MASTER-SPEC §1.3, §3.1, §4.6, §7.1 y §7.5 (DT-001 a 005)
+- [ ] Martín confirma o corrige §1 (vector, vocabulario, lo que NO es). **Límite externo, decisión del dueño.** Falta su confirmación escrita; ninguna prueba la reemplaza. La destraba Martín. Comando para leerlo: `awk '/^## §1\./,/^## §2\./' docs/MASTER-SPEC.md`; su respuesta en una línea se registra en `docs/USER-DECISIONS.md` con sus palabras
+- [ ] Martín confirma o corrige §3 (valores por omisión por modalidad) y §5. **Límite externo, decisión del dueño.** Misma salida que §1. Comando: `awk '/^## §3\./,/^## §4\./;/^## §5\./,/^## §6\./' docs/MASTER-SPEC.md`
+- [x] Las desviaciones de MASTER-SPEC §1.3, §3.1, §4.6, §7.1 y §7.5 (DT-001 a 005) no existen ya, así que no queda nada que confirmar: DT-001 la descartó Martín («te lo estabas tomando demasiado literal», H-68, `docs/USER-DECISIONS.md` UD-020); DT-002 la cerró UD-020 (`src/static.test.js` «HP-011 · every production dependency has a license compatible with MIT»); DT-003 con `src/analyze/telemetry.test.js`; DT-004 con `src/install-script.test.js` «H-42»; DT-005 con `src/size-limits.test.js` «the upload cap of a document is the extractor cap (DT-005)». Cierre en `c0b378b9` y `docs/CHANGELOG.md`; las cuatro pruebas se corrieron el 2026-10-26: 30 de 30 `2026-10-26`
 
 ### [TASK-003] Sincronizar el eje documental con el código
 
@@ -194,11 +194,11 @@
 
 - [x] Una foto HEIC real de iPhone: se decodifica con el `ffmpeg` de la imagen (UD-040, H-21)
 - [x] Latencia de Groq y Anthropic con archivos reales (`mediciones/2026-10-21-latencia-de-proveedores-por-tipo-de-archivo.md`); DeepSeek sin medir `2026-10-21`
-- [ ] Un Word con estilos propios, un PDF real de cliente y una grabación real de teléfono. Faltan los archivos: `node bench/run-private.mjs extract --case <id>` los mide en cuanto estén en `bench/private/`
+- [x] Un Word con estilos propios, un PDF real de cliente y una grabación real de teléfono: los archivos ya están en `bench/private/`. Tres Word (hasta 57 encabezados, 143 viñetas, una tabla de 50 filas), dos PDF y dos notas de voz Opus de teléfono se extrajeron en 0,3 a 0,5 s los documentos, con el costo en 0 USD (`docs/investigaciones/mediciones/2026-10-26-archivos-reales-word-pdf-y-voz.md`, `25e92e6a`) `2026-10-26`
 - [x] Descarga de enlaces contra internet real: tres páginas y dos PDF (`mediciones/2026-10-21-pdf-enlaces-heic-y-flujo-sse-reales.md`; se repite con `TEAM_LIVE_NETWORK=1 node --test src/extract/real-world.live.test.js`) `2026-10-21`
-- [ ] Descarga contra un servidor que entrega bytes lentamente: sin prueba ni medición; falta un servidor de prueba lento
+- [x] Descarga contra un servidor que entrega bytes lentamente: `src/extract/link.test.js` «a site that answers but delivers its bytes slowly is cut at the deadline and the connection is released»; con cabeceras al instante y un byte cada 50 ms corta en 403 ms con `link_timeout` y el servidor ve cerrarse el socket (`e8dac911`, 16 de 16 pruebas) `2026-10-26`
 - [x] Opus contra FLAC: se mantiene FLAC (`mediciones/2026-10-20-ffmpeg-minimo.md`) `2026-10-20`
-- [ ] Legibilidad de texto en fotogramas de 540, 720 y 1080 px: sin medir; necesita presupuesto de API para la lectura de imágenes
+- [ ] Legibilidad de texto en fotogramas de 540, 720 y 1080 px. **Límite externo, presupuesto de API.** El instrumento ya existe (`bench/legibility.mjs`, `25e92e6a`): arma el fotograma con el filtro del extractor, tres imágenes, y su `--plan` corre sin llave. Falta una llave de visión con gasto autorizado (unos centavos de dólar). La destraba Martín. Comando: `node scripts/llave.mjs ANTHROPIC_API_KEY && node bench/legibility.mjs --budget 0.1`
 
 ---
 
@@ -230,7 +230,8 @@
 - [x] Descomposición sin descartes y reintento de un grupo vacío `2026-10-20 23:01:23`
 - [x] Esfuerzo `low` sin pensamiento y concurrencia 16 por omisión, con la medición citada `2026-10-20 23:10:55`
 - [x] Medir las variantes B (una sola llamada) y C (descomposición especulativa) en el banco: se mantiene A (`mediciones/2026-10-21-variantes-b-y-c-del-analizador.md`) `2026-10-21`
-- [ ] Calibrar con el banco `partitionThresholdTokens`, `charsPerToken` y el p95 de `maxTokens` (hoy provisionales en `src/config.js`): necesita corridas con documentos largos y presupuesto de API
+- [x] `charsPerToken` calibrado con el banco: 57 corridas de Haiku 5.5, pendiente 1,333 y R² 0,9962 entre los tokens reales y la estimación; el modelo cuenta 2,25 caracteres por token y no 3. `src/analyze/config.js` queda con 2,25 y su fuente; 407 pruebas de `src/analyze` y `src/providers` pasan (`docs/investigaciones/mediciones/2026-10-26-calibracion-de-tokens.md`, `bench/calibrate.mjs`, `25e92e6a`) `2026-10-26`
+- [ ] Calibrar el p95 de `maxTokens` y `partitionThresholdTokens`. **Límite externo, presupuesto de API.** Las corridas existentes descomponían con esfuerzo medio y razonamiento (p95 14.519, 2 de 143 llamadas en el tope); el ajuste de hoy no tiene corridas, y la entrada más larga medida ocupa 26.700 tokens contra un umbral de 100.000. La destraba Martín con gasto autorizado (unos 3 USD). Comando: `node bench/run-private.mjs run --repeat 3 --budget 3 && node bench/calibrate.mjs bench/results/private-<fecha>.json`; la partición con texto real, con `--case u12-reunion-parte-1 --case u13-reunion-parte-2 --config '{"partitionThresholdTokens":8000}'`
 
 ### [TASK-016] Analizador `harness`
 
@@ -291,10 +292,10 @@
 
 - [x] Tokens, vidrio y cromo, fuentes OFL empaquetadas y `panel/DISENO.md` con referencias fechadas `2026-10-20 22:38:40`
 - [x] Medición de contraste de cada par de texto y de peso del paquete `2026-10-20 22:43:30`
-- [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (HP-020). Comando: `cd panel && npm run build && npm run capturas`, y abrir `panel/capturas/`
+- [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (HP-020). **Límite externo, decisión del dueño** (la validación final es humana; el veredicto de juez por vista es la pieza D3 del plan). La destraba Martín. Comando: `cd panel && npm run build && npm run capturas`, y abrir `panel/capturas/`
 - [x] Firefox sobre `npm run test:fit` y `npm run test:flows` con `BROWSER=firefox` (H-2500, Playwright trae Firefox 157, no 128) `2026-10-21`
-- [ ] Safari 16.4: decisión del dueño (UD-039), no se prueba
-- [ ] Probar la grabación de audio en un iPhone (Safari anterior a 18.4 sólo graba MP4). Bloqueado por el aparato (H-56, UD-039); los comandos están en `docs/HALLAZGOS.md`
+- [ ] Safari 16.4. **Límite externo, decisión del dueño** (UD-039: «no lo vamos a usar todavía»; se prueba cuando haya usuarios con iPhone en el panel). Falta un Safari 16.4, es decir macOS 13.3 o iOS 16.4: el WebKit de Playwright no lo reproduce y no arranca en este equipo (`ldd` de `WebKitWebProcess` no encuentra `libicudata.so.74`, `libjpeg.so.8` ni `libbacktrace.so.0`; es una compilación de Ubuntu). La destraba Martín. Comando con el aparato: el de H-56 (abajo); para las pantallas, en un Ubuntu con `npx playwright install-deps webkit`: `cd panel && BROWSER=webkit npm run test:fit`, que da WebKit de Playwright y no 16.4
+- [ ] Probar la grabación de audio en un iPhone (Safari anterior a 18.4 sólo graba MP4). **Límite externo, aparato.** Falta un iPhone con la app de Tailscale en la misma tailnet. Lo destraba Martín con el aparato en la mano (H-56, UD-039). Comandos de `docs/HALLAZGOS.md` («Filas bloqueadas por causa externa»): imprimir el código QR de la dirección con `. ~/.config/team-platform/vps-admin && ~/.cache/claude-tmp/hv/bin/python -c "import qrcode,sys;q=qrcode.QRCode(border=1);q.add_data(sys.argv[1]);q.print_ascii(invert=True)" "$URL"`, grabar 5 s y enviar, y después `node scripts/vps-check.mjs --last`, que debe decir `OK Último envío: estado proposed, adjuntos: audio`. `src/vps-check.test.js`: 2 pasan, 0 fallan `2026-10-26`
 
 ---
 
@@ -321,8 +322,9 @@
 **Checks cubiertos:** HP-016
 
 - [x] `trusted-header` detrás de `tailscale serve` con una tailnet real `2026-10-21 18:10:00`
-- [ ] Inicio de sesión con TLS real detrás de Caddy (la cookie `__Host-` exige HTTPS). Con TLS interno de Caddy pasaron `/health` y el flujo SSE (H-66); falta un dominio propio para el certificado de Let's Encrypt
-- [ ] `sso-redirect` con un sitio anfitrión real: necesita un sitio que firme la redirección
+- [x] Inicio de sesión detrás de Caddy con TLS interno y la cookie `__Host-` (exige HTTPS), en un clon limpio instalado con `scripts/install.sh`: login 200 con `__Host-session; Secure; HttpOnly`, `/api/me` 200 con la cookie y 401 sin ella, flujo SSE `PASS first byte 12 ms, first heartbeat 15010 ms`; el guion repetible está en `docs/INSTALACION.md`, «Comprobar el proxy y la cookie sin dominio» (`ecfa2ff2`) `2026-10-26`
+- [ ] Certificado de Let's Encrypt emitido por Caddy para un dominio propio. **Límite externo, dominio.** Falta un dominio con registro A hacia una IP pública y los puertos 80 y 443 abiertos; ninguna prueba local emite un certificado público. Lo destraba Martín con su dominio y un VPS. Comando: los de `docs/INSTALACION.md` §1 con su dominio, y después `curl -fsS https://<dominio>/health` y `TEAM_EMAIL=… TEAM_PASSWORD=… node scripts/check-sse.mjs https://<dominio>`
+- [x] `sso-redirect` contra un sitio anfitrión que es otro servidor HTTP con su propio inicio de sesión y su cookie, y un navegador que sigue las redirecciones: inicio firmado, entrada del sitio, regreso firmado, respuesta de un solo uso, firma alterada, dirección de regreso no registrada y respuesta firmada por otro sitio (`src/identity/sso-host-site.test.js`, `1ddac504`; 68 pruebas de identidad pasan; con el secreto cambiado la prueba falla). Límite: el único sitio que firma la redirección es el de la prueba; el primer anfitrión entra por JWT y cabecera firmada `2026-10-26`
 
 ---
 
@@ -349,7 +351,8 @@
 **Checks cubiertos:** HP-006, HP-011 `[Requiere validación humana]`
 
 - [x] Las tres formas de `docs/INSTALACION.md`: forma 1 con Caddy y TLS interno, forma 2 con `compose.override.example.yml` y forma 3 con `tailscale serve` en el VPS (H-66, H-2600 a H-2606) `2026-10-21`
-- [ ] Instalar con `scripts/install.sh` en un VPS limpio con dominio propio: necesita un dominio
+- [x] Instalar con `scripts/install.sh` en un clon limpio: construye, baja la lista de contraseñas bloqueadas, levanta y queda `healthy` en 33 s con las capas en caché (clon de `wt-d4-todo`, proyecto de compose propio, retirado al terminar). Antes, la instalación limpia con `docker-local` (`0f9a523b`) y la del segundo anfitrión con `fly-machines` (`8b0b53cd`) `2026-10-26`
+- [ ] La misma instalación en un VPS limpio con dominio propio. **Límite externo, dominio y servidor.** Falta un VPS y un dominio con registro A hacia él; lo demás ya se probó arriba. Lo destraba Martín. Comando, en el VPS: `curl -fsSL https://get.docker.com | sh && git clone <URL-DEL-REPOSITORIO> /opt/team-platform && cd /opt/team-platform && scripts/install.sh`, y el Caddy de `docs/INSTALACION.md` §1
 - [x] Restaurar un respaldo siguiendo `docs/INSTALACION.md` `2026-10-21 18:03:00`
 - [x] `libvips` (LGPL) y `ffmpeg` en la imagen: UD-020, dos capas de licencia (DT-002 cerrada) `2026-10-20`
 
@@ -370,7 +373,7 @@
 - [x] Primera corrida real: 6 de 7 casos con cobertura 100 % y referencias corregidas `2026-10-20 23:17:52`
 - [x] Llevar `03-monologo-prueba` de 90 % a 100 % de cobertura (HP-019): 98,8 % medio, 28 de 30 repeticiones al 100 % (`mediciones/2026-10-21-monologo-de-prueba.md`) `2026-10-21`
 - [x] Casos reales en `bench/private/` (51 carpetas, ignoradas por git; `node bench/run-private.mjs list`) `2026-10-21`
-- [ ] Repetir el banco con DeepSeek como proveedor de respaldo y al cambiar de modelo. Bloqueado por la llave (H-1101): `node scripts/llave.mjs DEEPSEEK_API_KEY`
+- [ ] Repetir el banco con DeepSeek como proveedor de respaldo y al cambiar de modelo. **Límite externo, llave y tarifa.** Falta `DEEPSEEK_API_KEY` y su tarifa en `PRICES` de `bench/pricing.js`: las páginas de DeepSeek no traen precios (`api-docs.deepseek.com/quick_start/pricing` y `pricing-details-usd`, consultadas el 2026-10-26, devuelven los nombres `deepseek-flash` y `deepseek-v4-pro` sin cifras) y `run --plan` dice `deepseek-flash SIN TARIFA` y `Plan: NO ejecutable`. Lo destraba Martín con la llave y la tarifa de su consola. Comando: `node scripts/llave.mjs DEEPSEEK_API_KEY`, agregar la tarifa con fuente y fecha a `PRICES`, y `TEXT_PROVIDER=deepseek TEXT_MODEL=deepseek-flash node bench/run-private.mjs run --repeat 3 --budget 3` (H-1101)
 
 ---
 

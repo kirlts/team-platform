@@ -28,7 +28,7 @@ import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
 import { guardsOf } from '../domain/assessment.js'
-import { buildJudgePrompt, runJudge, saveJudgment } from './judge.js'
+import { buildJudgePrompt, judgeEvidence, runJudge, saveJudgment } from './judge.js'
 import { ensureIdeaGuard } from './idea-guard.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
@@ -112,7 +112,7 @@ export function assessmentText (message, db) {
   let touched = []
   try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
   const guards = guardsOf(db, message.area_id).filter((g) => touched.includes(g.id))
-  if (guards.length) lines.push('', 'Guards of the area that this message touches:', ...guards.map((g) => `- G${g.id}: ${g.text}${g.mechanism ? ` (held by: ${g.mechanism})` : ''}${g.person ? ' (about a person: the system puts a person on this message and you do not close it)' : ''}`))
+  if (guards.length) lines.push('', 'Guards of the area that this message touches:', ...guards.map((g) => `- G${g.id}: ${g.text}${g.mechanism ? ` (held by: ${g.mechanism})` : ''}${g.person ? ' (about a person: it is not crossed without a person lifting it. Say in your reply which Guard it touches and what happens if it is crossed, and propose an alternative that does what was asked without crossing it. You may prepare the work on the branch; the system holds the delivery until a person approves it, and you do not close)' : ''}`))
   return lines.join('\n')
 }
 
@@ -666,23 +666,27 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
-    // UD-295: the job judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Not when the work goes on in a stronger model:
-    // the judge reads the end of the work. A judge that cannot run leaves the job unjudged; the job does not depend on it.
+    // UD-295: the job judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Every job is judged, also the attempt of the light model
+    // that did not close and the work then goes on in the larger one: leaving it out made the comparison between models favour the light one (audit 2026-10-26). A judge that cannot run
+    // leaves the job unjudged, and an answer that does not validate (a KPI missing or repeated, a quote that is not in the evidence) is not a judgement: it is dropped and its reason is audited.
+    // The job does not depend on any of it.
     const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked')
     let judgment = null
-    if (!goesOn) {
+    {
       let touched = []
       try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
-      judgment = await runJudge({
-        providers: getProviders(),
-        logger,
-        signal: ctx.signal,
-        prompt: buildJudgePrompt({
-          message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,
-          captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: costOfResult(result) ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
-        })
-      })
+      const areaRow = get(db, 'SELECT title, description FROM areas WHERE id = ?', message.area_id)
+      const judged = {
+        message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,
+        area: areaRow ?? null, project: getProject(db, config),
+        captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: costOfResult(result) ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(goesOn ? { no_cerro: 'sí' } : {}), ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
+      }
+      judgment = await runJudge({ providers: getProviders(), logger, signal: ctx.signal, prompt: buildJudgePrompt(judged), evidence: judgeEvidence(judged) })
       if (judgment?.cost) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', judgment.cost, job.id) // it counts in the day's cap with the job
+      if (judgment?.rejected) {
+        audit(db, { memberId: agent.id, action: 'job.judge_rejected', entity: 'job', entityId: job.id, detail: { message_id: messageId, judge_model: judgment.model, reason: judgment.rejected }, now })
+        judgment = null
+      }
     }
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
     // UD-307: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that

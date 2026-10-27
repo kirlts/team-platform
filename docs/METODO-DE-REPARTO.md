@@ -144,7 +144,7 @@ Repetición. La extracción no es determinista: `claude -p` no fija semilla ni t
 
 Umbral. Las filas están validadas cuando cuatro kappa llegan a 0,6 (`--min-kappa`). Son los de área, titular del valor y «exige a una persona» contra la persona, y el de la repetición. Desde 0,61 Landis y Koch (1977) llaman «sustancial» al acuerdo; es una convención y no un estándar. El equipo fija el umbral antes de medir. Sin segunda persona o sin repetición, `validated` es falso y el informe dice qué falta.
 
-Qué cambia en el resto. `route-experiment.mjs` informa `validated` en su resultado. Mientras sea falso, sus cifras se llaman `agreement_with_rows`. Con `--labels` agrega `agreement_with_labels`, el acuerdo del enrutador con las personas sobre los pedidos que ellas etiquetaron.
+Qué cambia en el resto. `route-experiment.mjs` informa `validated` en su resultado. Sus cifras sobre las filas se llaman `agreement_with_rows`, estén validadas o no: son el acuerdo con la extracción. Con `--labels` agrega `agreement_with_labels`, el acuerdo del enrutador con las personas sobre los pedidos que ellas etiquetaron. Ese es el acierto.
 
 ## 4. Conjunto de áreas
 
@@ -177,7 +177,7 @@ Medición del 2026-10-26 (`bench/area-method-recognition.mjs`, corpus inventados
 
 Una área candidata es la que alcanza el volumen mínimo. Un área que no lo alcanza se funde y no decide si otra es distinta. El límite dominante es el más tocado; si dos empatan el primer lugar, el área no tiene límite dominante y el límite no decide. Dos áreas difieren por límite sólo si las dos tienen uno y no es el mismo.
 
-Se comparan cinco dimensiones a la vez. Con una regla fija de 0,5 desviaciones, un grupo chico parece distinto casi siempre. Es la medición del 2026-10-26 (`bench/area-method-treatment.mjs`) con 400 pares de grupos de la misma distribución por tamaño:
+Se comparan cinco dimensiones a la vez. Con una regla fija de 0,5 desviaciones, un grupo chico parece distinto casi siempre. Es la medición del 2026-10-27 (`bench/area-method-treatment.mjs`) con 400 pares de grupos de la misma distribución por tamaño:
 
 | Tamaños | Regla fija de 0,5 | Permutación con Holm |
 |---|---|---|
@@ -230,7 +230,7 @@ Una descripción más larga no es mejor por serlo. La medición del 2026-10-21 (
 
 ## 6. Plantillas por área
 
-Una plantilla por intención con 20 pedidos o más dentro del área (`--min-template`). Con 20 pedidos, el error estándar de la media de una dimensión es 0,22 desviaciones (1 / √20). Las intenciones con menos pedidos se atienden con la plantilla más cercana del área. `--intents` agrupa etiquetas de intención en un solo nombre de plantilla.
+Una plantilla por intención con 20 pedidos o más dentro del área, sin contar los de unidades confidenciales (`--min-template`). Con 20 pedidos, el error estándar de la media de una dimensión es 0,22 desviaciones (1 / √20). Las intenciones con menos pedidos se atienden con la plantilla más cercana del área. `--intents` agrupa etiquetas de intención en un solo nombre de plantilla.
 
 Campos comunes, porque deciden el reparto y no se deducen del área:
 

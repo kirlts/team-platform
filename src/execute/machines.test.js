@@ -10,7 +10,7 @@ import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, login, makeEnv, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
 import { createExecuteHandler } from './handler.js'
-import { adoptParked, machineHealth, nameMachine, openMachine, orphanMachines, parkMachine, pruneExecuteMachines, recordDestroy, sweepMachines } from './machines.js'
+import { adoptPrevious, machineHealth, nameMachine, openMachine, orphanMachines, parkMachine, pruneExecuteMachines, recordDestroy, sweepMachines } from './machines.js'
 import { runMachine } from './runners.js'
 
 describe('the register of machines', () => {
@@ -38,26 +38,33 @@ describe('the register of machines', () => {
 
   it('a machine with no job, or whose job is not running under a live lease, is an orphan; the newest machine of a running job is not', () => {
     const now = Date.now()
+    const ids = () => orphanMachines(env.db, { now }).map((r) => r.id)
     const live = runningJob()
     const mine = openMachine(env.db, { jobId: live.id, attempt: live.attempts, machine: 'm-live', workdir: '/w/live', now })
-    assert.deepEqual(orphanMachines(env.db, { now }).map((r) => r.id).filter((id) => id === mine), [], 'a running job with its lease in force owns its machine')
+    assert.ok(!ids().includes(mine), 'a running job with its lease in force owns its machine')
     // The lease expired: nobody renews it, the owner is gone.
-    assert.deepEqual(orphanMachines(env.db, { now: live.lease_until + 1 }).map((r) => r.id).filter((id) => id === mine), [mine])
-    // An earlier row of the same job (a DESTROY that failed in the attempt before) has no owner even while the job runs.
-    const older = openMachine(env.db, { jobId: live.id, attempt: live.attempts - 1 || 1, machine: 'm-old', workdir: '/w/old', now })
-    const newest = openMachine(env.db, { jobId: live.id, attempt: live.attempts, machine: 'm-new', workdir: '/w/new', now })
-    const ids = orphanMachines(env.db, { now }).map((r) => r.id)
-    assert.ok(ids.includes(mine) && ids.includes(older), 'the older rows of the job are orphans')
-    assert.ok(!ids.includes(newest), 'the newest one stays with its running job')
+    assert.ok(orphanMachines(env.db, { now: live.lease_until + 1 }).map((r) => r.id).includes(mine))
+    // An older open row of the same job waits while a newer one is open (the attempt in progress may take the machine over), and is an orphan once it closes.
+    const newer = openMachine(env.db, { jobId: live.id, attempt: live.attempts, machine: 'm-new', workdir: '/w/new', now })
+    assert.ok(!ids().includes(mine) && !ids().includes(newer), 'the older row waits for the newer one')
+    recordDestroy(env.db, newer, { code: 0 })
+    assert.ok(ids().includes(mine), 'with the newer row closed, the older one has no owner')
+    // A newer row that names the same machine takes the older one over: the old row is gone, not destroyed.
+    const again = openMachine(env.db, { jobId: live.id, attempt: live.attempts, machine: 'default', workdir: '/w/again', now })
+    nameMachine(env.db, again, 'm-live')
+    adoptPrevious(env.db, { jobId: live.id, machine: 'm-live', exceptId: again })
+    assert.equal(row(mine), undefined)
+    recordDestroy(env.db, again, { code: 0 })
     // The job ends (done): its machine is an orphan if it was not destroyed.
+    const left = openMachine(env.db, { jobId: live.id, attempt: live.attempts, machine: 'm-left', workdir: '/w/left', now })
     env.queue.complete(live)
-    assert.ok(orphanMachines(env.db, { now }).map((r) => r.id).includes(newest))
+    assert.ok(ids().includes(left))
     // A job that was purged from the queue leaves no owner either.
     const gone = openMachine(env.db, { jobId: 999999, attempt: 1, machine: 'm-gone', workdir: '/w/gone', now })
-    assert.ok(orphanMachines(env.db, { now }).map((r) => r.id).includes(gone))
+    assert.ok(ids().includes(gone))
     // A closed row is never an orphan.
     recordDestroy(env.db, gone, { code: 0 })
-    assert.ok(!orphanMachines(env.db, { now }).map((r) => r.id).includes(gone))
+    assert.ok(!ids().includes(gone))
     for (const r of orphanMachines(env.db, { now })) recordDestroy(env.db, r.id, { code: 0 })
   })
 
@@ -169,10 +176,11 @@ describe('the register of machines', () => {
     } finally { delete process.env.CREATE_EXIT }
   })
 
-  it('an orderly shutdown during RUN runs DESTROY (and skips COLLECT); the machine is not left for the next attempt', async () => {
+  it('with EXECUTE_KEEP_SESSION_ON_SHUTDOWN=0 an orderly shutdown during RUN runs DESTROY (and skips COLLECT)', async () => {
     const seen = join(env.dir, 'shutdown.log')
     const workdir = join(env.dir, 'job-4006'); mkdirSync(workdir, { recursive: true })
     const config = configOf({
+      keepSessionOnShutdown: false,
       machineCreate: 'echo m-4006',
       machineRun: `echo started >> '${seen}'; echo '{"type":"system"}'; sleep 30`,
       machineCollect: `echo collect >> '${seen}'`,
@@ -207,12 +215,11 @@ describe('the register of machines', () => {
     const fresh = openMachine(env.db, { jobId: id, attempt: again.attempts, machine: 'team-job-default', workdir: '/w/park2', now })
     assert.ok(!orphanMachines(env.db, { now }).map((r) => r.id).includes(parked), 'while the new attempt runs, the parked row still has an owner')
     nameMachine(env.db, fresh, 'vm-park')
-    adoptParked(env.db, { jobId: id, machine: 'vm-park', exceptId: fresh })
+    adoptPrevious(env.db, { jobId: id, machine: 'vm-park', exceptId: fresh })
     assert.equal(row(parked), undefined, 'adopted: one machine, one row')
-    assert.deepEqual(orphanMachines(env.db, { now }).map((r) => r.id).filter((x) => x === fresh), [])
     recordDestroy(env.db, fresh, { code: 0 })
     env.queue.complete(again)
-    // A parked machine whose job is not coming back (failed, cancelled, purged) is an orphan; and one the next attempt does not name again is released.
+    // The next attempt names another machine: the parked one is not coming back. It waits while the job runs and goes when the job ends.
     const id2 = env.queue.enqueue('execute', {})
     const job2 = env.queue.claim('worker-park-3')
     const lost = openMachine(env.db, { jobId: id2, attempt: job2.attempts, machine: 'vm-lost', workdir: '/w/lost', now })
@@ -220,18 +227,19 @@ describe('the register of machines', () => {
     env.queue.release(job2)
     const next2 = env.queue.claim('worker-park-4')
     const other = openMachine(env.db, { jobId: id2, attempt: next2.attempts, machine: 'vm-other', workdir: '/w/other', now })
-    adoptParked(env.db, { jobId: id2, machine: 'vm-other', exceptId: other })
-    assert.equal(row(lost).parked, 0, 'the next attempt named another machine: the parked one is not coming back')
-    const swept = await sweepMachines({ db: env.db, config: configOf(), concurrency: 2 })
-    assert.equal(swept.failed, 0)
-    assert.ok(row(lost).destroyed_at > 0, 'and the sweep destroys it')
-    assert.equal(row(other).destroyed_at, null, 'while the machine of the job that is still to run is left alone')
-    const id3 = openMachine(env.db, { jobId: 999998, attempt: 1, machine: 'vm-purged', workdir: '/w/p', now })
-    parkMachine(env.db, id3)
-    assert.ok(orphanMachines(env.db, { now }).map((r) => r.id).includes(id3), 'a parked machine whose job was purged has no owner')
-    for (const r of orphanMachines(env.db, { now })) recordDestroy(env.db, r.id, { code: 0 })
+    adoptPrevious(env.db, { jobId: id2, machine: 'vm-other', exceptId: other })
+    assert.ok(row(lost), 'another name: the parked row is not adopted')
+    assert.equal((await sweepMachines({ db: env.db, config: configOf(), concurrency: 2 })).destroyed, 0, 'both are respected while the job runs')
     recordDestroy(env.db, other, { code: 0 })
     env.queue.complete(next2)
+    const swept = await sweepMachines({ db: env.db, config: configOf(), concurrency: 2 })
+    assert.deepEqual(swept, { destroyed: 1, failed: 0 })
+    assert.ok(row(lost).destroyed_at > 0, 'the job ended: the sweep destroys the machine that nobody took over')
+    // A parked machine whose job was purged has no owner.
+    const id3 = openMachine(env.db, { jobId: 999998, attempt: 1, machine: 'vm-purged', workdir: '/w/p', now })
+    parkMachine(env.db, id3)
+    assert.ok(orphanMachines(env.db, { now }).map((r) => r.id).includes(id3))
+    recordDestroy(env.db, id3, { code: 0 })
   })
 
   it('the destroyed rows go with the runs and an open one is never deleted', () => {

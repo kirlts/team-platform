@@ -573,9 +573,9 @@ describe('execute job', () => {
       assert.ok(events.includes('waited') && !events.includes('waiting'), `${events}`)
     })
 
-    it('a restart in the middle of the session destroys the machine, returns the job to the queue and the next worker creates its own (B4)', async () => {
+    it('with EXECUTE_KEEP_SESSION_ON_SHUTDOWN=0 a restart in the middle of the session destroys the machine, returns the job to the queue and the next worker creates its own (B4)', async () => {
       process.env.FAKE_EXECUTE_MODE = 'hang'
-      startWorker(machine())
+      startWorker(machine({ keepSessionOnShutdown: false }))
       const id = await enqueue()
       await until(() => lines().includes(`run vm-${id}`) && calls().length > 0, { timeoutMs: 10000 })
       await worker.stop() // what a deploy does: SIGTERM, the jobs in progress go back to the queue
@@ -585,15 +585,15 @@ describe('execute job', () => {
       assert.equal(parked.attempts, 0, 'the attempt is refunded: a deploy is not a failure of the job')
       assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM execute_machines WHERE destroyed_at IS NULL').get().n, 0, 'no machine is left without a recorded destruction')
       process.env.FAKE_EXECUTE_MODE = 'ok'
-      startWorker(machine())
+      startWorker(machine({ keepSessionOnShutdown: false }))
       const done = await waitJob(id)
       assert.equal(done.status, 'done', done.last_error)
       assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`, `create ${id}`, `run vm-${id}`, `destroy vm-${id}`], 'the second attempt has its own machine, destroyed at its end')
     })
 
-    it('with EXECUTE_KEEP_SESSION_ON_SHUTDOWN a restart leaves the machine alone, the next worker runs the same machine command again and destroys only at the end', async () => {
+    it('by default (EXECUTE_KEEP_SESSION_ON_SHUTDOWN=1) a restart leaves the machine alone, the next worker runs the same machine command again and destroys only at the end', async () => {
       process.env.FAKE_EXECUTE_MODE = 'hang'
-      startWorker(machine({ keepSessionOnShutdown: true }))
+      startWorker(machine())
       const id = await enqueue()
       await until(() => lines().includes(`run vm-${id}`) && calls().length > 0, { timeoutMs: 10000 })
       await worker.stop() // what a deploy does: SIGTERM, the jobs in progress go back to the queue
@@ -604,7 +604,7 @@ describe('execute job', () => {
       const kept = env.db.prepare('SELECT machine, parked, destroyed_at FROM execute_machines WHERE job_id = ?').all(id)
       assert.deepEqual(kept.map((r) => [r.machine, r.parked, r.destroyed_at]), [[`vm-${id}`, 1, null]], 'the register knows the machine stays on purpose')
       process.env.FAKE_EXECUTE_MODE = 'ok'
-      startWorker(machine({ keepSessionOnShutdown: true }))
+      startWorker(machine())
       const done = await waitJob(id)
       assert.equal(done.status, 'done', done.last_error)
       assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `create ${id}`, `run vm-${id}`, `destroy vm-${id}`], 'one destroy, after the session finished')

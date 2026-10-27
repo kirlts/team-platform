@@ -84,7 +84,7 @@ const CASES = [
   ['destroy-run-fails', 'DESTROY runs, with exit 0, after a RUN whose session died'],
   ['destroy-deadline', 'DESTROY runs, with exit 0, after the deadline of the job was exceeded'],
   ['destroy-twice', 'DESTROY of a machine that no longer exists exits 0, twice'],
-  ['destroy-shutdown', 'DESTROY runs, with exit 0, when the worker shuts down in an orderly way while RUN is running'],
+  ['destroy-shutdown', 'DESTROY runs, with exit 0, when the worker shuts down in an orderly way while RUN is running (EXECUTE_KEEP_SESSION_ON_SHUTDOWN=0)'],
   ['create-75', 'a 75 from CREATE does not spend the attempt (injected)'],
   ['deliver-75', 'a 75 from DELIVER does not spend the attempt (injected)'],
   ['deliver-76', 'a 76 from DELIVER leaves delivery_held and no retry (injected)']
@@ -442,8 +442,8 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
     }
 
     if (needs('destroy-shutdown')) {
-      // The session outlives the stop: the double sleeps longer than the whole case.
-      const f = await flow('shutdown', { double: { FAKE_CANARY_SLEEP_MS: String(SLEEP_PAST_DEADLINE_MS) }, delivers: false, shutdownDuringRun: true })
+      // The session outlives the stop: the double sleeps longer than the whole case. The case fixes the variable it exercises: with 1 (the default) the machine stays on purpose.
+      const f = await flow('shutdown', { double: { FAKE_CANARY_SLEEP_MS: String(SLEEP_PAST_DEADLINE_MS) }, delivers: false, shutdownDuringRun: true, execute: { keepSessionOnShutdown: false } })
       await verdicts.check('destroy-shutdown', () => {
         const start = f.log.find((l) => l.order === 'run' && l.start)
         expect(start, 'RUN never started, so there was no session to shut down')

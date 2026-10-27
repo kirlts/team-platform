@@ -41,7 +41,7 @@ describe('B4 against drivers/docker-local', () => {
   const saved = {}
   const setEnv = (values) => { for (const [k, v] of Object.entries(values)) { if (!(k in saved)) saved[k] = process.env[k]; if (v === undefined) delete process.env[k]; else process.env[k] = v } }
   const exists = (name) => { try { execFileSync('docker', ['inspect', name], { stdio: 'ignore' }); return true } catch { return false } }
-  const configFor = () => loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent' }, { execute: { runner: 'machine', ...HOOKS, machineBin: '/job/slow-claude', timeoutMs: TIMEOUT_MS, killGraceMs: GRACE_MS } })
+  const configFor = () => loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent' }, { execute: { runner: 'machine', ...HOOKS, machineBin: '/job/slow-claude', keepSessionOnShutdown: false, timeoutMs: TIMEOUT_MS, killGraceMs: GRACE_MS } })
   const row = (id) => get(env.db, 'SELECT * FROM execute_machines WHERE id = ?', id)
   const sh = (command) => spawnStreaming('/bin/sh', ['-c', command], { env: process.env, keepStdout: true, timeoutMs: TIMEOUT_MS, graceMs: GRACE_MS })
   /** A job id the driver accepts, and the name of its default machine registered for the final cleanup. */
@@ -99,7 +99,7 @@ describe('B4 against drivers/docker-local', () => {
     assert.deepEqual(machineHealth(env.db), { open: 0, failed: [] })
   })
 
-  it('an orderly shutdown while RUN is running destroys the container and closes the row', async () => {
+  it('with EXECUTE_KEEP_SESSION_ON_SHUTDOWN=0 an orderly shutdown while RUN is running destroys the container and closes the row', async () => {
     const id = jobId()
     const workdir = workdirOf(id)
     const controller = new AbortController()

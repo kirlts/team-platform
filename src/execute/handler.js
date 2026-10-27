@@ -44,7 +44,7 @@ import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, rea
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
 import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 import { createCreationGate, runLocal, runMachine } from './runners.js'
-import { adoptParked, nameMachine, openMachine, parkMachine, recordDestroy, sweepMachines } from './machines.js'
+import { adoptPrevious, nameMachine, openMachine, parkMachine, recordDestroy, sweepMachines } from './machines.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 import { startProgressNotices } from './progress-timer.js'
@@ -538,7 +538,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         // The register of machines (B4): the machine is written down before CREATE and closed by DESTROY, so what a dead worker leaves is found by the sweep.
         const track = {
           begin: (machine) => { const id = openMachine(db, { jobId: job.id, attempt: job.attempts, machine, workdir: dirs.workdir, now: now() }); machinesInFlight.add(id); return id },
-          named: (id, machine) => { nameMachine(db, id, machine); adoptParked(db, { jobId: job.id, machine, exceptId: id }) },
+          named: (id, machine) => { nameMachine(db, id, machine); adoptPrevious(db, { jobId: job.id, machine, exceptId: id }) },
           parked: (id) => { machinesInFlight.delete(id); parkMachine(db, id) },
           destroyed: (id, done) => { machinesInFlight.delete(id); recordDestroy(db, id, { ...done, now: now() }) }
         }

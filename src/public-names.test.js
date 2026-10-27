@@ -68,7 +68,7 @@ test('the matcher finds a name and respects the exemptions', () => {
 // not in documents, code, comments, file names or the `.agents/` rules (decision of 2026-10-26). They name no one, so the list is public.
 // They are assembled from fragments so that this file does not contain them. Only `.git/` is exempt: `docs/investigaciones/` and `bench/` are
 // versioned files of this repository and the decision covers the whole repository.
-const FRAMEWORK_SUBSTRINGS = [['kair', 'ós'], ['kair', 'os'], ['grav', 'itas'], ['krat', 'os'], ['kha', 'os']].map((p) => p.join(''))
+const FRAMEWORK_SUBSTRINGS = [['kair', 'ós'], ['kair', 'os'], ['grav', 'itas'], ['krat', 'os'], ['kha', 'os'], ['ppd', '-k']].map((p) => p.join(''))
 const FRAMEWORK_ACRONYM = ['i', 'mk'].join('')
 const FRAMEWORK_EXEMPT = [/^\.git\//]
 

@@ -11,7 +11,7 @@ export const AXES = Object.freeze([
   { axis: 1, name: 'Alineación estratégica' },
   { axis: 2, name: 'Integridad del artefacto' },
   { axis: 3, name: 'Eficiencia del proceso' },
-  { axis: 4, name: 'Sinergia y transparencia' }
+  { axis: 4, name: 'Colaboración y transparencia' }
 ])
 
 // Definitions of the twelve KPI; the level anchors apply as written here: +2 Excepcional, +1 Fuerte, 0 Esperado (the minimum acceptable), -1 Bajo, -2 Inaceptable.
@@ -27,7 +27,7 @@ export const KPIS = Object.freeze([
   { id: '3.3', axis: 3, name: 'Calidad del esfuerzo cognitivo', asks: 'Lo que se le pide a la persona es de alto valor (decidir, validar) y no de bajo valor (corregir, microgestionar).' },
   { id: '4.1', axis: 4, name: 'Transparencia del razonamiento', asks: 'En los puntos de decisión con costo de reversión, se exponen las alternativas consideradas y por qué se eligió.' },
   { id: '4.2', axis: 4, name: 'Intervención crítica', asks: 'Se desafía con razones una premisa del pedido cuando corresponde.' },
-  { id: '4.3', axis: 4, name: 'Sinergia emergente', asks: 'El resultado final supera la primera propuesta completa y viable de la IA.' }
+  { id: '4.3', axis: 4, name: 'Resultado sobre la primera propuesta', asks: 'El resultado final supera la primera propuesta completa y viable de la IA.' }
 ])
 
 // The performance expected of each axis by quadrant of the task, as the minimum score its mean must reach (Esperado 0, Fuerte 1, Excepcional 2).

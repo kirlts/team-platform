@@ -3,8 +3,10 @@
 // remote. A host that installs that commit reads it with one command instead of repeating, in its own image, tests the canonical
 // already passed.
 //
-//   node scripts/battery-record.mjs run <sha> [--remote origin] [--no-push]
+//   node scripts/battery-record.mjs run <sha> [--remote origin] [--no-push] [--no-retry]
 //        runs the four orders on <sha> in a worktree of its own (removed at the end) and writes the note only if all exited 0.
+//        An order that fails and names its failing test files is repeated once, only on those files (the rule of the repository for a
+//        failure); if they pass, the order is recorded with exit 0 plus `first_run` and `retried`, so the note says it happened.
 //   node scripts/battery-record.mjs write <sha> --from <results.jsonl> [--remote origin]
 //        writes the note from the results of orders somebody else ran (scripts/publish-main.sh, which runs the battery as the door
 //        to `main` and hands over what it ran instead of running it twice). Same rule: nothing is written unless all exited 0.
@@ -90,7 +92,9 @@ export function runOrder ({ name, cmd, cwd, env, logPath, echo = true }) {
     const started = process.hrtime.bigint()
     const hash = createHash('sha256')
     const log = createWriteStream(logPath)
-    const child = spawn('bash', ['-c', cmd], { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
+    // NODE_TEST_CONTEXT would make a nested `node --test` skip its files when this script itself runs inside a test.
+    const { NODE_TEST_CONTEXT: _context, ...inherited } = process.env
+    const child = spawn('bash', ['-c', cmd], { cwd, env: { ...inherited, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
     // The output goes to stderr: stdout of this script is the record, for whoever pipes it.
     const take = (chunk) => { hash.update(chunk); log.write(chunk); if (echo) process.stderr.write(chunk) }
     child.stdout.on('data', take)
@@ -105,6 +109,38 @@ export function runOrder ({ name, cmd, cwd, env, logPath, echo = true }) {
     child.on('error', () => done(127, null))
     child.on('close', done)
   })
+}
+
+// The test files a failed `node --test` order names in its «failing tests» section (`test at <file>:<line>:<col>`).
+export function failedFiles (output) {
+  const files = new Set()
+  for (const m of output.replace(ANSI, '').matchAll(/^test at (\S+?):\d+:\d+\s*$/gm)) files.add(m[1])
+  return [...files]
+}
+
+// The rule of the repository for a failure: repeat only what failed, once (docs of the door, «un reintento repite sólo lo que falló»).
+// Returns the order's result as it stands to be recorded: untouched when it passed or names no file; with exit 0 and the declared
+// `first_run` and `retried` when the files that failed pass on their own. A file that fails again leaves the order failed.
+export async function retryFailedFiles (result, { cwd, env, logPath }) {
+  if (result.exit === 0) return result
+  const files = failedFiles(readFileSync(logPath, 'utf8'))
+  if (files.length === 0) return result
+  const quoted = files.map((f) => `'${f.replaceAll("'", "'\\''")}'`).join(' ')
+  const cmd = `node --test ${quoted}`
+  console.error(`\n==> retry only what failed in ${result.name}: ${cmd}`)
+  const again = await runOrder({ name: `${result.name}-retry`, cmd, cwd, env, logPath: `${logPath}.retry` })
+  if (again.exit !== 0) return { ...result, retried: { files, exit: again.exit, seconds: again.seconds } }
+  const { tests, pass, fail } = result
+  return {
+    name: result.name,
+    cmd: result.cmd,
+    exit: 0,
+    seconds: result.seconds,
+    log_sha256: result.log_sha256,
+    first_run: { exit: result.exit, tests, pass, fail, seconds: result.seconds },
+    retried: { files, exit: 0, seconds: again.seconds, tests: again.tests, pass: again.pass, fail: again.fail, log_sha256: again.log_sha256 },
+    failed: [],
+  }
 }
 
 // The external bases of a Dockerfile: the `FROM` lines that do not name an earlier stage.
@@ -155,7 +191,7 @@ export function buildRecord ({ sha, tree, results, skipped = [], bases, date = n
     date: stamp,
     node: nodeVersion,
     runner: runner ?? `${userInfo().username}@${hostname()}`,
-    commands: ran.map(({ name, cmd, exit, seconds, tests, pass, fail, log_sha256: logHash }) => ({ name, cmd, exit, seconds, ...(tests !== undefined ? { tests, pass, fail } : {}), log_sha256: logHash })),
+    commands: ran.map(({ name, cmd, exit, seconds, tests, pass, fail, log_sha256: logHash, first_run: firstRun, retried }) => ({ name, cmd, exit, seconds, ...(tests !== undefined ? { tests, pass, fail } : {}), log_sha256: logHash, ...(retried ? { first_run: firstRun, retried } : {}) })),
     skipped,
     image_base: bases,
   }
@@ -254,7 +290,7 @@ function parseArgs (argv) {
   const opts = { _: [] }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--no-push' || a === '--trace') opts[a.slice(2)] = true
+    if (a === '--no-push' || a === '--trace' || a === '--no-retry') opts[a.slice(2)] = true
     else if (['--remote', '--from', '--name', '--exit', '--seconds', '--log', '--cmd'].includes(a)) opts[a.slice(2)] = argv[++i]
     else if (a.startsWith('--')) { console.error(`battery-record: unknown option ${a}`); process.exit(2) }
     else opts._.push(a)
@@ -317,13 +353,15 @@ async function commandRun (opts) {
     for (const order of ORDERS) {
       const cmd = process.env[order.env] ?? order.cmd
       console.error(`\n==> ${order.name}: ${cmd}`)
-      const r = await runOrder({ name: order.name, cmd, cwd: wt, env: { TMPDIR: tmp }, logPath: join(logs, `${order.name}.log`) })
+      const logPath = join(logs, `${order.name}.log`)
+      let r = await runOrder({ name: order.name, cmd, cwd: wt, env: { TMPDIR: tmp }, logPath })
+      if (!opts['no-retry']) r = await retryFailedFiles(r, { cwd: wt, env: { TMPDIR: tmp }, logPath })
       results.push(r)
       if (r.exit !== 0) break // the record needs all of them; the rest would only spend the machine
     }
     const bad = results.filter((r) => r.exit !== 0)
     console.error('\nbattery-record: orders')
-    for (const r of results) console.error(`  ${r.name.padEnd(9)} ${r.exit === 0 ? 'ok    ' : `FAILED (${r.exit})`} ${r.seconds}s ${r.tests !== undefined ? `${r.pass}/${r.tests} pass` : ''}  ${r.cmd}`)
+    for (const r of results) console.error(`  ${r.name.padEnd(9)} ${r.exit === 0 ? 'ok    ' : `FAILED (${r.exit})`} ${r.seconds}s ${r.tests !== undefined ? `${r.pass}/${r.tests} pass` : ''}${r.retried ? ` (repeated only: ${r.retried.files.join(', ')})` : ''}  ${r.cmd}`)
     if (bad.length) {
       for (const r of bad) for (const n of r.failed) console.error(`  failed: ${n}`)
       console.error(`battery-record: nothing written for ${sha}; logs in ${logs}`)

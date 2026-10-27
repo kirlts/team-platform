@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn, spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildRecord, externalBases, failedNames, imageBase, parseCounts, readNote, writeNote } from './battery-record.mjs'
+import { buildRecord, externalBases, failedFiles, failedNames, imageBase, parseCounts, readNote, writeNote } from './battery-record.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_ENV = { GIT_AUTHOR_NAME: 'author', GIT_AUTHOR_EMAIL: 'a@t', GIT_COMMITTER_NAME: 'author', GIT_COMMITTER_EMAIL: 'a@t', GIT_CONFIG_NOSYSTEM: '1' }
@@ -188,4 +188,29 @@ test('several writers at the same time lose no note', async () => {
   })))
   assert.deepEqual(codes, [0, 0, 0, 0])
   for (let i = 0; i < 4; i++) assert.equal(readNote(null, t.remote, shas[i + 2]).status, 'found', `writer ${i}`)
+})
+
+test('an order that fails naming its test files is repeated once, only on those files, and the note says so', () => {
+  const t = makeToy()
+  writeFileSync(join(t.repo, 'again.test.mjs'), "import { test } from 'node:test'\ntest('passes alone', () => {})\n")
+  ok(t.repo, 'git', ['add', 'again.test.mjs']); ok(t.repo, 'git', ['commit', '-q', '-m', 'again'])
+  const sha = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
+  const failing = 'echo "# tests 5"; echo "# pass 4"; echo "# fail 1"; echo "✖ failing tests:"; echo; echo "test at again.test.mjs:1:1"; exit 1'
+  assert.deepEqual(failedFiles('test at again.test.mjs:1:1\ntest at a/b.test.js:20:3\ntest at again.test.mjs:9:9\n'), ['again.test.mjs', 'a/b.test.js'])
+  const r = t.run(sha, { BATTERY_TEST_CMD: failing })
+  assert.equal(r.status, 0, r.stdout + r.stderr)
+  const complete = JSON.parse(r.stdout).commands[0]
+  assert.equal(complete.exit, 0)
+  assert.deepEqual(complete.retried.files, ['again.test.mjs'])
+  assert.equal(complete.first_run.exit, 1)
+  assert.equal(complete.retried.pass, 1)
+  assert.match(r.stderr, /repeated only: again\.test\.mjs/)
+  // A file that fails again leaves the order failed and writes nothing.
+  writeFileSync(join(t.repo, 'again.test.mjs'), "import { test } from 'node:test'\ntest('fails alone', () => { throw new Error('x') })\n")
+  ok(t.repo, 'git', ['commit', '-q', '-am', 'broken']); const bad = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
+  const r2 = t.run(bad, { BATTERY_TEST_CMD: failing })
+  assert.equal(r2.status, 1)
+  assert.equal(sh(t.repo, 'node', ['scripts/battery-record.mjs', 'show', bad]).status, 1)
+  // --no-retry keeps the first result.
+  assert.equal(t.run(sha, { BATTERY_TEST_CMD: failing }, ['--no-retry']).status, 1)
 })

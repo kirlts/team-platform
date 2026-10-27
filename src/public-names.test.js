@@ -107,3 +107,39 @@ test('the framework matcher finds the word, the acronym and the names, and only 
   assert.equal(findFrameworkTerms(['docs/investigaciones/x.md', 'bench/x.js'], read).length, 2)
   assert.deepEqual(findFrameworkTerms(['.git/x'], read), [])
 })
+
+// Words of the same external framework that stayed in public surfaces (third audit of the method, 2026-10-27, H-14): the interface, the prompts, the decisions and the specification called
+// «limits» by the framework's own word, so whoever read the method and then opened the panel met two names for one thing. Spanish only, capitalised: the lower-case word is an ordinary one
+// (a guard of hours, `EXECUTE_GUARDS_FILE`). Three phrases of the host contract keep it with a different meaning, the hooks of a session. Assembled from fragments, as the list above.
+const GUARD_WORD = ['Guar', 'dia'].join('')
+const TRANSCENDENCE_VECTOR = ['vector de ', 'trascen', 'dencia'].join('')
+const GUARD_KEPT = ['de la sesión', 'de lenguaje', 'de órdenes y de herramientas'].map((rest) => `${GUARD_WORD}s? ${rest}|${GUARD_WORD} ${rest}`).join('|')
+
+export function findFrameworkWords(files, read = (f) => readFileSync(join(root, f))) {
+  const kept = new RegExp(GUARD_KEPT, 'g')
+  const capitalised = new RegExp(`\\b${GUARD_WORD}s?\\b`, 'u')
+  const vector = new RegExp(TRANSCENDENCE_VECTOR, 'iu')
+  const hits = []
+  for (const f of files) {
+    let buf
+    try { buf = read(f) } catch { continue }
+    if (buf.includes(0)) continue
+    buf.toString('utf8').split('\n').forEach((line, i) => {
+      const found = capitalised.exec(line.replace(kept, '')) ?? vector.exec(line)
+      if (found) hits.push(`${f}:${i + 1}: ${found[0]}`)
+    })
+  }
+  return hits
+}
+
+test('versioned files do not call a limit by the framework word, nor name its transcendence vector', () => {
+  const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 }).split('\0').filter(Boolean)
+  const hits = findFrameworkWords(files)
+  assert.deepEqual(hits, [], `Framework words in versioned files:\n${hits.join('\n')}`)
+})
+
+test('the framework word matcher finds the capitalised word and the phrase, and lets the hooks of a session through', () => {
+  const text = { 'a.md': `una ${GUARD_WORD} y dos ${GUARD_WORD}s\n`, 'b.md': `el ${TRANSCENDENCE_VECTOR} de todo\n`, 'c.md': `ver «${GUARD_WORD}s de la sesión» y una ${GUARD_WORD} de lenguaje\n`, 'd.md': `una guardia de horarios y ${GUARD_WORD.toLowerCase()}s\n`, 'e.md': `la ${GUARD_WORD} de la idea\n` }
+  const read = (f) => Buffer.from(text[f])
+  assert.deepEqual(findFrameworkWords(['a.md', 'b.md', 'c.md', 'd.md', 'e.md'], read), [`a.md:1: ${GUARD_WORD}`, `b.md:1: ${TRANSCENDENCE_VECTOR}`, `e.md:1: ${GUARD_WORD}`])
+})

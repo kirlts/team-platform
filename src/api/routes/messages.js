@@ -7,6 +7,7 @@ import { forbidden, notFound } from '../../domain/errors.js'
 import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
 import { timingOfMessage } from '../../telemetry/timing.js'
+import { judgeCalibration } from '../../execute/judge-calibration.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema, replyPatchBody } from '../schemas.js'
@@ -107,7 +108,7 @@ export function registerMessageRoutes (app, ctx) {
   }, async (request) => {
     getMessage(db, request.params.id) // 404 when the message does not exist or is deleted
     await ctx.telemetry?.flush() // a job that has just finished is visible too
-    const timing = timingOfMessage(db, request.params.id)
+    const timing = timingOfMessage(db, request.params.id, { calibration: judgeCalibration(db, config) })
     if (!timing) throw notFound('El mensaje no tiene trabajo de ejecución.')
     return { ...timing, delivers: Boolean(config.execute.deliverCommand), machine: config.execute.runner === 'machine' }
   })
@@ -341,7 +342,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('person')],
     schema: {
       summary: 'Cambiar a mano la evaluación de un mensaje (UD-295)',
-      description: 'Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.',
+      description: 'Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), los límites del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.',
       params: idParams(),
       body: { type: 'object', minProperties: 1, additionalProperties: false, properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, value_holder: { type: 'string', enum: ['person', 'model'] } } },
       response: { 200: messageDetail }

@@ -1758,7 +1758,7 @@ const server = createServer(async (req, res) => {
         const body = await readJson(req)
         const area = areas.find((a) => a.id === msg.area_id)
         const a = (msg.assessment ??= { expectation: '', guards: [], estimates: null, by: null })
-        if (body?.guards !== undefined && body.guards.some((id) => !(area?.guards ?? []).some((g) => g.id === id))) return fail(res, 400, 'Una Guardia no existe en el área del mensaje.', 'guard_invalid')
+        if (body?.guards !== undefined && body.guards.some((id) => !(area?.guards ?? []).some((g) => g.id === id))) return fail(res, 400, 'Un límite no existe en el área del mensaje.', 'guard_invalid')
         if (body?.expectation !== undefined) a.expectation = String(body.expectation).trim()
         if (body?.guards !== undefined) a.guards = [...new Set(body.guards)].sort((x, y) => x - y)
         if (body?.value_holder !== undefined && a.estimates) a.estimates = { ...a.estimates, value_holder: body.value_holder }
@@ -1833,7 +1833,7 @@ const server = createServer(async (req, res) => {
         // UD-295: a Guard keeps its id when the list is rewritten; a new one takes the next.
         const known = new Set((area.guards ?? []).map((g) => g.id))
         let next = Math.max(0, ...(area.guards ?? []).map((g) => g.id)) + 1
-        if (body.guards.some((g) => !String(g.text ?? '').trim())) return fail(res, 422, 'Cada Guardia lleva su texto.', 'guard_invalid')
+        if (body.guards.some((g) => !String(g.text ?? '').trim())) return fail(res, 422, 'Cada límite lleva su texto.', 'guard_invalid')
         area.guards = body.guards.map((g) => ({ id: Number.isInteger(g.id) && known.has(g.id) ? g.id : next++, text: String(g.text).trim(), mechanism: String(g.mechanism ?? '').trim(), person: g.person === true }))
       }
       return send(res, 200, areaView(area))

@@ -337,6 +337,16 @@
                       "type": "object",
                       "additionalProperties": true,
                       "description": "Machines of the execute job without a recorded destruction: `open` (the ones of running jobs included) and `failed`, those whose DESTROY did not exit 0 (the status turns degraded)."
+                    },
+                    "judge": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "Whether the judge of the jobs was compared with people (EXECUTE_JUDGE_REFERENCE_FILE): `calibrated` is true when its Krippendorff alpha against them reaches `threshold` in every axis the reference covers; `reason` says why not. Not calibrated, its judgements are shown as «sin calibrar» and decide nothing."
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "What holds a limit that a person lifts and the wait of an idea: `hold` is `deliver` (the delivery job), `hook` (the delivery orders of EXECUTE_GUARDS_FILE are refused to the session) or `none`. `degraded` (the status turns degraded) when an area has a limit of a person and `hold` is `none`."
                     }
                   }
                 }
@@ -10334,7 +10344,7 @@
         "tags": [
           "Messages"
         ],
-        "description": "Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.",
+        "description": "Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), los límites del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12210,6 +12220,10 @@
                             "id": {
                               "type": "integer"
                             },
+                            "key": {
+                              "type": "string",
+                              "description": "The name a template gives this Guard in its output: `touches_<key>`."
+                            },
                             "text": {
                               "type": "string"
                             },
@@ -12409,6 +12423,10 @@
                           "id": {
                             "type": "integer"
                           },
+                          "key": {
+                            "type": "string",
+                            "description": "The name a template gives this Guard in its output: `touches_<key>`."
+                          },
                           "text": {
                             "type": "string"
                           },
@@ -12580,6 +12598,10 @@
                         "id": {
                           "type": "integer"
                         },
+                        "key": {
+                          "type": "string",
+                          "description": "The name a template gives this Guard in its output: `touches_<key>`."
+                        },
                         "text": {
                           "type": "string"
                         },
@@ -12676,6 +12698,10 @@
                         "properties": {
                           "id": {
                             "type": "integer"
+                          },
+                          "key": {
+                            "type": "string",
+                            "description": "The name a template gives this Guard in its output: `touches_<key>`."
                           },
                           "text": {
                             "type": "string"
@@ -12908,6 +12934,10 @@
                         "properties": {
                           "id": {
                             "type": "integer"
+                          },
+                          "key": {
+                            "type": "string",
+                            "description": "The name a template gives this Guard in its output: `touches_<key>`."
                           },
                           "text": {
                             "type": "string"

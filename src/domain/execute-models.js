@@ -23,7 +23,7 @@ export const labelOfModel = (id) => EXECUTE_MODELS.find((m) => m.id === id)?.lab
  * The model that runs `messageId`'s session and why: `{ model, source, estimates }`.
  *   estimates present   the area's light model while the analyzer's estimates stay within `limits` (see `modelFor`), else the area's larger one.
  *   no estimates        the larger one (what every message ran with before UD-295).
- *   `escalated`         the session of the light model did not close (measured, see the handler): the larger one, never the light one again.
+ *   `escalated`         the session of the light model did not close (declared by the session, or the checks of its delivery stayed red: see the handler and deliver.js): the larger one, never the light one again.
  * `source` says which applied: `light`, `major`, `escalated` or `legacy`. The area's larger model defaults to `fallback` (EXECUTE_MODEL), its light one to `light` (EXECUTE_LIGHT_MODEL).
  */
 export function resolveExecuteModel (db, { messageId, fallback, light, limits, escalated = false }) {

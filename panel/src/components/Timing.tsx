@@ -146,7 +146,7 @@ export function JudgmentBody({ messageId }: { messageId: string }) {
   const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0')
   return (
     <div data-testid="judgment" className="flex flex-col gap-3 text-sm">
-      <p className="m-0 text-muted">{EXECUTE_MODELS.find((m) => m.id === j.worked_with)?.label ?? j.worked_with ?? ''}</p>
+      <p className="m-0 text-muted">{EXECUTE_MODELS.find((m) => m.id === j.worked_with)?.label ?? j.worked_with ?? ''}{j.calibrated === true ? '' : ` · ${t('judgment.uncalibrated')}`}</p>
       <div className="flex flex-col gap-1">
         <p data-testid="judgment-scale" className="m-0 text-xs text-muted">{t('judgment.scale')}</p>
         <ul aria-label={t('judgment.axes')} className="m-0 flex list-none flex-col gap-1 p-0">

@@ -191,7 +191,7 @@ test('the title of every management view falls at the same height, with its acti
   assert.ok(Math.max(...all) - Math.min(...all) <= 1, `titles at ${ys.map(([p, y]) => `${p} ${y}`).join(', ')}`)
 })
 
-test('Guardias is a window of the kit: padded like the other windows and with the check box of the panel', async () => {
+test('Límites is a window of the kit: padded like the other windows and with the check box of the panel', async () => {
   const { page, context } = await open('/areas/a-error')
   try {
     await page.getByTestId('area-guards-open').click()
@@ -201,7 +201,7 @@ test('Guardias is a window of the kit: padded like the other windows and with th
       const dialog = document.querySelector('[role="dialog"]').getBoundingClientRect()
       const inner = document.querySelector('[data-testid="area-guards"]')
       const text = inner.querySelector('[data-editable]').getBoundingClientRect()
-      const trash = inner.querySelector('button[aria-label="Quitar Guardia"]').getBoundingClientRect()
+      const trash = inner.querySelector('button[aria-label="Quitar límite"]').getBoundingClientRect()
       return { left: text.left - dialog.left, right: dialog.right - trash.right, native: inner.querySelectorAll('input[type="checkbox"]').length, kit: inner.querySelectorAll('[role="checkbox"]').length }
     })
     // The text starts 6 px inside its column (the in-place box has a negative margin): 14 px is the 20 px of padding.

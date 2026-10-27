@@ -202,6 +202,8 @@ export const EXECUTE_MODELS = [
 /** A wall of an area (UD-295, a Guard): the only boolean thing, with the mechanism that holds it; `person` marks one that is about a person. */
 export interface Guard {
   id?: number
+  /** The name a template gives this Guard in its output: `touches_<key>`. */
+  key?: string
   text: string
   mechanism?: string
   person?: boolean
@@ -224,10 +226,13 @@ export interface Judgment {
   judge_model: string
   worked_with: string | null
   quadrant: string
-  axes: { axis: number; name: string; score: number | null; target: number; meets: boolean | null; kpis: number }[]
+  /** `kpis` of `defined` were scored; `partial` is true when some were left out, and then the target is read over the scored ones. */
+  axes: { axis: number; name: string; score: number | null; target: number; meets: boolean | null; kpis: number; defined?: number; partial?: boolean }[]
   kpis: { id: string; applies: boolean; score: number; quote: string; claim: string; reasoning: string }[]
   summary: string
   cost_usd: number | null
+  /** False («sin calibrar») until the judge was compared with people (EXECUTE_JUDGE_REFERENCE_FILE): shown, and it decides nothing. */
+  calibrated?: boolean
 }
 
 export interface Message {
@@ -494,6 +499,10 @@ export interface MessageTiming {
   cost_usd?: number | null
   /** The judgement of the latest finished job (UD-295), or null. */
   judgment?: Judgment | null
+  /** Every judgement of the message, oldest first: the attempt of the light model that did not close and the one of the larger model both. */
+  judgments?: Judgment[]
+  /** The judgements cut to the axes whose calibration passed: the only ones a decision may read. */
+  decision_judgments?: Judgment[]
   elapsed_ms: number | null
   first_reply_ms: number | null
   final_reply_ms: number | null

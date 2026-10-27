@@ -148,7 +148,7 @@ describe('an idea is shown, not delivered (UD-307)', () => {
   it('a message analyzed before the Guard existed is judged for it when its job starts, the judgement is saved, and only then is it decided', async () => {
     process.env.FAKE_IDEA_GUARD = 'true'
     start()
-    const id = await publish('una página de la clínica analizada antes de la Guardia, con videos')
+    const id = await publish('una página de la clínica analizada antes del límite, con videos')
     assert.notEqual(typeof JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json).idea_guard, 'boolean', 'the old assessment was never judged')
     await settled(id, 'execute', 1)
     await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: a delivery wrongly queued would start in less than this
@@ -161,14 +161,14 @@ describe('an idea is shown, not delivered (UD-307)', () => {
   it('an old message the judgement says is a decided request is delivered as always; a judgement that cannot be made is not skipped', async () => {
     process.env.FAKE_IDEA_GUARD = 'false'
     start()
-    const id = await publish('cambia el rótulo de la agenda analizado antes de la Guardia')
+    const id = await publish('cambia el rótulo de la agenda analizado antes del límite')
     await settled(id, 'execute', 1)
     await settled(id, 'deliver', 1)
     assert.equal(JSON.parse(get(env.db, 'SELECT estimates_json FROM messages WHERE id = ?', id).estimates_json).idea_guard, false)
     await worker.stop()
     process.env.FAKE_IDEA_GUARD = 'off'
     start()
-    const failing = await publish('otro pedido analizado antes de la Guardia y sin juicio posible')
+    const failing = await publish('otro pedido analizado antes del límite y sin juicio posible')
     await until(() => jobs(failing, 'execute').length > 0 && env.db.prepare("SELECT attempts FROM jobs WHERE kind = 'execute' AND message_id = ?").get(failing).attempts >= 1, { timeoutMs: 15000 })
     await new Promise((resolve) => setTimeout(resolve, 600)) // declared courtesy: same as above
     const waiting = get(env.db, "SELECT status, attempts, run_at FROM jobs WHERE kind = 'execute' AND message_id = ?", failing)

@@ -785,16 +785,27 @@ test('D6: every row records the model and the version of the script that wrote i
 test('D1: the minimum of rows of an area is the count of the interval and not a share of the corpus', () => {
   const min = method.wilsonSampleSize(DEFAULTS.targetRate, DEFAULTS.halfWidth)
   assert.equal(min, 26)
-  const big = { sizes: { A: 700, B: 700, C: min, D: min - 1 }, noise: 0.3, seed: 31 } // c is 1.3 % of the corpus
-  const by = Object.fromEntries(analyze(syntheticCorpus(big), team).areas.map((a) => [a.title, a]))
+  const big = { sizes: { A: 700, B: 700, C: min, D: min - 1 }, noise: 0.3, seed: 31 } // C is 1.3 % of the corpus
+  const by = Object.fromEntries(analyze(syntheticCorpus(big), team, { holdout: 0 }).areas.map((a) => [a.title, a]))
   assert.equal(by.C.criteria.volume.pass, true, '26 rows of 2,000 pass: a 5 % share would have refused them')
   assert.equal(by.D.criteria.volume.pass, false, 'one row less does not')
   assert.equal(by.C.criteria.volume.min_rows, 26)
-  const small = Object.fromEntries(analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team).areas.map((a) => [a.title, a]))
+  const small = Object.fromEntries(analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team, { holdout: 0 }).areas.map((a) => [a.title, a]))
   assert.equal(small.A.criteria.volume.pass, true, '30 rows of 60 pass because they are enough to measure, not because they are half')
-  const wider = analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team, { halfWidth: 0.1 })
+  const wider = analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team, { holdout: 0, halfWidth: 0.1 })
   assert.equal(wider.areas[0].criteria.volume.min_rows, method.wilsonSampleSize(0.8, 0.1))
   assert.equal(wider.areas[0].criteria.volume.pass, false, 'a tighter margin asks for more rows')
+})
+
+test('Reaudit D1: to be measured on a held-out set an area needs four times the rows, and the report says how many', () => {
+  const report = analyze(syntheticCorpus({ sizes: { A: 120, B: 100, C: 26 }, noise: 0.3, seed: 34, leak: true }), team)
+  const by = Object.fromEntries(report.areas.map((a) => [a.title, a]))
+  assert.equal(by.A.criteria.volume.rows_needed_to_measure, 104, '26 divided by the quarter of the units that the confirmation set holds')
+  assert.equal(by.A.criteria.volume.pass, true)
+  assert.equal(by.B.criteria.volume.pass, false, '100 rows leave the confirmation set with 25: one short')
+  assert.equal(by.C.criteria.volume.pass, false)
+  assert.equal(analyze(syntheticCorpus({ sizes: { A: 120, B: 100, C: 26 }, noise: 0.3, seed: 34, leak: true }), team, { holdout: 0 }).areas.find((a) => a.title === 'C').criteria.volume.rows_needed_to_measure, 26, 'nothing held out: the interval count')
+  assert.equal(analyze(rows, team).areas.find((a) => a.title === 'Atención al cliente').criteria.volume.pass, true, 'the invented corpus has more than 104 rows in each real area')
 })
 
 test('D1: the report says when it has nothing to route between', () => {
@@ -804,8 +815,6 @@ test('D1: the report says when it has nothing to route between', () => {
   const alone = analyze(rows, { ...team, members: [team.members[0]] })
   assert.ok(alone.warnings.some((w) => w.kind === 'single_member'))
   assert.deepEqual(analyze(rows, team).warnings, [])
-  const thin = analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team)
-  assert.ok(thin.warnings.some((w) => w.kind === 'confirmation_short'))
 })
 
 // ---- D2: the treatment criterion with several dimensions compared at once
@@ -822,7 +831,7 @@ test('D2: two areas drawn from the same distribution are not called distinct, wh
     let distinct = 0
     const trials = 60
     for (let t = 1; t <= trials; t++) {
-      const area = analyze(nullRows(a, b, 700 + t), team, { minRows: 3, permutations: 199, repeats: 1 }).areas.find((x) => x.title === 'A')
+      const area = analyze(nullRows(a, b, 700 + t), team, { minRows: 3, holdout: 0, permutations: 199, repeats: 1 }).areas.find((x) => x.title === 'A')
       if (area.criteria.distinct_treatment.pass) distinct++
     }
     // The fixed 0.5 rule called 5 against 40 distinct in 83 % of the null trials (the audit measured 4,000 repetitions); with Holm the rate is near alpha.
@@ -835,7 +844,7 @@ test('D2: a real difference in one dimension is found', () => {
   const trials = 30
   for (let t = 1; t <= trials; t++) {
     const rowsAB = syntheticCorpus({ sizes: { A: 40, B: 40 }, noise: 0.5, seed: 800 + t }).map((r) => (r.object === 'B' ? { ...r, severity: Math.min(1, r.severity * 0.3 + 0.65) } : r))
-    if (analyze(rowsAB, team, { permutations: 199, repeats: 1 }).areas.find((x) => x.title === 'A').criteria.distinct_treatment.pass) found++
+    if (analyze(rowsAB, team, { holdout: 0, permutations: 199, repeats: 1 }).areas.find((x) => x.title === 'A').criteria.distinct_treatment.pass) found++
   }
   assert.ok(found / trials >= 0.9, `${found}/${trials}`)
 })
@@ -851,7 +860,7 @@ test('D2: the permutation p-value is never zero and the same seed gives the same
 test('D2: two limits tied for the first place leave the area with no dominant limit', () => {
   const mk = (limits, n, base) => Array.from({ length: n }, (_, i) => ({ ...rows[0], unit: `${base}${i}`, object: base, summary: `${base} pedido ${i}`, limits: limits[i % limits.length] }))
   const tied = [...mk([['money'], ['customer_data']], 40, 'tied'), ...mk([['money']], 40, 'plain')]
-  const report = analyze(tied, team, { permutations: 99, repeats: 1 })
+  const report = analyze(tied, team, { holdout: 0, permutations: 99, repeats: 1 })
   const against = report.areas.find((a) => a.title === 'Tied').criteria.distinct_treatment.against.Plain
   assert.equal(against.limit_differs, false, 'a tie of 20 and 20 does not decide the criterion')
 })
@@ -862,7 +871,7 @@ test('D3: the same rows analyzed twice give the same report, so that is not a se
 })
 
 test('D3: an area that is kept in both windows is stable, one that appears late is not, and one that fails the volume in both merges', () => {
-  const stable = method.analyzeWindows(rows, team)
+  const stable = method.analyzeWindows(rows, team, { holdout: 0 })
   assert.equal(stable.windows[0].rows + stable.windows[1].rows, rows.length)
   for (const t of ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente']) assert.equal(stable.areas[t].stable_keep, true, `${t}: ${JSON.stringify(stable.areas[t])}`)
   assert.equal(stable.areas.Contabilidad.stable_keep, false)
@@ -870,7 +879,7 @@ test('D3: an area that is kept in both windows is stable, one that appears late 
   const late = syntheticCorpus({ sizes: { Antigua: 120, Otra: 120 }, noise: 0.3, seed: 41, leak: true })
     .map((r, i) => ({ ...r, date: i % 2 ? '2026-03-10' : '2026-05-10' }))
     .map((r) => (r.object === 'Otra' ? { ...r, date: '2026-05-12', severity: r.severity * 0.3 + 0.65 } : r)) // «Otra» only exists from May, and it is treated differently
-  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', permutations: 99, repeats: 1 })
+  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', holdout: 0, permutations: 99, repeats: 1 })
   assert.equal(windows.areas.Antigua.keep[1], true)
   assert.deepEqual(windows.areas.Otra.keep, [false, true])
   assert.equal(windows.areas.Otra.stable_keep, false, 'one window is not enough to create an area')

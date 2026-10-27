@@ -58,7 +58,7 @@ Reglas de forma:
 
 El equipo aporta tres cosas. Ninguna sale del repositorio.
 
-**Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. El corpus necesita filas y no semanas: al menos 26 por área y por ventana de tiempo (secciones 3 y 4). El informe avisa con `corpus_small` cuando no alcanza. El método no trae exportador. Cada texto de un chat o de una reunión se exporta con la herramienta de su origen y se escribe como una línea de `units.jsonl`. Una unidad en dos idiomas pide un paso explícito: la persona unifica las etiquetas de `labels` en `families.json`. `confidential` es obligatorio y booleano en cada unidad. Una unidad sin él se rechaza: «abierto» por omisión es la forma en que una reunión grabada llega a una salida. Una reunión grabada lleva `confidential: true`.
+**Unidades** (`units.jsonl`): un texto por línea con `id`, `source`, `date`, `author`, `confidential` y `text`. Valen mensajes, documentos de retroalimentación, decisiones registradas, correcciones al agente y transcripciones. El corpus necesita filas y no semanas. Hacen falta 104 por área para medir sobre un conjunto retenido, o 26 si no se retiene nada (sección 4). Cada ventana de tiempo que se analice por separado necesita esas filas. El informe avisa con `corpus_small` cuando no alcanza. El método no trae exportador. Cada texto de un chat o de una reunión se exporta con la herramienta de su origen y se escribe como una línea de `units.jsonl`. Una unidad en dos idiomas pide un paso explícito: la persona unifica las etiquetas de `labels` en `families.json`. `confidential` es obligatorio y booleano en cada unidad. Una unidad sin él se rechaza: «abierto» por omisión es la forma en que una reunión grabada llega a una salida. Una reunión grabada lleva `confidential: true`.
 
 Las filas de una unidad confidencial suman a los conteos, las medias y las proporciones. Eso incluye el tamaño, quién pide y los límites tocados. Ninguna palabra suya llega a una salida. Eso excluye las frases de «Se maximiza» y «Se sacrifica», los ejemplos, los nombres de módulos y de intenciones, y el título de un área. Vale para toda salida de los tres guiones. Eso incluye el informe de `analyze` y sus ventanas, el archivo de carga, las áreas descartadas, los perfiles, la muestra de validación y el experimento. `labels` oculta las etiquetas que sólo usan filas confidenciales. Una prueba siembra frases únicas en filas confidenciales y verifica que no aparecen en ninguna. El experimento no enruta pedidos de unidades confidenciales, porque el enrutador reescribe el pedido en su encargo, y cuenta cuántos dejó fuera (`sample.confidential_left_out`).
 
@@ -195,7 +195,7 @@ Un área existe si cumple los cuatro criterios.
 
 | Criterio | Umbral y perilla | Fuente del umbral |
 |---|---|---|
-| Volumen | al menos 26 filas (`--min-rows`) | El menor n para el que el intervalo de Wilson de una tasa de 0,8 tiene semiancho 0,15 (`--target-rate`, `--half-width`; sección 3). Con 3 de 3 aciertos ese intervalo va de 0,44 a 1; una proporción del corpus no dice cuántos pedidos hay para medir |
+| Volumen | al menos 104 filas (`--min-rows` 26 dividido por la cuarta parte de las unidades que tiene el conjunto de confirmación) | 26 es el menor n para el que el intervalo de Wilson de una tasa de 0,8 tiene semiancho 0,15 (`--target-rate`, `--half-width`). Con `--holdout 0` no se retiene nada y el mínimo es 26. Una proporción del corpus no dice cuántos pedidos hay para medir |
 | Se reconoce por el texto | los límites inferiores de Wilson de su recall y de su precisión superan su proporción en el corpus | Clasificador bayesiano sobre el resumen, sin el módulo, que es parte del objeto del que sale el área. Validación cruzada de 5 pliegues (`--folds`) repetida 10 veces (`--repeats`), con 1,96 desviaciones (`--z`). Los pliegues se arman por unidad: dos pedidos de un mismo mensaje nunca quedan a ambos lados |
 | Mapa propio | sus diez módulos más frecuentes comparten a lo más la mitad con los de cada otra área (`--max-overlap`) | Definición: más de la mitad en común es el mismo mapa |
 | Tratamiento distinto | su límite dominante difiere del de cada otra área candidata, o alguna dimensión difiere en 0,5 desviaciones estándar o más (`--min-effect`) con un valor p ajustado de 0,05 o menos (`--alpha`) | Cohen (1988): 0,5 es el efecto mediano. El valor p sale de una prueba de permutación de 999 repeticiones (`--permutations`; Phipson y Smyth, 2010) y se ajusta con el método de Holm (1979) sobre las cinco dimensiones |
@@ -218,14 +218,26 @@ Se comparan cinco dimensiones a la vez. Con una regla fija de 0,5 desviaciones, 
 
 Las dimensiones son estimaciones del modelo y están correlacionadas entre sí, y las filas de una unidad no son independientes. La prueba no supone lo primero y no modela lo segundo. Un resultado cerca del nivel se lee con esa reserva.
 
+Lo que 26 no sostiene. Es el tamaño para una tasa de 0,8: para una de 0,5 el semiancho a 26 es 0,19 y hacen falta 39. Con 26 filas, el conjunto de confirmación (la cuarta parte de las unidades) tendría 6 o 7 pedidos. Por eso con partición el área necesita 104. El informe da `rows_needed_to_measure` por área.
+
+El mínimo de filas no hace estable el conjunto de áreas. La medición del 2026-10-27 (`bench/area-method-stability.mjs`) corre 40 corpus inventados de tres áreas por celda y cuenta cuántos pierden un área:
+
+| Filas por área | Diferencia grande entre vecinas (2,6 desviaciones) | Diferencia mediana (0,5 desviaciones) |
+|---|---|---|
+| 26 | 0 de 40 | 38 de 40 |
+| 40 | 0 de 40 | 36 de 40 |
+| 104 | 0 de 40 | 35 de 40 |
+| 120 | 0 de 40 | 36 de 40 |
+
+El criterio de tratamiento distinto es poco sensible a una diferencia mediana. Una dimensión desplazada media desviación se encuentra en 0,21 de los casos con 26 filas por área y en 0,48 con 104 (`bench/area-method-treatment.mjs`, permutación con Holm). El área del medio de una cadena de tres tiene que distinguirse de las dos vecinas, y casi siempre se pierde. Un área que sólo difiere por una dimensión y un efecto mediano se une a su vecina, salvo que difiera por límite dominante. Si el equipo la quiere separada, sube `--alpha` o baja `--min-effect` sabiendo que sube el error de tipo I de la tabla anterior.
+
 El informe avisa en `warnings` cuando no hay nada que repartir:
 
 | Aviso | Cuándo |
 |---|---|
-| `corpus_small` | El corpus tiene menos de dos veces el mínimo de filas |
+| `corpus_small` | El corpus tiene menos de dos veces el mínimo de filas para medir |
 | `single_member` | El equipo tiene un solo miembro |
 | `single_area` | Menos de dos áreas cumplen los criterios |
-| `confirmation_short` | El conjunto de confirmación de un área tendría menos pedidos que los que pide el intervalo |
 
 El informe incluye por área su perfil. Lleva tamaño, pedidos por semana, medias de las dimensiones y fracción que exige a una persona. Lleva también quién pide, quién tiene el valor, los límites más tocados, lo que se maximiza y se sacrifica, los módulos y las intenciones. Con las mismas filas el informe es idéntico: las particiones y las permutaciones usan una semilla fija.
 
@@ -446,9 +458,10 @@ Una prueba aplica el archivo dos veces sobre una base real y compara el estado y
 
 | Perilla | Omisión | Fuente |
 |---|---|---|
-| `--min-rows` | 26 | Cuenta del intervalo de Wilson con `--target-rate` 0,8 y `--half-width` 0,15 |
-| `--target-rate` | 0,8 | La tasa que se espera de un reparto que funciona; con 0,8 observado y 26 pedidos el límite inferior es 0,62, sobre el azar |
-| `--half-width` | 0,15 | Semiancho buscado del intervalo de cualquier tasa; es del equipo |
+| `--min-rows` | 26 | Cuenta del intervalo de Wilson con `--target-rate` 0,8 y `--half-width` 0,15. El volumen que se exige es 104 si se retiene la mitad de las unidades |
+| `--holdout` (informe) | 0,5 | La misma partición del experimento; `--holdout 0` quita el factor 4 del volumen |
+| `--target-rate` | 0,8 | La tasa que se espera de un reparto que funciona; con 0,8 observado y 26 pedidos el límite inferior es 0,62, sobre 0,5 |
+| `--half-width` | 0,15 | Semiancho buscado del intervalo de una tasa de 0,8; es del equipo |
 | `--min-effect` | 0,5 | Cohen (1988), efecto mediano |
 | `--max-overlap` | 0,5 | Definición de mapa compartido |
 | `--alpha` | 0,05 | Nivel convencional (Fisher, 1925), repartido entre las dimensiones con Holm |

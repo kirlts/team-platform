@@ -429,6 +429,9 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   validateRows(rows)
   const o = { ...DEFAULTS, ...overrides }
   const minRows = o.minRows ?? wilsonSampleSize(o.targetRate, o.halfWidth, o.z)
+  // An area is decided on the whole corpus and measured on the confirmation set, which is a quarter of the units (half of the held-out half): for that set to have `minRows` requests the
+  // area needs four times as many. With `holdout: 0` nothing is held out and the minimum is the interval count.
+  const rowsNeeded = o.holdout > 0 ? Math.ceil(minRows / (o.holdout / 2)) : minRows
   const hidden = hiddenAreas(rows, families, o.maxConfidentialShare)
   const tagged = withAreas(rows, families, hidden)
   const weeks = weeksOf(tagged)
@@ -443,7 +446,7 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
     const others = titles.filter((t) => t !== title)
     const overlaps = Object.fromEntries(others.map((t) => [t, round(overlap(p.modules, profiles.get(t).modules))]))
     // An area is compared with the other areas that have the rows to be an area; one that fails the volume is going to merge and does not decide whether this one is distinct.
-    const candidates = others.filter((t) => profiles.get(t).n >= minRows)
+    const candidates = others.filter((t) => profiles.get(t).n >= rowsNeeded)
     const effects = Object.fromEntries(candidates.map((t) => {
       const [x, y] = [title, t].sort() // one test per pair of areas, whichever of the two is being described
       const key = `${x}|${y}`
@@ -456,7 +459,7 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
     }))
     const recall = recognized.per_class[title]
     const criteria = {
-      volume: { pass: p.n >= minRows, rows: p.n, min_rows: minRows, confirmation_rows: Math.round(p.n * o.holdout / 2) },
+      volume: { pass: p.n >= rowsNeeded, rows: p.n, min_rows: minRows, rows_needed_to_measure: rowsNeeded, confirmation_rows: Math.round(p.n * o.holdout / 2) },
       recognized_by_text: { pass: recall.recall_lower > recall.baseline && recall.precision_lower > recall.baseline, recall: recall.recall, recall_lower: recall.recall_lower, precision: recall.precision, precision_lower: recall.precision_lower, baseline: recall.baseline },
       own_map: { pass: Object.values(overlaps).every((v) => v <= o.maxOverlap), overlap_with: overlaps, max: o.maxOverlap },
       distinct_treatment: { pass: Object.values(effects).every((e) => e.distinct), against: effects, min_effect: o.minEffect, alpha: o.alpha }
@@ -467,14 +470,11 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
     const keep = Object.values(criteria).every((c) => c.pass) && publicSupport.pass
     return { title, id: slug(title), profile: p, criteria, public_support: publicSupport, keep, merge_into: keep ? null : nearest?.t ?? null }
   })
-  // What the report cannot say by itself: a corpus with no room for two areas, a team with nobody to share the work with, fewer than two areas left, and areas that
-  // pass the volume but would not give the confirmation set the requests an interval needs.
+  // What the report cannot say by itself: a corpus with no room for two areas, a team with nobody to share the work with, and fewer than two areas left.
   const warnings = []
-  if (tagged.length < 2 * minRows) warnings.push({ kind: 'corpus_small', rows: tagged.length, needed: 2 * minRows })
+  if (tagged.length < 2 * rowsNeeded) warnings.push({ kind: 'corpus_small', rows: tagged.length, needed: 2 * rowsNeeded })
   if (team.members.length < 2) warnings.push({ kind: 'single_member', detail: 'with one member there is nothing to route between' })
   if (areas.filter((a) => a.keep).length < 2) warnings.push({ kind: 'single_area', detail: 'fewer than two areas are kept: there is nothing to route between' })
-  const short = areas.filter((a) => a.criteria.volume.pass && a.criteria.volume.confirmation_rows < minRows).map((a) => a.title)
-  if (short.length) warnings.push({ kind: 'confirmation_short', areas: short, needed: minRows, detail: 'the confirmation set will have fewer requests than the interval needs' })
   return { rows: tagged.length, weeks: round(weeks, 1), partition: recognized, areas, warnings, knobs: o }
 }
 
@@ -723,7 +723,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'minBorderConfusions', 'maxUnalignedShare', 'minLimitPositives', 'repeats', 'targetRate', 'halfWidth', 'holdout'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')

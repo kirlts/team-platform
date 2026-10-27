@@ -143,7 +143,8 @@ export function baselines (sample, team, majorityArea, reference = (r) => r) {
 export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, ...proposal } = {}) {
   if (!['tune', 'confirm'].includes(stage)) throw new Error('stage must be tune or confirm')
   const sets = splitUnits(rows, { holdout, seed })
-  const { spec, skipped, report } = propose(sets.build, team, proposal)
+  // The construction side is already the share that is left after holding out: its minimum is the interval count, not four times as much.
+  const { spec, skipped, report } = propose(sets.build, team, { ...proposal, holdout: 0 })
   return { load: spec, skipped, report, test: sets[stage], buildUnits: new Set(sets.build.map((r) => r.unit)), buildRows: sets.build, sets: { build: sets.build.length, tune: sets.tune.length, confirm: sets.confirm.length }, stage }
 }
 

@@ -709,7 +709,7 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
       })
     // The limits belong to the team and not to an area: every area carries all of them as its guards, so that the analyzer can flag a request that touches one wherever it lands.
     // The area is a draft until the team confirms it: the quality it maximizes and what it sacrifices come from what people asked for, not from what the team decided.
-    const guards = (team.limits ?? []).map((l) => ({ text: l.text, mechanism: String(l.mechanism ?? '').trim(), person: l.person === true }))
+    const guards = (team.limits ?? []).map((l) => ({ key: l.id, text: l.text, mechanism: String(l.mechanism ?? '').trim(), person: l.person === true }))
     areas.push({ title: entry.title, description, position: areas.length + 1, confirmed: false, candidates: { maximize: entry.profile.maximize_candidates, sacrifice: entry.profile.sacrifice }, guards, templates })
   })
   const members = team.members.filter((m) => m.role).map((m) => ({ email: m.email, profile: memberProfile(m, tagged, team, { areas: areas.map((a) => a.title) }) }))
@@ -735,6 +735,7 @@ export function validateLoadFile (spec) {
     if (typeof a.confirmed !== 'boolean') problems.push(`Area ${a.title} needs a boolean "confirmed": the team confirms an area before it is loaded`)
     for (const g of a.guards ?? []) {
       if (!String(g?.text ?? '').trim()) problems.push(`A guard of ${a.title} needs a text`)
+      if (g?.key !== undefined && !/^[a-z][a-z0-9_]{0,63}$/.test(g.key)) problems.push(`Guard "${g?.text}" of ${a.title}: the key must be a name (lowercase letters, digits and underscore)`)
       if (typeof g?.person !== 'boolean') problems.push(`Guard "${g?.text}" of ${a.title} needs a boolean "person"`)
       if (typeof g?.mechanism !== 'string') problems.push(`Guard "${g?.text}" of ${a.title} needs a "mechanism" text (empty when there is none)`)
     }

@@ -20,7 +20,9 @@ import { updateMember } from '../src/domain/members.js'
 import { getProjectDescription, setProjectDescription } from '../src/domain/settings.js'
 import { loadWarnings, validateLoadFile } from './area-method.mjs'
 
-const sameGuards = (current, wanted) => current.length === wanted.length && current.every((g, i) => g.text === wanted[i].text && g.mechanism === wanted[i].mechanism && g.person === wanted[i].person)
+// `key` is the name a template gives the guard in its output (`touches_<key>`); the product keeps it. A product that does not keep it (an older one) drops it, and then it cannot be compared:
+// it is compared only when some guard of the area already has one.
+const sameGuards = (current, wanted, withKey) => current.length === wanted.length && current.every((g, i) => g.text === wanted[i].text && g.mechanism === wanted[i].mechanism && g.person === wanted[i].person && (!withKey || (g.key ?? '') === (wanted[i].key ?? '')))
 
 /**
  * Applies `spec` to `db`. Returns what it did: created, updated and unchanged counts per kind, the areas it skipped and the warnings.
@@ -60,10 +62,10 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
       } else result.unchanged.areas++
       // Guards: those of the file by text, then the ones the area already had that the file does not name (they stay).
       const current = guardsOf(db, row.id)
-      const wanted = (a.guards ?? []).map((g) => ({ text: g.text.trim(), mechanism: g.mechanism.trim(), person: g.person }))
-      const merged = [...wanted, ...current.filter((c) => !wanted.some((w) => w.text === c.text)).map((c) => ({ text: c.text, mechanism: c.mechanism, person: c.person === true }))]
-      const normalized = current.map((c) => ({ text: c.text, mechanism: c.mechanism, person: c.person === true }))
-      if (!sameGuards(normalized, merged)) {
+      const wanted = (a.guards ?? []).map((g) => ({ ...(g.key ? { key: g.key } : {}), text: g.text.trim(), mechanism: g.mechanism.trim(), person: g.person }))
+      const merged = [...wanted, ...current.filter((c) => !wanted.some((w) => w.text === c.text)).map((c) => ({ ...(c.key ? { key: c.key } : {}), text: c.text, mechanism: c.mechanism, person: c.person === true }))]
+      const normalized = current.map((c) => ({ ...(c.key ? { key: c.key } : {}), text: c.text, mechanism: c.mechanism, person: c.person === true }))
+      if (!sameGuards(normalized, merged, current.some((c) => c.key))) {
         result.changes.push({ kind: 'guards', name: a.title, fields: ['guards'] })
         updateArea(db, row.id, { guards: merged.map((g) => ({ id: current.find((c) => c.text === g.text)?.id, ...g })) }, { actorId: actor.id })
         result.updated.guards++

@@ -1453,3 +1453,20 @@ test('Coherence: the anchors are printed from the judge and the example of the d
   assert.ok(methodDoc.includes(`(${area.description.length} caracteres)`))
   for (const candidate of area.candidates.maximize) assert.ok(methodDoc.includes(`«${candidate}»`), candidate)
 })
+
+test('Coherence: each guard of the load file carries the name that the templates give it, so that the product can cross what the session declares', async () => {
+  const { spec } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
+  for (const a of spec.areas) {
+    assert.deepEqual(a.guards.map((g) => g.key), team.limits.map((l) => l.id))
+    for (const t of a.templates) for (const o of parseTemplate(t.body_markdown).output) assert.ok(a.guards.some((g) => `touches_${g.key}` === o.name), `${o.name} names a guard of the area`)
+  }
+  const bad = structuredClone(spec)
+  bad.areas[0].guards[0].key = 'Dinero!'
+  assert.throws(() => validateLoadFile(bad), /key must be a name/)
+  const db = await freshDatabase('keys')
+  applyLoadFile(db, confirmed(spec))
+  const again = applyLoadFile(db, confirmed(spec))
+  assert.deepEqual(again.updated, { areas: 0, guards: 0, templates: 0, members: 0 }, 'a second application changes nothing, whether the product keeps the key or drops it')
+  const stored = JSON.parse(get(db, "SELECT guards_json FROM areas WHERE title = 'Catálogo y precios'").guards_json)
+  if (stored.some((g) => g.key)) assert.deepEqual(stored.map((g) => g.key), team.limits.map((l) => l.id), 'the product keeps the name')
+})

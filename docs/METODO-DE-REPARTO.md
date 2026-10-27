@@ -14,6 +14,9 @@ Procedimientos para configurar áreas, plantillas y perfiles de un equipo con lo
 | Probar la descripción del proyecto | ninguno | descripción, filas | proporción de límites nombrados | Manual, sección 8 |
 | Probar con un miembro nuevo | ninguno | unidades del miembro | su perfil y su lugar en las áreas | En parte, sección 10 |
 | Evaluar un trabajo | `src/execute/judge.js` | un trabajo terminado | juicio de doce indicadores | Sí, dentro del producto |
+| Validar el juicio contra personas | `scripts/row-validation.mjs judge` | puntajes de personas y del juez | kappa por indicador | En parte, sección 11 |
+| Fijar los límites del modelo liviano | `scripts/light-limits.mjs` | trabajos del modelo liviano con su resultado | `EXECUTE_LIGHT_LIMITS` | En parte, sección 11 |
+| Leer las anclas de los indicadores | `scripts/anchors.mjs` | ninguna | las anclas de los cinco niveles | Sí |
 
 Nivel de evidencia. Todas las mediciones de este documento usan corpus inventados con dimensiones independientes, y ninguna corrida del método sobre material real está documentada. Lo que se afirma de los umbrales vale para esos corpus. Antes de confiar en un número sobre material de un equipo, las filas se validan con personas (sección 3).
 
@@ -21,21 +24,23 @@ El proveedor de texto de la extracción y del experimento es `claude -p`, con la
 
 ## 1. Describir un espacio
 
-Una descripción dice dónde puede moverse quien la lee y deja la decisión a su criterio. Cumple dos funciones a la vez. Da forma: límites con su mecanismo y una medida de lo que se maximiza. Deja espacio: el propósito y lo que puede quedar apenas suficiente. Una descripción que sólo da forma produce trámite. Una que sólo deja espacio no produce nada comprobable. Cuando lo pedido es explorar una idea, el trabajo se construye y se muestra, y sólo la respuesta de una persona lo publica.
+Una descripción dice dónde puede moverse quien la lee y deja la decisión a su criterio. Cumple dos funciones a la vez. Da forma: límites con su mecanismo y una medida de lo que se maximiza. Deja espacio: el propósito y lo que puede quedar apenas suficiente. Una descripción que sólo da forma produce trámite. Una que sólo deja espacio no produce nada comprobable.
+
+Dos fuerzas actúan a la vez. Una reduce a una propuesta que se puede verificar. La otra mantiene abierta la pregunta mientras la idea sea frágil. Cuando lo pedido es explorar una idea, la sesión construye y muestra una propuesta con sus alternativas descartadas y una recomendación, y no publica nada. Sólo la respuesta de una persona la publica. El analizador decide si el pedido es una idea (`idea_guard`). Esa decisión se mide como cualquier otra (sección 3) y la espera de la publicación exige una orden de entrega declarada. Un trabajo se lee en dos lealtades a la vez. Una es lo que quedó hecho (ejes 1 y 2 de la sección 11). La otra es lo que la persona queda en condición de entender y decidir (ejes 3 y 4).
 
 Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento baja en los modelos que midieron Liu et al. (2023, arXiv:2307.03172, consultado el 2026-10-27). No se midió con el modelo del método. Una descripción con su tensión nombrada obliga a entender cada polo por el otro. El método usa un vocabulario único para áreas, plantillas, perfiles y proyecto.
 
 | Cláusula | Pregunta que responde | Es de pasa o no pasa |
 |---|---|---|
-| Propósito | Para qué existe, en una oración. Desempata cuando dos opciones sirven igual al propósito | No |
-| Se maximiza | Una sola cualidad: la que gana cuando hay que renunciar a algo y dos diseños cumplen todo. Si el corpus muestra dos, el equipo elige una y la otra pasa a lo que se sacrifica o a un límite | No |
+| Propósito | Para qué existe, en una oración. Si dos opciones son igual de viables, gana la que sirve mejor al propósito | No |
+| Se maximiza | Una sola cualidad: la que pesa más en toda decisión, incluso a costa de otras. Si el corpus muestra dos, el equipo elige una y la otra pasa a lo que se sacrifica o a un límite | No |
 | Se sacrifica | Lo que puede quedar apenas suficiente | No |
 | Entorno | Hechos que no cambian y acotan las soluciones: herramientas obligatorias, plazos, presupuesto, qué está en producción, qué se deshace y qué no. Cuánto pide cada persona es un dato del informe y no del entorno | No |
 | Límites | Lo que nunca se cruza, con el mecanismo que lo sostiene | Sí |
 
-Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` es `person` o `model` y dice de quién es el valor que falta.
+Los límites son booleanos. El producto los guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Hay dos decisiones categóricas más, y son del analizador. `value_holder` es `person` o `model`, dice de quién es el valor que falta y, si es de una persona, suma a una persona a los asignados. `idea_guard` es un booleano que dice si el pedido es explorar una idea y, si lo es, retiene la publicación. La clase del trabajo en el juicio (cuatro cuadrantes) sólo fija las metas de evaluación. Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`): `understand_vs_create` e `irreversibility` van de 0 a 1.
 
-Levantar un límite de una persona sigue siempre este orden (UD-313):
+Levantar un límite de una persona sigue este orden (UD-313):
 
 | Paso | Qué ocurre |
 |---|---|
@@ -54,7 +59,7 @@ Reglas de forma:
 | El espacio se escribe en afirmativo; la negación queda para el límite | Los modelos que midieron Truong, Baldwin, Verspoor y Cohn (2023, arXiv:2306.08189, consultado el 2026-10-27) manejan mal la negación. Ese estudio mide comprensión en pruebas, no redacción de descripciones: la regla es una conjetura razonable |
 | Un límite que depende de que el modelo lo recuerde necesita un mecanismo: un gancho, una credencial acotada, una prueba | Escribir «no hagas X» no impide X |
 | Cada cláusula se escribe con las palabras del dominio del equipo, sin jerga de método | El modelo debe leer lo que el equipo diría |
-| Qué modelo trabaja, quién atiende y cómo se trabaja no se lee de una categoría: salen de estimaciones continuas con su razón y de un juicio posterior. Las áreas y las plantillas sólo eligen qué descripción y qué campos se muestran, y se redefinen cuando la medición lo pide (sección 4) | Un casillero decide antes de mirar el trabajo. El cuadrante del juicio (sección 11) clasifica la tarea para fijar metas de evaluación y no decide a quién ni cómo se asigna |
+| Qué modelo trabaja, quién atiende y cómo se trabaja no se lee de una categoría: salen de estimaciones continuas con su razón y de un juicio posterior. Las áreas eligen la descripción, los campos y el par de modelos, y se redefinen cuando la medición lo pide (sección 4). El modelo concreto de cada trabajo lo decide la estimación y el juicio posterior revisa el par | Un casillero decide antes de mirar el trabajo. El cuadrante del juicio (sección 11) clasifica la tarea para fijar metas de evaluación y no decide a quién ni cómo se asigna |
 
 ## 2. Material de partida
 
@@ -82,7 +87,39 @@ Un área con más de la mitad de sus filas confidenciales (`--max-confidential-s
 
 `mechanism` es el gancho, la credencial acotada o la prueba que sostiene un límite que no levanta una persona. Un límite de persona lo sostiene la plataforma, que retiene la entrega hasta que una persona lo levanta (sección 1). Un límite que no es de persona y no declara mecanismo depende de que el modelo lo recuerde. Eso es un pedido y no un límite. Se escribe igual. La descripción dice «sin mecanismo declarado» y `propose` avisa una vez por área. Nunca escribe que el sistema lo hace cumplir.
 
+Un mecanismo es verificable cuando existe una acción que lo ejercita y falla si el límite se cruza. El método no lo comprueba: es texto libre. La persona que lo declara corre esa acción una vez y la guarda.
+
+| Mecanismo | Cómo se verifica |
+|---|---|
+| Un gancho que rechaza un comando | Se intenta el comando prohibido y el gancho lo rechaza |
+| Una credencial acotada | Con esa credencial se intenta la acción que no debe poder hacer, y falla |
+| Una prueba automática | En una rama se rompe el límite y la prueba falla |
+| Una protección de rama | Se intenta empujar a la rama protegida y se rechaza |
+
 **Propósitos** (`purposes.json`): `{ "Título del área": "oración" }`, o `{ "Título del área": { "purpose": "oración", "environment": "hechos que no cambian" } }`. El propósito y el entorno son del equipo y no se deducen del corpus; `propose` se detiene si falta el propósito.
+
+### Si todavía no hay corpus
+
+El método parte de lo que el equipo ya escribió. Sin eso, las primeras cláusulas se escriben a mano y el método se usa después.
+
+| Paso | Qué se hace |
+|---|---|
+| 1 | Escribir la descripción del proyecto con las cinco cláusulas (sección 8) |
+| 2 | Escribir un área por cada tipo de trabajo que el equipo ya separa al hablar, con las cinco cláusulas (sección 14 trae un ejemplo), y cargarla desde el panel |
+| 3 | Declarar los límites con su mecanismo en `team.json` |
+| 4 | Dejar que el equipo trabaje. Sus mensajes y correcciones son el corpus |
+| 5 | Con 104 pedidos por área, correr el método y comparar la propuesta con lo escrito a mano |
+
+Preguntas para obtener el entorno de un área. Cada respuesta es un hecho que no cambia y que acota las soluciones.
+
+| Pregunta | Dimensión |
+|---|---|
+| ¿Qué herramientas o tecnologías son obligatorias? | Herramientas |
+| ¿Qué plazos no se mueven? | Plazos |
+| ¿Con qué presupuesto o tope de gasto se trabaja? | Presupuesto |
+| ¿Qué está en producción y lo usa alguien hoy? | Qué existe |
+| ¿Qué se deshace en un minuto y qué no se deshace? | Qué se deshace |
+| ¿A qué ritmo trabaja el equipo y quién lee el resultado? | Ritmo y audiencia |
 
 ### Filas
 
@@ -316,6 +353,8 @@ Texto de la descripción del proyecto, con las mismas cláusulas.
 | Entorno | Hechos que no cambian: quién construye, qué está en producción, qué tope de gasto rige |
 | Límites | Lo que nunca se cruza, con su mecanismo |
 
+Cómo se carga. `propose` no la escribe: es del equipo. El archivo de carga la lleva en `project` (`{ "description": "…", "confirmed": true, "confirmed_by": "ana@ejemplo.org" }`) y `apply-load-file.mjs` la aplica una sola vez, con la misma confirmación que un área. También se carga a mano con `PATCH /api/settings/project`, o en Configuración, siendo Editor. El producto limita la descripción a 200.000 caracteres (`PROJECT_DESCRIPTION_MAX_CHARS`).
+
 Criterio de aceptación. Es un procedimiento manual: ningún guion lo ejecuta.
 
 | Paso | Qué se hace |
@@ -395,7 +434,7 @@ Cómo se lee:
 | Regla | Detalle |
 |---|---|
 | Escala | −2 inaceptable, −1 bajo, 0 esperado, +1 fuerte, +2 excepcional. El 0 es el mínimo aceptable y no un punto medio |
-| Anclas | Cada indicador trae cinco anclas, una por nivel (`KPIS[].levels`), escritas para un trabajo sin supervisión. Van en el prompt del juez |
+| Anclas | Cada indicador trae cinco anclas, una por nivel (`KPIS[].levels`), escritas para un trabajo sin supervisión. Van en el prompt del juez. `node scripts/anchors.mjs` las imprime, para quien puntúa a mano |
 | Evidencia | El juez recibe el mensaje, lo esperado, los límites tocados, el resultado, la salida técnica, la descripción del área y la del proyecto. Cada puntaje lleva una cita de esa evidencia, una afirmación y su razonamiento |
 | Validación | Cada indicador aparece una vez y cada cita está en la evidencia entregada. Una respuesta que no valida no se guarda como juicio y queda en la auditoría como `job.judge_rejected` |
 | Lo que no aplica | Un indicador que no se puede observar en un trabajo sin supervisión lleva `applies: false` y queda fuera de su eje; nunca se rellena con 0 |
@@ -421,15 +460,15 @@ Usos al configurar. Ninguno tiene guion: son lecturas manuales de los juicios gu
 | ¿Una descripción de área genera trabajo adecuado? | Los indicadores 1.1 y 1.2 de los trabajos del área antes y después de cambiar la descripción. El juez ve la descripción del área, así que también puede notar que no se respeta |
 | ¿Un límite se respeta? | El indicador 2.3 y el campo `touches_<id>` de la salida. Ningún código los cruza: los lee una persona |
 
-Escalada. La escalada al modelo mayor ocurre por falla comprobada. El modelo liviano declara que no pudo cerrar, termina bloqueado, o la verificación de la entrega queda en rojo (`src/execute/handler.js`, `src/execute/deliver.js`). Una falla silenciosa sólo la ve el control de cierre del anfitrión. Todo intento se juzga, también el del modelo liviano que falló (con la nota `no_cerro`), así que la comparación entre modelos cuenta los fallos del liviano.
+Escalada. La escalada al modelo mayor ocurre por falla declarada o comprobada. Declarada: el modelo liviano dice que no pudo cerrar o termina bloqueado. Comprobada: la verificación de la entrega queda en rojo (`src/execute/handler.js`, `src/execute/deliver.js`). Una falla silenciosa, como terminar sin cambiar nada o con un juicio bajo el mínimo aceptable, no escala hoy. La ve el control de cierre del anfitrión, que la instalación debe declarar. Todo intento se juzga, también el del modelo liviano que falló (con la nota `no_cerro`), así que la comparación entre modelos cuenta los fallos del liviano. Escalar también cuando un intento liviano deja un eje 1 o 2 bajo 0 queda para cuando el juicio esté validado.
 
-Los límites del modelo liviano (`EXECUTE_LIGHT_LIMITS`) nacen sin valor: `create=1 irreversibility=1 certainty=0`. Por eso todo mensaje con estimaciones parte en el modelo liviano. Se fijan con el punto medio entre la mayor estimación de lo que cerró y la menor de lo que no cerró. Eso exige que los rangos no se crucen en al menos 20 trabajos juzgados (`docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md`).
+Los límites del modelo liviano (`EXECUTE_LIGHT_LIMITS`) nacen sin valor: `create=1 irreversibility=1 certainty=0`. Por eso todo mensaje con estimaciones parte en el modelo liviano. Se fijan con `node scripts/light-limits.mjs jobs.jsonl`: el punto medio entre la mayor estimación de lo que cerró y la menor de lo que no cerró, en cada dimensión. Eso exige 20 trabajos juzgados y que los rangos no se crucen (`docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md`). Con menos trabajos, o con rangos cruzados, el guion deja el valor de origen y dice por qué. Armar `jobs.jsonl` es manual: una línea `{ job, closed, understand_vs_create, irreversibility, certainty }` por trabajo del modelo liviano, con `closed` tomado de la nota `no_cerro` que pone el sistema y con las estimaciones del mensaje. No usa los puntajes del juez, que no están validados.
 
 Validación del juicio. Los doce indicadores no están validados contra personas, a diferencia de las filas. Hasta que lo estén, el juicio es una indicación. No se usa para mover un área al modelo mayor ni para fijar los límites del modelo liviano.
 
 | Paso | Qué se hace | Automatizado |
 |---|---|---|
-| 1 | Dos personas puntúan, sin ver el juicio del modelo, 26 trabajos con las anclas de `KPIS`. Es la misma cuenta de la sección 3. Cada una escribe líneas `{ job, id, score }` | No, lo hacen personas |
+| 1 | Dos personas puntúan, sin ver el juicio del modelo, 26 trabajos con las anclas que imprime `scripts/anchors.mjs`. Es la misma cuenta de la sección 3. Cada una escribe líneas `{ job, id, score }` | No, lo hacen personas |
 | 2 | `row-validation.mjs judge --first persona.jsonl --second modelo.jsonl` da, por indicador, el kappa ponderado cuadrático (Cohen, 1968) y la proporción de pares a un punto o menos | Sí |
 | 3 | Lo mismo entre dos lecturas del juez sobre el mismo trabajo, que mide cuánto cambia de una vez a otra | Sí |
 | 4 | El equipo fija el umbral antes de medir. Un indicador bajo el umbral no se usa | No, lo decide el equipo |
@@ -461,6 +500,7 @@ Ruido. La media de un indicador sobre 20 trabajos tiene un error estándar de 0,
 | `actor` | Correo del miembro que registra la auditoría; es opcional en la propuesta y obligatorio al cargar |
 | `areas[].confirmed` | Booleano obligatorio. `propose` lo escribe falso; el equipo lo marca verdadero al confirmar la cualidad y el sacrificio. El cargador rechaza un área con falso |
 | `areas[].guards[]` | `{ text, mechanism, person }`. Son todos los límites del equipo, en cada área: un límite es del equipo y no del área, y el analizador sólo lo detecta donde está instalado. La descripción nombra los más tocados. `mechanism` es texto, vacío si no hay |
+| `project` | Opcional. `{ description, confirmed, confirmed_by }` con la descripción del proyecto (sección 8). `propose` no la escribe |
 | `areas[].templates[]` | `body_markdown` es una plantilla válida (`src/analyze/templates.js`); `name` y `description` salen de su encabezado |
 | `members[]` | Un miembro existente, por correo |
 | `validateLoadFile` | Rechaza una plantilla que no se lee, un área o una plantilla repetidas, un miembro sin correo, un área sin `confirmed` booleano, un límite sin texto, sin `person` booleano o sin `mechanism`, y una versión distinta de la 2 |
@@ -502,6 +542,40 @@ Una prueba aplica el archivo dos veces sobre una base real y compara el estado y
 | `--min-limit-positives` (validación) | 5 | Cortesía declarada: el kappa de una categoría con menos de 5 casos cambia con una sola etiqueta |
 | `--resamples` (validación) | 1000 | Al menos 1.000 remuestreos para intervalos por percentiles (Efron y Tibshirani, 1993) |
 | Tope de límites y de frases | 3 | Una descripción cabe en 1.024 caracteres (`TEMPLATE_DESCRIPTION_MAX`); no tiene opción |
+
+## 14. Un ejemplo completo
+
+Los textos de abajo son del equipo inventado de `bench/fixtures/area-method/`.
+
+De reglas sueltas a un espacio. Un texto de reglas, como el que un equipo suele escribir:
+
+> No bajes precios sin avisar a Ana. Contesta rápido a los clientes. Siempre tono formal. No toques la tabla de clientes. Si hay duda, pregunta.
+
+La misma información como descripción de un área. Cada regla pasó a la cláusula que le corresponde:
+
+| Cláusula | Texto |
+|---|---|
+| Propósito | que lo que el sitio muestra y cobra de cada repuesto sea exacto |
+| Se maximiza | precio exacto en cada ficha |
+| Se sacrifica | orden de las fotos; redacción de la ficha; rapidez de publicación |
+| Entorno | el sitio publica cada cambio al instante; un precio mal cobrado se devuelve a mano |
+| Límites | mover dinero o fijar un precio (lo levanta una persona); datos personales de clientes (lo sostiene: el asistente trabaja con una credencial que no lee la tabla de clientes) |
+
+«Contesta rápido» y «tono formal» pertenecen a lo que se sacrifica o se maximiza en otra área y aquí no entran. «Si hay duda, pregunta» deja de ser una regla. La plataforma retiene lo que toca un límite de una persona, y el resto lo decide el criterio de la sesión.
+
+La descripción que `propose` escribe para esa área, con el corpus del ejemplo (606 caracteres):
+
+> Propósito: que lo que el sitio muestra y cobra de cada repuesto sea exacto. Se maximiza: stock real publicado. Se sacrifica: orden de las fotos; redacción de la ficha; rapidez de publicación. Entorno: el sitio publica cada cambio al instante; un precio mal cobrado se devuelve a mano. Límites: mover dinero o fijar un precio (lo levanta una persona); lo que no se deshace (lo levanta una persona). Entra: «Explicar el costo de envío de un producto», «Consultar la oferta de la semana», «Explicar la compatibilidad de una pieza». No entra: lo propio de Pedidos y envíos y Atención al cliente (va a su área).
+
+La cualidad que escribió es la más frecuente en los pedidos («stock real publicado»), no la que el equipo decidió. Los candidatos del archivo de carga son «stock real publicado», «información completa del repuesto» y «precio exacto en cada ficha». El equipo elige la tercera, que es la del propósito, la escribe en la descripción y marca `confirmed: true`. Por eso `propose` deja las áreas sin confirmar.
+
+Una descripción de proyecto con las mismas cláusulas:
+
+> Propósito: que la tienda despache cada repuesto correcto y a tiempo. Se maximiza: el pedido exacto. Se sacrifica: la velocidad de publicación. Entorno: una sola bodega, un transportista contratado, un tope de gasto mensual fijo. Límites: mover dinero o fijar un precio (lo levanta una persona).
+
+## 15. Anclas de los indicadores
+
+Las anclas de los cinco niveles de cada indicador están en `src/execute/judge.js` y no se copian aquí, para que no se desactualicen. `node scripts/anchors.mjs` las imprime todas, y `node scripts/anchors.mjs --indicator 2.3` imprime una. Sirven a quien puntúa un trabajo a mano.
 
 ## Fuentes
 

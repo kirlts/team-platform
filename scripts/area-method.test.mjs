@@ -18,6 +18,7 @@ import { initializeDatabase, openDatabase, get, all } from '../src/db/index.js'
 import { loadConfig } from '../src/config.js'
 import { createArea, createTemplate, updateArea } from '../src/domain/areas.js'
 import { touchesPerson, VALUE_HOLDERS } from '../src/domain/assessment.js'
+import { getProjectDescription } from '../src/domain/settings.js'
 import { createMember, updateMember } from '../src/domain/members.js'
 
 import { syntheticCorpus } from '../bench/fixtures/area-method/synthetic.mjs'
@@ -97,7 +98,7 @@ test('propose writes areas, templates and profiles that the product accepts, and
   const parsed = parseTemplate(catalog.templates[0].body_markdown)
   assert.deepEqual(parsed.fields.map((f) => f.name), ['request', 'value_missing', 'limits_touched', 'undo'])
   assert.ok(parsed.output.every((o) => o.type === 'boolean' && o.name.startsWith('touches_')), 'the limits of the area are booleans')
-  assert.deepEqual(parsed.output.map((o) => o.name), ['touches_money'])
+  assert.deepEqual(parsed.output.map((o) => o.name), ['touches_money', 'touches_irreversible'], 'the limits of a person are always there')
   assert.deepEqual(spec.members.map((m) => m.email), team.members.map((m) => m.email))
   const ana = spec.members.find((m) => m.email === 'ana@tienda.example').profile
   assert.match(ana, /^Soy la dueña/)
@@ -1360,4 +1361,95 @@ test('Reaudit M3: the loader needs a confirmation by an active person and report
   edited.members[0].profile = `${edited.members[0].profile} Y esto.`
   const result = applyLoadFile(db, edited)
   assert.deepEqual(result.changes.map((c) => [c.kind, c.fields.join()]), [['area', 'description'], ['member', 'profile']])
+})
+
+// ---- Reauditoría de coherencia: B5, C2, I4, I7
+test('Coherence B5: the template says what the product does with a limit of a person, and never tells the session to stop', () => {
+  const { spec } = propose(rows, team, { purposes })
+  const templates = spec.areas.flatMap((a) => a.templates)
+  assert.ok(templates.length >= 3)
+  for (const t of templates) {
+    assert.ok(!/Se detiene|Para y consulta|se detiene/.test(t.body_markdown), t.name)
+    assert.match(t.body_markdown, /deja el trabajo en la rama; la entrega espera a una persona: mover dinero o fijar un precio y lo que no se deshace/)
+    assert.match(t.body_markdown, /nombra el límite y el riesgo, propone una alternativa/)
+  }
+})
+
+test('Coherence C2: «se maximiza» and «se sacrifica» are written the same way in the description and in the template', () => {
+  const { spec } = propose(rows, team, { purposes })
+  for (const a of spec.areas) {
+    assert.match(a.description, /Se maximiza: /)
+    assert.match(a.description, /Se sacrifica: /)
+    for (const t of a.templates) {
+      assert.ok(!/Se cuida|Puede quedar apenas suficiente|Maximiza:|Acepta:/.test(t.body_markdown), `${a.title} / ${t.name}`)
+      assert.match(t.body_markdown, /Se maximiza: /)
+      assert.match(t.body_markdown, /Se sacrifica: /)
+    }
+  }
+})
+
+test('Coherence I4: the limits of a person head the list of an area even if its requests rarely touch them', () => {
+  const rare = rows.map((r) => ({ ...r, limits: r.limits.filter((l) => l !== 'money') })) // nobody touches money in the corpus
+  const { spec } = propose(rare, team, { purposes })
+  for (const a of spec.areas) assert.match(a.description, /Límites: mover dinero o fijar un precio \(lo levanta una persona\); lo que no se deshace \(lo levanta una persona\)/, a.title)
+})
+
+test('Coherence I7: an area needs a quality to maximize and something to sacrifice, from the corpus or from the team', () => {
+  const silent = rows.map((r) => ({ ...r, maximize: '', sacrifice: '' }))
+  assert.throws(() => propose(silent, team, { purposes }), /a quality to maximize[\s\S]*purposes.json as "maximize"/)
+  const written = Object.fromEntries(Object.entries(purposes).map(([k, v]) => [k, { ...v, maximize: 'que cada cosa quede exacta', sacrifice: 'la rapidez' }]))
+  const { spec } = propose(silent, team, { purposes: written })
+  for (const a of spec.areas) assert.match(a.description, /Se maximiza: que cada cosa quede exacta\. Se sacrifica: la rapidez\./)
+  const broken = structuredClone(propose(rows, team, { purposes }).spec)
+  broken.areas[0].description = broken.areas[0].description.replace('Se sacrifica: ', 'Algo: ')
+  assert.throws(() => validateLoadFile(broken), /Se sacrifica/)
+})
+
+// ---- Reauditoría de coherencia C11: the limits of the light model come from a script, with the criterion of the measurement
+const lightLimits = await import('./light-limits.mjs')
+test('Coherence C11: the limits of the light model are the middle value between what it closed and what it did not, and only with enough jobs and ranges that do not cross', () => {
+  const job = (closed, create, irreversibility, certainty) => ({ job: `j${Math.random()}`, closed, understand_vs_create: create, irreversibility, certainty })
+  const closed = Array.from({ length: 12 }, (_, i) => job(true, 0.1 + i * 0.03, 0.1 + i * 0.02, 0.9 - i * 0.01)) // closed up to 0.43 / 0.32; certainty from 0.79
+  const failed = Array.from({ length: 10 }, (_, i) => job(false, 0.65 + i * 0.03, 0.55 + i * 0.03, 0.55 - i * 0.02)) // failed from 0.65 / 0.55; certainty up to 0.55
+  const result = lightLimits.deriveLightLimits([...closed, ...failed])
+  assert.equal(result.limits.create, 0.54, '(0.43 + 0.65) / 2')
+  assert.equal(result.limits.irreversibility, 0.44, '(0.32 + 0.55) / 2 = 0.435')
+  assert.equal(result.limits.certainty, 0.67, '(0.79 + 0.55) / 2')
+  assert.equal(lightLimits.asVariable(result.limits), 'create=0.54 irreversibility=0.44 certainty=0.67')
+  const few = lightLimits.deriveLightLimits([...closed.slice(0, 5), ...failed.slice(0, 5)])
+  assert.deepEqual(few.limits, { create: 1, irreversibility: 1, certainty: 0 }, 'ten jobs: the origin values stay')
+  assert.match(few.detail.create.reason, /10 judged jobs, 20 needed/)
+  const crossed = lightLimits.deriveLightLimits([...closed, ...failed, job(true, 0.8, 0.1, 0.9), job(false, 0.2, 0.1, 0.9)])
+  assert.equal(crossed.limits.create, 1)
+  assert.match(crossed.detail.create.reason, /the ranges cross/)
+  assert.equal(crossed.detail.irreversibility.fixed, false, 'it also crosses: 0.1 failed against 0.32 closed')
+  assert.equal(lightLimits.deriveLightLimits(closed.concat(closed)).detail.create.fixed, false, 'every job closed: nothing to separate')
+})
+
+test('Coherence: the description of the project is loaded when the team has confirmed it, once, and the cap is the product\'s', async () => {
+  assert.equal(method.PROJECT_DESCRIPTION_MAX, loadConfig({ ADMIN_EMAIL: 'a@b.org', ADMIN_PASSWORD: 'una clave larga de prueba 1' }).project.descriptionMaxChars)
+  const db = await freshDatabase('project')
+  const { spec } = propose(rows, team, { purposes, actor: 'ana@tienda.example' })
+  const withProject = { ...confirmed(spec), project: { description: 'Propósito: una tienda de repuestos que despacha sin errores. Se maximiza: el pedido exacto. Se sacrifica: la velocidad de publicación.', confirmed: true, confirmed_by: 'ana@tienda.example' } }
+  const first = applyLoadFile(db, withProject)
+  assert.equal(first.updated.project, 1)
+  assert.equal(getProjectDescription(db), withProject.project.description)
+  assert.ok(get(db, "SELECT 1 AS ok FROM audit_log WHERE action = 'settings.project.update'"))
+  const second = applyLoadFile(db, withProject)
+  assert.equal(second.unchanged.project, 1)
+  assert.equal(second.updated.project ?? 0, 0)
+  assert.throws(() => applyLoadFile(db, { ...withProject, project: { ...withProject.project, confirmed: false } }), /not confirmed the description/)
+  assert.throws(() => validateLoadFile({ ...withProject, project: { description: '', confirmed: true } }), /needs a description/)
+  assert.throws(() => validateLoadFile({ ...withProject, project: { description: 'x'.repeat(method.PROJECT_DESCRIPTION_MAX + 1), confirmed: true } }), /limit is/)
+})
+
+test('Coherence: the anchors are printed from the judge and the example of the document is what propose writes', async () => {
+  const { anchorsMarkdown } = await import('./anchors.mjs')
+  const all = anchorsMarkdown()
+  for (const k of KPIS) { assert.ok(all.includes(`**${k.id} ${k.name}.**`)); for (const level of k.levels) assert.ok(all.includes(level), `${k.id}: ${level}`) }
+  assert.ok(!anchorsMarkdown('2.3').includes('1.1'))
+  const area = propose(rows, team, { purposes }).spec.areas.find((a) => a.title === 'Catálogo y precios')
+  assert.ok(methodDoc.includes(area.description), 'the description in section 14 is the one propose writes for the invented corpus')
+  assert.ok(methodDoc.includes(`(${area.description.length} caracteres)`))
+  for (const candidate of area.candidates.maximize) assert.ok(methodDoc.includes(`«${candidate}»`), candidate)
 })

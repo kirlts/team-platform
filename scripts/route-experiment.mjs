@@ -29,7 +29,7 @@ export const ROUTING_KPIS = Object.freeze(['1.1', '1.2', '2.3', '3.3'])
 export function routerPrompt (load, team) {
   const areas = load.areas.map((a) => `### ${a.title}\n${a.description}`).join('\n\n')
   const members = (load.members ?? []).map((m) => `### ${team.members.find((x) => x.email === m.email)?.name ?? m.email}\n${m.profile}`).join('\n\n')
-  return `Repartes pedidos de un equipo. Para cada pedido eliges el área, quién lo atiende y escribes el encargo en una línea: qué se maximiza, qué puede quedar apenas suficiente y dónde se para para preguntar a una persona.\n\nÁreas:\n\n${areas}\n\nMiembros:\n\n${members}`
+  return `Repartes pedidos de un equipo. Para cada pedido eliges el área, quién lo atiende y escribes el encargo en una línea: qué se maximiza, qué se sacrifica y, si toca un límite de una persona, cuál es y qué alternativa propone.\n\nÁreas:\n\n${areas}\n\nMiembros:\n\n${members}`
 }
 
 export function routerSchema (load, team) {

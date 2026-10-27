@@ -17,6 +17,7 @@ import { audit } from '../src/domain/audit.js'
 import { createArea, createTemplate, updateArea, updateTemplate } from '../src/domain/areas.js'
 import { guardsOf } from '../src/domain/assessment.js'
 import { updateMember } from '../src/domain/members.js'
+import { getProjectDescription, setProjectDescription } from '../src/domain/settings.js'
 import { loadWarnings, validateLoadFile } from './area-method.mjs'
 
 const sameGuards = (current, wanted) => current.length === wanted.length && current.every((g, i) => g.text === wanted[i].text && g.mechanism === wanted[i].mechanism && g.person === wanted[i].person)
@@ -37,9 +38,12 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
   if (notPeople.length) throw new Error(`"confirmed_by" must be the e-mail of an active person of the team in: ${notPeople.join(', ')}.`)
   const warnings = loadWarnings({ areas })
   if (requireMechanism && warnings.length) throw new Error(`Guards without a mechanism: ${warnings.map((w) => `${w.guard} (${w.area})`).join('; ')}.`)
+  const project = spec.project && spec.project.confirmed === true ? spec.project : null
+  if (spec.project && !project && !onlyConfirmed) throw new Error('The team has not confirmed the description of the project. Set "confirmed": true (and "confirmed_by"), or use --only-confirmed.')
+  if (project && !get(db, "SELECT 1 AS ok FROM members WHERE email = ? AND kind = 'person' AND active = 1 AND removed = 0", project.confirmed_by ?? '')) throw new Error('"confirmed_by" of the project must be the e-mail of an active person of the team.')
   const missing = (spec.members ?? []).filter((m) => !get(db, 'SELECT 1 AS ok FROM members WHERE email = ? AND removed = 0', m.email)).map((m) => m.email)
   if (missing.length) throw new Error(`Members that do not exist: ${missing.join(', ')}.`)
-  const result = { created: { areas: 0, templates: 0 }, updated: { areas: 0, guards: 0, templates: 0, members: 0 }, changes: [], unchanged: { areas: 0, templates: 0, members: 0 }, skipped: unconfirmed.map((a) => a.title), warnings }
+  const result = { created: { areas: 0, templates: 0 }, updated: { areas: 0, guards: 0, templates: 0, members: 0 }, changes: [], unchanged: { areas: 0, templates: 0, members: 0, project: 0 }, skipped: unconfirmed.map((a) => a.title), warnings }
   tx(db, () => {
     for (const a of areas) {
       let row = get(db, 'SELECT id, description, position FROM areas WHERE title = ? AND deleted_at IS NULL', a.title)
@@ -71,6 +75,15 @@ export function applyLoadFile (db, spec, { onlyConfirmed = false, requireMechani
         if (!existing) { createTemplate(db, row.id, { body_markdown: t.body_markdown }, { actorId: actor.id }); result.created.templates++; changed = true } else if (existing.body_markdown !== t.body_markdown) { result.changes.push({ kind: 'template', name: `${a.title} / ${name}`, fields: ['body_markdown'] }); updateTemplate(db, row.id, existing.id, { body_markdown: t.body_markdown }, { actorId: actor.id }); result.updated.templates++; changed = true } else result.unchanged.templates++
       }
       if (changed) audit(db, { memberId: actor.id, action: 'area.method_load', entity: 'area', entityId: row.id, detail: { title: a.title, confirmed_by: a.confirmed_by ?? null }, now })
+    }
+    if (project) {
+      if (getProjectDescription(db) === project.description) result.unchanged.project = 1
+      else {
+        result.changes.push({ kind: 'project', name: 'description', fields: ['description'] })
+        setProjectDescription(db, project.description, now)
+        audit(db, { memberId: actor.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...project.description].length, confirmed_by: project.confirmed_by }, now })
+        result.updated.project = 1
+      }
     }
     for (const m of spec.members ?? []) {
       const member = get(db, 'SELECT id, profile FROM members WHERE email = ? AND removed = 0', m.email)

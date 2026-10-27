@@ -558,15 +558,19 @@ export function limitHold (limit) {
 }
 
 /** The purpose and the environment of an area from `purposes.json`: a sentence, or `{ purpose, environment }`. The environment is a fact of the team, not a statistic of the corpus. */
-export const purposeOf = (entry) => (typeof entry === 'string' ? { purpose: entry, environment: '' } : { purpose: String(entry?.purpose ?? ''), environment: String(entry?.environment ?? '').trim() })
+export const purposeOf = (entry) => (typeof entry === 'string'
+  ? { purpose: entry, environment: '', maximize: '', sacrifice: '' }
+  : { purpose: String(entry?.purpose ?? ''), environment: String(entry?.environment ?? '').trim(), maximize: String(entry?.maximize ?? '').trim(), sacrifice: String(entry?.sacrifice ?? '').trim() })
 
-function areaClauses (entry, { team, purpose, environment = '', examples, neighbours }) {
+function areaClauses (entry, { team, purpose, environment = '', maximize = '', sacrifice = '', examples, neighbours }) {
   const p = entry.profile
   const limits = limitById(team)
-  const listed = p.limits.slice(0, DEFAULTS.maxLimitsListed).map((l) => limits.get(l.id)).filter(Boolean)
+  // The limits of a person come first, whatever their frequency: the serious ones are rare, and a list by frequency leaves them out. Then the ones the area touches most.
+  const touched = p.limits.map((l) => limits.get(l.id)).filter(Boolean)
+  const listed = [...(team.limits ?? []).filter((l) => l.person), ...touched.filter((l) => !l.person)].slice(0, DEFAULTS.maxLimitsListed)
   const clauses = [{ text: `Propósito: ${purpose}`, drop: 0 }]
-  if (p.maximize.length) clauses.push({ text: `Se maximiza: ${p.maximize[0]}.`, drop: 0 })
-  if (p.sacrifice.length) clauses.push({ text: `Se sacrifica: ${phrases(p.sacrifice)}.`, drop: 0 })
+  clauses.push({ text: `Se maximiza: ${p.maximize[0] ?? maximize}.`, drop: 0 })
+  clauses.push({ text: `Se sacrifica: ${p.sacrifice.length ? phrases(p.sacrifice) : sacrifice}.`, drop: 0 })
   if (environment) clauses.push({ text: `Entorno: ${environment.replace(/[.\s]+$/, '')}.`, drop: 1 })
   if (listed.length) clauses.push({ text: `Límites: ${listed.map((l) => `${l.text} (${limitHold(l)})`).join('; ')}.`, drop: 0 })
   if (examples.length) clauses.push({ text: `Entra: ${examples.map((e) => `«${e}»`).join(', ')}.`, drop: 3 })
@@ -594,18 +598,22 @@ const COMMON_FIELDS = Object.freeze([
   { name: 'limits_touched', label: 'Límites que toca (ninguno, o cuáles y quién los levanta)', required: true },
   { name: 'undo', label: 'Cómo se deshace y cuánto cuesta', required: false }
 ])
+// What the product does with a limit of a person that a request touches (UD-313): the delivery is held until a person lifts it. The template tells the session what to do meanwhile; it never
+// tells it to stop, because a session that stops leaves no work prepared for the person to decide on.
+const PERSON_LIMIT_PROTOCOL = 'Si toca uno de estos límites de una persona, nombra el límite y el riesgo, propone una alternativa que haga lo pedido sin cruzarlo y deja el trabajo en la rama; la entrega espera a una persona:'
 const q = (s) => JSON.stringify(s)
 
 /** The markdown of one template: the area and the intent it serves, the common fields, the fields of the intent and the booleans of the area limits as output. */
 export function templateMarkdown ({ intent, area, profile, team, extraFields = [] }) {
   const limits = limitById(team)
-  const areaLimits = profile.limits.map((l) => limits.get(l.id)).filter(Boolean)
+  // The limits of a person are always in the template, touched or not in the corpus; then the ones this kind of request touches.
+  const areaLimits = [...new Map([...(team.limits ?? []).filter((l) => l.person), ...profile.limits.map((l) => limits.get(l.id)).filter(Boolean)].map((l) => [l.id, l])).values()]
   const person = areaLimits.filter((l) => l.person)
   const description = fitClauses([
     { text: `${capital(intent.label)} del área ${area}: ${intent.n} pedidos del corpus.`, drop: 0 },
-    ...(profile.maximize.length ? [{ text: `Se cuida: ${phrases(profile.maximize)}.`, drop: 1 }] : []),
-    ...(profile.sacrifice.length ? [{ text: `Puede quedar apenas suficiente: ${phrases(profile.sacrifice)}.`, drop: 2 }] : []),
-    ...(person.length ? [{ text: `Se detiene y consulta a una persona cuando toca: ${list(person.map((l) => l.text))}.`, drop: 3 }] : [])
+    ...(profile.maximize.length ? [{ text: `Se maximiza: ${phrases(profile.maximize)}.`, drop: 1 }] : []),
+    ...(profile.sacrifice.length ? [{ text: `Se sacrifica: ${phrases(profile.sacrifice)}.`, drop: 2 }] : []),
+    ...(person.length ? [{ text: `${PERSON_LIMIT_PROTOCOL} ${list(person.map((l) => l.text))}.`, drop: 3 }] : [])
   ])
   const fields = [...COMMON_FIELDS, ...extraFields]
   const lines = ['---', `name: ${q(capital(intent.label))}`, `description: ${q(description)}`, 'fields:',
@@ -619,8 +627,8 @@ export function templateMarkdown ({ intent, area, profile, team, extraFields = [
     'Un dato que el pedido no da ni deja deducir se deja vacío y no se inventa.', '',
     '## Formato de salida', 'Un mensaje por pedido. Título: verbo en infinitivo y objeto. Cuerpo: dos a cuatro frases con lo que se pide, dónde y qué se espera.', '',
     '## Salida',
-    `Maximiza: ${profile.maximize.length ? phrases(profile.maximize) : 'que lo pedido quede resuelto'}. Acepta: ${profile.sacrifice.length ? phrases(profile.sacrifice) : 'un resultado sin pulir'}. ` +
-    (person.length ? `Para y consulta a una persona si toca: ${list(person.map((l) => l.text))}.` : 'No tiene límites que exijan a una persona.'))
+    [profile.maximize.length ? `Se maximiza: ${phrases(profile.maximize)}.` : '', profile.sacrifice.length ? `Se sacrifica: ${phrases(profile.sacrifice)}.` : '',
+      person.length ? `${PERSON_LIMIT_PROTOCOL} ${list(person.map((l) => l.text))}.` : 'No tiene límites que exijan a una persona.'].filter(Boolean).join(' '))
   return `${lines.join('\n')}\n`
 }
 
@@ -642,7 +650,7 @@ export function memberProfile (member, rows, team, opts = {}) {
   if (base.length) {
     const terms = topPhrases(base.filter((r) => !r.confidential).map((r) => r.maximize).filter(Boolean), 1) // words only from rows that can be quoted; one quality, as in an area
     const lost = topPhrases(base.filter((r) => !r.confidential).map((r) => r.sacrifice).filter(Boolean))
-    if (terms.length) add(`Maximizo: ${phrases(terms)}.${lost.length ? ` Acepto que quede apenas suficiente: ${phrases(lost)}.` : ''}`, 3)
+    if (terms.length) add(`Maximizo: ${phrases(terms)}.${lost.length ? ` Sacrifico: ${phrases(lost)}.` : ''}`, 3)
     const areas = top(base.filter(inProposed).map((r) => r.area), 3).map(([a, c]) => `${a} (${pct(c / base.length)})`)
     if (areas.length) add(member.kind === 'agent' ? `Lo que atiendo se reparte así: ${list(areas)}.` : `Pido sobre todo en ${list(areas)}.`, 2)
   }
@@ -660,6 +668,8 @@ export function memberProfile (member, rows, team, opts = {}) {
 
 // ---- the load file: areas with their templates, and member profiles
 export const LOAD_FILE_VERSION = 2
+// The limit of the product for the description of the project: `config.project.descriptionMaxChars` (PROJECT_DESCRIPTION_MAX_CHARS, UD-024). A test compares both.
+export const PROJECT_DESCRIPTION_MAX = 200000
 /**
  * Builds the load file from the rows. `purposes` maps an area title to its purpose sentence (a purpose is the team's, not the corpus's);
  * `intents` maps an intent label to the name of its template; `intentFields` maps a template name to extra fields.
@@ -672,6 +682,12 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
   const minTemplate = overrides.minTemplate ?? DEFAULTS.minTemplate
   const missing = report.areas.filter((a) => a.keep && !purposeOf(purposes[a.title]).purpose).map((a) => a.title)
   if (missing.length) throw new Error(`A purpose sentence is needed for: ${missing.join(', ')}`)
+  // An area is described by a quality that wins and a quality that is sacrificed. When the corpus gives none, the team writes it (`maximize`, `sacrifice` in purposes.json): it is not left out.
+  const without = (field) => report.areas.filter((a) => a.keep && !a.profile[field].length && !purposeOf(purposes[a.title])[field]).map((a) => a.title)
+  for (const [field, label] of [['maximize', 'a quality to maximize'], ['sacrifice', 'something to sacrifice']]) {
+    const names = without(field)
+    if (names.length) throw new Error(`The corpus gives ${label} for none of the requests of: ${names.join(', ')}. Write it in purposes.json as "${field}".`)
+  }
   const areas = []
   const skipped = []
   report.areas.forEach((entry) => {
@@ -679,8 +695,8 @@ export function propose (rows, team, { purposes = {}, families = {}, intents = {
     // The areas the text most often confuses with this one are named as its borders.
     const minBorder = overrides.minBorderConfusions ?? DEFAULTS.minBorderConfusions
     const borders = Object.entries(report.partition.confusion).filter(([k, count]) => k.startsWith(`${entry.title} -> `) && count >= minBorder).slice(0, 2).map(([k]) => k.split(' -> ')[1])
-    const { purpose, environment } = purposeOf(purposes[entry.title])
-    const description = fitClauses(areaClauses(entry, { team, purpose, environment, examples: examplesOf(tagged, entry.title), neighbours: borders }))
+    const { purpose, environment, maximize, sacrifice } = purposeOf(purposes[entry.title])
+    const description = fitClauses(areaClauses(entry, { team, purpose, environment, maximize, sacrifice, examples: examplesOf(tagged, entry.title), neighbours: borders }))
     const mine = tagged.filter((r) => r.area === entry.title && !r.confidential) // a template is written with rows that can be quoted
     const templates = [...new Set(mine.map((r) => r.intent))]
       .map((label) => ({ label, n: mine.filter((r) => r.intent === label).length }))
@@ -715,6 +731,7 @@ export function validateLoadFile (spec) {
     if (titles.has(a.title)) problems.push(`Repeated area ${a.title}`)
     titles.add(a.title)
     if (!a.description) problems.push(`Area ${a.title} has no description`)
+    for (const clause of ['Se maximiza: ', 'Se sacrifica: ']) if (!String(a.description ?? '').includes(clause)) problems.push(`The description of ${a.title} needs the clause «${clause.trim()}»: the team confirms the quality that wins and the one that is sacrificed`)
     if (typeof a.confirmed !== 'boolean') problems.push(`Area ${a.title} needs a boolean "confirmed": the team confirms an area before it is loaded`)
     for (const g of a.guards ?? []) {
       if (!String(g?.text ?? '').trim()) problems.push(`A guard of ${a.title} needs a text`)
@@ -729,6 +746,12 @@ export function validateLoadFile (spec) {
         names.add(parsed.name.toLowerCase())
       } catch (error) { problems.push(`Template ${t.name} of ${a.title}: ${error.message}`) }
     }
+  }
+  if (spec.project !== undefined) {
+    // The description of the project is written by the team (section 8 of the document): `propose` never writes it, and the load file carries it when the team has confirmed it.
+    if (!String(spec.project?.description ?? '').trim()) problems.push('The project needs a description')
+    else if (spec.project.description.length > PROJECT_DESCRIPTION_MAX) problems.push(`The description of the project has ${spec.project.description.length} characters and the limit is ${PROJECT_DESCRIPTION_MAX}`)
+    if (typeof spec.project?.confirmed !== 'boolean') problems.push('The project needs a boolean "confirmed"')
   }
   for (const m of spec.members ?? []) if (!m.email || !m.profile) problems.push(`A member needs email and profile: ${m.email}`)
   if (spec.version !== LOAD_FILE_VERSION) problems.push(`The load file has version ${spec.version} and this method writes version ${LOAD_FILE_VERSION}`)

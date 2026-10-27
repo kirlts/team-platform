@@ -21,6 +21,7 @@ import { invalidateRoots, isTeamApiError, ME, type MessageQuery } from '@team-pl
 import { noteLostFiles, saveDraftText } from '@/lib/session'
 import { useEventsSnapshot, useMe, useMessages, useProject, useSends, useTeamClient } from '@team-platform/client/react'
 import { useDesktop } from '@/lib/useDesktop'
+import { afterColon } from '@/lib/format'
 
 /** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
 interface Upload {
@@ -203,7 +204,7 @@ export function Home() {
         const reason = errorText(err)
         setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: reason } : u)))
         // With the drawer open the failed send says so in its own pane, with Reintentar; folded, the notice carries the same way out.
-        if (!drawerRef.current) notices.show({ tone: 'danger', text: t('compose.sendFailed', { reason }), action: { label: t('common.retry'), run: () => void upload(key, draft) } })
+        if (!drawerRef.current) notices.show({ tone: 'danger', text: t('compose.sendFailed', { reason: afterColon(reason) }), action: { label: t('common.retry'), run: () => void upload(key, draft) } })
       }
     },
     [errorText, notices, queryClient, t, team],

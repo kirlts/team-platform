@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { NoticeProvider } from '@/lib/notices'
 import { mockApi, WithTeamClient } from '@/test/mock-api'
@@ -23,11 +23,13 @@ const members = [
   { id: '2', name: 'Ana', email: 'ana@x.org', role: 'member', kind: 'person', active: true },
   { id: '3', name: 'Claude', email: 'claude@x.org', role: 'member', kind: 'agent', active: true },
 ]
-mockApi(async (path: string) => {
+const defaultApi = async (path: string) => {
   if (path === '/me') return { id: '1', email: 'm@x.org', name: 'Martín', role: 'editor', language: 'es-419', active: true, provider: 'local' }
   if (path === '/members') return { items: members }
   return { items: [] }
-})
+}
+mockApi(defaultApi)
+beforeEach(() => mockApi(defaultApi))
 
 function Mount({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }))
@@ -174,3 +176,36 @@ describe('chips of «Para» say the first name, and the whole one when another m
     expect(screen.getByText('Claude', { selector: 'li' })).toBeTruthy()
   })
 })
+
+describe('«Enviar como» goes back to whoever writes after a send in the name of someone', () => {
+  it('the next send is written by the session member, as «Para» is emptied', async () => {
+    const sent: { asMemberId?: string }[] = []
+    render(<Mount><ComposeBar onSubmit={(d) => sent.push(d)} /></Mount>)
+    const select = (await screen.findByTestId('compose-send-as')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('1'))
+    fireEvent.change(select, { target: { value: '2' } })
+    fireEvent.change(screen.getByTestId('compose-text'), { target: { value: 'uno' } })
+    fireEvent.click(screen.getByTestId('compose-send'))
+    expect(sent[0]?.asMemberId).toBe('2')
+    expect(select.value).toBe('1')
+    fireEvent.change(screen.getByTestId('compose-text'), { target: { value: 'dos' } })
+    fireEvent.click(screen.getByTestId('compose-send'))
+    expect(sent[1]?.asMemberId).toBeUndefined()
+  })
+
+  it('the note of a change of author is not an edit: it does not dim the page', async () => {
+    render(<Mount><ComposeBar onSubmit={() => {}} /></Mount>)
+    const to = await screen.findByTestId('compose-to')
+    fireEvent.click(within(to).getByRole('button'))
+    await offered()
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: /Ana/ }))
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(within(to).getByRole('button', { name: 'Quitar a Ana' })).toBeTruthy())
+    fireEvent.change(screen.getByTestId('compose-send-as'), { target: { value: '2' } })
+    const line = await screen.findByTestId('compose-left-to')
+    expect(document.querySelector('[data-compose-scrim]')).toBeNull()
+    expect(document.querySelector('[data-compose-box]')?.getAttribute('data-expanded')).toBe('true')
+    expect(within(line).getByRole('button', { name: 'Deshacer' }).className).toContain('shrink-0')
+  })
+})
+

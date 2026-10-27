@@ -69,7 +69,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
         renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
         empty={
           list.isPending || list.isError ? (
-            <LoadState query={list} rows={4} />
+            <LoadState query={list} rows={4} tall />
           ) : query.q || query.filters.length > 0 ? (
             <EmptyState
               action={

@@ -343,6 +343,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }
   }
 
+  /**
+   * Whether the session left work on the branch of the message: commits that HEAD of the host repository does not have, or the branch pushed to `origin`. `null` when the repository is not here
+   * (production runs on a machine of its own): then only the delivery command can tell, and the silent end below is not read. Third audit of the method (H-5): the one failure measured of the
+   * light model (the task T5 of the measurement of 2026-10-25) ended without changes and without saying so, and none of the declared triggers saw it.
+   */
+  async function branchHasWork (branch) {
+    if (!x.repoDir) return null
+    // outside-the-image: git — only with EXECUTE_RUNNER=local, as `branchExists` above
+    const git = (...args) => run('git', ['-C', x.repoDir, ...args], { timeout: x.deliverTimeoutMs })
+    try { const { stdout } = await git('rev-list', '--count', `HEAD..refs/heads/${branch}`); if (Number(String(stdout).trim()) > 0) return true } catch { /* not a local branch */ }
+    try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }
+  }
+
   // What each session that runs now may still spend: `--max-budget-usd` of its invocation. The day's cost counts a job only when its result arrives, so
   // eight sessions that start together each saw the whole remainder and could spend eight times the day's cap (UD-256).
   const reserved = new Map()
@@ -708,7 +721,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     // that did not close and the work then goes on in the larger one: leaving it out made the comparison between models favour the light one (audit 2026-10-26). A judge that cannot run
     // leaves the job unjudged, and an answer that does not validate (a KPI missing or repeated, a quote that is not in the evidence) is not a judgement: it is dropped and its reason is audited.
     // The job does not depend on any of it.
-    const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked')
+    // Third audit of the method (H-5): the session of the light model that ends `done` with nothing on its branch and without `investigated` did not close either, and nobody said so: it escalates by
+    // what the system reads in the repository (`trigger: 'checked'`), not by what the session declares.
+    const silentEnd = light && payload.escalated !== true && output.outcome === 'done' && !investigate && await branchHasWork(branch) === false
+    const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked' || silentEnd)
     // Amendment of UD-313: a second reading of which Guards the work touched, taken from the session's own `touches_<name>` booleans next to the analyzer's. A Guard the session says it touched and the
     // analyzer did not mark is treated as touched from here on (saved below, before anything is handed over), and the judge sees it.
     let touchedIds = []
@@ -751,7 +767,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         return
       }
       const edited = fingerprint(now_) !== startedWith
-      if (judgment) saveJudgment(db, { jobId: job.id, messageId, judgment, workedWith: model, now })
+      if (judgment) saveJudgment(db, { jobId: job.id, messageId, judgment, workedWith: model, closed: !goesOn, now })
       // The Guards the session declared touched and the analyzer had not marked join the message before a delivery is enqueued or the work is handed over: from here a Guard about a person holds it.
       if (missedIds.length > 0) {
         const current = parseJson(get(db, 'SELECT guards_json FROM messages WHERE id = ?', messageId)?.guards_json, [])
@@ -765,9 +781,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       // UD-295: the session of the light model says, as a parameter, that it could not close, or ends `blocked`: the work is relaunched once on the area's escalation model,
       // on the same branch, and the thread says so. What the system reads is the field and the outcome, never the words; never the other way round and never twice.
       // That trigger is DECLARED by the session, not checked (second audit of the method, 2026-10-27): the audit says `trigger: 'declared'`. The one that is checked is the delivery whose
-      // verification stayed red (deliver.js, `trigger: 'checked'`). A session that ends without changes and without saying so escalates by neither.
+      // verification stayed red (deliver.js, `trigger: 'checked'`), and the one that ends `done` with nothing on its branch (`silentEnd`, third audit H-5).
       const stronger = light && payload.escalated !== true ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: true }).model : null
-      if (stronger && stronger !== model && (cannotClose === true || output.outcome === 'blocked') && !edited) {
+      if (stronger && stronger !== model && (cannotClose === true || output.outcome === 'blocked' || silentEnd) && !edited) {
         const origin = Object.fromEntries(Object.entries(payload).filter(([k]) => !['message_id', 'member_id', 'requested_by', 'budget_notice', 'retry_after_reply_id', 'escalated', 'escalated_from', 'escalated_from_model', 'escalated_note', 'no_stable_system'].includes(k)))
         const next = enqueueExecute(db, {
           messageId, memberId, requestedBy: payload.requested_by ?? null, now, exceptJobId: job.id,
@@ -776,7 +792,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         if (next !== null) {
           const lang = author?.language
           addReply({ db, events, now }, { messageId, authorId: agent.id, kind: 'answer', body: (lang === 'en' ? `${labelOfModel(model)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(model)} no cerró: siguió ${labelOfModel(stronger)}.`) })
-          audit(db, { memberId: agent.id, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: job.id, job_id: next, from: model, to: stronger, why: cannotClose === true ? 'cannot_close' : 'blocked', trigger: 'declared' }, now })
+          audit(db, { memberId: agent.id, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: job.id, job_id: next, from: model, to: stronger, why: cannotClose === true ? 'cannot_close' : output.outcome === 'blocked' ? 'blocked' : 'no_changes', trigger: cannotClose === true || output.outcome === 'blocked' ? 'declared' : 'checked' }, now })
           events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, escalated_job_id: String(next), session_id: outcome.st.sessionId, cost_usd: costOfResult(result) } })
           return
         }

@@ -487,6 +487,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
             // UD-296: the delivery that goes back to Claude says so, with the check that fell: before, the thread showed nothing until the second delivery ended.
             if (id !== null) addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: textsOf(lang).again(failedCheck(error.output, lang)) })
             if (id !== null && escalate) {
+              runSql(db, 'UPDATE execute_judgments SET closed = 0 WHERE job_id = ?', payload.execute_job_id) // the attempt looked closed to its session and its checks said otherwise: the stored fact is the measured one
               addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: lang === 'en' ? `${labelOfModel(ranWith)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(ranWith)} no cerró: siguió ${labelOfModel(stronger)}.` })
               audit(db, { memberId, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: payload.execute_job_id, job_id: id, from: ranWith, to: stronger, why: 'verification', trigger: 'checked' }, now }) // the checks of the delivery stayed red: the only escalation whose trigger is checked and not declared
             }

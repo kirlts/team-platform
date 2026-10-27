@@ -2,6 +2,7 @@
 // what stays within its limits, the area's larger one the rest; a person's Guard puts a person on the message next to Claude; a session of the light model that cannot close goes on
 // in the larger one, on the same branch, and the thread says so; every finished job is judged by the job judge.
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -44,8 +45,8 @@ describe('model by area and by estimates', () => {
     return { json: { idea: 0.1, idea_guard: false, idea_reason: 'razón de prueba' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
   } }
   const getProviders = () => ({ describe: () => [], text: fakeText })
-  const startWorker = () => {
-    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, lightLimits: LIMITS } })
+  const startWorker = (repoDir = '') => {
+    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { ...(repoDir ? { repoDir, workRoot: join(env.dir, 'work') } : {}), bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, lightLimits: LIMITS } })
     const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
     worker.start()
@@ -95,6 +96,7 @@ describe('model by area and by estimates', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_CANNOT_CLOSE_ON
+    delete process.env.FAKE_EXECUTE_COMMIT
     delete process.env.FAKE_JUDGE
     estimates = { understand_vs_create: 0.2, irreversibility: 0.1, value_holder: 'model', certainty: 0.9 }
     extra = {}
@@ -250,6 +252,29 @@ describe('model by area and by estimates', () => {
     assert.deepEqual(timing.judgments.map((j) => [j.job_id, j.worked_with]), [[String(first.id), 'claude-haiku-5-5'], [String(second.id), 'claude-sonnet-5-5']])
     assert.equal(timing.judgment.job_id, String(second.id), 'the field of always is still the latest one')
     assert.deepEqual(timing.decision_judgments, [])
+  })
+
+  it('a session of the light model that ends done with nothing on its branch escalates by what the system reads, and the job keeps «closed» as a stored fact (third audit, H-5)', async () => {
+    const repo = join(env.dir, 'host-repo')
+    mkdirSync(repo, { recursive: true })
+    const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' })
+    git('init', '-q', '-b', 'main')
+    git('-c', 'user.email=t@x.org', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init')
+    startWorker(repo)
+    const id = await publish('Corregir la tilde del pie de página.')
+    await settle(id, 2)
+    const [first, second] = jobsOf(id)
+    assert.deepEqual([first.model, second.model], ['claude-haiku-5-5', 'claude-sonnet-5-5'], 'nothing declared, nothing pushed: it goes on in the larger model')
+    const escalation = JSON.parse(get(env.db, "SELECT detail_json FROM audit_log WHERE action = 'message.execute_escalate' AND entity_id = ?", id).detail_json)
+    assert.deepEqual([escalation.why, escalation.trigger], ['no_changes', 'checked'])
+    const judged = judgmentsOfMessage(env.db, id)
+    assert.deepEqual(judged.map((j) => [j.worked_with, j.closed]), [['claude-haiku-5-5', false], ['claude-sonnet-5-5', true]], 'the attempt that did not close is stored as such')
+    // The same session with a commit on its branch closes and does not escalate.
+    process.env.FAKE_EXECUTE_COMMIT = '1'
+    const other = await publish('Corregir la tilde del encabezado.')
+    await settle(other, 1)
+    assert.equal(jobsOf(other).length, 1, 'work on the branch: no escalation')
+    assert.equal(judgmentsOfMessage(env.db, other)[0]?.closed, true)
   })
 
   it('a retry of a failed session on the light model runs with the area larger model', async () => {

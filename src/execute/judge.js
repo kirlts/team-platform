@@ -248,10 +248,10 @@ export async function runJudge ({ providers, prompt, evidence = null, signal, lo
 }
 
 /** Saves the judgement of a job (one per job; a second pass of the same job replaces it). */
-export function saveJudgment (db, { jobId, messageId, judgment, workedWith, now = Date.now }) {
-  runSql(db, `INSERT INTO execute_judgments (job_id, message_id, judge_model, worked_with, quadrant, scores_json, summary, cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(job_id) DO UPDATE SET judge_model = excluded.judge_model, worked_with = excluded.worked_with, quadrant = excluded.quadrant, scores_json = excluded.scores_json, summary = excluded.summary, cost_usd = excluded.cost_usd, created_at = excluded.created_at`,
-  jobId, messageId, judgment.model, workedWith, judgment.quadrant, JSON.stringify({ kpis: judgment.kpis, axes: judgment.axes }), judgment.summary, judgment.cost, now())
+export function saveJudgment (db, { jobId, messageId, judgment, workedWith, closed = null, now = Date.now }) {
+  runSql(db, `INSERT INTO execute_judgments (job_id, message_id, judge_model, worked_with, quadrant, scores_json, summary, cost_usd, closed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(job_id) DO UPDATE SET judge_model = excluded.judge_model, worked_with = excluded.worked_with, quadrant = excluded.quadrant, scores_json = excluded.scores_json, summary = excluded.summary, cost_usd = excluded.cost_usd, closed = excluded.closed, created_at = excluded.created_at`,
+  jobId, messageId, judgment.model, workedWith, judgment.quadrant, JSON.stringify({ kpis: judgment.kpis, axes: judgment.axes }), judgment.summary, judgment.cost, closed === null ? null : closed ? 1 : 0, now())
 }
 
 // `calibrated` is a fact about the judge, not about the judgement (judge-calibration.js): while the judge was never compared with people the judgements are shown, marked «sin calibrar»
@@ -262,7 +262,7 @@ export function judgmentOfMessage (db, messageId, { calibrated = false } = {}) {
   if (!row) return null
   let scores = { kpis: [], axes: [] }
   try { scores = JSON.parse(row.scores_json) } catch { /* a damaged cell shows no scores */ }
-  return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd, calibrated }
+  return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd, closed: row.closed === null || row.closed === undefined ? null : row.closed === 1, calibrated }
 }
 
 /**
@@ -273,6 +273,6 @@ export function judgmentsOfMessage (db, messageId, { calibrated = false } = {}) 
   return all(db, 'SELECT * FROM execute_judgments WHERE message_id = ? ORDER BY created_at ASC, id ASC', messageId).map((row) => {
     let scores = { kpis: [], axes: [] }
     try { scores = JSON.parse(row.scores_json) } catch { /* a damaged cell shows no scores */ }
-    return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd, calibrated }
+    return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd, closed: row.closed === null || row.closed === undefined ? null : row.closed === 1, calibrated }
   })
 }

@@ -1407,23 +1407,44 @@ test('Coherence I7: an area needs a quality to maximize and something to sacrifi
 
 // ---- Reauditoría de coherencia C11: the limits of the light model come from a script, with the criterion of the measurement
 const lightLimits = await import('./light-limits.mjs')
-test('Coherence C11: the limits of the light model are the middle value between what it closed and what it did not, and only with enough jobs and ranges that do not cross', () => {
+test('Coherence C11: the limits of the light model are the largest estimate whose jobs close at a rate over the cost ratio, with the lower end of a Wilson interval, also when the ranges cross', () => {
   const job = (closed, create, irreversibility, certainty) => ({ job: `j${Math.random()}`, closed, understand_vs_create: create, irreversibility, certainty })
   const closed = Array.from({ length: 12 }, (_, i) => job(true, 0.1 + i * 0.03, 0.1 + i * 0.02, 0.9 - i * 0.01)) // closed up to 0.43 / 0.32; certainty from 0.79
   const failed = Array.from({ length: 10 }, (_, i) => job(false, 0.65 + i * 0.03, 0.55 + i * 0.03, 0.55 - i * 0.02)) // failed from 0.65 / 0.55; certainty up to 0.55
+  // Cleanly separated: the 12 that closed are inside the limit, and the failures start after the last close. Wilson lower end of 12 of 12 is 0.76: well over the 0.05 ratio, and the limit
+  // extends over the failures too while the lower end of the whole set stays above the ratio (12 of 22: 0.34): the criterion is a rate, not a gap.
   const result = lightLimits.deriveLightLimits([...closed, ...failed])
-  assert.equal(result.limits.create, 0.54, '(0.43 + 0.65) / 2')
-  assert.equal(result.limits.irreversibility, 0.44, '(0.32 + 0.55) / 2 = 0.435')
-  assert.equal(result.limits.certainty, 0.67, '(0.79 + 0.55) / 2')
-  assert.equal(lightLimits.asVariable(result.limits), 'create=0.54 irreversibility=0.44 certainty=0.67')
+  assert.equal(result.detail.create.fixed, true)
+  assert.equal(result.limits.create, 0.92, 'every job is inside the largest estimate: 12 of 22 close, lower end 0.34 > 0.05')
   const few = lightLimits.deriveLightLimits([...closed.slice(0, 5), ...failed.slice(0, 5)])
   assert.deepEqual(few.limits, { create: 1, irreversibility: 1, certainty: 0 }, 'ten jobs: the origin values stay')
   assert.match(few.detail.create.reason, /10 judged jobs, 20 needed/)
-  const crossed = lightLimits.deriveLightLimits([...closed, ...failed, job(true, 0.8, 0.1, 0.9), job(false, 0.2, 0.1, 0.9)])
-  assert.equal(crossed.limits.create, 1)
-  assert.match(crossed.detail.create.reason, /the ranges cross/)
-  assert.equal(crossed.detail.irreversibility.fixed, false, 'it also crosses: 0.1 failed against 0.32 closed')
-  assert.equal(lightLimits.deriveLightLimits(closed.concat(closed)).detail.create.fixed, false, 'every job closed: nothing to separate')
+  // The measurement of 2026-10-25: the estimates do not separate. A failure with the lowest estimates and a close with the highest cross the ranges, and the old criterion left the origin value.
+  const noisy = lightLimits.deriveLightLimits([...closed, ...failed, job(true, 0.8, 0.1, 0.9), job(false, 0.2, 0.1, 0.9)])
+  assert.equal(noisy.detail.create.fixed, true, 'crossed ranges no longer stop the derivation')
+  // With a ratio the light model cannot beat (it closes 13 of 24 jobs, lower end near 0.35), nothing is fixed and the reason says why.
+  const dear = lightLimits.deriveLightLimits([...closed, ...failed, job(true, 0.8, 0.1, 0.9), job(false, 0.2, 0.1, 0.9)], { costRatio: 0.9 })
+  assert.equal(dear.limits.create, 1)
+  assert.match(dear.detail.create.reason, /cost ratio 0\.9/)
+  // The limit leaves out the region where it fails: low estimates close and the high ones never do.
+  const split = [...Array.from({ length: 30 }, (_, i) => job(true, 0.05 + i * 0.01, 0.2, 0.8)), ...Array.from({ length: 30 }, (_, i) => job(false, 0.7 + i * 0.01, 0.2, 0.8))]
+  const cut = lightLimits.deriveLightLimits(split, { costRatio: 0.7 })
+  assert.equal(cut.limits.create, 0.74, '30 closes and the 5 first failures: 30 of 35, lower end 0.71 > 0.7; the sixth failure would make it 30 of 36, 0.69')
+  assert.equal(lightLimits.asVariable(cut.limits), 'create=0.74 irreversibility=1 certainty=0')
+  assert.equal(lightLimits.deriveLightLimits(closed.concat(closed)).detail.create.fixed, true, 'every job closed: the limit is the largest estimate')
+})
+
+test('Coherence C11: jobs.jsonl comes from the stored `closed` of the judgements of the light model, and the attempts judged before it existed are left out', async () => {
+  const { lightJobs } = await import('./light-jobs.mjs')
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(':memory:')
+  db.exec('CREATE TABLE messages (id INTEGER PRIMARY KEY, estimates_json TEXT); CREATE TABLE execute_judgments (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id INTEGER, message_id INTEGER, worked_with TEXT, closed INTEGER)')
+  db.prepare('INSERT INTO messages VALUES (1, ?), (2, NULL), (3, ?)').run(JSON.stringify({ understand_vs_create: 0.2, irreversibility: 0.1, certainty: 0.9 }), JSON.stringify({ understand_vs_create: 0.7, irreversibility: 0.5, certainty: 0.3 }))
+  db.exec("INSERT INTO execute_judgments (job_id, message_id, worked_with, closed) VALUES (10, 1, 'claude-haiku-5-5', 1), (11, 2, 'claude-haiku-5-5', 1), (12, 3, 'claude-haiku-5-5', 0), (13, 3, 'claude-sonnet-5-5', 1), (14, 1, 'claude-haiku-5-5', NULL)")
+  assert.deepEqual(lightJobs(db, 'claude-haiku-5-5'), [
+    { job: '10', closed: true, understand_vs_create: 0.2, irreversibility: 0.1, certainty: 0.9 },
+    { job: '12', closed: false, understand_vs_create: 0.7, irreversibility: 0.5, certainty: 0.3 }
+  ])
 })
 
 test('Coherence: the description of the project is loaded when the team has confirmed it, once, and the cap is the product\'s', async () => {

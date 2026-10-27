@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import type { MediaDraft } from '@/lib/useMediaDraft'
-import { ClipMenu, LinkRow } from './MediaDraft'
+import { ClipMenu, LinkRow, MediaDraftList } from './MediaDraft'
 
 beforeAll(() => {
   Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => {}, releasePointerCapture: () => {}, scrollIntoView: () => {} })
@@ -47,5 +47,47 @@ describe('ClipMenu', () => {
       </I18nProvider>,
     )
     expect(document.activeElement).toBe(screen.getByLabelText('Enlace'))
+  })
+})
+
+describe('the link row', () => {
+  const invalidDraft = { ...staleDraft, problem: 'link', setProblem: () => {}, addLink: () => false } as unknown as MediaDraft
+
+  it('says «Dirección inválida» under its own field, tied to it, and the list of attachments does not repeat it', () => {
+    render(
+      <I18nProvider language="es-419">
+        <LinkRow draft={invalidDraft} />
+        <MediaDraftList draft={{ ...invalidDraft, linkOpen: false, empty: true, locals: [], links: [] } as unknown as MediaDraft} />
+      </I18nProvider>,
+    )
+    const field = screen.getByLabelText('Enlace')
+    const alerts = screen.getAllByRole('alert')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]!.textContent).toBe('Dirección inválida')
+    expect(field.getAttribute('aria-invalid')).toBe('true')
+    expect(field.getAttribute('aria-describedby')).toBe(alerts[0]!.id)
+    expect(field.closest('div.border-t')?.contains(alerts[0]!)).toBe(true)
+  })
+
+  it('«Agregar» is glass, not gel: the gel is the action of the screen', () => {
+    render(
+      <I18nProvider language="es-419">
+        <LinkRow draft={staleDraft} />
+      </I18nProvider>,
+    )
+    const add = screen.getByRole('button', { name: 'Agregar' })
+    expect(add.className).toContain('btn-glass')
+    expect(add.className).not.toContain('btn-gel')
+  })
+
+  it('shows weight and the length of a recording in the chip of an audio', () => {
+    const file = new File([new Uint8Array(2048)], 'nota.webm', { type: 'audio/webm' })
+    const draft = { ...staleDraft, empty: false, links: [], problem: null, locals: [{ key: 'a', file, url: 'blob:x', seconds: 2 }], removeLocal: () => {} } as unknown as MediaDraft
+    render(
+      <I18nProvider language="es-419">
+        <MediaDraftList draft={draft} />
+      </I18nProvider>,
+    )
+    expect(screen.getByText('00:02 · 2 KB')).toBeTruthy()
   })
 })

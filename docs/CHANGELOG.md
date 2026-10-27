@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Las sesiones de cualquier anfitrión reciben del prompt de Team Platform cómo trabajar barato, qué conserva una compactación y cómo se arma una respuesta (B5); el mapa del repositorio lee las notas del anfitrión de `.team/map-notes.txt` o de `TEAM_MAP_NOTES` y nombra la última migración (B6); el canario crea lo que le falta a una instalación nueva (`CANARY_CREATE`), fija el modelo del área (`CANARY_AREA_MODEL`) y se prueba con identidad por cabecera firmada (B1).
+
 - Un campo de plantilla sin dato no se dibuja en el detalle ni en la propuesta, y quien edita agrega los ausentes desde una fila de nombres (UD-306). Lo que un mensaje guardó bajo campos que su plantilla ya no pide se conserva, se lee en Evaluación como «Datos anteriores» y no hace fallar la edición de otro campo.
 
 - El hilo dice cuándo Claude empieza a trabajar y cuándo espera (UD-303). Al arrancar la sesión el sistema escribe «Claude empezó a trabajar» con la hora; si el trabajo queda en espera escribe una sola fila «En espera: N trabajos de Claude delante» con el tope que lo retiene, y al empezar pasa a «Estuvo en espera N min». El log del trabajador deja de imprimir `[object Object]`: trae el paso y, como datos, `defer_code` y `reason`. Mientras el anfitrión responde 75, los demás trabajos del ciclo no corren ningún guion de máquina (el gcloud de cada espera llevó la máquina de producción a carga 14,9). Medición de por qué esperan en `docs/investigaciones/mediciones/2026-10-25-por-que-esperan-los-trabajos.md`.

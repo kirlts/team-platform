@@ -216,9 +216,9 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   if (command === 'map') {
     // UD-295: the short map of the repository the session starts in; `--hook` wraps it as the context of a SessionStart hook.
     try {
-      const { buildRepoMap, readNotes } = await import('./repo-map.mjs')
+      const { buildRepoMap, readNotes, MAP_NOTES_FILE } = await import('./repo-map.mjs')
       const paths = String(env.TEAM_MAP_PATHS ?? '').split(',').map((p) => p.trim()).filter(Boolean)
-      const notes = await readNotes(process.cwd(), env.TEAM_MAP_NOTES) // the host's own lines about its repository (a file, relative to it or absolute)
+      const notes = await readNotes(process.cwd(), env.TEAM_MAP_NOTES || MAP_NOTES_FILE) // the host's own lines about its repository: a file in it, `.team/map-notes.txt` unless TEAM_MAP_NOTES says another
       const map = await buildRepoMap({ cwd: process.cwd(), paths, brief: options.brief === true, notes })
       return { code: 0, out: options.hook ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: map.text } }) : map.text, err: '' }
     } catch (error) { return { code: 0, out: '', err: `team map: ${error.message}` } } // the map is a help: a repository without git starts the session without it

@@ -85,7 +85,10 @@ test('`team map --hook` in the repository of a session prints the notes of TEAM_
     const withNotes = run({ TEAM_MAP_NOTES: 'notes.txt' }).hookSpecificOutput
     assert.equal(withNotes.hookEventName, 'SessionStart')
     assert.ok(withNotes.additionalContext.includes('Tests of a change: node scripts/tests-of-a-change.mjs'))
-    assert.ok(!run({}).hookSpecificOutput.additionalContext.includes('Tests of a change'))
+    assert.ok(!run({}).hookSpecificOutput.additionalContext.includes('Tests of a change'), 'without the variable and without .team/map-notes.txt there are no notes')
     assert.ok(run({ TEAM_MAP_NOTES: 'missing.txt' }).hookSpecificOutput.additionalContext.includes('<repo_map>'), 'a missing notes file leaves the map as it was')
+    mkdirSync(join(dir, '.team'), { recursive: true }); writeFileSync(join(dir, '.team/map-notes.txt'), 'Note of the repository itself\n')
+    assert.ok(run({}).hookSpecificOutput.additionalContext.includes('Note of the repository itself'), 'with no variable, the file the repository keeps in .team/ is read')
+    assert.ok(!run({ TEAM_MAP_NOTES: 'notes.txt' }).hookSpecificOutput.additionalContext.includes('Note of the repository itself'), 'the variable replaces the default file')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

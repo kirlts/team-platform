@@ -249,7 +249,7 @@ Un 75 repetido de DELIVER con la misma salida deja de ser una espera. El límite
 | `TEAM_ATTACHMENTS_DIR`, `TEAM_ATTACHMENTS_MAX`, `TEAM_ATTACHMENTS_MAX_BYTES` | Dónde la sesión deja documentos PDF y sus topes |
 | `TEAM_THREAD_DIR` | Archivos del hilo, sólo en un trabajo que atiende una mención |
 | `TRACEPARENT` | Continúa la traza del trabajo |
-| `TEAM_MAP_PATHS`, `TEAM_MAP_NOTES` | Opcionales; el anfitrión las declara en `EXECUTE_SESSION_ENV`. `team map` las lee: prefijos de carpeta que acotan los archivos más tocados, y la ruta de un archivo de notas (relativa al repositorio de la sesión o absoluta) cuyas líneas entran al mapa después de la estructura. Sirven para lo que la lista de archivos no dice, como el comando que elige las pruebas de un cambio. Un archivo ausente deja el mapa como estaba |
+| `TEAM_MAP_PATHS`, `TEAM_MAP_NOTES` | Opcionales; el anfitrión las declara en `EXECUTE_SESSION_ENV`. `team map` las lee: prefijos de carpeta que acotan los archivos más tocados, y la ruta de un archivo de notas (relativa al repositorio de la sesión o absoluta; por omisión `.team/map-notes.txt` del repositorio) cuyas líneas entran al mapa después de la estructura. Sirven para lo que la lista de archivos no dice, como el comando que elige las pruebas de un cambio. Un archivo ausente deja el mapa como estaba |
 | Pares de `EXECUTE_SESSION_ENV`, `EXECUTE_DIRECT_SESSION_ENV` y `EXECUTE_OTEL_ENV` | Los que el anfitrión declaró |
 
 `bin/team` está en el `PATH` de la sesión. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`.

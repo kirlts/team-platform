@@ -6,7 +6,7 @@
 //               list's folders and their counts, so it is rebuilt only when the structure changes, never by hand.
 //   hot files   the files most touched by commits of the last 30 days (`git log --since=30.days --name-only`), without lock files, builds or generated
 //               files; with `paths` (TEAM_MAP_PATHS, comma-separated prefixes) only those of the area's folders.
-//   notes       lines the host writes about its own repository (TEAM_MAP_NOTES: a file, one line per note): what the file list cannot say, such as the command that picks the tests
+//   notes       lines the host writes about its own repository (the file `.team/map-notes.txt` of the repository, or the one TEAM_MAP_NOTES names; one line per note): what the file list cannot say, such as the command that picks the tests
 //               of a change or where the decisions are written. They go after the structure and are the last thing the budget cuts.
 //   footer      the two commands that produced it.
 import { execFile } from 'node:child_process'
@@ -21,6 +21,7 @@ const git = async (cwd, args) => (await run('git', ['-c', 'core.quotepath=off', 
 
 export const MAP_DAYS = 30 // Martín's window: the files most touched in the last 30 days
 export const MAP_TOP_FILES = 10
+export const MAP_NOTES_FILE = '.team/map-notes.txt' // where a repository keeps its notes for the map unless TEAM_MAP_NOTES names another file; it travels with the code it describes
 export const MAP_MAX_TOKENS = 800 // Martín's budget for the whole map
 // A line of code or Spanish prose is about 3 characters per token with the current tokenizer; the measurement of UD-295 sets the real figure.
 export const CHARS_PER_TOKEN = 3

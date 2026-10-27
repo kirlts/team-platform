@@ -71,7 +71,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       for (const j of expired) {
         const limit = Math.max(j.max_attempts, INFRA_ATTEMPTS)
         if (j.attempts >= limit) {
-          run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ? WHERE id = ?",
+          run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ?, error_code = 'lease_expired' WHERE id = ?",
             t, 'El arriendo venció sin que el trabajo terminara (el proceso se detuvo o tardó más que el límite).', j.id)
           finished.push(j.id)
         } else {
@@ -171,8 +171,10 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     const isFinal = permanent || error?.retryable === false || job.attempts >= limit
     const t = now()
     if (isFinal) {
-      const r = run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
-        t, msgRow, job.id, job.attempts)
+      // The code goes in the same statement as the state: whoever settles the input later (a sweep that finds the job failed) reads the cause here.
+      const code = typeof error?.code === 'string' && error.code ? error.code.slice(0, 100) : null
+      const r = run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ?, error_code = ? WHERE id = ? AND status = 'running' AND attempts = ?",
+        t, msgRow, code, job.id, job.attempts)
       return { state: r.changes === 1 ? 'failed' : 'lost', delayMs: 0 }
     }
     // If the provider declared how long to wait (Retry-After header of a 429), that wait is the floor of the backoff:

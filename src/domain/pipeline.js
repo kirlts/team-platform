@@ -302,12 +302,14 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
           settled += events.transaction(() => {
             const input = get(db, 'SELECT status, updated_at FROM inputs WHERE id = ?', id)
             if (!input || !['queued', 'extracting', 'analyzing'].includes(input.status) || get(db, live, id)) return 0
-            const last = get(db, "SELECT id, status, last_error, finished_at FROM jobs WHERE input_id = ? AND kind = 'analyze' ORDER BY id DESC LIMIT 1", id)
+            const last = get(db, "SELECT id, status, last_error, error_code, finished_at FROM jobs WHERE input_id = ? AND kind = 'analyze' ORDER BY id DESC LIMIT 1", id)
             if ((last?.finished_at ?? input.updated_at) > settledBefore) return 0
             if (last?.status === 'failed') {
               const reason = last.last_error ?? 'El análisis falló.'
-              transitionInput(db, id, 'failed', { error: reason, errorCode: 'job_failed_unseen', now })
-              events.publishForJob(last.id, { kind: 'done', data: { status: 'failed', error: reason, error_code: 'job_failed_unseen', attachment_id: null } })
+              // The cause the queue recorded when it failed the job; `job_failed_unseen` only when it recorded none (a job from before the column).
+              const code = last.error_code ?? 'job_failed_unseen'
+              transitionInput(db, id, 'failed', { error: reason, errorCode: code, now })
+              events.publishForJob(last.id, { kind: 'done', data: { status: 'failed', error: reason, error_code: code, attachment_id: null } })
             } else {
               transitionInput(db, id, 'queued', { now })
               const jobId = queue.enqueue('analyze', { input_id: id }, { inputId: id })

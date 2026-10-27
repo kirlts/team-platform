@@ -3,7 +3,7 @@
 // The host is a local server that signs people in like the real one (`startFakeHost`): the sign-in is the DiscourseConnect-style redirect of the platform (`sso-redirect`).
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { freePort, harness, startFakeHost } from './harness.mjs'
+import { freePort, harness, startFakeHost, until } from './harness.mjs'
 
 let h
 let host
@@ -17,7 +17,7 @@ before(async () => {
     port,
     config: {
       publicUrl: `http://127.0.0.1:${port}`,
-      identity: { provider: 'local,sso-redirect', provision: 'closed', delegated: { mode: 'sso-redirect', sso: { loginUrl: `${host.origin}/entrada`, secret: host.secret } } }
+      identity: { login: { ipMax: 100000, ipWindowMs: 1000 }, provider: 'local,sso-redirect', provision: 'closed', delegated: { mode: 'sso-redirect', sso: { loginUrl: `${host.origin}/entrada`, secret: host.secret } } }
     }
   })
 })
@@ -93,6 +93,50 @@ describe('E2: an expired or invalid session goes to the host entry and comes bac
       assert.equal(forms.length, 0, `E2: the sign-in form of the platform was drawn after the session expired (${forms.join(', ')})`)
       assert.ok(host.hits.length > before, 'E2: the person was never taken to the host entry')
       assert.equal(new URL(page.url()).pathname, `/messages/${id}`, `E2: the person landed at ${new URL(page.url()).pathname} instead of the page she asked for`)
+    } finally { await context.close() }
+  })
+
+  // The three above reload the page, which is when «me» is asked again. These two keep the page open: the session ends under it and the person does
+  // the next thing (E1, I2 of the judge of Inicio, 2026-10-27). A 401 from any call must take her to the host, not leave a panel that can do nothing.
+  test('E2: with the page open and the session over on the server, the next send goes to the host entry and she is back signed in, without the local form', async () => {
+    const { context, page } = await h.open('carla', { origin: server.origin })
+    try {
+      await page.goto(server.origin)
+      const bar = page.getByTestId('compose-text')
+      await bar.waitFor()
+      server.db.prepare('UPDATE sessions SET expires_at = 1 WHERE member_id = ?').run(server.people.carla.id)
+      const before = host.hits.length
+      const forms = []
+      page.on('console', (m) => { if (m.text() === 'E2-SAW-LOGIN-FORM') forms.push(page.url()) })
+      await page.evaluate(() => { new MutationObserver(() => { if (document.querySelector('main[data-screen="login"], input[type="password"]')) console.log('E2-SAW-LOGIN-FORM') }).observe(document, { childList: true, subtree: true }) })
+      await bar.fill(h.unique('E2 envío con la sesión vencida'))
+      await page.getByTestId('compose-send').click()
+      await page.waitForURL((url) => url.origin === server.origin && !url.pathname.startsWith('/api/'), { timeout: 15000 }).catch(() => {})
+      await until(() => host.hits.length > before, { timeoutMs: 15000, everyMs: 50 })
+      await page.locator('main#main, main[data-screen="login"]').first().waitFor({ timeout: 15000 })
+      assert.equal(forms.length, 0, `E2: the sign-in form of the platform was drawn after the session ended with the page open (${forms.join(', ')})`)
+      assert.ok(host.hits.length > before, 'E2: the person was left in the panel, never taken to the host entry')
+      assert.equal(await page.getByText('La sesión terminó').count(), 0, 'E2: the panel says «La sesión terminó» instead of taking her to the entry')
+      assert.equal((await context.request.get(`${server.origin}/api/me`)).status(), 200, 'E2: the session of the person is not open')
+    } finally { await context.close() }
+  })
+
+  test('E2: with the page open and the session over on the server, moving to another screen goes to the host entry and comes back to that screen', async () => {
+    // Carla, as above: Bruno and Ana are the senders of the other tests, whose cookies the harness keeps.
+    const { context, page } = await h.open('carla', { origin: server.origin })
+    try {
+      await page.goto(server.origin)
+      await page.getByTestId('compose-text').waitFor()
+      server.db.prepare('UPDATE sessions SET expires_at = 1 WHERE member_id = ?').run(server.people.carla.id)
+      const before = host.hits.length
+      const forms = []
+      page.on('console', (m) => { if (m.text() === 'E2-SAW-LOGIN-FORM') forms.push(page.url()) })
+      await page.evaluate(() => { new MutationObserver(() => { if (document.querySelector('main[data-screen="login"], input[type="password"]')) console.log('E2-SAW-LOGIN-FORM') }).observe(document, { childList: true, subtree: true }) })
+      await page.getByRole('link', { name: 'Mensajes' }).first().click()
+      await until(() => host.hits.length > before, { timeoutMs: 15000, everyMs: 50 })
+      await page.locator('main#main, main[data-screen="login"]').first().waitFor({ timeout: 15000 })
+      assert.equal(forms.length, 0, `E2: the sign-in form of the platform was drawn (${forms.join(', ')})`)
+      assert.equal(new URL(page.url()).pathname, '/messages', `E2: the person is at ${new URL(page.url()).pathname}, not at the screen she moved to`)
     } finally { await context.close() }
   })
 

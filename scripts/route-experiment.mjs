@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-// Measures how well a model routes requests when it reads only the descriptions of the areas and the profiles of the members.
+// Measures how much a model agrees with the extracted rows when it routes requests reading only the descriptions of the areas and the profiles of the members.
 //
-//   node scripts/route-experiment.mjs rows.jsonl --load load.json --team team.json [--families f.json] [--sample n] [--judge]
-//                                     [--accept 0.8] [--model claude-haiku-5-5] [--parallel 6] [--out result.json]
+//   node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes purposes.json [--stage tune|confirm]) --team team.json [--families f.json]
+//        [--sample n] [--judge] [--judge-model m] [--labels labels.jsonl] [--validation validation.json] [--versus other-result.json] [--accept 0.8]
+//        [--model claude-haiku-5-5] [--parallel 6] [--out result.json]
 //
-// For each sampled row the router answers an area, who attends and a one-line brief. The result is scored against the row without a judge:
-// the area is the reference one, and a person is included exactly when the row needs one (`requiresPerson`). With `--judge` a second call
-// scores the routing with four indicators of the job evaluation (`src/execute/judge.js`: 1.1, 1.2, 2.3 and 3.3), from -2 to +2, against the
-// reference of the row. `--accept` makes the command fail when the area match or the person match is
-// below it; without it the numbers are reported and nothing passes or fails: the threshold is the team's.
+// For each sampled row the router answers an area, who attends and a one-line brief. The result is scored against the row without a judge: the area is the reference one, and a
+// person is included exactly when the row needs one (`requiresPerson`). Those two rates are the AGREEMENT WITH THE ROWS, which the extraction wrote: they become accuracy only when people
+// have validated the rows (`scripts/row-validation.mjs`), and until then the result says `validated: false`. They come next to the rates of routers with no model (`baselines`) and, with
+// `--labels`, next to the agreement with the people who labeled a sample. With `--holdout` the descriptions are built with some units and measured on others. With `--judge` a second call
+// scores the routing with four indicators of the job evaluation (`src/execute/judge.js`: 1.1, 1.2, 2.3 and 3.3), from -2 to +2, against the reference of the row; the result says when the
+// judge is the same model as the router. `--accept` makes the command fail when the agreement is below it; without it nothing passes or fails: the threshold is the team's.
 //
-// A description set that routes badly is corrected only where the experiment shows a confusion of two cases or more, and the same sample is run
-// again (docs/METODO-DE-REPARTO.md, section «Medir el reparto»).
+// A description set that routes badly is corrected only where the experiment shows a confusion of two cases or more, with the tuning set, and read once more with the confirmation set
+// (docs/METODO-DE-REPARTO.md, section «Medir el reparto»).
 
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'

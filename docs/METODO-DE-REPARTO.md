@@ -31,7 +31,7 @@ Una regla suelta puede quedar en medio de un contexto largo. Ahí el rendimiento
 | Entorno | Hechos que no cambian y acotan las soluciones: herramientas obligatorias, plazos, presupuesto, qué está en producción, qué se deshace y qué no. Cuánto pide cada persona es un dato del informe y no del entorno | No |
 | Límites | Lo que nunca se cruza, con el mecanismo que lo sostiene | Sí |
 
-Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). En el panel y en los prompts del producto un límite se llama Guardia; este documento dice límite. Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` es `person` o `model` y dice de quién es el valor que falta.
+Sólo el límite es booleano. El producto lo guarda como `guards` del área (texto, mecanismo y si lo levanta una persona) y el analizador devuelve cuáles toca cada mensaje (`guards_touched`). Todo lo demás son estimaciones continuas con su razón (`src/domain/assessment.js`). `understand_vs_create` e `irreversibility` van de 0 a 1. `value_holder` es `person` o `model` y dice de quién es el valor que falta.
 
 Levantar un límite de una persona sigue siempre este orden (UD-313):
 
@@ -94,7 +94,7 @@ La extracción no es determinista: `claude -p` no fija semilla ni temperatura, y
 | `who`, `to` | miembro que pide y miembro a quien va, o `other` |
 | `summary` | una línea abstracta, sin datos personales |
 | `intent`, `object`, `module` | lo que se quiere lograr, parte del sistema o del negocio, parte concreta; texto libre, una a tres palabras |
-| `understand_vs_create` | 0 comprender o aplicar lo conocido, 1 crear (Anderson y Krathwohl, 2001, usada como escala) |
+| `understand_vs_create` | 0 comprender o aplicar lo conocido, 1 crear (Anderson y Krathwohl, 2001). Es una taxonomía de categorías usada como escala continua, una convención sin validar |
 | `severity`, `irreversibility` | 0 a 1: qué colapsa si se hace mal y si se deshace |
 | `missing_value` | 0 a 1: cuánto del valor que falta es de una persona. Describe el área y no decide nada |
 | `value_holder`, `holder` | `person` o `model`, el vocabulario del analizador del producto, y el nombre de la persona que tiene el valor (vacío si es `model`) |
@@ -254,8 +254,9 @@ Los campos propios de una intención salen de lo que los pedidos de ese subconju
 | Dónde pide, o cómo se reparte lo que atiende | Áreas con su porcentaje |
 | Qué decide | Pedidos donde él tiene el valor que falta, por área, y los límites de persona que más levanta |
 | Qué no decide (agente) | Los límites que levanta una persona |
+| Cómo quiere recibirlo | Grado de guía, extensión y lo que no quiere recibir. Lo escribe la persona al corregir el borrador; `propose` no lo infiere del corpus |
 
-Las reuniones confidenciales aportan sólo conteos y ninguna frase suya entra a un perfil. Un perfil nombra sólo las áreas del archivo de carga. El perfil de una persona calibra el tono y el grado de guía. El reparto lo decide el valor que falta en cada pedido, porque quién pide explica poco de cómo se atiende. Un perfil no supera `config.members.profileMaxLength` (4.000 caracteres).
+Las reuniones confidenciales aportan sólo conteos y ninguna frase suya entra a un perfil. Un perfil nombra sólo las áreas del archivo de carga. El borrador no contiene señales de tono ni de guía: esas dos cosas las escribe la persona en «Cómo quiere recibirlo». El reparto lo decide el valor que falta en cada pedido, porque quién pide explica poco de cómo se atiende. Un perfil no supera `config.members.profileMaxLength`, 4.000 caracteres (UD-023). Si no cabe, `propose` quita primero las frases de lo que maximiza y de las áreas. Se detiene si el rol solo no cabe.
 
 ## 8. Descripción del proyecto
 
@@ -263,18 +264,25 @@ Texto de la descripción del proyecto, con las mismas cláusulas.
 
 | Cláusula | Pregunta |
 |---|---|
-| Propósito | Por qué existe el proyecto |
-| Se maximiza | Qué gana entre dos diseños que cumplen todo |
+| Propósito | Por qué existe el proyecto. Desempata cuando dos opciones sirven igual al propósito |
+| Se maximiza | Una sola cualidad que gana cuando hay que renunciar a algo |
 | Se sacrifica | Qué no persigue |
 | Entorno | Hechos que no cambian: quién construye, qué está en producción, qué tope de gasto rige |
 | Límites | Lo que nunca se cruza, con su mecanismo |
 
-Criterio de aceptación: un modelo que lee sólo esta descripción y un pedido de las filas nombra el límite en juego. Se cuenta cuántas veces coincide con `limits` de la fila en una muestra de 20 pedidos; el equipo fija la proporción antes de medir.
+Criterio de aceptación. Es un procedimiento manual: ningún guion lo ejecuta.
+
+| Paso | Qué se hace |
+|---|---|
+| 1 | Se toman 26 pedidos de las filas, la misma cuenta de la sección 3, con límites tocados y sin ellos |
+| 2 | Un modelo que lee sólo la descripción del proyecto y el pedido nombra el límite en juego |
+| 3 | Se cuenta cuántas veces coincide con `limits` de la fila y se informa con su intervalo de Wilson |
+| 4 | El equipo fija la proporción que acepta antes de medir |
 
 ## 9. Medir el reparto
 
 ```
-node scripts/route-experiment.mjs rows.jsonl --holdout --purposes purposes.json --team team.json --stage tune --sample 60 --judge --out result.json
+node scripts/route-experiment.mjs rows.jsonl --holdout --purposes purposes.json --team team.json --stage tune --judge --out result.json
 ```
 
 Un enrutador liviano lee sólo las descripciones de las áreas y los perfiles, y cada pedido de la muestra. Devuelve área, quién atiende y un encargo de una línea. El resultado se compara con la fila sin juez.
@@ -310,45 +318,62 @@ Se corrige la descripción donde hay una confusión de dos casos o más. La corr
 
 Los procedimientos se replican con alguien de quien sólo hay una reunión de incorporación y sus mensajes.
 
-| Paso | Qué se hace | Criterio |
-|---|---|---|
-| 1 | Agregar sus unidades y extraer sus filas | Cada pedido con sus dimensiones |
-| 2 | Correr `analyze`: sus pedidos caen en las áreas existentes o piden una nueva con los cuatro criterios | Si cumple los cuatro nace el área; si no, su trabajo entra al área más cercana |
-| 3 | Redactar su perfil con `propose` y corregirlo con la persona | Ninguna palabra de la reunión en el perfil |
-| 4 | Correr el experimento con 20 pedidos donde el valor es suyo y 20 donde no | Lo incluye cuando el valor es suyo y no lo incluye en los otros; el umbral lo fija el equipo |
-| 5 | Comparar su perfil completo con uno de una línea en la misma corrida | El completo no puntúa menos en los indicadores |
-| 6 | Pedir a la persona que marque lo que no la describe | Una corrección por cláusula como máximo |
+| Paso | Qué se hace | Criterio | Automatizado |
+|---|---|---|---|
+| 1 | Agregar sus unidades y extraer sus filas | Cada pedido con sus dimensiones | Sí, `request-rows.mjs` |
+| 2 | Correr `analyze`: sus pedidos caen en las áreas existentes o piden una nueva con los cuatro criterios | Si cumple los cuatro nace el área; si no, su trabajo entra al área más cercana | Sí, `analyze` |
+| 3 | Redactar su perfil con `propose` y corregirlo con la persona | Ninguna palabra de la reunión en el perfil | Sí el borrador; la corrección es manual |
+| 4 | Correr el experimento con 26 pedidos donde el valor es suyo y 26 donde no | Lo incluye cuando el valor es suyo y no lo incluye en los otros; el umbral lo fija el equipo | Manual: se eligen los pedidos y se corre `route-experiment.mjs` sobre ellos |
+| 5 | Comparar su perfil completo con uno de una línea en la misma corrida | El completo no puntúa menos en los indicadores. Se compara con `--versus` | Manual: se arma el archivo de carga con la línea y se corre dos veces |
+| 6 | Pedir a la persona que marque lo que no la describe | Una corrección por cláusula como máximo | Manual |
 
 ## 11. Evaluación del trabajo
 
-Al terminar un trabajo, el proveedor de texto lo juzga con una rúbrica de doce indicadores en cuatro ejes (`src/execute/judge.js`). Responde qué tan adecuado fue lo que se hizo, que las estimaciones del analizador sólo anticipan.
+Al terminar un trabajo, el proveedor de texto lo juzga con una rúbrica de doce indicadores en cuatro ejes (`src/execute/judge.js`). Responde qué tan adecuado fue lo que se hizo, que las estimaciones del analizador sólo anticipan. Los ejes 1 y 2 miden lo que quedó hecho. Los ejes 3 y 4 miden lo que la persona queda en condición de entender y decidir. Un eje alto no compensa uno bajo, y por eso no hay puntaje único.
 
 | Eje | Indicadores |
 |---|---|
 | 1. Alineación estratégica | 1.1 claridad estratégica, 1.2 especificación del problema, 1.3 propósito central |
 | 2. Integridad del artefacto | 2.1 fiabilidad funcional, 2.2 integridad bajo presión, 2.3 precisión y conformidad (incluye los límites del área) |
-| 3. Eficiencia del proceso | 3.1 utilización de recursos, 3.2 bienestar del colaborador, 3.3 calidad del esfuerzo cognitivo |
-| 4. Colaboración y transparencia | 4.1 transparencia del razonamiento, 4.2 intervención crítica, 4.3 resultado final por encima de la primera propuesta viable |
+| 3. Eficiencia del proceso | 3.1 utilización de recursos, 3.2 comprensibilidad del resultado, 3.3 calidad del esfuerzo cognitivo |
+| 4. Colaboración y transparencia | 4.1 transparencia del razonamiento, 4.2 intervención crítica, 4.3 resultado sobre la primera propuesta |
 
 Cómo se lee:
 
 | Regla | Detalle |
 |---|---|
 | Escala | −2 inaceptable, −1 bajo, 0 esperado, +1 fuerte, +2 excepcional. El 0 es el mínimo aceptable y no un punto medio |
-| Evidencia | Cada puntaje lleva una cita del trabajo, una afirmación y su razonamiento |
+| Anclas | Cada indicador trae cinco anclas, una por nivel (`KPIS[].levels`), escritas para un trabajo sin supervisión. Van en el prompt del juez |
+| Evidencia | El juez recibe el mensaje, lo esperado, los límites tocados, el resultado, la salida técnica, la descripción del área y la del proyecto. Cada puntaje lleva una cita de esa evidencia, una afirmación y su razonamiento |
+| Validación | Cada indicador aparece una vez y cada cita está en la evidencia entregada. Una respuesta que no valida no se guarda como juicio y queda en la auditoría como `job.judge_rejected` |
 | Lo que no aplica | Un indicador que no se puede observar en un trabajo sin supervisión lleva `applies: false` y queda fuera de su eje; nunca se rellena con 0 |
-| Meta del eje | La da el cuadrante de la tarea (generar, elegir, negociar, ejecutar): un eje cumple cuando su media alcanza la meta de ese cuadrante |
+| Meta del eje | La da el cuadrante de la tarea: un eje cumple cuando su media alcanza la meta de ese cuadrante |
 | Sin total | No hay puntaje único por trabajo. Se compara eje por eje y entre trabajos del mismo cuadrante |
 
-Usos al configurar:
+Tres indicadores se adaptan a un trabajo que nadie supervisó, y su redacción lo dice. El 3.2 juzga lo que se le entrega a la persona y cuánto se entiende, porque su experiencia durante la sesión no existe. El 4.2 puntúa sólo las intervenciones que la respuesta final y la salida técnica dejan ver. El 4.3 necesita la primera propuesta como evidencia y la plataforma todavía no la entrega, así que queda sin puntuar. En un trabajo sin supervisión el eje 4 se apoya en el 4.1 y el 4.2. Un eje sin indicadores observables no cumple ni incumple su meta.
+
+El cuadrante clasifica la tarea para fijar la meta de cada eje (McGrath, 1984, *Groups: Interaction and Performance*). Las metas son la media mínima: 0 esperado, 1 fuerte, 2 excepcional.
+
+| Cuadrante | La tarea | Eje 1 | Eje 2 | Eje 3 | Eje 4 |
+|---|---|---|---|---|---|
+| Generar | Planificar y crear | 2 | 0 | 1 | 1 |
+| Elegir | Decidir entre opciones | 1 | 0 | 0 | 2 |
+| Negociar | Resolver un conflicto de puntos de vista o de intereses | 1 | 1 | 0 | 2 |
+| Ejecutar | Cumplir un plan con un resultado medible | 0 | 2 | 1 | 0 |
+
+Usos al configurar. Ninguno tiene guion: son lecturas manuales de los juicios guardados (`GET /api/messages/:id/timing` trae el juicio de un mensaje).
 
 | Pregunta | Dónde se lee |
 |---|---|
 | ¿El modelo liviano alcanza en esta área? | Los ejes de los trabajos juzgados por área y por modelo. Un eje bajo la meta en el modelo liviano y sobre ella en el mayor mueve el área al mayor |
-| ¿Una descripción de área genera trabajo adecuado? | El indicador 1.1 y 1.2 de los trabajos del área antes y después de cambiar la descripción |
-| ¿Un límite se respeta? | El indicador 2.3 y el campo `touches_<id>` de la salida |
+| ¿Una descripción de área genera trabajo adecuado? | Los indicadores 1.1 y 1.2 de los trabajos del área antes y después de cambiar la descripción. El juez ve la descripción del área, así que también puede notar que no se respeta |
+| ¿Un límite se respeta? | El indicador 2.3 y el campo `touches_<id>` de la salida. Ningún código los cruza: los lee una persona |
 
-El límite del modelo liviano se fija con trabajos juzgados y no con una lista corta de casos triviales. La escalada al modelo mayor es por falla comprobada y no por pasos (`bench/model-limits.mjs`, `src/execute/judge.js`).
+Escalada. La escalada al modelo mayor ocurre por falla comprobada. El modelo liviano declara que no pudo cerrar, termina bloqueado, o la verificación de la entrega queda en rojo (`src/execute/handler.js`, `src/execute/deliver.js`). Una falla silenciosa sólo la ve el control de cierre del anfitrión. Todo intento se juzga, también el del modelo liviano que falló (con la nota `no_cerro`), así que la comparación entre modelos cuenta los fallos del liviano.
+
+Los límites del modelo liviano (`EXECUTE_LIGHT_LIMITS`) nacen sin valor: `create=1 irreversibility=1 certainty=0`. Por eso todo mensaje con estimaciones parte en el modelo liviano. Se fijan con el punto medio entre la mayor estimación de lo que cerró y la menor de lo que no cerró. Eso exige que los rangos no se crucen en al menos 20 trabajos juzgados (`docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md`).
+
+Ruido. La media de un indicador sobre 20 trabajos tiene un error estándar de 0,22 desviaciones. Con una desviación de un punto, dos medias de 20 trabajos difieren con error de 0,32 y margen de 0,62 al 95 %. Una diferencia menor no es una señal.
 
 ## 12. Archivo de carga
 
@@ -408,3 +433,34 @@ Una prueba aplica el archivo dos veces sobre una base real y compara el estado y
 | `--sample` (experimento) | 26 por área | La misma cuenta; `--sample` fija el total y no baja de 26 por área |
 | `--min-border-confusions` | 2 | Una confusión aislada puede venir de una fila mal extraída; dos casos ya son un patrón. Es del equipo |
 | `--holdout` (experimento) | 0,5 | Partición 50 / 25 / 25 de Hastie, Tibshirani y Friedman (2009), sección 7.2 |
+| `--min-kappa` (validación) | 0,6 | Desde 0,61 el acuerdo es «sustancial» (Landis y Koch, 1977); es una convención y es del equipo |
+| `--resamples` (validación) | 1000 | Al menos 1.000 remuestreos para intervalos por percentiles (Efron y Tibshirani, 1993) |
+| Tope de límites y de frases | 3 | Una descripción cabe en 1.024 caracteres (`TEMPLATE_DESCRIPTION_MAX`); no tiene opción |
+
+## Fuentes
+
+Las citas con fecha de consulta se leyeron ese día. Las demás son obras publicadas.
+
+| Fuente | Se usa en |
+|---|---|
+| Wilson (1927), *Probable inference, the law of succession, and statistical inference*, J. Am. Stat. Assoc. 22:209-212 | Intervalos de proporciones |
+| Brown, Cai y DasGupta (2001), *Interval estimation for a binomial proportion*, Statistical Science 16:101-133 | Wilson en vez de Wald |
+| Cohen (1960), *A coefficient of agreement for nominal scales*, Educ. Psychol. Meas. 20:37-46 | Kappa |
+| Cohen (1988), *Statistical Power Analysis for the Behavioral Sciences* | Efecto mediano de 0,5 |
+| Landis y Koch (1977), *The measurement of observer agreement for categorical data*, Biometrics 33:159-174 | Umbral de kappa |
+| Efron y Tibshirani (1993), *An Introduction to the Bootstrap* | Remuestreos |
+| Holm (1979), *A simple sequentially rejective multiple test procedure*, Scand. J. Statistics 6:65-70 | Ajuste por comparaciones múltiples |
+| Phipson y Smyth (2010), *Permutation p-values should never be zero*, Stat. Appl. Genet. Mol. Biol. 9:39 | Valor p de permutación |
+| Fisher (1925), *Statistical Methods for Research Workers* | Nivel 0,05 |
+| Durstenfeld (1964), *Algorithm 235: Random permutation*, Commun. ACM 7:420 | Barajado |
+| Kish (1965), *Survey Sampling* | Tamaño efectivo con pesos |
+| McNemar (1947), *Note on the sampling error of the difference between correlated proportions*, Psychometrika 12:153-157 | Comparación pareada |
+| Hastie, Tibshirani y Friedman (2009), *The Elements of Statistical Learning*, 2.ª ed., sección 7.2 | Partición de datos |
+| McGrath (1984), *Groups: Interaction and Performance* | Cuadrantes de la tarea |
+| Anderson y Krathwohl (2001), *A Taxonomy for Learning, Teaching, and Assessing* | `understand_vs_create` |
+| Pangakis, Wolken y Fasching (2023), arXiv:2306.00176, consultado el 2026-10-27 | Validar anotaciones con personas |
+| Panickssery, Bowman y Feng (2024), arXiv:2404.13076, consultado el 2026-10-27 | Preferencia de un modelo por lo que genera |
+| Miller (2024), arXiv:2411.00640, consultado el 2026-10-27 | Error de una diferencia pareada |
+| Liu et al. (2023), arXiv:2307.03172, consultado el 2026-10-27 | Información en medio de un contexto largo |
+| Truong, Baldwin, Verspoor y Cohn (2023), arXiv:2306.08189, consultado el 2026-10-27 | Negación en modelos de lenguaje |
+

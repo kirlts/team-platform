@@ -119,6 +119,7 @@ El banco mide si un input se descompone en los mensajes correctos y cuánto tard
 - [docs/USER-DECISIONS.md](docs/USER-DECISIONS.md): decisiones del autor, con sus razones y alternativas descartadas.
 - [docs/TEST.md](docs/TEST.md): estrategia de pruebas y las veintinueve prohibiciones que protegen las restricciones.
 - [docs/INSTALACION.md](docs/INSTALACION.md): instalación, respaldo, restauración y segunda instancia.
+- [docs/METODO-DE-REPARTO.md](docs/METODO-DE-REPARTO.md): cómo configurar áreas, plantillas y perfiles de un equipo con lo que ya escribió, validar las filas con personas y medir el reparto.
 - [docs/JUICIOS.md](docs/JUICIOS.md): jueces acotados que evalúan la interfaz con `scripts/juicios.mjs`. `scripts/ui-report.mjs` lee la telemetría de uso del panel.
 - [docs/REPOMAP.md](docs/REPOMAP.md): qué directorio consultar para cada tarea.
 - [docs/investigaciones/](docs/investigaciones/): informes con fuentes fechadas y mediciones.

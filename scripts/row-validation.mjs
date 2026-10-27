@@ -187,7 +187,7 @@ function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
   if (!['sample', 'agree'].includes(command) || !rowsFile || !option('--team') || (command === 'agree' && !option('--labels'))) {
-    console.error('Uso: node scripts/row-validation.mjs sample rows.jsonl --team team.json [--families f.json] --out sample.jsonl\n     node scripts/row-validation.mjs agree rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--retest rows2.jsonl] [--min-kappa 0.6] [--out validation.json]')
+    console.error('Uso: node scripts/row-validation.mjs sample rows.jsonl --team team.json [--families f.json] [--target-rate 0.8] [--half-width 0.15] --out sample.jsonl\n     node scripts/row-validation.mjs agree rows.jsonl --labels labels.jsonl --team team.json [--families f.json] [--retest rows2.jsonl] [--min-kappa 0.6] [--resamples 1000] [--out validation.json]')
     process.exit(2)
   }
   const rows = readJsonl(rowsFile)
@@ -195,14 +195,14 @@ function main (argv) {
   const families = option('--families') ? readJson(option('--families')) : {}
   try {
     if (command === 'sample') {
-      const { items, sizes, short } = drawValidationSample(rows, team, { families })
+      const { items, sizes, short } = drawValidationSample(rows, team, { families, ...(option('--target-rate') ? { targetRate: Number(option('--target-rate')) } : {}), ...(option('--half-width') ? { halfWidth: Number(option('--half-width')) } : {}) })
       const text = items.map((i) => JSON.stringify(i)).join('\n') + '\n'
       if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
       console.error(`${items.length} pedidos para etiquetar (${sizes.per_area} por área), ${items.filter((i) => i.double).length} para una segunda persona`)
       for (const s of short) console.error(`Aviso: el área ${s.area} tiene ${s.available} filas abiertas y la muestra pide ${s.needed}.`)
       return
     }
-    const result = agreement(rows, readJsonl(option('--labels')), team, { families, minKappa: option('--min-kappa') ? Number(option('--min-kappa')) : DEFAULTS.minKappa, retest: option('--retest') ? readJsonl(option('--retest')) : null })
+    const result = agreement(rows, readJsonl(option('--labels')), team, { families, minKappa: option('--min-kappa') ? Number(option('--min-kappa')) : DEFAULTS.minKappa, ...(option('--resamples') ? { resamples: Number(option('--resamples')) } : {}), retest: option('--retest') ? readJsonl(option('--retest')) : null })
     const text = `${JSON.stringify(result, null, 2)}\n`
     if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text)
     console.error(result.validated ? 'Validadas: todo campo supera el kappa mínimo.' : `No validadas. Bajo el mínimo: ${result.failing.join(', ') || 'ninguno'}. Falta: ${result.missing.join(', ') || 'nada'}.`)

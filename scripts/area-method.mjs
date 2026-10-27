@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-// Builds a routing configuration (areas, templates, member profiles) from the corpus of requests of one team.
+// Builds a routing configuration (areas, guards, templates, member profiles) from the corpus of requests of one team.
 //
 //   node scripts/area-method.mjs labels  rows.jsonl
 //   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--cut [AAAA-MM-DD]] [--out report.json]
 //   node scripts/area-method.mjs propose rows.jsonl --team team.json --purposes purposes.json --actor ed@x.org
 //                                        [--families families.json] [--intents intents.json] [--intent-fields fields.json] [--out load.json]
 //
-// `rows.jsonl` has one request per line, as `scripts/request-rows.mjs` writes it. `docs/METODO-DE-REPARTO.md` explains each step, each
-// criterion and the file shapes. Everything here is deterministic: the same rows give the same report and the same proposal. Nothing reads the
-// words of a person to decide anything: the model that extracted the rows already interpreted them, and this script only counts and compares
-// the fields it returned.
+// `rows.jsonl` has one request per line, as `scripts/request-rows.mjs` writes it. `docs/METODO-DE-REPARTO.md` explains each step, each criterion and the file shapes. Everything here is
+// deterministic: the same rows give the same report and the same proposal (the partitions and the permutations use a seed). Nothing reads the words of a person to decide anything: the model that
+// extracted the rows already interpreted them, and this script only counts and compares the fields it returned. The words of a confidential unit reach no output. The proposal is a draft
+// (`confirmed: false` in every area) until the team confirms it, and `scripts/apply-load-file.mjs` is what loads it.
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -590,33 +590,37 @@ export function templateMarkdown ({ intent, area, profile, team, extraFields = [
 }
 
 // ---- member profiles
+// The limit of the product for a profile: `config.members.profileMaxLength` (UD-023, a declared courtesy: two paragraphs are about 2,000 characters). A test compares both.
+export const MEMBER_PROFILE_MAX = 4000
 /** A draft profile in the first person, from what the corpus says about the member. The `role` sentence is the member's own. */
 export function memberProfile (member, rows, team, opts = {}) {
+  const max = opts.maxLength ?? MEMBER_PROFILE_MAX
   const proposed = opts.areas ? new Set(opts.areas) : null // only the areas that are proposed are named: the others do not exist for the product
   const inProposed = (r) => !proposed || proposed.has(r.area)
   const asked = rows.filter((r) => r.who === member.name)
   const received = rows.filter((r) => r.to === member.name)
   const held = rows.filter((r) => r.value_holder === 'person' && r.holder === member.name)
   const limits = limitById(team)
-  const parts = [member.role.trim()]
+  const parts = [{ text: member.role.trim(), drop: 0 }]
+  const add = (text, drop) => parts.push({ text, drop })
   const base = member.kind === 'agent' ? received : asked
   if (base.length) {
     const terms = topPhrases(base.filter((r) => !r.confidential).map((r) => r.maximize).filter(Boolean)) // words only from rows that can be quoted
     const lost = topPhrases(base.filter((r) => !r.confidential).map((r) => r.sacrifice).filter(Boolean))
-    if (terms.length) parts.push(`Maximizo: ${phrases(terms)}.${lost.length ? ` Acepto que quede apenas suficiente: ${phrases(lost)}.` : ''}`)
+    if (terms.length) add(`Maximizo: ${phrases(terms)}.${lost.length ? ` Acepto que quede apenas suficiente: ${phrases(lost)}.` : ''}`, 3)
     const areas = top(base.filter(inProposed).map((r) => r.area), 3).map(([a, c]) => `${a} (${pct(c / base.length)})`)
-    if (areas.length) parts.push(member.kind === 'agent' ? `Lo que atiendo se reparte así: ${list(areas)}.` : `Pido sobre todo en ${list(areas)}.`)
+    if (areas.length) add(member.kind === 'agent' ? `Lo que atiendo se reparte así: ${list(areas)}.` : `Pido sobre todo en ${list(areas)}.`, 2)
   }
   if (member.kind === 'agent') {
     const person = (team.limits ?? []).filter((l) => l.person).map((l) => l.text)
-    if (person.length) parts.push(`No decido: ${list(person)}. Eso sube a quien tiene el valor, como una pregunta de una línea con mi recomendación.`)
+    if (person.length) add(`No decido: ${list(person)}. Eso sube a quien tiene el valor, como una pregunta de una línea con mi recomendación.`, 1)
   } else if (held.length) {
     const areas = top(held.filter(inProposed).map((r) => r.area), 3).map(([a, c]) => `${a} (${c})`)
-    if (areas.length) parts.push(`Tengo el valor que falta en ${held.length} pedidos: ${list(areas)}. Esas decisiones son mías.`)
+    if (areas.length) add(`Tengo el valor que falta en ${held.length} pedidos: ${list(areas)}. Esas decisiones son mías.`, 2)
     const own = top(held.flatMap((r) => r.limits ?? []).filter((id) => limits.get(id)?.person), 2).map(([id]) => limits.get(id).text)
-    if (own.length) parts.push(`Lo que sólo yo levanto: ${list(own)}.`)
+    if (own.length) add(`Lo que sólo yo levanto: ${list(own)}.`, 1)
   }
-  return parts.join(' ')
+  try { return fitClauses(parts, max) } catch (error) { throw new Error(`The profile of ${member.name} does not fit in ${max} characters even with its role alone: ${error.message}`) }
 }
 
 // ---- the load file: areas with their templates, and member profiles

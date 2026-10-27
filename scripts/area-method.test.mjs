@@ -158,6 +158,7 @@ test('units are cut and batched, and the prompt and schema carry the team', () =
   assert.deepEqual(item.holder.enum, ['Ana', 'Beto', 'Carla', ''], 'the name of the person goes apart, among the people of the team')
 })
 
+// A wiring test only: the rows a fake provider returns carry the vocabulary of the invented corpus and prove that the extraction validates and cleans, not that a model extracts well.
 const fakeRow = (unit, extra = {}) => ({ unit, date: '2026-03-02', who: 'Beto', to: 'Asistente', summary: 'Arreglar la etiqueta de envío', intent: 'falla', object: 'pedidos y envíos', module: 'etiquetas',
   understand_vs_create: 0.3, severity: 0.5, irreversibility: 0.4, missing_value: 0.1, value_holder: 'model', holder: '', limits: ['customer_data', 'unknown_limit'], maximize: 'envío a tiempo', sacrifice: '', urgency: 0.6, correction: false, ...extra })
 
@@ -891,4 +892,61 @@ test('Marco 3: the loader reports a guard without a mechanism and can refuse it;
   const ghost = confirmed(propose(rows, team, { purposes, actor: 'ana@tienda.example' }).spec)
   ghost.members.push({ email: 'nadie@tienda.example', profile: 'x' })
   assert.throws(() => applyLoadFile(db, ghost), /do not exist|Members that do not exist/)
+})
+
+// ---- D7: the document and the scripts say the same
+import { readFileSync, existsSync } from 'node:fs'
+import { AXES, KPIS, QUADRANTS } from '../src/execute/judge.js'
+
+const methodDoc = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'METODO-DE-REPARTO.md'), 'utf8')
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const decimal = (text) => Number(String(text).replace(/\./g, '').replace(',', '.'))
+const camel = (flag) => flag.replace(/^--/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+
+test('D7: every file the document names exists', () => {
+  const named = [...new Set([...methodDoc.matchAll(/`((?:scripts|src|bench|docs|panel)\/[A-Za-z0-9_./-]+\.(?:mjs|js|md|json|jsonl))`/g)].map((m) => m[1]))]
+  assert.ok(named.length >= 10, `${named.length} files named`)
+  const missing = named.filter((f) => !existsSync(path.join(root, f)))
+  assert.deepEqual(missing, [])
+})
+
+test('D7: every default in the table of knobs is the one in the code', () => {
+  const rowsOfTable = [...methodDoc.matchAll(/^\| `(--[a-z-]+)`(?: \([^)]*\))? \| ([^|]+) \|/gm)].map((m) => [m[1], m[2].trim()])
+  assert.ok(rowsOfTable.length >= 16)
+  const checked = []
+  for (const [flag, value] of rowsOfTable) {
+    const key = camel(flag)
+    if (!/^[\d.,]+$/.test(value)) continue
+    const expected = key === 'minRows' ? method.wilsonSampleSize(DEFAULTS.targetRate, DEFAULTS.halfWidth) : DEFAULTS[key]
+    assert.equal(expected, decimal(value), `${flag}: the document says ${value}, the code ${expected}`)
+    checked.push(flag)
+  }
+  assert.ok(checked.length >= 15, checked.join(' '))
+  // and every flag of the table is read by a script
+  const sources = ['area-method.mjs', 'route-experiment.mjs', 'row-validation.mjs'].map((f) => readFileSync(path.join(root, 'scripts', f), 'utf8')).join('\n')
+  for (const [flag] of rowsOfTable) assert.ok(sources.includes(`'${flag}'`) || sources.includes(camel(flag)), `${flag} is in no script`)
+})
+
+test('D7: the profile cap of the document is the cap of the product, and propose imposes it', () => {
+  assert.equal(method.MEMBER_PROFILE_MAX, loadConfig({ ADMIN_EMAIL: 'a@b.org', ADMIN_PASSWORD: 'una clave larga de prueba 1' }).members.profileMaxLength)
+  assert.match(methodDoc, /4\.000 caracteres/)
+  const roleOf = (n) => `Soy la dueña. ${'x'.repeat(n)}`
+  const big = { ...team, members: team.members.map((m) => (m.kind === 'person' ? { ...m, role: roleOf(3900) } : m)) }
+  const { spec } = propose(rows, big, { purposes })
+  for (const m of spec.members) assert.ok(m.profile.length <= 4000, `${m.email}: ${m.profile.length}`)
+  assert.ok(spec.members.find((m) => m.email === 'ana@tienda.example').profile.startsWith('Soy la dueña. xxx'), 'the role stays and the optional phrases go first')
+  const huge = { ...team, members: team.members.map((m, i) => (i === 0 ? { ...m, role: roleOf(5000) } : m)) }
+  assert.throws(() => propose(rows, huge, { purposes }), /does not fit in 4000 characters/)
+})
+
+test('D7: the axes, the indicators and the goals of the document are the ones of the judge', () => {
+  for (const a of AXES) assert.ok(methodDoc.includes(a.name), a.name)
+  const lower = methodDoc.toLowerCase()
+  for (const k of KPIS) assert.ok(lower.includes(`${k.id} ${k.name.toLowerCase()}`), `${k.id} ${k.name}`)
+  const quadrant = { generate: 'Generar', choose: 'Elegir', negotiate: 'Negociar', execute: 'Ejecutar' }
+  for (const [id, goals] of Object.entries(QUADRANTS)) {
+    const row = methodDoc.match(new RegExp(`^\\| ${quadrant[id]} \\| [^|]+ \\| (\\d) \\| (\\d) \\| (\\d) \\| (\\d) \\|`, 'm'))
+    assert.deepEqual(row.slice(1).map(Number), [goals[1], goals[2], goals[3], goals[4]], quadrant[id])
+  }
+  assert.ok(KPIS.every((k) => k.levels.length === 5), 'five anchors per indicator, as the document says')
 })

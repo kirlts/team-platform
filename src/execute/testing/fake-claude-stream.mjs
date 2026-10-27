@@ -9,6 +9,8 @@
 // FAKE_EXECUTE_HOOK=1 runs, after every simulated batch of tools, the PostToolBatch hook that came in `--settings` the way Claude Code does (the command with the event as JSON on stdin,
 // its stdout read as a hook output) and records the `additionalContext` it returned in hook-context.jsonl. FAKE_EXECUTE_GATE=<fifo> holds the session after its first batch until something is
 // written to that named pipe (the test posts a mention in between, then releases it); the file gate-reached tells the test the session is there.
+// FAKE_EXECUTE_GUARDS=1 sends the events of FAKE_EXECUTE_GUARD_EVENTS (a JSON list of hook events) to the PreToolUse and Stop hooks that came in `--settings`, matching each group by its
+// `matcher` as Claude Code does, and records what was declared and what each command answered in guards.jsonl. The command runs with the environment of the session.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
@@ -76,11 +78,28 @@ process.stdin.on('end', async () => {
     for (const m of (context ?? '').matchAll(/: (\S*reply-\d+\/\S+)/g)) { try { files[m[1]] = readFileSync(m[1]).toString('base64') } catch { files[m[1]] = null } }
     appendFileSync(`${state}/hook-context.jsonl`, `${JSON.stringify({ declared: true, code: r.status, context, files, stderr: r.stderr })}\n`)
   }
+  function guards () {
+    if (process.env.FAKE_EXECUTE_GUARDS !== '1') return
+    const at = process.argv.indexOf('--settings')
+    const hooks = JSON.parse(process.argv[at + 1]).hooks
+    const answers = []
+    for (const event of JSON.parse(process.env.FAKE_EXECUTE_GUARD_EVENTS ?? '[]')) {
+      for (const group of hooks[event.hook_event_name] ?? []) {
+        if (group.matcher !== undefined && !new RegExp(`^(${group.matcher})$`).test(event.tool_name ?? '')) continue
+        for (const h of group.hooks) {
+          const r = spawnSync('sh', ['-c', h.command], { input: JSON.stringify({ session_id: sessionId, cwd: process.cwd(), ...event }), encoding: 'utf8', env: process.env })
+          answers.push({ command: h.command, code: r.status, stdout: r.stdout, stderr: r.stderr })
+        }
+      }
+    }
+    appendFileSync(`${state}/guards.jsonl`, `${JSON.stringify({ declared: hooks, guardsFile: team.TEAM_GUARDS_FILE ?? null, answers })}\n`)
+  }
   async function legacy () {
   out({ type: 'stream_event', session_id: sessionId, event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Leo' } } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/repo/src/screen.tsx' } }] } })
   out({ type: 'user', session_id: sessionId, message: { content: [{ type: 'tool_result', content: 'ok' }] } })
   hook()
+  guards()
   if (process.env.FAKE_EXECUTE_GATE) { writeFileSync(`${state}/gate-reached`, ''); readFileSync(process.env.FAKE_EXECUTE_GATE); hook() }
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test', description: 'Pruebas de la pantalla' } }] } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: 'tool-1', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/repo/src/screen.tsx' } }] } })

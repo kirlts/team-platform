@@ -36,6 +36,8 @@ describe('execute job', () => {
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers, ...(logger ? { logger } : {}) })
     worker.start()
   }
+  // The id of the first message; a job that fails hands the message to a person (UD-269), so asking for it gives it back to Claude, as `beforeEach` does between tests.
+  const messageId0 = () => { env.db.prepare('INSERT OR IGNORE INTO message_assignees (message_id, member_id) SELECT id, ? FROM messages ORDER BY id LIMIT 1').run(agentId); return env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id }
   const calls = () => { try { return readFileSync(join(state, 'calls.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)) } catch { return [] } }
   const waitJob = (id) => until(() => { const j = env.queue.getJob(id); return ['done', 'failed', 'cancelled'].includes(j.status) && j }, { timeoutMs: 20000 })
   const eventsOf = (jobId) => env.db.prepare('SELECT kind, percent, phrase, data_json, member_id FROM job_events WHERE job_id = ? ORDER BY seq').all(jobId)
@@ -180,6 +182,59 @@ describe('execute job', () => {
     const failed = await waitJob(id)
     assert.equal(failed.status, 'failed')
     assert.equal(JSON.parse(eventsOf(id).at(-1).data_json).error_code, 'host_instructions_missing')
+  })
+
+  it('EXECUTE_GUARDS_FILE declares the hooks of the host in the session, the hooks answer from the job directory, and an invalid file fails the job with its reason', async () => {
+    const file = join(env.dir, 'guards.json')
+    writeFileSync(file, JSON.stringify({
+      commands: { builtin: ['protected-push'], protected_branches: ['trunk'], rules: [{ match: 'deploy-now\\.sh', message: 'The system deploys, not the session.' }] },
+      tools: { deny_background: [{ tools: ['Agent'], message: 'Foreground only.' }] },
+      close: { clean_tree: true, pushed_branch: true, base: 'origin/trunk' }
+    }))
+    const bash = (command) => ({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command } })
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    process.env.FAKE_EXECUTE_GUARDS = '1'
+    process.env.FAKE_EXECUTE_GUARD_EVENTS = JSON.stringify([bash('git push origin trunk'), bash('bash deploy-now.sh'), bash('git push -u origin HEAD'), { hook_event_name: 'PreToolUse', tool_name: 'Agent', tool_input: { run_in_background: true } }, { hook_event_name: 'Stop', stop_hook_active: false }])
+    try {
+      startWorker({ guardsFile: file })
+      const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+      const ok = await waitJob(Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]))
+      assert.equal(ok.status, 'done', ok.last_error)
+      const [session] = readFileSync(join(state, 'guards.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l))
+      assert.deepEqual(session.declared.PreToolUse.map((g) => [g.matcher, g.hooks[0].command]), [['Bash', 'team hook commands'], ['Agent', 'team hook tools']])
+      assert.deepEqual(session.declared.Stop.map((g) => g.hooks[0].command), ['team hook close'])
+      assert.match(session.guardsFile, /execute-\d+-[^/]+\/guards\.json$/, 'the session reads the copy that lives in the job directory')
+      const answer = (i) => ({ command: session.answers[i].command, code: session.answers[i].code, out: session.answers[i].stdout.trim() ? JSON.parse(session.answers[i].stdout) : null })
+      assert.deepEqual(session.answers.map((a) => [a.command, a.code]), [['team hook commands', 0], ['team hook commands', 0], ['team hook commands', 0], ['team hook tools', 0], ['team hook close', 0]])
+      assert.match(answer(0).out.hookSpecificOutput.permissionDecisionReason, /Pushing to trunk is not allowed/)
+      assert.equal(answer(1).out.hookSpecificOutput.permissionDecisionReason, 'The system deploys, not the session.')
+      assert.equal(answer(2).out, null, 'the branch of the job goes through')
+      assert.equal(answer(3).out.hookSpecificOutput.permissionDecisionReason, 'Foreground only.')
+      assert.equal(answer(4).out, null, 'the closing check has no base to count from in this directory and lets the session end')
+    } finally { delete process.env.FAKE_EXECUTE_GUARDS; delete process.env.FAKE_EXECUTE_GUARD_EVENTS }
+    await worker.stop()
+    for (const [text, why] of [['{"comands":{}}', /does not know «comands»/], ['{', /not JSON/]]) {
+      writeFileSync(file, text)
+      startWorker({ guardsFile: file })
+      const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId0()}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+      const failed = await waitJob(id)
+      assert.equal(failed.status, 'failed')
+      assert.equal(JSON.parse(eventsOf(id).at(-1).data_json).error_code, 'guards_file_invalid')
+      assert.match(failed.last_error, why)
+      await worker.stop()
+    }
+    startWorker({ guardsFile: join(env.dir, 'missing-guards.json') })
+    const missing = await waitJob(Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId0()}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]))
+    assert.equal(missing.status, 'failed')
+    assert.match(missing.last_error, /EXECUTE_GUARDS_FILE .*ENOENT/)
+  })
+
+  it('the machine script points the session at the copy of the guards file', async () => {
+    const dir = join(env.dir, 'machine-files')
+    mkdirSync(dir)
+    const { writeMachineFiles } = await import('./runners.js')
+    await writeMachineFiles({ workdir: dir, args: ['-p'], prompt: 'p', env: {}, claudeBin: 'claude' })
+    assert.match(readFileSync(join(dir, 'run.sh'), 'utf8'), /\[ -f "\$JOB_DIR\/guards\.json" \] && export TEAM_GUARDS_FILE="\$JOB_DIR\/guards\.json" \|\| true/)
   })
 
   describe('observability (UD-262)', () => {

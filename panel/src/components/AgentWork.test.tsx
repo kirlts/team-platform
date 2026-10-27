@@ -56,10 +56,15 @@ describe('the work of the agent in the sheet', () => {
     expect(container.querySelector('[data-testid="agent-work"]')).toBeNull()
   })
 
-  it('a queued job says so', async () => {
-    answer = () => timing({ job_status: 'queued' })
+  it('a queued job says so in its first stretch, and shows the ones that follow as pending', async () => {
+    answer = () => timing({ job_status: 'queued', machine: true, delivers: true })
     render(<Mount><AgentWork message={message()} /></Mount>)
-    expect((await screen.findByTestId('work-queued')).textContent).toContain('En cola')
+    await screen.findByTestId('agent-work')
+    expect(steps()).toEqual(['machine:pending', 'session:pending', 'deliver:pending'])
+    const [machine, session, deliver] = screen.getAllByRole('listitem')
+    expect(within(machine!).getByText('En cola')).toBeTruthy()
+    expect(within(session!).getByText('Pendiente')).toBeTruthy()
+    expect(within(deliver!).getByText('Pendiente')).toBeTruthy()
   })
 
   it('a running job shows the stretch it is in, with its time, and the bar', async () => {
@@ -100,6 +105,8 @@ describe('the work of the agent in the sheet', () => {
     await screen.findByTestId('agent-work')
     const [machine, session] = screen.getAllByRole('listitem')
     expect(within(session!).getByText('Falló')).toBeTruthy()
+    // mark and word say it; the name keeps its own color
+    expect(within(session!).getByText('Sesión').className).not.toContain('text-danger')
     expect(within(machine!).queryByText('Falló')).toBeNull()
     for (const li of [machine!, session!]) {
       // the time is the last cell of the first line in both rows, whatever the row adds under its name

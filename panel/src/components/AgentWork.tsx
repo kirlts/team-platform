@@ -44,34 +44,28 @@ function Work({ message }: { message: MessageDetail }) {
   return (
     <section data-testid="agent-work" data-work={work.state} aria-label={t('work.title')} className="glass leaf flex shrink-0 flex-col gap-2 p-3">
       <h2 className="rotulo m-0">{t('work.title')}</h2>
-      {work.state === 'queued' ? (
-        <p data-testid="work-queued" className="m-0 flex items-center gap-2 text-sm">
-          <Clock size={16} aria-hidden className="shrink-0 text-faint" /> {t('timing.state.queued')}
-        </p>
-      ) : (
-        <ol className="m-0 flex list-none flex-col p-0">
-          {work.steps.map((s) => (
-            // Three columns, always the same: the mark, the name and the time at the right edge. What a stretch adds (the word of a failure, what the retry does) goes under its name, so the time never moves.
-            <li key={s.key} data-work-step={s.key} data-state={s.state} className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-0.5">
-              <Mark state={s.state} />
-              <span className={cn('min-w-0 break-words', s.state === 'pending' && 'text-muted', s.state === 'failed' && 'text-danger')}>{t(STEP_LABEL[s.key])}</span>
-              <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : t(STATE_LABEL[s.state])}</span>
-              {(s.state === 'failed' || s.repeats !== null) && (
-                <span className="col-start-2 col-end-4 flex flex-wrap gap-x-3 text-xs text-muted">
-                  {s.state === 'failed' && <span data-work-failed className="text-danger">{t('timing.state.failed')}</span>}
-                  {s.repeats !== null && <span data-work-repeats={String(s.repeats)}>{t(s.repeats ? 'work.repeats' : 'work.kept')}</span>}
-                </span>
-              )}
-              {s.state === 'running' && work.state === 'running' && (
-                <div className="col-start-2 col-end-4 flex flex-col gap-1 pt-1">
-                  <Meter percent={progress?.percent ?? 0} label={t('timing.state.running')} />
-                  {progress?.phrase && <p role="status" className="m-0 text-xs text-muted">{progress.phrase}</p>}
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-      )}
+      <ol className="m-0 flex list-none flex-col p-0">
+        {work.steps.map((s, i) => (
+          // Three columns, always the same: the mark, the name and the time at the right edge. What a stretch adds (the word of a failure, what the retry does) goes under its name, so the time never moves.
+          <li key={s.key} data-work-step={s.key} data-state={s.state} className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-0.5">
+            <Mark state={s.state} />
+            <span className={cn('min-w-0 break-words', s.state === 'pending' && 'text-muted')}>{t(STEP_LABEL[s.key])}</span>
+            <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : t(work.state === 'queued' && i === 0 ? 'timing.state.queued' : STATE_LABEL[s.state])}</span>
+            {(s.state === 'failed' || s.repeats !== null) && (
+              <span className="col-start-2 col-end-4 flex flex-wrap gap-x-3 text-xs text-muted">
+                {s.state === 'failed' && <span data-work-failed className="text-danger">{t('timing.state.failed')}</span>}
+                {s.repeats !== null && <span data-work-repeats={String(s.repeats)}>{t(s.repeats ? 'work.repeats' : 'work.kept')}</span>}
+              </span>
+            )}
+            {s.state === 'running' && work.state === 'running' && (
+              <div className="col-start-2 col-end-4 flex flex-col gap-1 pt-1">
+                <Meter percent={progress?.percent ?? 0} label={t('timing.state.running')} />
+                {progress?.phrase && <p role="status" className="m-0 text-xs text-muted">{progress.phrase}</p>}
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
       {failure && <RetryButton reply={failure} retry={retryRun} testId="work-retry" className="md:hidden" />}
     </section>
   )

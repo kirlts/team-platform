@@ -456,6 +456,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_KILL_GRACE_MS` | Espera entre SIGTERM y SIGKILL (omisión 10000) |
 | `EXECUTE_CONTRACT_VERSION` | Versión del contrato de anfitrión que cumple el driver (`1`, o `1.2`; cuenta la mayor). El trabajador imprime al arrancar la versión del núcleo y la declarada; si la mayor difiere, no arranca y sale con código distinto de 0. `GET /health` publica la del núcleo como `contract_version`. Vacía por omisión: no se declara y no se comprueba |
 | `EXECUTE_HOST_INSTRUCTIONS` | Ruta a un `.md` del anfitrión con sus reglas; se agrega al prompt en cada trabajo. Si falta el archivo, el trabajo falla con `host_instructions_missing` |
+| `EXECUTE_GUARDS_FILE` | Opcional. Ruta a un JSON con las listas del anfitrión para los ganchos de toda sesión: órdenes de Bash que se niegan, herramientas que se quitan y lo que debe cumplirse al terminar. Vacía: ningún gancho. Un archivo ilegible o con un error de forma hace fallar el trabajo con `guards_file_invalid` y el motivo (ver «Guardias de la sesión» del contrato) |
 | `EXECUTE_MACHINE_CREATE`, `EXECUTE_MACHINE_RUN`, `EXECUTE_MACHINE_DESTROY` | Las tres órdenes de `machine` |
 | `EXECUTE_MACHINE_COLLECT` | Opcional. Copia la transcripción de la sesión antes de destruir la máquina (ver «Transcripción de la sesión») |
 | `EXECUTE_CAPTURES_MAX` | Capturas de la interfaz por respuesta (omisión 3; ver «Capturas en las respuestas») |

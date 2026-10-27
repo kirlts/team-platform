@@ -1470,3 +1470,15 @@ test('Coherence: each guard of the load file carries the name that the templates
   const stored = JSON.parse(get(db, "SELECT guards_json FROM areas WHERE title = 'Catálogo y precios'").guards_json)
   if (stored.some((g) => g.key)) assert.deepEqual(stored.map((g) => g.key), team.limits.map((l) => l.id), 'the product keeps the name')
 })
+
+test('Coherence I8: the idea guard of the analyzer is measured against what the people marked as an idea', () => {
+  const labels = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8'].map((unit, i) => ({ unit, rater: 'p1', requests: [{ area: 'A', value_holder: 'model', limits: [], idea: i < 4 }] }))
+  const analyses = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8'].map((unit, i) => ({ unit, guards_touched: [], idea_guard: i < 3 || i === 5 })) // finds 3 of the 4 ideas and invents one
+  const result = validation.analyzerAgreement(labels, analyses, team, { resamples: 50 })
+  assert.equal(result.idea.units, 8)
+  assert.deepEqual([result.idea.human_positive, result.idea.analyzer_positive], [4, 4])
+  assert.equal(result.idea.recall.value, 0.75)
+  assert.equal(result.idea.precision.value, 0.75)
+  assert.equal(result.idea.kappa, 0.5)
+  assert.equal(validation.analyzerAgreement(labels, analyses.map(({ idea_guard: _drop, ...a }) => a), team, { resamples: 50 }).idea, null, 'without the answer of the analyzer there is nothing to compare')
+})

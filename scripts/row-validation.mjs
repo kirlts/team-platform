@@ -345,7 +345,17 @@ export function analyzerAgreement (labels, analyses, team, { referenceRater = nu
     const k = weightedKappa(pairs)
     return [l.id, { units: pairs.length, human_positive: humanPositive, analyzer_positive: analyzerPositive, recall: { value: humanPositive ? round3(tp / humanPositive) : null, lower: round3(r.lower) }, precision: { value: analyzerPositive ? round3(tp / analyzerPositive) : null, lower: round3(pr.lower) }, kappa: k.kappa === null ? null : round3(k.kappa), ...(k.kappa === null ? {} : bootstrapByUnit(pairs, (s) => weightedKappa(s).kappa, { resamples, seed })) }]
   }))
-  return { reference_rater: main, units: units.length, limits: per }
+  // The idea guard: the people mark a request `idea: true` when what is asked is to explore an idea (nothing changes without a person's approval); the analyzer's answer is `idea_guard`.
+  const withIdea = units.filter((u) => byUnit.has(u.unit) && analyses.find((a) => a.unit === u.unit && typeof a.idea_guard === 'boolean') && u.requests.some((r) => typeof r.idea === 'boolean'))
+  const idea = withIdea.length ? (() => {
+    const pairs = withIdea.map((u) => ({ unit: u.unit, stratum: 'all', w: 1, a: String(analyses.find((x) => x.unit === u.unit).idea_guard), b: String(u.requests.some((r) => r.idea === true)) }))
+    const tp = pairs.filter((p) => p.a === 'true' && p.b === 'true').length
+    const humanPositive = pairs.filter((p) => p.b === 'true').length
+    const analyzerPositive = pairs.filter((p) => p.a === 'true').length
+    const k = weightedKappa(pairs)
+    return { units: pairs.length, human_positive: humanPositive, analyzer_positive: analyzerPositive, recall: { value: humanPositive ? round3(tp / humanPositive) : null, lower: round3(wilson(tp, humanPositive).lower) }, precision: { value: analyzerPositive ? round3(tp / analyzerPositive) : null, lower: round3(wilson(tp, analyzerPositive).lower) }, kappa: k.kappa === null ? null : round3(k.kappa) }
+  })() : null
+  return { reference_rater: main, units: units.length, limits: per, idea }
 }
 
 /**

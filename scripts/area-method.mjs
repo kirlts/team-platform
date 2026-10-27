@@ -21,6 +21,11 @@ export const DEFAULTS = Object.freeze({
   // An area must hold at least as many requests as it takes to measure its routing with a Wilson interval of half width `halfWidth` around `targetRate`
   // (`wilsonSampleSize`: 26 with the defaults). A share of the corpus says nothing about that: 5 % of 60 is 3 requests and 5 % of 2,000 is 100. `null` derives it.
   minRows: null,
+  // Level of every test of the method: the conventional 0.05 (Fisher 1925). Five dimensions are compared at once, so it is shared out with Holm's method (see `holm`).
+  alpha: 0.05,
+  // Permutations of a test: 999, so that the smallest p-value is 0.001, below alpha divided by the 5 dimensions (0.01). A permutation p-value is (hits + 1) / (permutations + 1) so it is
+  // never zero (Phipson and Smyth 2010, Stat. Appl. Genet. Mol. Biol. 9:39).
+  permutations: 999,
   // Cohen (1988): a standardized difference of 0.5 is the conventional medium effect, the smallest one a person notices without measuring.
   minEffect: 0.5,
   // Definition: two areas share a map of the system when more than half of the shorter list of modules is common.
@@ -350,7 +355,61 @@ export function recognition (rows, labelOf, { folds = DEFAULTS.folds, seed = DEF
   return { accuracy: round(accuracy), base: round(base), lower: round(overall.lower), per_class: perClass, confusion: Object.fromEntries(Object.entries(confusion).sort((a, b) => b[1] - a[1])) }
 }
 
-const dominantLimit = (profile) => profile.limits[0]?.id ?? null
+/**
+ * Holm's step-down adjustment (Holm 1979, Scand. J. Statistics 6:65-70) of a list of p-values: it controls the probability of any false positive among them at `alpha`
+ * without assuming the tests are independent, which the five dimensions are not. Returns the adjusted p-values in the order given.
+ */
+export function holm (pValues) {
+  const m = pValues.length
+  const order = pValues.map((p, i) => [p, i]).sort((a, b) => a[0] - b[0])
+  const adjusted = new Array(m)
+  let running = 0
+  order.forEach(([p, i], rank) => { running = Math.max(running, Math.min(1, (m - rank) * p)); adjusted[i] = running })
+  return adjusted
+}
+
+/**
+ * Compares two groups of rows dimension by dimension. For each dimension, the permutation p-value of the standardized difference (the areas of the rows are permuted, one
+ * permutation for all the dimensions), then Holm's adjustment over the dimensions. A dimension differs when its effect is at least `minEffect` and its adjusted p-value
+ * is at most `alpha`. The dimensions are estimates of a model and correlated with one another, and the rows of one unit are not independent: the test does not assume
+ * either, but it does not model the second either, so a result near alpha is read with that in mind.
+ */
+export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = DEFAULTS.alpha, permutations = DEFAULTS.permutations, rand }) {
+  const column = (rows, dim) => rows.map((r) => Number(r[dim]) || 0)
+  const all = [...a, ...b]
+  const observed = DIMENSIONS.map((dim) => cohenD(column(a, dim), column(b, dim)))
+  if (a.length < 2 || b.length < 2) return { dimensions: Object.fromEntries(DIMENSIONS.map((dim, i) => [dim, { d: round(observed[i], 2), p: 1, p_adjusted: 1, differs: false }])), any_differs: false, biggest_effect: 0 }
+  const hits = DIMENSIONS.map(() => 0)
+  const columns = DIMENSIONS.map((dim) => Float64Array.from(column(all, dim)))
+  const na = a.length
+  const nb = b.length
+  const order = Int32Array.from(all.map((_, i) => i))
+  const d = (col) => { // the standardized difference of the first na and the last nb entries of `col` taken in the current order, in one pass
+    let sa = 0; let sb = 0; let qa = 0; let qb = 0
+    for (let i = 0; i < na; i++) { const x = col[order[i]]; sa += x; qa += x * x }
+    for (let i = na; i < na + nb; i++) { const x = col[order[i]]; sb += x; qb += x * x }
+    const ma = sa / na; const mb = sb / nb
+    const pooled = Math.sqrt(((qa - na * ma * ma) + (qb - nb * mb * mb)) / (na + nb - 2))
+    return pooled === 0 ? 0 : (ma - mb) / pooled
+  }
+  for (let k = 0; k < permutations; k++) {
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const t = order[i]; order[i] = order[j]; order[j] = t } // Fisher-Yates in place
+    columns.forEach((col, i) => { if (Math.abs(d(col)) >= Math.abs(observed[i]) - 1e-9) hits[i]++ })
+  }
+  const p = hits.map((h) => (h + 1) / (permutations + 1))
+  const adjusted = holm(p)
+  const dimensions = Object.fromEntries(DIMENSIONS.map((dim, i) => [dim, { d: round(observed[i], 2), p: round(p[i], 4), p_adjusted: round(adjusted[i], 4), differs: Math.abs(observed[i]) >= minEffect && adjusted[i] <= alpha }]))
+  return { dimensions, any_differs: Object.values(dimensions).some((x) => x.differs), biggest_effect: Math.max(...observed.map(Math.abs)) }
+}
+
+/**
+ * The limit an area touches most. When two limits tie for the first place the area has no dominant limit (null): the order of the counts would otherwise decide the
+ * criterion. Two areas differ by limit only when both have one and they are not the same.
+ */
+const dominantLimit = (profile) => {
+  const [first, second] = profile.limits
+  return first && second && first.n === second.n ? null : first?.id ?? null
+}
 const overlap = (a, b) => { const small = Math.min(a.length, b.length); return small === 0 ? 0 : a.filter((m) => b.includes(m)).length / small }
 
 /** Measures every candidate area against the four criteria of the method. Returns the report. */
@@ -366,22 +425,30 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   const byArea = new Map(titles.map((t) => [t, tagged.filter((r) => r.area === t)]))
   const profiles = new Map(titles.map((t) => [t, profileOf(byArea.get(t), team, o, tagged.length, weeks)]))
   const recognized = recognition(tagged, (r) => r.area, o)
+  const tests = new Map()
+  const testRand = seededRandom(o.seed)
   const areas = titles.map((title) => {
     const p = profiles.get(title)
     const others = titles.filter((t) => t !== title)
     const overlaps = Object.fromEntries(others.map((t) => [t, round(overlap(p.modules, profiles.get(t).modules))]))
-    const effects = Object.fromEntries(others.map((t) => {
-      const d = Object.fromEntries(DIMENSIONS.map((dim) => [dim, round(cohenD(byArea.get(title).map((r) => Number(r[dim]) || 0), byArea.get(t).map((r) => Number(r[dim]) || 0)), 2)]))
-      const sameLimit = dominantLimit(p) === dominantLimit(profiles.get(t))
-      const biggest = Math.max(...DIMENSIONS.map((dim) => Math.abs(d[dim])))
-      return [t, { biggest_effect: biggest, same_dominant_limit: sameLimit, distinct: !sameLimit || biggest >= o.minEffect }]
+    // An area is compared with the other areas that have the rows to be an area; one that fails the volume is going to merge and does not decide whether this one is distinct.
+    const candidates = others.filter((t) => profiles.get(t).n >= minRows)
+    const effects = Object.fromEntries(candidates.map((t) => {
+      const [x, y] = [title, t].sort() // one test per pair of areas, whichever of the two is being described
+      const key = `${x}|${y}`
+      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, rand: testRand }))
+      const test = tests.get(key)
+      const mine = dominantLimit(p)
+      const theirs = dominantLimit(profiles.get(t))
+      const limitDiffers = mine !== null && theirs !== null && mine !== theirs
+      return [t, { biggest_effect: round(test.biggest_effect, 2), limit_differs: limitDiffers, dimensions: test.dimensions, distinct: limitDiffers || test.any_differs }]
     }))
     const recall = recognized.per_class[title]
     const criteria = {
       volume: { pass: p.n >= minRows, rows: p.n, min_rows: minRows, confirmation_rows: Math.round(p.n * o.holdout / 2) },
       recognized_by_text: { pass: recall.recall_lower > recall.baseline && recall.precision_lower > recall.baseline, recall: recall.recall, recall_lower: recall.recall_lower, precision: recall.precision, precision_lower: recall.precision_lower, baseline: recall.baseline },
       own_map: { pass: Object.values(overlaps).every((v) => v <= o.maxOverlap), overlap_with: overlaps, max: o.maxOverlap },
-      distinct_treatment: { pass: Object.values(effects).every((e) => e.distinct), against: effects, min_effect: o.minEffect }
+      distinct_treatment: { pass: Object.values(effects).every((e) => e.distinct), against: effects, min_effect: o.minEffect, alpha: o.alpha }
     }
     const nearest = others.map((t) => ({ t, d: Math.hypot(...DIMENSIONS.map((dim) => p.dimensions[dim] - profiles.get(t).dimensions[dim])) })).sort((a, b) => a.d - b.d)[0]
     // An area that is mostly confidential is never kept, whatever its criteria say: it cannot be described with words that can be quoted.
@@ -590,7 +657,7 @@ export function labels (rows) {
 function main (argv) {
   const [command, rowsFile, ...rest] = argv
   const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined }
-  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const numeric = Object.fromEntries(['minRows', 'minEffect', 'maxOverlap', 'minTemplate', 'z', 'folds', 'seed', 'mapSize', 'maxConfidentialShare', 'alpha', 'permutations', 'repeats', 'targetRate', 'halfWidth'].map((k) => [k, option(`--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`)]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
   const out = (value) => { const text = `${JSON.stringify(value, null, 2)}\n`; if (option('--out')) writeFileSync(option('--out'), text); else process.stdout.write(text) }
   if (!['labels', 'analyze', 'propose'].includes(command) || !rowsFile) {
     console.error('Uso: node scripts/area-method.mjs (labels|analyze|propose) rows.jsonl [--team team.json] [--families f.json] [--intents i.json] [--intent-fields x.json] [--purposes p.json] [--actor correo] [--out archivo]')

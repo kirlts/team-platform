@@ -142,11 +142,25 @@ Un área existe si cumple los cuatro criterios.
 | Volumen | al menos 26 filas (`--min-rows`) | El menor n para el que el intervalo de Wilson de una tasa de 0,8 tiene semiancho 0,15 (`--target-rate`, `--half-width`; sección 3). Con 3 de 3 aciertos ese intervalo va de 0,44 a 1; una proporción del corpus no dice cuántos pedidos hay para medir |
 | Se reconoce por el texto | los límites inferiores de Wilson de su recall y de su precisión superan su proporción en el corpus | Clasificador bayesiano sobre el resumen, sin el módulo, que es parte del objeto del que sale el área. Validación cruzada de 5 pliegues (`--folds`) repetida 10 veces (`--repeats`), con 1,96 desviaciones (`--z`). Los pliegues se arman por unidad: dos pedidos de un mismo mensaje nunca quedan a ambos lados |
 | Mapa propio | sus diez módulos más frecuentes comparten a lo más la mitad con los de cada otra área (`--max-overlap`) | Definición: más de la mitad en común es el mismo mapa |
-| Tratamiento distinto | su límite dominante difiere del de cada otra área, o alguna dimensión difiere en 0,5 desviaciones estándar o más (`--min-effect`) | Cohen (1988): 0,5 es el efecto mediano |
+| Tratamiento distinto | su límite dominante difiere del de cada otra área candidata, o alguna dimensión difiere en 0,5 desviaciones estándar o más (`--min-effect`) con un valor p ajustado de 0,05 o menos (`--alpha`) | Cohen (1988): 0,5 es el efecto mediano. El valor p sale de una prueba de permutación de 999 repeticiones (`--permutations`; Phipson y Smyth, 2010) y se ajusta con el método de Holm (1979) sobre las cinco dimensiones |
 
 La proporción es la línea base. Un clasificador que no lee el texto obtiene esa precisión, ya sea que reparta por proporciones o elija siempre el área mayor. Obtiene ese recall si reparte por proporciones. Exigir las dos cotas evita que un área dominante apruebe sólo por absorber todo. El intervalo es el de Wilson (1927) y no el de Wald. Con 3 aciertos de 3, Wald da un límite inferior de 1 y Wilson da 0,44 (Brown, Cai y DasGupta, 2001). El criterio es un diagnóstico del corpus y no del enrutador. Dice si el texto de los pedidos separa las áreas, no si un modelo que lee una descripción las elige bien. Eso lo mide la sección 9.
 
 Medición del 2026-10-26 (`bench/area-method-recognition.mjs`, corpus inventados con una proporción conocida de palabras sin señal). Con texto sin señal, ninguna de las áreas aprueba en 30 corpus, sea cual sea su proporción (70/20/10 y 92/5/3/2). Con señal hasta 0,7 de palabras compartidas, las cuatro áreas de 60, 40, 20 y 12 filas aprueban en los 30 corpus. La franja de transición va de 0,75 a 0,9. Dentro de ella, con una sola partición, entre 2 y 15 de 32 veredictos cambiaban sólo por la semilla de los pliegues. Con 10 repeticiones cambian entre 0 y 5. Con esa evidencia el criterio se conserva.
+
+Una área candidata es la que alcanza el volumen mínimo. Un área que no lo alcanza se funde y no decide si otra es distinta. El límite dominante es el más tocado; si dos empatan el primer lugar, el área no tiene límite dominante y el límite no decide. Dos áreas difieren por límite sólo si las dos tienen uno y no es el mismo.
+
+Se comparan cinco dimensiones a la vez. Con una regla fija de 0,5 desviaciones, un grupo chico parece distinto casi siempre. Es la medición del 2026-10-26 (`bench/area-method-treatment.mjs`) con 400 pares de grupos de la misma distribución por tamaño:
+
+| Tamaños | Regla fija de 0,5 | Permutación con Holm |
+|---|---|---|
+| 3 y 40 | 0,92 | 0,03 |
+| 5 y 40 | 0,83 | 0,06 |
+| 20 y 20 | 0,47 | 0,05 |
+| 20 y 40 | 0,34 | 0,06 |
+| 40 y 40 | 0,12 | 0,04 |
+
+Las dimensiones son estimaciones del modelo y están correlacionadas entre sí, y las filas de una unidad no son independientes. La prueba no supone lo primero y no modela lo segundo. Un resultado cerca del nivel se lee con esa reserva.
 
 El informe avisa en `warnings` cuando no hay nada que repartir:
 
@@ -327,6 +341,8 @@ La prueba `scripts/area-method.test.mjs` crea con las funciones del dominio (`cr
 | `--half-width` | 0,15 | Semiancho buscado del intervalo de cualquier tasa; es del equipo |
 | `--min-effect` | 0,5 | Cohen (1988), efecto mediano |
 | `--max-overlap` | 0,5 | Definición de mapa compartido |
+| `--alpha` | 0,05 | Nivel convencional (Fisher, 1925), repartido entre las dimensiones con Holm |
+| `--permutations` | 999 | El menor valor p posible es 0,001, bajo 0,05 dividido en las 5 dimensiones (Phipson y Smyth, 2010) |
 | `--min-template` | 20 | Error estándar de 0,22 desviaciones |
 | `--z` | 1,96 | Percentil 97,5 de la normal |
 | `--folds` | 5 | Validación cruzada de 5 pliegues |

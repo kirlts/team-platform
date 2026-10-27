@@ -638,3 +638,51 @@ test('D1: the report says when it has nothing to route between', () => {
   const thin = analyze(syntheticCorpus({ sizes: { A: 30, B: 30 }, noise: 0.3, seed: 32 }), team)
   assert.ok(thin.warnings.some((w) => w.kind === 'confirmation_short'))
 })
+
+// ---- D2: the treatment criterion with several dimensions compared at once
+test('D2: Holm adjusts a list of p-values and never lowers one', () => {
+  assert.deepEqual(method.holm([0.01, 0.04, 0.03]).map((x) => +x.toFixed(4)), [0.03, 0.06, 0.06])
+  assert.deepEqual(method.holm([0.5]), [0.5])
+  assert.deepEqual(method.holm([0.4, 0.4, 0.4, 0.4, 0.4]), [1, 1, 1, 1, 1])
+  for (const p of [[0.001, 0.02, 0.2], [0.04, 0.04]]) method.holm(p).forEach((adj, i) => assert.ok(adj >= p[i] && adj <= 1))
+})
+
+test('D2: two areas drawn from the same distribution are not called distinct, whatever their sizes', () => {
+  const nullRows = (a, b, seed) => syntheticCorpus({ sizes: { A: a, B: b }, noise: 0.5, seed })
+  for (const [a, b] of [[5, 40], [20, 40], [3, 40]]) {
+    let distinct = 0
+    const trials = 60
+    for (let t = 1; t <= trials; t++) {
+      const area = analyze(nullRows(a, b, 700 + t), team, { minRows: 3, permutations: 199, repeats: 1 }).areas.find((x) => x.title === 'A')
+      if (area.criteria.distinct_treatment.pass) distinct++
+    }
+    // The fixed 0.5 rule called 5 against 40 distinct in 83 % of the null trials (the audit measured 4,000 repetitions); with Holm the rate is near alpha.
+    assert.ok(distinct / trials <= 0.15, `${a} against ${b}: ${distinct}/${trials} null trials called distinct`)
+  }
+})
+
+test('D2: a real difference in one dimension is found', () => {
+  let found = 0
+  const trials = 30
+  for (let t = 1; t <= trials; t++) {
+    const rowsAB = syntheticCorpus({ sizes: { A: 40, B: 40 }, noise: 0.5, seed: 800 + t }).map((r) => (r.object === 'B' ? { ...r, severity: Math.min(1, r.severity * 0.3 + 0.65) } : r))
+    if (analyze(rowsAB, team, { permutations: 199, repeats: 1 }).areas.find((x) => x.title === 'A').criteria.distinct_treatment.pass) found++
+  }
+  assert.ok(found / trials >= 0.9, `${found}/${trials}`)
+})
+
+test('D2: the permutation p-value is never zero and the same seed gives the same test', () => {
+  const a = rows.filter((r) => r.object === 'catálogo y precios')
+  const b = rows.filter((r) => r.object === 'atención al cliente')
+  const first = method.compareGroups(a, b, { rand: seededRandom(1), permutations: 99 })
+  assert.deepEqual(method.compareGroups(a, b, { rand: seededRandom(1), permutations: 99 }), first)
+  for (const d of Object.values(first.dimensions)) assert.ok(d.p >= 1 / 100 && d.p_adjusted >= d.p)
+})
+
+test('D2: two limits tied for the first place leave the area with no dominant limit', () => {
+  const mk = (limits, n, base) => Array.from({ length: n }, (_, i) => ({ ...rows[0], unit: `${base}${i}`, object: base, summary: `${base} pedido ${i}`, limits: limits[i % limits.length] }))
+  const tied = [...mk([['money'], ['customer_data']], 40, 'tied'), ...mk([['money']], 40, 'plain')]
+  const report = analyze(tied, team, { permutations: 99, repeats: 1 })
+  const against = report.areas.find((a) => a.title === 'Tied').criteria.distinct_treatment.against.Plain
+  assert.equal(against.limit_differs, false, 'a tie of 20 and 20 does not decide the criterion')
+})

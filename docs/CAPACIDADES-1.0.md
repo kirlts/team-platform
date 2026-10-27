@@ -1,0 +1,176 @@
+# Capacidades 1.0
+
+Lo que Team Platform 1.0 promete a quien lo instala, una fila por capacidad. Verificado el 2026-10-26 sobre `origin/desarrollo` en `40d710fc`.
+
+## Convenciones
+
+| Término | Significa |
+|---|---|
+| Prueba e2e | Parte de la acción de una persona (envío o respuesta por la API o por el panel), pasa por el servidor, la cola, el trabajador y la base reales, y comprueba lo que esa persona lee en el hilo, la ficha o la lista. Los proveedores de modelo y la sesión de Claude son dobles |
+| Pruebas parciales | Prueban una ruta, una función o una regla sin recorrer el camino entero. No bastan para marcar una capacidad como completa |
+| `verde` | Corrida el 2026-10-26 con `node --test <archivo>`, sin fallas |
+| `roja` | Corrida el 2026-10-26 con fallas. Está en la sección «Pruebas que fallan hoy» |
+| `navegador` | Existe y se leyó, pero exige Chromium y no se corrió en esta verificación. No cuenta como prueba e2e verificada |
+| Juez de interfaz | Veredicto escrito de un agente distinto del autor, con capturas, contra `panel/DISENO.md`. Hoy no hay ninguno en `docs/investigaciones/` ni en `docs/JUICIOS.md`, que sólo documentan el método |
+| completa | Prueba e2e `verde` y veredicto del juez |
+
+Los casos se citan con el nombre que llevan en el archivo. La columna Estado usa «falta prueba e2e» cuando ninguna prueba e2e está `verde`.
+
+## Capacidades
+
+| Capacidad | Qué promete | Prueba e2e (envío a respuesta) | Pruebas parciales | Juez de interfaz | Sha | Estado |
+|---|---|---|---|---|---|---|
+| Mensajes | Quien escribe envía texto y adjuntos, el análisis publica mensajes con su área y destinatarios, y el equipo los lista, busca, filtra, reenvía y edita según quién sea el emisor | `src/api/api.test.js` «full flow: submit, analyze, edit, publish, reply, close and reopen» `verde`; `e2e/contrato/M2-para-destinatarios.e2e.test.mjs` `navegador`; `e2e/contrato/M3-nadie-se-envia-a-si-mismo.e2e.test.mjs` `navegador` | `src/api/message-author-edit.test.js`, `src/api/messages-search.test.js`, `src/api/recipients.test.js`, `src/api/send-as.test.js`, `src/api/editing.test.js`, `src/api/inputs-tray.test.js`, `panel/src/flows-destinatarios.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Respuestas e hilos | Cualquier persona del equipo responde en el hilo con texto, medios y menciones, edita su respuesta y ve todas las respuestas en orden | `src/api/api.test.js` «full flow: submit, analyze, edit, publish, reply, close and reopen» `verde`; `src/execute/execute.test.js` «a message published to an agent enqueues execute; the session replies twice and the job closes with the summary» `verde`; `e2e/contrato/V1-hilo-completo.e2e.test.mjs` `navegador` | `src/api/reply-edit.test.js`, `src/api/reply-speech-edit.test.js`, `src/api/replies-media.test.js`, `src/execute/respuesta-para-pm.test.js`, `panel/src/flows-hilo-respuestas.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Menciones | Mencionar a un miembro en una respuesta lo suma a los destinatarios y le avisa; mencionar a Claude lo invoca, también mientras trabaja | `src/execute/mention.test.js` «the session gets the whole thread in order, who called it, the files of the message and of the replies, and a grammar with `mode`» `verde`; `src/execute/live-mention.test.js` «a reply with text, a photo and a voice note reaches the running session at its next step; it is taken once, opens no second job and the thread shows it» `verde`; `e2e/contrato/M7-mencion-a-claude.e2e.test.mjs` `navegador` | `src/api/mentions.test.js`, `panel/src/flows-menciones.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Miembros y perfiles | Cualquier persona agrega, edita y elimina miembros; cada miembro tiene un perfil en prosa que la sesión recibe, y eliminar a alguien conserva lo que publicó | `src/api/member-retirement.test.js` «published messages and replies stay with the author «Miembro eliminado»; the unpublished input goes» `verde`; `src/execute/execute.test.js` «the invocation and the prompt carry every piece» `verde`; `e2e/contrato/A3-eliminar-miembros.e2e.test.mjs` `navegador`; `e2e/contrato/C10-trato-del-perfil.e2e.test.mjs` `verde` | `src/api/members-lifecycle.test.js`, `src/api/member-deletion.test.js`, `src/api/agent-members.test.js`, `src/api/admin-controls.test.js`, `panel/src/flows-eliminar-miembros.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Roles de equipo | Hay dos roles: el Editor cambia sólo textos configurados (áreas, plantillas, proyecto, perfil de un agente y modelos de un área) y toda otra acción es de cualquier persona del equipo | `e2e/contrato/A2-modelos-solo-editor.e2e.test.mjs` `navegador`; `e2e/contrato/A4-perfil-lo-redacta-el-editor.e2e.test.mjs` `navegador`; `e2e/contrato/M11-mensajes-son-de-quien-escribe.e2e.test.mjs` `navegador` | `src/api/editor-solo-textos.test.js`, `src/api/area-model-editor.test.js`, `src/api/api.test.js` «HP-015: a member reads the areas without the template bodies and gets 403 on writing them (configured texts, UD-287) and reads the full templates and the providers» | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Áreas y plantillas con bloque `output` | El Editor define áreas con color y modelos, y plantillas con campos y un bloque `output` que fija la salida que debe devolver la sesión de Claude | `src/execute/execute.test.js` «the invocation and the prompt carry every piece» `verde` (el bloque `output` llega a `--json-schema`); `src/execute/execute.test.js` «the first reply carries the before and the closing reply carries the before next to the after» `verde` (el campo `zone` declarado en `output` llega a la respuesta); `e2e/contrato/A1-plantillas-en-filas.e2e.test.mjs` `navegador` | `src/api/template-output.test.js`, `src/analyze/output-schema.test.js`, `src/analyze/templates.test.js`, `src/panel-template-roundtrip.test.js`, `src/api/area-color.test.js`, `panel/src/flows-plantilla-salida.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Estados y cierre | El estado de un mensaje (abierto, respondido, cerrado) se deriva de sus respuestas y de su cierre; cualquiera cierra y reabre, y Claude cierra cuando corresponde | `src/api/api.test.js` «full flow: submit, analyze, edit, publish, reply, close and reopen» `verde`; `src/api/message-state-derivation.test.js` «UD-042 · the state of every message is derived from its replies and its closing mark after any sequence of operations» `verde`; `src/execute/auto-close.test.js` «closes with the delivery in exit 0 and close true: the final reply ends with «Cerrado: …», the audit row is the agent's and the output does not carry the request» `verde`; `e2e/contrato/C14-claude-cierra-cuando-corresponde.e2e.test.mjs` `verde` | `panel/src/flows-states-areas.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Adjuntos con extracción y medios visibles | Un envío lleva texto, imagen, audio, video, documento y enlace; cada adjunto se extrae a texto, se ve en una galería y se descarga, y una respuesta también adjunta medios | `src/api/api.test.js` «full flow: submit, analyze, edit, publish, reply, close and reopen» `verde`; `src/api/transcript.test.js` «the transcript of an audio is served with the access of the file and is absent where there is no text» `verde`; `src/api/replies-media.test.js` «a reply carries files and links: stored, listed with their kinds, and served to the whole team» `verde`; `e2e/contrato/V3-adjuntos-se-ven.e2e.test.mjs` `navegador`; `e2e/contrato/M10-subida-binaria.e2e.test.mjs` `navegador`; `src/image-walkthrough.docker.test.js` `navegador` (además exige la imagen Docker) | `src/extract/*.test.js`, `src/size-limits.test.js`, `src/api/attachment-download.test.js`, `src/api/attachment-visibility.test.js`, `src/api/attachments-shared.test.js`, `src/api/inputs-combined.test.js`, `src/domain/attachments.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Envío que se reparte en varios mensajes | Un envío con varios pedidos se publica como un mensaje por pedido, cada uno con su área, su plantilla y sus adjuntos, solo o tras la revisión de quien lo envió | `src/api/one-send-many-messages.test.js` «a send with five requests of three areas publishes five messages, each in its area and template, with its own attachment» `verde`; `src/api/auto-publish.test.js` «UD-070 · the default is automatic publication and a valid proposal is published with no confirmation» `verde`; `e2e/contrato/M1-envio-en-varios-mensajes.e2e.test.mjs` `navegador` | `src/analyze/cut-pass.test.js`, `src/analyze/split-pass.test.js`, `src/analyze/units.test.js`, `src/analyze/api.test.js`, `src/api/publish-units.test.js`, `src/domain/caza.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Revisión por persona | Un cambio que la entrega retiene espera a una persona del equipo, que lo aprueba, lo descarta o pide cambios escribiendo en el hilo | `src/execute/deliver.test.js` «the message view exposes the review, the held reply attaches the «Propuesta» screenshots and the video, and any person delivers» `verde`; `src/execute/review-reply.test.js` «the session of the mention receives the review state; an Editor with review `approve` enqueues the delivery with reviewed_by and the final reply follows» `verde` | `src/execute/sin-reconfirmar.test.js`, `scripts/walkthrough.test.mjs`, `panel/src/flows-revision.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Reintentar y retomar | «Reintentar» lanza otra vez un trabajo fallido con respuesta inmediata en el hilo, y al arrancar el servicio se relanza solo lo que cayó por el entorno | `src/execute/retry.test.js` «launches the same job again: same message and mention, the thread and its files read once more, with who retried audited» `verde`; `src/execute/resume.test.js` «an execute that failed for the machine is launched again, says so in the thread, and is not launched twice» `verde`; `e2e/contrato/C7-reintentar-avisa-al-instante.e2e.test.mjs` `verde`; `e2e/contrato/C16-un-despliegue-no-corta-la-sesion.e2e.test.mjs` `verde`; `e2e/contrato/C18-nada-queda-sin-atender.e2e.test.mjs` `verde` | `panel/src/flows-reintento-visible.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Entrega aparte y en espera | La entrega a producción es un trabajo aparte que corre tras la sesión; espera si el anfitrión no tiene capacidad (código 75), queda en espera de una persona si lo declara (código 76), y la respuesta final dice la hora real | `src/execute/deliver.test.js` «execute hands over and posts nothing; the delivery posts the one closing reply with the production note and the reference» `verde`; `src/execute/deliver.test.js` «exit 75 waits and tries again without spending the attempt; the reply comes once» `verde`; `src/execute/deliver.test.js` «exit 76 holds the delivery for a person: one reply, no retry, no second pass, the output of the session reaches the command» `verde`; `e2e/contrato/C5-final-solo-con-produccion-comprobada.e2e.test.mjs` `verde`; `e2e/contrato/C6-entrega-fallida-lo-dice.e2e.test.mjs` `verde`; `e2e/contrato/C8-rama-ya-en-produccion.e2e.test.mjs` `verde` | `src/execute/respuesta-para-pm.test.js`, `src/execute/creation-gate.test.js`, `panel/src/flows-entrega.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Guardia de la idea | Cuando lo pedido es explorar una idea, Claude la construye y la muestra, nada llega a producción sin el visto de una persona, y la decisión es un booleano que devuelve el analizador | `src/execute/idea-se-muestra.test.js` «an idea: nothing is delivered and the thread says «Lista para ver»; the reply of a person calls Claude with the thread and what Claude understands from it is done» `verde`; `e2e/contrato/C13-idea-se-muestra-y-se-publica.e2e.test.mjs` `verde` | `src/analyze/assessment.test.js`, `src/execute/resume.test.js` «a Guard of the idea that could not be judged (idea_guard_unavailable) is launched again: the case of #125 on 2026-10-26» | sin veredicto | `40d710fc` | falta veredicto |
+| Avisos al anfitrión | El sitio anfitrión consulta con el token firmado de una persona sus conteos y sus últimos avisos, sin darla de alta y sin ver los de otra | Ninguna: la prueba carga los mensajes directo en la base, sin pasar por un envío | `src/api/host-notices.test.js` | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Telemetría | Todo lo que pasa por un modelo y cada trabajo dejan su traza con tokens y costo, y el uso de la interfaz se mide sin guardar texto de personas | `src/telemetry-integration.test.js` «a job leaves its span tree: job, analyze and the model call, with tokens and cost (HP-002)» `verde`; `src/execute/execute.test.js` «one trace joins the sending, the analysis, the publication and the execution, and the timing endpoint answers the figures» `verde` | `src/telemetry/telemetry.test.js`, `src/telemetry/pricing.test.js`, `src/api/ui-telemetry.test.js`, `src/api/execute-runs.test.js`, `scripts/tiempos.test.mjs`, `panel/src/telemetry.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Sesión de Claude | Un mensaje dirigido a un miembro agente lo trabaja una sesión desatendida de Claude, con su perfil, el del emisor y el hilo, sin tope de pasos, y responde al empezar y al terminar | `src/execute/execute.test.js` «a message published to an agent enqueues execute; the session replies twice and the job closes with the summary» `verde`; `e2e/contrato/C3-sin-tope-de-pasos.e2e.test.mjs` `verde`; `e2e/contrato/C15-mismos-accesos-que-el-notebook.e2e.test.mjs` `verde` | `src/execute/prompt.test.js`, `src/execute/light-session.test.js`, `src/execute/area-model.test.js`, `src/execute/sin-tope-de-pasos.test.js`, `scripts/team.test.mjs`, `scripts/repo-map.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Avisos de progreso | Mientras Claude trabaja, el hilo dice cuándo empezó, cuándo espera y cuánto lleva, cada tantos minutos según la plantilla | `src/execute/progress-notices.test.js` «posts a notice every interval with what the session did, and none after it ends» `verde`; `src/execute/progress-notices.test.js` «posts «Claude empezó a trabajar» when the session starts, once, and not as a reply (UD-303)» `verde`; `e2e/contrato/C1-aviso-de-inicio-y-espera.e2e.test.mjs` `verde`; `e2e/contrato/C11-avisos-de-progreso.e2e.test.mjs` `verde` | `src/api/progress-interval.test.js`, `src/domain/progress-phrases.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Capturas en la respuesta | La respuesta de Claude lleva capturas o video del antes y del después de lo que toca una pantalla, o dice por qué no, con una máscara de datos que gobierna el anfitrión | `src/execute/execute.test.js` «the first reply carries the before and the closing reply carries the before next to the after» `verde`; `src/execute/deliver.test.js` «a change to a screen with no capture says so in the final reply and does not close the message» `verde`; `e2e/contrato/C9-captura-en-la-respuesta.e2e.test.mjs` `verde`; `e2e/contrato/C17-capturas-sin-anonimizar.e2e.test.mjs` `verde` | `src/execute/captures.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Reenviar con motivo | Reenviar un mensaje a un miembro exige un motivo escrito y queda en el hilo; si va a Claude, investiga sin cerrar ni entregar | `src/execute/forward.test.js` «investigate: the answer is in the thread, nothing is delivered and nothing is closed, even with a branch, outcome done and close true» `verde`; `e2e/contrato/M4-reenviar-con-comentario.e2e.test.mjs` `navegador`; `e2e/contrato/C12-investigacion-no-cambia-codigo.e2e.test.mjs` `verde` | `src/api/forward.test.js`, `panel/src/flows-reenviar.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Traspaso a una persona | Cuando Claude no puede decidir o el pedido no es suyo, el mensaje pasa a quien decide en el área con la pregunta escrita, y ningún mensaje espera a una persona que nadie ve | `src/execute/handoff.test.js` «needs_decision with its check: the message is open, in the tray of the first Editor, without the agent, and the reply is the question» `verde` | `src/db/escalation-migration.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Presupuesto diario | Sólo el gasto del día limita cuántas sesiones corren: la que no cabe espera al día siguiente y lo dice en el hilo | `src/execute/execute.test.js` «cap reached defers the job to the next day without calling claude» `verde`; `src/execute/execute.test.js` «partial remainder lowers --max-budget-usd and the job keeps its cost» `verde`; `e2e/contrato/C2-solo-el-presupuesto-en-plata.e2e.test.mjs` `verde` | `src/execute/session-reserve.test.js`, `src/telemetry/budget.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Máquinas de ejecución | El anfitrión conecta un driver de cuatro órdenes (crear, correr, recoger, destruir) y la sesión corre en esa máquina, que se destruye siempre | Ninguna: `src/execute/execute.test.js` «creates the machine, runs the session inside and destroys it» `verde` encola el trabajo por la ruta de edición y no lee el hilo | `scripts/host-conformance.test.mjs` (envía por la API y corre `execute` y `deliver` contra el driver de referencia con Docker real, 6 de 6 `verde`; comprueba el estado de los trabajos y no lee el hilo), `src/execute/contract-version.test.js`, `src/execute/drivers-docker-local.test.js` (contra Docker real, 11 de 11 `verde`), `src/execute/execute.test.js` (grupo «machine runner») | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Identidad local y delegada | Cada instalación inicia sesión con correo y contraseña propios o delega la entrada en el sitio anfitrión (JWT, cabecera firmada o redirección), y una sesión vencida lleva a la entrada que funciona | `e2e/contrato/E2-sesion-vencida-lleva-a-la-entrada.e2e.test.mjs` `navegador` | `src/identity/identity.test.js`, `src/api/identity-host.test.js`, `src/api/host-entry.test.js`, `src/api/members-lifecycle.test.js` | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Proveedores y claves | Una persona del equipo configura el proveedor y el modelo de cada función y guarda claves cifradas que no salen del servidor, con prueba previa y diagnóstico | Ninguna | `src/api/connections.test.js`, `src/providers/probe.test.js`, `src/domain/vault.test.js`, `src/api/secrets-never-leak.test.js`, `panel/src/flows-proveedores.browser.test.mjs` | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Cola, traza y auditoría | El equipo ve la cola de trabajos, la traza de cada uno y el registro de auditoría, y reprocesa o borra los envíos de todos | `src/api/reprocess-published.test.js` «UD-258 · the Editor reprocesses a published input: messages to the trash with their replies, input queued, then published again» `verde`; `src/execute/execute.test.js` «a message published to an agent enqueues execute; the session replies twice and the job closes with the summary» `verde` (lee `GET /api/jobs` y la traza del trabajo) | `src/api/queue-admin.test.js`, `src/queue/queue.test.js`, `src/worker.test.js`, `panel/src/flows-cola.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Datos de prueba | El equipo vacía el contenido o todo y siembra los ejemplos, con las cifras de lo borrado y sin tocar miembros ni proveedores | `src/api/data-reset.test.js` «content: empties the content tables and the blobs, returns the figures, keeps members, areas, settings, connections and the audit history» `verde`; `scripts/sembrar.test.mjs` «--ejemplo sends every file and folder of ejemplos/, waits for the analysis and prints one row per send» `verde` | `scripts/vaciar.test.mjs`, `src/api/admin-controls.test.js`, `panel/src/flows-vaciar.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Borrar y restaurar | Cualquier persona borra mensajes, respuestas, envíos, áreas y miembros sin confirmación y con Deshacer, de uno en uno o varios a la vez, y lo borrado se lista y se restaura | `src/api/message-deletion.test.js` «UD-240 · a message is deleted by its sender or an Editor, disappears from every read, and comes back with restore» `verde`; `src/api/bulk-delete.test.js` «UD-253 · the sender deletes several messages in one request, and restore brings them all back» `verde` | `src/api/restore-deleted.test.js`, `src/api/input-deletion.test.js`, `src/api/member-deletion.test.js`, `panel/src/flows-borrar.browser.test.mjs`, `panel/src/flows-restaurar.browser.test.mjs` | sin veredicto | `40d710fc` | falta veredicto |
+| Idioma | Cada cuenta elige español o inglés y ese idioma rige los textos del análisis, su salida y la interfaz | `src/api/language.test.js` «UD-018 · POST /inputs has no per-send language: an output_language field is ignored and the author language rules» `verde` | `src/analyze/prompts.test.js`, `src/analyze/members-prompt.test.js`, `panel/src/i18n.test.ts` | sin veredicto | `40d710fc` | falta veredicto |
+| Descripción del proyecto y encuadre del análisis | El Editor escribe la descripción del proyecto y el encuadre del análisis en Configuración, y ambos llegan al modelo en cada envío | `src/analyze/framing.test.js` «the framing saved in Configuración reaches the model: the pipeline puts it in the bundle and the analyzer sends it» `verde` | `src/api/project-settings.test.js`, `src/analyze/prompts.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Pantallas al día en vivo | Cuando alguien escribe, las pantallas abiertas del equipo leen de nuevo lo que quedó viejo, sin recargar | `src/events/changes.test.js` «a reply made by one member reaches the stream of another as a change of that message» `verde`; `panel/src/flows-en-vivo.browser.test.mjs` no cuenta: usa un servidor doble | `src/events/events.test.js` | sin veredicto | `40d710fc` | falta veredicto |
+| Tema y piel del anfitrión | El panel se ve claro, oscuro o del sistema, se monta bajo la ruta de otro sitio y toma color, tipografía y radio de una hoja `THEME_CSS` sin recompilar | Ninguna: las pruebas de tema del panel corren contra un servidor doble | `src/api/mount.test.js`, `panel/src/theme.browser.test.mjs`, `panel/src/theme-edges.browser.test.mjs` | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| API documentada y cliente | Toda ruta tiene esquema, la API publica un OpenAPI 3.1 válido y el paquete cliente se genera de él | Ninguna | `src/api/contract.test.js`, `src/openapi-valid.test.js`, `src/client-contract.test.js`, `src/error-codes.test.js` | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Instalación con imagen Docker | Una instancia nueva se instala con la imagen Docker o con `scripts/install.sh`, y arranca sin red salvo el proveedor configurado | `src/image-walkthrough.docker.test.js` `navegador` (exige también la imagen construida) | `src/image.docker.test.js`, `src/image-binaries.test.js`, `src/image-imports.test.js`, `src/network-egress.test.js`, `src/install-script.test.js`, `src/env-example.test.js` | sin veredicto | `40d710fc` | falta prueba e2e; falta veredicto |
+| Canario de instalación | Un comando envía un mensaje real a un agente por todo el camino y sale en verde sólo cuando el agente responde «OK» en el hilo | `scripts/canary.test.mjs` «green: the agent replies OK, the message ends closed, the state file says ok, and CANARY_DELETE=1 sends it to the trash» `verde` | `scripts/canary.test.mjs` (casos rojos por tramo), `src/vps-check.test.js` (el caso contra un servidor local se omite sin `panel/dist`) | sin veredicto | `40d710fc` | falta veredicto |
+
+## Cómo se verificó
+
+Cada prueba citada se leyó entera antes de citarla. Las `verde` y `roja` se corrieron una por archivo con `node --test <archivo>` sobre `40d710fc`, sin `test:completa`, sin `vitest` y sin pruebas de navegador. El resultado de cada archivo está en «Pruebas corridas».
+
+Las pruebas `navegador` levantan Chromium contra el servidor real (`e2e/contrato/harness.mjs`) o contra la imagen Docker. No se corrieron por la regla de la verificación y por eso no cuentan.
+
+## Pruebas corridas
+
+88 archivos corridos el 2026-10-26 sobre `40d710fc` con `node --test <archivo>` y `TMPDIR=$HOME/.cache/claude-tmp/tp-conf`: 88 verdes y 0 rojos. Las 18 pruebas `e2e/contrato/C*` suman 61 casos y pasan. `src/vps-check.test.js` pasa con un caso omitido (`panel/dist` sin compilar), por eso su caso contra un servidor local no cuenta.
+
+| Archivo | Casos | Pasan | Fallan | Omitidos | Segundos | Resultado |
+|---|---|---|---|---|---|---|
+| `src/analyze/framing.test.js` | 4 | 4 | 0 | 0 | 2 | verde |
+| `src/api/admin-controls.test.js` | 3 | 3 | 0 | 0 | 3 | verde |
+| `src/api/agent-members.test.js` | 7 | 7 | 0 | 0 | 1 | verde |
+| `src/api/api.test.js` | 25 | 25 | 0 | 0 | 28 | verde |
+| `src/api/area-model-editor.test.js` | 4 | 4 | 0 | 0 | 2 | verde |
+| `src/api/auto-publish.test.js` | 15 | 15 | 0 | 0 | 16 | verde |
+| `src/api/bulk-delete.test.js` | 4 | 4 | 0 | 0 | 5 | verde |
+| `src/api/connections.test.js` | 43 | 43 | 0 | 0 | 35 | verde |
+| `src/api/contract.test.js` | 22 | 22 | 0 | 0 | 20 | verde |
+| `src/api/data-reset.test.js` | 3 | 3 | 0 | 0 | 4 | verde |
+| `src/api/editor-solo-textos.test.js` | 4 | 4 | 0 | 0 | 4 | verde |
+| `src/api/execute-runs.test.js` | 4 | 4 | 0 | 0 | 3 | verde |
+| `src/api/forward.test.js` | 7 | 7 | 0 | 0 | 9 | verde |
+| `src/api/host-entry.test.js` | 3 | 3 | 0 | 0 | 2 | verde |
+| `src/api/host-notices.test.js` | 4 | 4 | 0 | 0 | 3 | verde |
+| `src/api/identity-host.test.js` | 9 | 9 | 0 | 0 | 8 | verde |
+| `src/api/input-deletion.test.js` | 5 | 5 | 0 | 0 | 5 | verde |
+| `src/api/language.test.js` | 4 | 4 | 0 | 0 | 5 | verde |
+| `src/api/member-deletion.test.js` | 6 | 6 | 0 | 0 | 7 | verde |
+| `src/api/member-retirement.test.js` | 5 | 5 | 0 | 0 | 5 | verde |
+| `src/api/members-lifecycle.test.js` | 9 | 9 | 0 | 0 | 10 | verde |
+| `src/api/mentions.test.js` | 9 | 9 | 0 | 0 | 11 | verde |
+| `src/api/message-author-edit.test.js` | 11 | 11 | 0 | 0 | 15 | verde |
+| `src/api/message-deletion.test.js` | 2 | 2 | 0 | 0 | 4 | verde |
+| `src/api/message-state-derivation.test.js` | 2 | 2 | 0 | 0 | 3 | verde |
+| `src/api/messages-search.test.js` | 1 | 1 | 0 | 0 | 2 | verde |
+| `src/api/mount.test.js` | 7 | 7 | 0 | 0 | 6 | verde |
+| `src/api/one-send-many-messages.test.js` | 1 | 1 | 0 | 0 | 2 | verde |
+| `src/api/progress-interval.test.js` | 2 | 2 | 0 | 0 | 3 | verde |
+| `src/api/project-settings.test.js` | 6 | 6 | 0 | 0 | 5 | verde |
+| `src/api/queue-admin.test.js` | 3 | 3 | 0 | 0 | 4 | verde |
+| `src/api/recipients.test.js` | 10 | 10 | 0 | 0 | 11 | verde |
+| `src/api/replies-media.test.js` | 7 | 7 | 0 | 0 | 9 | verde |
+| `src/api/reply-edit.test.js` | 7 | 7 | 0 | 0 | 9 | verde |
+| `src/api/reply-speech-edit.test.js` | 5 | 5 | 0 | 0 | 6 | verde |
+| `src/api/reprocess-published.test.js` | 3 | 3 | 0 | 0 | 4 | verde |
+| `src/api/restore-deleted.test.js` | 3 | 3 | 0 | 0 | 4 | verde |
+| `src/api/send-as.test.js` | 6 | 6 | 0 | 0 | 6 | verde |
+| `src/api/template-output.test.js` | 2 | 2 | 0 | 0 | 2 | verde |
+| `src/api/transcript.test.js` | 1 | 1 | 0 | 0 | 2 | verde |
+| `src/api/ui-telemetry.test.js` | 9 | 9 | 0 | 0 | 8 | verde |
+| `src/events/changes.test.js` | 2 | 2 | 0 | 0 | 5 | verde |
+| `src/execute/auto-close.test.js` | 10 | 10 | 0 | 0 | 13 | verde |
+| `src/execute/captures.test.js` | 15 | 15 | 0 | 0 | 0 | verde |
+| `src/execute/contract-version.test.js` | 6 | 6 | 0 | 0 | 3 | verde |
+| `src/execute/creation-gate.test.js` | 2 | 2 | 0 | 0 | 0 | verde |
+| `src/execute/deliver.test.js` | 51 | 51 | 0 | 0 | 77 | verde |
+| `src/execute/drivers-docker-local.test.js` | 11 | 11 | 0 | 0 | 23 | verde |
+| `src/execute/execute.test.js` | 54 | 54 | 0 | 0 | 40 | verde |
+| `src/execute/forward.test.js` | 6 | 6 | 0 | 0 | 7 | verde |
+| `src/execute/handoff.test.js` | 7 | 7 | 0 | 0 | 6 | verde |
+| `src/execute/idea-se-muestra.test.js` | 8 | 8 | 0 | 0 | 9 | verde |
+| `src/execute/live-mention.test.js` | 6 | 6 | 0 | 0 | 7 | verde |
+| `src/execute/mention.test.js` | 6 | 6 | 0 | 0 | 7 | verde |
+| `src/execute/progress-notices.test.js` | 8 | 8 | 0 | 0 | 13 | verde |
+| `src/execute/respuesta-para-pm.test.js` | 5 | 5 | 0 | 0 | 0 | verde |
+| `src/execute/resume.test.js` | 12 | 12 | 0 | 0 | 4 | verde |
+| `src/execute/retry.test.js` | 7 | 7 | 0 | 0 | 6 | verde |
+| `src/execute/review-reply.test.js` | 5 | 5 | 0 | 0 | 7 | verde |
+| `src/execute/session-reserve.test.js` | 8 | 8 | 0 | 0 | 2 | verde |
+| `src/execute/sin-reconfirmar.test.js` | 3 | 3 | 0 | 0 | 6 | verde |
+| `src/execute/sin-tope-de-pasos.test.js` | 2 | 2 | 0 | 0 | 0 | verde |
+| `src/telemetry-integration.test.js` | 1 | 1 | 0 | 0 | 2 | verde |
+| `src/vps-check.test.js` | 3 | 2 | 0 | 1 | 0 | verde |
+| `src/vps-check.test.js` | 3 | 2 | 0 | 1 | 1 | verde |
+| `scripts/canary.test.mjs` | 8 | 8 | 0 | 0 | 6 | verde |
+| `scripts/host-conformance.test.mjs` | 6 | 6 | 0 | 0 | 62 | verde |
+| `scripts/sembrar.test.mjs` | 1 | 1 | 0 | 0 | 3 | verde |
+| `scripts/team.test.mjs` | 9 | 9 | 0 | 0 | 3 | verde |
+| `scripts/vaciar.test.mjs` | 3 | 3 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C1-aviso-de-inicio-y-espera.e2e.test.mjs` | 2 | 2 | 0 | 0 | 6 | verde |
+| `e2e/contrato/C2-solo-el-presupuesto-en-plata.e2e.test.mjs` | 2 | 2 | 0 | 0 | 9 | verde |
+| `e2e/contrato/C3-sin-tope-de-pasos.e2e.test.mjs` | 2 | 2 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C4-prueba-que-falla-no-es-final.e2e.test.mjs` | 2 | 2 | 0 | 0 | 4 | verde |
+| `e2e/contrato/C5-final-solo-con-produccion-comprobada.e2e.test.mjs` | 3 | 3 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C6-entrega-fallida-lo-dice.e2e.test.mjs` | 4 | 4 | 0 | 0 | 5 | verde |
+| `e2e/contrato/C7-reintentar-avisa-al-instante.e2e.test.mjs` | 1 | 1 | 0 | 0 | 2 | verde |
+| `e2e/contrato/C8-rama-ya-en-produccion.e2e.test.mjs` | 2 | 2 | 0 | 0 | 2 | verde |
+| `e2e/contrato/C9-captura-en-la-respuesta.e2e.test.mjs` | 10 | 10 | 0 | 0 | 7 | verde |
+| `e2e/contrato/C10-trato-del-perfil.e2e.test.mjs` | 3 | 3 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C11-avisos-de-progreso.e2e.test.mjs` | 3 | 3 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C12-investigacion-no-cambia-codigo.e2e.test.mjs` | 4 | 4 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C13-idea-se-muestra-y-se-publica.e2e.test.mjs` | 6 | 6 | 0 | 0 | 6 | verde |
+| `e2e/contrato/C14-claude-cierra-cuando-corresponde.e2e.test.mjs` | 7 | 7 | 0 | 0 | 6 | verde |
+| `e2e/contrato/C15-mismos-accesos-que-el-notebook.e2e.test.mjs` | 4 | 4 | 0 | 0 | 4 | verde |
+| `e2e/contrato/C16-un-despliegue-no-corta-la-sesion.e2e.test.mjs` | 1 | 1 | 0 | 0 | 5 | verde |
+| `e2e/contrato/C17-capturas-sin-anonimizar.e2e.test.mjs` | 3 | 3 | 0 | 0 | 3 | verde |
+| `e2e/contrato/C18-nada-queda-sin-atender.e2e.test.mjs` | 2 | 2 | 0 | 0 | 5 | verde |
+
+## Pruebas que fallan hoy
+
+Ninguna de las pruebas citadas falla. Comando: `node --test e2e/contrato/C*.e2e.test.mjs`, que da 61 de 61 en `40d710fc`. Sobre `b87e4d7b` fallaban 48 de 55 casos de 17 archivos por una línea de `e2e/contrato/ciclo.mjs`, corregida en `40d710fc`.
+
+## Lo que falta para 1.0
+
+| Capacidad | Qué falta |
+|---|---|
+| Todas | Veredicto de un juez de interfaz por vista, con capturas en escritorio y teléfono, claro y oscuro, contra `panel/DISENO.md` |
+| Roles de equipo | Una prueba e2e en Node, sin navegador, que muestre que un Miembro recibe 403 en cada texto configurado y puede responder, editar y reenviar; hoy sólo existen las de navegador |
+| Avisos al anfitrión | Una prueba que parta de un envío y lea los avisos con el token del anfitrión |
+| Máquinas de ejecución | Un caso de `scripts/host-conformance.mjs` que lea la respuesta de Claude en el hilo, no sólo el estado de los trabajos |
+| Identidad local y delegada | Una prueba e2e en Node que inicie sesión por cada fuente de identidad y envíe un mensaje |
+| Proveedores y claves | Una prueba e2e que configure una conexión desde la API y analice un envío con ella |
+| Tema y piel del anfitrión | Una prueba contra el servidor real que sirva `THEME_CSS` y compruebe el panel con la hoja aplicada |
+| API documentada y cliente | Una prueba que genere el cliente desde el OpenAPI servido por una instancia en marcha y lo use para enviar y responder |
+| Instalación con imagen Docker | Correr `src/image-walkthrough.docker.test.js` sobre la imagen construida; `scripts/backup.sh` no tiene prueba |
+| Capacidades con pruebas `navegador` | Correr `npm run e2e:contrato` en un equipo con Chromium para que cuenten |

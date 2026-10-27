@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - La batería de una publicación corre dentro de esa imagen (`scripts/battery-image.sh`, usado por `scripts/publish-main.sh` y `scripts/battery-record.mjs run`): el registro guarda el `node` de adentro, el digest fijado como `imagen_base` y las pruebas saltadas por entorno con su motivo. La conformidad con docker-local corre fuera de la imagen, en la máquina que publica, y el registro lo declara.
 - Las pruebas que exigen Docker, git con identidad o ganchos, Chromium o red lo declaran con `src/testing/requires.js` y, si el entorno no lo trae, se saltan con el motivo escrito en lugar de fallar. Una guardia (`src/testing/environment-declared.test.js`) falla si una prueba usa Docker o commits sin declararlo. Las que sólo fallaban por falta de identidad de git ahora la configuran en su repositorio temporal.
 
+- Lista de mensajes en teléfono: la marca de la cabecera no se parte, el número de la fila va junto a su estado, buscar y los controles táctiles miden 44 px, el esqueleto de carga tiene el alto de la fila real, y Cerrar y Reabrir se pueden deshacer. El chip de área y las marcas de guardia ya no alargan la fila.
+- Envío nuevo: los destinatarios de Para se muestran con su nombre de pila, el aviso de «Enviar como» queda en una línea bajo su control y la barra de envío se ordena en dos filas.
+- Gestión del equipo: la cabecera no desborda a 390 px, Equipo muestra los nombres enteros, Configuración llega plegada y se abre por sección, y la Cola muestra su error.
+- Plantillas: un campo obligatorio vacío pide completarse sólo a quien puede hacerlo y a los demás les dice «Falta» (UD-306); marcar filas no mueve ninguna.
+- `docs/CAPACIDADES-1.0.md` declara completas, con su prueba de punta a punta, las cuatro capacidades sin pantalla, y los veredictos de los jueces por vista.
+
 ## [0.1.0] - 2026-10-27
 
 - Un límite de una persona no se cruza sin que una persona lo levante (UD-313). Si el mensaje toca una Guardia `person` que nadie levantó, la plataforma retiene la entrega antes de correr la orden del anfitrión, con la misma revisión de UD-275; la levanta aprobar la entrega a mano o en el hilo (no la aprobación de antemano ni un agente) y queda en la auditoría como `message.guard_lifted`. Sin Guardias `person` no cambia nada.

@@ -25,7 +25,7 @@ export function DropdownMenuContent({ className, sideOffset = 4, ...props }: Com
 }
 
 const item =
-  'relative flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-option px-2 py-1.5 outline-none ' +
+  'relative flex min-h-8 max-md:min-h-11 cursor-pointer select-none items-center gap-2 rounded-option px-2 py-1.5 outline-none ' +
   'data-[highlighted]:bg-accent-soft data-[highlighted]:text-accent-deep data-[disabled]:pointer-events-none data-[disabled]:opacity-45'
 
 export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof Primitive.Item>) {
@@ -47,9 +47,12 @@ export function DropdownMenuRadioItem({ className, children, ...props }: Compone
 export function DropdownMenuCheckboxItem({ className, children, ...props }: ComponentProps<typeof Primitive.CheckboxItem>) {
   return (
     <Primitive.CheckboxItem className={cn(item, 'pl-7', className)} {...props}>
-      <Primitive.ItemIndicator className="absolute left-2 inline-flex">
-        <Check size={14} aria-hidden />
-      </Primitive.ItemIndicator>
+      {/* The box is drawn at rest, so an option that is off reads as one that can be turned on; the check fills it when it is on. */}
+      <span aria-hidden className="absolute left-2 inline-flex size-3.5 items-center justify-center rounded-sm border border-edge">
+        <Primitive.ItemIndicator className="inline-flex">
+          <Check size={12} aria-hidden />
+        </Primitive.ItemIndicator>
+      </span>
       {children}
     </Primitive.CheckboxItem>
   )

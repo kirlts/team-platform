@@ -39,6 +39,11 @@ export const DEFAULTS = Object.freeze({
   // Repeats of the cross-validation (see `recognition`). Measured 2026-10-26 on 8 invented corpora of 4 areas (60, 40, 20 and 12 rows) with 30 fold seeds each: with 1 draw, of 32
   // area verdicts changed with the seed alone (noise 0.75 to 0.9: 2, 7, 12 and 15); with 10 draws, 0, 1, 4 and 5 (bench/area-method-recognition.mjs).
   repeats: 10,
+  // Kappa that a field of the extraction needs against the people who read the same requests: 0.6 is where «substantial» agreement starts (Landis and Koch 1977,
+  // Biometrics 33:159-174). It is the team's to raise; it is fixed before measuring.
+  minKappa: 0.6,
+  // Resamples of the interval of a kappa: at least 1,000 for percentile intervals (Efron and Tibshirani 1993, An Introduction to the Bootstrap).
+  resamples: 1000,
   // Share of the units kept out of the construction of descriptions and profiles. Half is held out and split again into a tuning set and a confirmation set, which gives
   // the 50 / 25 / 25 split that Hastie, Tibshirani and Friedman (2009, The Elements of Statistical Learning, 2nd ed., section 7.2) suggest for abundant data.
   holdout: 0.5,
@@ -212,9 +217,12 @@ export function requiresPerson (row, team) {
 const slug = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
+/** The title of the area of a row before any area is hidden: its object through the families map, or the object with a capital. */
+export const areaTitle = (row, families = {}) => families[row.object] ?? capital(row.object)
+
 /** The area (family) title of each row: the object label through the families map, or the label itself with a capital. */
 export function withAreas (rows, families = {}, hidden = new Map()) {
-  return rows.map((r) => { const title = families[r.object] ?? capital(r.object); return { ...r, area: hidden.get(title) ?? title } })
+  return rows.map((r) => { const title = areaTitle(r, families); return { ...r, area: hidden.get(title) ?? title } })
 }
 
 /**
@@ -224,7 +232,7 @@ export function withAreas (rows, families = {}, hidden = new Map()) {
 export function hiddenAreas (rows, families = {}, maxShare = DEFAULTS.maxConfidentialShare) {
   const by = new Map()
   for (const r of rows) {
-    const t = families[r.object] ?? capital(r.object)
+    const t = areaTitle(r, families)
     const c = by.get(t) ?? { n: 0, confidential: 0 }
     c.n++
     if (r.confidential) c.confidential++

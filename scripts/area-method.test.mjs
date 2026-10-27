@@ -10,6 +10,7 @@ import * as method from './area-method.mjs'
 import { cohenD, DEFAULTS, fitClauses, analyze, propose, readJson, readJsonl, recognition, requiresPerson, seededRandom, topPhrases, validateLoadFile, validateTeam } from './area-method.mjs'
 import * as extraction from './request-rows.mjs'
 import { batchUnits, extractRows, finishRows, rowsSchema, systemPrompt } from './request-rows.mjs'
+const validation = await import('./row-validation.mjs').catch(() => ({})) // a module that older versions of the method did not have
 import * as experiment from './route-experiment.mjs'
 import { runExperiment, scoreRouting, routerPrompt, SAMPLE } from './route-experiment.mjs'
 import { parseTemplate } from '../src/analyze/templates.js'
@@ -193,7 +194,7 @@ test('finishRows ignores a row with a malformed date and keeps the date of the u
 // ---- routing experiment
 test('the routing is scored without a judge: area and people', () => {
   const row = { ...rows.find((r) => r.object === 'catálogo y precios' && r.limits.includes('money')), area: 'Catálogo y precios' }
-  assert.deepEqual(scoreRouting({ area: 'Catálogo y precios', attends: ['Ana'] }, row, team), { area_match: true, person_match: true, person_missing: false, person_extra: false })
+  assert.deepEqual(scoreRouting({ area: 'Catálogo y precios', attends: ['Ana'] }, row, team), { area_agrees: true, person_agrees: true, person_missing: false, person_extra: false })
   assert.equal(scoreRouting({ area: 'Catálogo y precios', attends: ['Asistente'] }, row, team).person_missing, true)
   const simple = { ...rows.find((r) => r.object === 'atención al cliente' && r.limits.length === 0), area: 'Atención al cliente' }
   assert.equal(scoreRouting({ area: 'Atención al cliente', attends: ['Asistente', 'Ana'] }, simple, team).person_extra, true)
@@ -214,7 +215,7 @@ test('the experiment routes a sample through the provider and reports counts, co
   }
   const result = await runExperiment(rows, spec, team, { provider, size: 30, judge: true })
   assert.ok(result.n >= 25 && result.n <= 30, `n ${result.n}`)
-  assert.ok(result.area_rate > 0.5 && result.area_rate < 1, `area rate ${result.area_rate}: the corpus has confusions`)
+  assert.ok(result.agreement_with_rows.area.rate > 0.5 && result.agreement_with_rows.area.rate < 1, `agreement ${result.agreement_with_rows.area.rate}: the corpus has confusions`)
   assert.deepEqual(result.indicators, { '1.1': 1, '1.2': 1, '2.3': 1, '3.3': 1 })
   assert.ok(Object.keys(result.confusions).length > 0, 'the confusions are reported')
   assert.match(routerPrompt(spec, team), /### Catálogo y precios\nPropósito: /)
@@ -409,4 +410,115 @@ test('B2: without a hold-out the leak is counted, and with it the count is zero'
   const clean = await runExperiment(built.test, built.load, team, { provider, size: built.test.length, held: { stage: built.stage, sets: built.sets }, buildUnits: built.buildUnits })
   assert.equal(clean.holdout.stage, 'confirm')
   assert.equal(clean.leaked_examples, 0)
+})
+
+// ---- B1: nothing counts until people have validated the rows
+const AREA_OF = (r) => r.object.charAt(0).toUpperCase() + r.object.slice(1)
+
+/** Labels that a careful person would write for the sample: the extraction's own values, with `flip` of every `every`-th label changed to another area. */
+function labelsFor (items, { rater = 'p1', every = Infinity, only = null } = {}) {
+  const byKey = new Map(validation.keyRows(rows).map((r) => [r.key, r]))
+  const others = ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente']
+  return items.filter((i) => !only || only(i)).map((i, n) => {
+    const r = byKey.get(i.key)
+    const area = AREA_OF(r)
+    const flipped = (n + 1) % every === 0
+    return { key: i.key, rater, area: flipped ? others.find((a) => a !== area) : area, value_holder: r.value_holder, holder: r.holder, limits: r.limits }
+  })
+}
+
+test('B1: the sample sizes come from the interval count, not from a round number', () => {
+  const sizes = validation.validationSizes()
+  assert.equal(sizes.per_area, method.wilsonSampleSize(0.8, 0.15))
+  assert.equal(sizes.per_area, 26)
+  assert.ok(method.wilson(Math.round(0.8 * 26), 26).upper - method.wilson(Math.round(0.8 * 26), 26).lower <= 0.3)
+  assert.ok(method.wilson(Math.round(0.8 * 25), 25).upper - method.wilson(Math.round(0.8 * 25), 25).lower > 0.3, 'one less and the margin is not reached')
+  assert.equal(validation.validationSizes({ halfWidth: 0.1 }).per_area, method.wilsonSampleSize(0.8, 0.1))
+})
+
+test('B1: the sample is stratified, blind and never takes a confidential row', () => {
+  const { items, sizes, short } = validation.drawValidationSample(rows, team, { seed: 3 })
+  const byKey = new Map(validation.keyRows(rows).map((r) => [r.key, r]))
+  for (const i of items) {
+    assert.deepEqual(Object.keys(i).sort(), ['date', 'double', 'key', 'summary', 'unit'], 'no estimate of the extractor travels with the request')
+    assert.equal(byKey.get(i.key).confidential, false)
+  }
+  const perArea = items.reduce((m, i) => m.set(AREA_OF(byKey.get(i.key)), (m.get(AREA_OF(byKey.get(i.key))) ?? 0) + 1), new Map())
+  for (const a of ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente']) assert.equal(perArea.get(a), sizes.per_area)
+  assert.deepEqual(short.map((s) => s.area), ['Contabilidad'], 'an area with fewer rows than the sample needs is announced')
+  assert.equal(items.filter((i) => i.double).length, sizes.double)
+  const needs = (key) => method.requiresPerson(byKey.get(key), team)
+  const catalog = items.filter((i) => AREA_OF(byKey.get(i.key)) === 'Catálogo y precios')
+  assert.ok(catalog.filter((i) => needs(i.key)).length >= 10, 'the requests that need a person are not left to chance')
+  assert.deepEqual(validation.drawValidationSample(rows, team, { seed: 3 }).items, items)
+})
+
+test('B1: Cohen kappa of a known table, with weights', () => {
+  const pair = (a, b, n) => Array.from({ length: n }, () => ({ a, b, w: 1 }))
+  const table = [...pair('y', 'y', 20), ...pair('y', 'n', 5), ...pair('n', 'y', 10), ...pair('n', 'n', 15)]
+  assert.ok(Math.abs(validation.weightedKappa(table).kappa - 0.4) < 1e-9, 'po 0.7, pe 0.5: kappa 0.4')
+  const weighted = [{ a: 'y', b: 'y', w: 20 }, { a: 'y', b: 'n', w: 5 }, { a: 'n', b: 'y', w: 10 }, { a: 'n', b: 'n', w: 15 }]
+  assert.ok(Math.abs(validation.weightedKappa(weighted).kappa - 0.4) < 1e-9, 'a weight of 20 is twenty copies')
+  assert.equal(validation.weightedKappa(pair('y', 'y', 5)).kappa, 1)
+  assert.equal(validation.weightedKappa([]).kappa, null)
+  const ci = validation.kappaWithInterval(table.map((t, i) => ({ ...t, stratum: i % 2 })), { resamples: 300, seed: 1 })
+  assert.ok(ci.lower < 0.4 && 0.4 < ci.upper && ci.lower > 0 && ci.upper < 0.7, JSON.stringify(ci))
+})
+
+test('B1: the extraction is validated only when people, a second person and a second run agree', () => {
+  const { items } = validation.drawValidationSample(rows, team, { seed: 3 })
+  const first = labelsFor(items, { every: 10 }) // one label in ten differs: a careful person against a good extraction
+  const second = labelsFor(items, { rater: 'p2', only: (i) => i.double })
+  const rerun = rows.map((r, i) => (i % 15 === 0 ? { ...r, object: 'atención al cliente' } : r))
+  const complete = validation.agreement(rows, [...first, ...second], team, { retest: rerun, resamples: 200 })
+  assert.equal(complete.validated, true, JSON.stringify([complete.failing, complete.missing]))
+  assert.ok(complete.extraction_vs_people.area.kappa >= 0.6 && complete.extraction_vs_people.area.kappa < 1)
+  assert.ok(complete.extraction_vs_people.area.lower < complete.extraction_vs_people.area.kappa)
+  assert.ok(complete.between_people.area.kappa > 0.7 && complete.between_people.area.kappa < 1, `between people ${complete.between_people.area.kappa}`)
+  assert.ok(complete.retest.aligned_units > 0 && complete.retest.area.kappa < 1)
+  const noRetest = validation.agreement(rows, [...first, ...second], team, { resamples: 100 })
+  assert.deepEqual([noRetest.validated, noRetest.missing], [false, ['retest']])
+  const noSecond = validation.agreement(rows, first, team, { retest: rerun, resamples: 100 })
+  assert.deepEqual([noSecond.validated, noSecond.missing], [false, ['second_rater']])
+  const careless = validation.agreement(rows, [...labelsFor(items, { every: 2 }), ...second], team, { retest: rerun, resamples: 100 })
+  assert.equal(careless.validated, false)
+  assert.ok(careless.failing.includes('area'), 'half of the labels differ: the area does not agree')
+})
+
+test('B1: a run of the extraction with another number of requests in a unit is reported as unaligned', () => {
+  const dropped = rows.filter((r, i) => i !== 1)
+  const run = validation.testRetest(rows, dropped, team)
+  assert.ok(run.unaligned_units >= 1)
+  assert.equal(run.aligned_units + run.unaligned_units, new Set(rows.map((r) => r.unit)).size)
+})
+
+test('B1: the experiment names its measures by what they measure, brings the trivial routers next to them and says whether the rows are validated', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const provider = { async complete (req) { return { json: { area: 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } } // always the same area and no person
+  const result = await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 60 })
+  assert.equal(result.area_rate, undefined, 'the old name is gone')
+  assert.equal(result.area_match, undefined)
+  assert.equal(result.validated, false)
+  assert.ok(result.agreement_with_rows.area.lower <= result.agreement_with_rows.area.rate && result.agreement_with_rows.area.rate <= result.agreement_with_rows.area.upper)
+  assert.equal(result.baselines.area_majority.area.length > 0, true)
+  assert.ok(result.baselines.person_agent_alone.rate > 0.5 && result.baselines.person_agent_alone.rate < 1)
+  assert.ok(result.baselines.person_asker.rate >= 0 && result.baselines.person_asker.rate <= 1)
+  // a router that is the baseline «always the agent alone» obtains exactly the baseline
+  assert.equal(result.agreement_with_rows.person.rate, Math.round(result.baselines.person_agent_alone.rate * result.n) / result.n > 0 ? result.agreement_with_rows.person.rate : 0)
+  assert.equal(Math.round(result.agreement_with_rows.person.rate * 1000), Math.round(result.baselines.person_agent_alone.rate * 1000))
+  assert.equal(result.agreement_with_labels, null)
+  const ok = await runExperiment(validation.keyRows(rows), spec, team, { provider, size: 60, validation: { validated: true } })
+  assert.equal(ok.validated, true)
+})
+
+test('B1: with labels from people the experiment also reports the agreement with them', async () => {
+  const { spec } = propose(rows, team, { purposes })
+  const { items } = validation.drawValidationSample(rows, team, { seed: 3 })
+  const labels = labelsFor(items)
+  const byKey = new Map(validation.keyRows(rows).map((r) => [r.key, r]))
+  const provider = { async complete (req) { const text = req.messages[0].content; const row = items.find((i) => text.includes(i.summary)); const r = row && byKey.get(row.key); return { json: { area: r ? AREA_OF(r) : 'Pedidos y envíos', attends: ['Asistente'], brief: 'x' } } } }
+  const result = await runExperiment(validation.keyRows(rows).filter((r) => items.some((i) => i.key === r.key)), spec, team, { provider, size: items.length, labels })
+  assert.ok(result.agreement_with_labels.n > 50)
+  assert.ok(result.agreement_with_labels.area.rate > 0.9)
+  assert.equal(result.agreement_with_labels.rater, 'p1')
 })

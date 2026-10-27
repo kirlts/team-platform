@@ -22,15 +22,10 @@ export function nameMachine (db, id, machine) {
   runSql(db, 'UPDATE execute_machines SET machine = ? WHERE id = ?', machine, id)
 }
 
-/** An orderly shutdown left this machine alive on purpose for the next attempt of the job. */
-export function parkMachine (db, id) {
-  runSql(db, 'UPDATE execute_machines SET parked = 1 WHERE id = ?', id)
-}
-
 /**
  * CREATE of the next attempt named `machine`: the older open rows of the job that name the same machine continue under the new row and are deleted (the
- * attempt that took over the machine of a parked one, or of a worker that died, owns it now). The ones that name another machine stay open: the sweep
- * destroys them when the job has no newer open row.
+ * attempt that took over the machine of a worker that shut down or died owns it now). The ones that name another machine stay open: the sweep destroys
+ * them when the job ends.
  */
 export function adoptPrevious (db, { jobId, machine, exceptId }) {
   runSql(db, 'DELETE FROM execute_machines WHERE job_id = ? AND destroyed_at IS NULL AND machine = ? AND id < ?', jobId, machine, exceptId)
@@ -46,20 +41,18 @@ export function recordDestroy (db, id, { code, stderr = '', now = Date.now() }) 
   }
 }
 
-// A row that has an owner: (1) the newest machine of a `running` job, in the attempt that created it, with its lease in force; (2) a parked machine (an orderly
-// shutdown kept it on purpose) whose job is still to run: `queued` or `running`. Every other open row has no owner. A row is also left alone while the same
-// job has a newer open row: the attempt in progress may be taking this very machine over (a CREATE that returns the same name), and it deletes the old row
-// when it does (`adoptPrevious`); if it does not, the old row is destroyed as soon as the newer one closes.
+// A machine has an owner while its job is still to run: `running` (a worker holds it, or its lease has expired and the queue is about to requeue it) or `queued` (it
+// waits for its next attempt, which calls CREATE again and takes the machine over with `adoptPrevious`, or leaves it for the sweep when the job ends). The sweep must not
+// destroy the machine of a job that is about to be claimed again: its CREATE would meet a container marked for removal (measured with a killed worker and a real Docker
+// daemon: «container is marked for removal and cannot be started», machine_create_failed). Every other open row has no owner: its job is done, failed, cancelled or purged.
 const ORPHANS = `
   SELECT m.* FROM execute_machines m LEFT JOIN jobs j ON j.id = m.job_id
    WHERE m.destroyed_at IS NULL
-     AND COALESCE((j.status = 'running' AND j.attempts = m.attempt AND j.lease_until >= ? AND m.id = (SELECT MAX(id) FROM execute_machines WHERE job_id = m.job_id))
-                  OR (m.parked = 1 AND j.status IN ('queued', 'running')), 0) = 0
-     AND NOT EXISTS (SELECT 1 FROM execute_machines n WHERE n.job_id = m.job_id AND n.id > m.id AND n.destroyed_at IS NULL)` // COALESCE: a purged job has no row, and NULL is not «false» for NOT
+     AND COALESCE(j.status IN ('queued', 'running'), 0) = 0` // COALESCE: a purged job has no row, and NULL is not «false» for NOT
 
-/** Open machines with no live owner. `untriedOnly`: only those whose DESTROY has not run yet (the ones that failed wait for the next start). */
-export function orphanMachines (db, { now = Date.now(), untriedOnly = false } = {}) {
-  return all(db, `${ORPHANS}${untriedOnly ? ' AND m.destroy_attempts = 0' : ''} ORDER BY m.id`, now)
+/** Open machines whose job is no longer to run. `untriedOnly`: only those whose DESTROY has not run yet (the ones that failed wait for the next start). */
+export function orphanMachines (db, { untriedOnly = false } = {}) {
+  return all(db, `${ORPHANS}${untriedOnly ? ' AND m.destroy_attempts = 0' : ''} ORDER BY m.id`)
 }
 
 /**
@@ -86,32 +79,27 @@ export function pruneExecuteMachines (db, { now = Date.now(), retentionDays = 36
 export async function sweepMachines ({ db, config, logger = null, now = Date.now, untriedOnly = false, concurrency, inFlight = null }) {
   const x = config.execute
   if (!x || x.runner !== 'machine' || !x.machineDestroy) return { destroyed: 0, failed: 0 }
+  let rows
+  try { rows = orphanMachines(db, { untriedOnly }).filter((r) => !inFlight?.has(r.id)) } catch (error) { logger?.error({ err: error }, 'could not list the orphan machines'); return { destroyed: 0, failed: 0 } }
   const result = { destroyed: 0, failed: 0 }
-  const tried = new Set()
-  // Several passes: an older row of a job waits for its newer one to close, so closing the newer ones makes the older ones eligible in the next pass.
-  for (;;) {
-    let rows
-    try { rows = orphanMachines(db, { now: now(), untriedOnly }).filter((r) => !inFlight?.has(r.id) && !tried.has(r.id)) } catch (error) { logger?.error({ err: error }, 'could not list the orphan machines'); return result }
-    if (rows.length === 0) return result
-    for (const r of rows) tried.add(r.id)
-    let next = 0
-    const worker = async () => {
-      for (;;) {
-        const row = rows[next++]
-        if (!row) return
-        try {
-          const done = await destroyMachine({ config, jobId: row.job_id, workdir: row.workdir, machine: row.machine })
-          recordDestroy(db, row.id, { code: done.code, stderr: done.stderr, now: now() })
-          if (done.code === 0) { result.destroyed++; logger?.warn({ job_id: row.job_id, machine: row.machine }, 'an orphan machine was destroyed') } else {
-            result.failed++
-            logger?.error({ job_id: row.job_id, machine: row.machine, exit: done.code, stderr: String(done.stderr).slice(-500) }, 'an orphan machine could not be destroyed; it stays registered and is tried again when the worker starts')
-          }
-        } catch (error) {
+  let next = 0
+  const worker = async () => {
+    for (;;) {
+      const row = rows[next++]
+      if (!row) return
+      try {
+        const done = await destroyMachine({ config, jobId: row.job_id, workdir: row.workdir, machine: row.machine })
+        recordDestroy(db, row.id, { code: done.code, stderr: done.stderr, now: now() })
+        if (done.code === 0) { result.destroyed++; logger?.warn({ job_id: row.job_id, machine: row.machine }, 'an orphan machine was destroyed') } else {
           result.failed++
-          logger?.error({ err: error, job_id: row.job_id, machine: row.machine }, 'could not destroy or record an orphan machine')
+          logger?.error({ job_id: row.job_id, machine: row.machine, exit: done.code, stderr: String(done.stderr).slice(-500) }, 'an orphan machine could not be destroyed; it stays registered and is tried again when the worker starts')
         }
+      } catch (error) {
+        result.failed++
+        logger?.error({ err: error, job_id: row.job_id, machine: row.machine }, 'could not destroy or record an orphan machine')
       }
     }
-    await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), rows.length) }, worker))
   }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), rows.length) }, worker))
+  return result
 }

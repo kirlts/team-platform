@@ -601,14 +601,14 @@ describe('execute job', () => {
       const parked = env.queue.getJob(id)
       assert.equal(parked.status, 'queued')
       assert.equal(parked.attempts, 0, 'the attempt is refunded: a deploy is not a failure of the job')
-      const kept = env.db.prepare('SELECT machine, parked, destroyed_at FROM execute_machines WHERE job_id = ?').all(id)
-      assert.deepEqual(kept.map((r) => [r.machine, r.parked, r.destroyed_at]), [[`vm-${id}`, 1, null]], 'the register knows the machine stays on purpose')
+      const kept = env.db.prepare('SELECT machine, destroyed_at FROM execute_machines WHERE job_id = ?').all(id)
+      assert.deepEqual(kept.map((r) => [r.machine, r.destroyed_at]), [[`vm-${id}`, null]], 'the register keeps the machine open: it is waiting for the next attempt')
       process.env.FAKE_EXECUTE_MODE = 'ok'
       startWorker(machine())
       const done = await waitJob(id)
       assert.equal(done.status, 'done', done.last_error)
       assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `create ${id}`, `run vm-${id}`, `destroy vm-${id}`], 'one destroy, after the session finished')
-      assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM execute_machines WHERE job_id = ?').get(id).n, 1, 'the second attempt adopted the parked row: one machine, one row')
+      assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM execute_machines WHERE job_id = ?').get(id).n, 1, 'the second attempt took the machine over: one machine, one row')
       assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM execute_machines WHERE destroyed_at IS NULL').get().n, 0)
     })
 

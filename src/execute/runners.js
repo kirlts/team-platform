@@ -146,7 +146,7 @@ export function destroyMachine ({ config, jobId, workdir, machine }) {
  * ({ code, stderr }). The timeout covers CREATE and RUN together.
  *
  * `track` (optional) is the register of machines (src/execute/machines.js): `begin(machine)` runs BEFORE CREATE with the default name and returns
- * a handle, `named(handle, machine)` after CREATE (the name it printed, or the default one), `parked(handle)` when a shutdown leaves the machine on purpose and
+ * a handle, `named(handle, machine)` after CREATE (the name it printed, or the default one), `parked(handle)` when a shutdown leaves the machine on purpose (the row stays open) and
  * `destroyed(handle, { code, stderr })` after DESTROY. A `begin` that throws
  * stops the job before anything is created (a machine nobody wrote down is one nobody can sweep); the other two are courtesies and never fail the job.
  */
@@ -182,8 +182,8 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
     return result
   } finally {
     // EXECUTE_KEEP_SESSION_ON_SHUTDOWN: a worker that shuts down (a deploy) while the session runs leaves the machine and the session alone, if the host asked for it: its RUN keeps
-    // the session apart from this connection, and the worker that takes the job next calls RUN again and attaches to it (2026-10-25, job 156). The register keeps the machine as
-    // parked, so that the sweep of the next start does not destroy it while its job is coming back. An abort before RUN (a machine still being created) has no session to keep.
+    // the session apart from this connection, and the worker that takes the job next calls RUN again and attaches to it (2026-10-25, job 156). The register keeps the row open: the sweep
+    // leaves it alone while its job is still to run, the next attempt takes it over, and the sweep destroys it if the job ends first. An abort before RUN (a machine still being created) has no session to keep.
     if (x.keepSessionOnShutdown && signal?.aborted && signal.reason === 'shutdown' && result?.phase === 'run') {
       result.detached = true
       try { track?.parked(handle) } catch (e) { log(`could not record that machine ${machine} stays: ${e.message}`) }

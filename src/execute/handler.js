@@ -44,7 +44,7 @@ import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, rea
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
 import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 import { createCreationGate, runLocal, runMachine } from './runners.js'
-import { adoptPrevious, nameMachine, openMachine, parkMachine, recordDestroy, sweepMachines } from './machines.js'
+import { adoptPrevious, nameMachine, openMachine, recordDestroy, sweepMachines } from './machines.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 import { startProgressNotices } from './progress-timer.js'
@@ -539,7 +539,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         const track = {
           begin: (machine) => { const id = openMachine(db, { jobId: job.id, attempt: job.attempts, machine, workdir: dirs.workdir, now: now() }); machinesInFlight.add(id); return id },
           named: (id, machine) => { nameMachine(db, id, machine); adoptPrevious(db, { jobId: job.id, machine, exceptId: id }) },
-          parked: (id) => { machinesInFlight.delete(id); parkMachine(db, id) },
+          parked: (id) => { machinesInFlight.delete(id) },
           destroyed: (id, done) => { machinesInFlight.delete(id); recordDestroy(db, id, { ...done, now: now() }) }
         }
         const opts = { config, args, prompt, onData: (c) => { try { reader.push(c) } catch (e) { logger?.warn({ err: e }, 'could not record the progress of the session') } }, signal: ctx.signal }

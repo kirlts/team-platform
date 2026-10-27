@@ -15,6 +15,7 @@
 //   idea                 0 to 1: how much of it is an idea. Context for the session and for the job judgement; it decides nothing
 // The system reads them as numbers and ids. It never reads the words of `expectation` to decide anything: that text goes to the session as it is.
 import { all, get } from '../db/index.js'
+import { audit } from './audit.js'
 import { deciderOf } from './escalation.js'
 
 export const VALUE_HOLDERS = Object.freeze(['person', 'model'])
@@ -49,6 +50,35 @@ export function touchedGuards (db, areaId, m) {
 export function touchesPerson (db, areaId, { guards = [], estimates = null } = {}) {
   const person = new Set(guardsOf(db, areaId).filter((g) => g.person === true).map((g) => g.id))
   return guards.some((id) => person.has(id)) || estimates?.value_holder === 'person'
+}
+
+/**
+ * The Guards about a person that a message touches and that no person has lifted yet (UD-313). A Guard is a wall that is not crossed by default: while one of these is open the delivery
+ * to production waits for a person (`deliver.js`). `message` is a row of `messages` (`id`, `area_id`, `guards_json`). The system reads ids and booleans, never words.
+ */
+export function openPersonGuards (db, message) {
+  let touched = []
+  try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
+  const person = new Set(guardsOf(db, message.area_id).filter((g) => g.person === true).map((g) => g.id))
+  const lifted = new Set()
+  for (const row of all(db, "SELECT detail_json FROM audit_log WHERE action = 'message.guard_lifted' AND entity = 'message' AND entity_id = ?", message.id)) {
+    try { for (const id of JSON.parse(row.detail_json)?.guards ?? []) lifted.add(id) } catch { /* a damaged row lifts nothing */ }
+  }
+  return touched.filter((id) => person.has(id) && !lifted.has(id)).sort((a, b) => a - b)
+}
+
+/**
+ * A person lifts the Guards about a person that a message touches (UD-313): the act is the explicit one of the review (UD-275, UD-286): approving the held branch, by hand or in the thread. It is
+ * audited as `message.guard_lifted` with who, which Guards and the delivery it let through, and it holds for that message and not for the next one. Returns whether it recorded anything:
+ * only a member of kind `person` who is active can lift (an agent never does), and only Guards that are open.
+ */
+export function liftPersonGuards (db, message, { memberId, jobId = null, now = Date.now }) {
+  const lifter = get(db, 'SELECT kind, active FROM members WHERE id = ?', memberId)
+  if (lifter?.kind !== 'person' || lifter.active !== 1) return false
+  const open = openPersonGuards(db, message)
+  if (open.length === 0) return false
+  audit(db, { memberId, action: 'message.guard_lifted', entity: 'message', entityId: message.id, detail: { guards: open, job_id: jobId }, now })
+  return true
 }
 
 /**

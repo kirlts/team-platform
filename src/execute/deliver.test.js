@@ -282,6 +282,88 @@ describe('deliver job', () => {
     assert.match(replies(messageId).at(-1), /^No quedó en producción/, 'the person who approved learns it failed (UD-289)')
   })
 
+  describe('a Guard about a person is a wall that only a person lifts (UD-313)', () => {
+    const post = (url, cookie) => env.app.inject({ method: 'POST', url, headers: { ...cookieHeaders(cookie), 'content-type': 'application/json' }, payload: '{}' })
+    const lifts = (messageId) => env.db.prepare("SELECT member_id, detail_json FROM audit_log WHERE action = 'message.guard_lifted' AND entity_id = ? ORDER BY id").all(messageId)
+    /** A message whose work is done and whose area has a Guard about a person that the message touches. */
+    async function touchingAGuard (text, { person = true } = {}) {
+      startWorker({ deliverCommand: 'true', autoClose: false })
+      const messageId = await publishedMessage(text)
+      await settle(messageId)
+      await worker.stop()
+      const { area_id: areaId } = env.db.prepare('SELECT area_id FROM messages WHERE id = ?').get(messageId)
+      env.db.prepare('UPDATE areas SET guards_json = ? WHERE id = ?').run(JSON.stringify([{ id: 1, text: 'Nada toca pagos', mechanism: '', person }]), areaId)
+      env.db.prepare("UPDATE messages SET guards_json = '[1]' WHERE id = ?").run(messageId)
+      const [exec] = jobsOf(messageId, 'execute')
+      const output = { outcome: 'done', summary: 'Cambié el cobro del plan.' }
+      const enqueue = (extra) => enqueueDeliver(env.db, { messageId, payload: { member_id: agentId, branch: `tp/${messageId}`, round: 0, output, execute_job_id: exec.id, execute_attempt: 1, requested_by: null, ...extra } })
+      return { messageId, exec, enqueue }
+    }
+
+    it('the delivery waits for a person without running the command of the host; nobody approved, so nothing is lifted', async () => {
+      const log = path('wall-log')
+      const { messageId, exec, enqueue } = await touchingAGuard('Cambiar el cobro del plan.')
+      const before = replies(messageId).length
+      const jobId = enqueue({})
+      startWorker({ deliverCommand: `echo ran >> ${log}` })
+      assert.equal((await waitJob(jobId)).status, 'done')
+      assert.equal(existsSync(log), false, 'the command of the host did not run')
+      const mine = replies(messageId).slice(before)
+      assert.equal(mine.length, 1)
+      assert.match(mine[0], /Cambio listo para revisar: toca un límite que solo una persona levanta \(G1: Nada toca pagos\); quien apruebe la entrega lo levanta y queda registrado\. Todavía no llega a producción\./)
+      const run = env.db.prepare('SELECT delivered, delivery_held, delivery_hold_reason FROM execute_runs WHERE job_id = ?').get(exec.id)
+      assert.deepEqual([run.delivered, run.delivery_held], [0, 1])
+      assert.match(run.delivery_hold_reason, /^toca un límite que solo una persona levanta/)
+      assert.equal(lifts(messageId).length, 0)
+      const view = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: editor } })).json()
+      assert.equal(view.pending_delivery.state, 'held', 'it is the review of UD-275: the same screen, the same buttons')
+    })
+
+    it('neither the pre-approval given before the warning nor an agent lifts it', async () => {
+      const log = path('wall-log-2')
+      const { messageId, enqueue } = await touchingAGuard('Cambiar el precio del plan.')
+      const editorId = env.db.prepare("SELECT id FROM members WHERE email = 'ed@x.org'").get().id
+      startWorker({ deliverCommand: `echo ran >> ${log}` })
+      for (const extra of [{ approved_by: editorId }, { requested_by: agentId }]) {
+        assert.equal((await waitJob(enqueue(extra))).status, 'done')
+      }
+      assert.equal(existsSync(log), false, 'the command never ran')
+      assert.equal(lifts(messageId).length, 0)
+      assert.equal(replies(messageId).filter((r) => /toca un límite que solo una persona levanta/.test(r)).length, 2)
+    })
+
+    it('a person approves the delivery: the Guard is lifted and audited with who and which, the command runs, and the lift holds for that message', async () => {
+      const log = path('wall-log-3')
+      const { messageId, enqueue } = await touchingAGuard('Cambiar el plan anual.')
+      startWorker({ deliverCommand: `echo "ran reviewed=$TEAM_REVIEWED_BY" >> ${log}; echo ref-lifted` })
+      assert.equal((await waitJob(enqueue({}))).status, 'done')
+      assert.equal(existsSync(log), false)
+      const delivered = await post(`/api/messages/${messageId}/deliver`, author)
+      assert.equal(delivered.statusCode, 202, delivered.body)
+      await settle(messageId)
+      const authorId = env.db.prepare("SELECT id FROM members WHERE email = 'ana@x.org'").get().id
+      assert.match(readFileSync(log, 'utf8'), new RegExp(`^ran reviewed=${authorId}\\n$`))
+      const rows = lifts(messageId)
+      assert.equal(rows.length, 1)
+      assert.equal(rows[0].member_id, authorId, 'who lifted it')
+      assert.deepEqual(JSON.parse(rows[0].detail_json).guards, [1])
+      assert.match(replies(messageId).at(-1), /En producción desde \d\d:\d\d \S+\./)
+      // the same message later: a verification pass or a new delivery of it is not held again
+      assert.equal((await waitJob(enqueue({}))).status, 'done')
+      assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 2, 'the second delivery ran')
+      assert.equal(lifts(messageId).length, 1, 'nothing is lifted twice')
+    })
+
+    it('a Guard that is not about a person holds nothing: the delivery runs as always', async () => {
+      const log = path('wall-log-4')
+      const { messageId, enqueue } = await touchingAGuard('Cambiar el color del botón.', { person: false })
+      startWorker({ deliverCommand: `echo ran >> ${log}; echo ref-free` })
+      assert.equal((await waitJob(enqueue({}))).status, 'done')
+      assert.equal(readFileSync(log, 'utf8').trim(), 'ran')
+      assert.equal(lifts(messageId).length, 0)
+    })
+  })
+
   describe('the review of a held delivery (UD-275)', () => {
     const shot = (path, alt) => ({ path, alt, masked: true, place: 'Fichas > Paciente', as: 'Clínica Sur, recepción' })
     const holdUnlessReviewed = (log) => `echo "reviewed=$TEAM_REVIEWED_BY" >> ${log}; if [ -n "$TEAM_REVIEWED_BY" ]; then echo ref-reviewed; exit 0; fi; echo 'toca datos de personas'; exit 76`

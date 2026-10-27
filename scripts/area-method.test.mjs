@@ -873,12 +873,29 @@ test('D2: the permutation p-value is never zero and the same seed gives the same
   for (const d of Object.values(first.dimensions)) assert.ok(d.p >= 1 / 100 && d.p_adjusted >= d.p)
 })
 
-test('D2: two limits tied for the first place leave the area with no dominant limit', () => {
-  const mk = (limits, n, base) => Array.from({ length: n }, (_, i) => ({ ...rows[0], unit: `${base}${i}`, object: base, summary: `${base} pedido ${i}`, limits: limits[i % limits.length] }))
-  const tied = [...mk([['money'], ['customer_data']], 40, 'tied'), ...mk([['money']], 40, 'plain')]
-  const report = analyze(tied, team, { holdout: 0, permutations: 99, repeats: 1 })
-  const against = report.areas.find((a) => a.title === 'Tied').criteria.distinct_treatment.against.Plain
-  assert.equal(against.limit_differs, false, 'a tie of 20 and 20 does not decide the criterion')
+test('D1 (reaudit 3): two areas with the same profile of limits are not called distinct by a limit more often than alpha', () => {
+  // Reaudit 3 measured the earlier rule (the dominant limit differs) at 31 % of the pairs with 104 requests per area and 39 % with 26, for profiles .30/.25/.20 in both areas.
+  // 40 pairs of 104 requests and a count of 4 or less of 40: the criterion at alpha 0.05 expects 2 (Holm bounds it by alpha); 4 or less has a probability above 0.95 (binomial 40, 0.05).
+  const rand = seededRandom(3)
+  const profile = [['money', 0.3], ['customer_data', 0.25], ['irreversible', 0.2]]
+  const make = (name, t) => Array.from({ length: 104 }, (_, i) => ({ ...rows[0], unit: `${name}${t}-${i}`, object: name, summary: `${name} pedido ${i}`, severity: 0.5, irreversibility: 0.5, missing_value: 0.5, urgency: 0.5, understand_vs_create: 0.5, limits: profile.filter(([, p]) => rand() < p).map(([id]) => id) }))
+  let distinct = 0 // `pass` of the criterion is true when the area differs from the other
+  for (let t = 0; t < 40; t++) {
+    const x = make('p', t)
+    const y = make('q', t)
+    const report = analyze([...x, ...y], team, { holdout: 0, permutations: 199, repeats: 1, seed: t + 1 })
+    if (report.areas.find((a) => a.title === 'P').criteria.distinct_treatment.pass) distinct++
+  }
+  assert.ok(distinct <= 4, `${distinct}/40 pairs with the same limits called distinct`)
+})
+
+test('D1 (reaudit 3): a limit that one area touches and the other does not is a dimension of the test, and the verdict has no «dominant limit»', () => {
+  const mk = (name, withMoney) => Array.from({ length: 60 }, (_, i) => ({ ...rows[0], unit: `${name}${i}`, object: name, summary: `${name} pedido ${i}`, limits: withMoney ? ['money'] : [] }))
+  const report = analyze([...mk('conlimite', true), ...mk('sinlimite', false)], team, { holdout: 0, permutations: 199, repeats: 1 })
+  const against = report.areas.find((a) => a.title === 'Conlimite').criteria.distinct_treatment.against.Sinlimite
+  assert.equal(against.distinct, true)
+  assert.equal(against.dimensions['limit:money'].differs, true)
+  assert.equal('limit_differs' in against, false)
 })
 
 // ---- D3: «two runs in a row» are two cuts of the data by date
@@ -895,7 +912,8 @@ test('D3: an area that is kept in both windows is stable, one that appears late 
   const late = syntheticCorpus({ sizes: { Antigua: 120, Otra: 120 }, noise: 0.3, seed: 41, leak: true })
     .map((r, i) => ({ ...r, date: i % 2 ? '2026-03-10' : '2026-05-10' }))
     .map((r) => (r.object === 'Otra' ? { ...r, date: '2026-05-12', severity: r.severity * 0.3 + 0.65 } : r)) // «Otra» only exists from May, and it is treated differently
-  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', holdout: 0, permutations: 99, repeats: 1 })
+  // 199 permutations: the smallest p-value is 0.005, and Holm over the 5 dimensions and the limit of the fixture (6 tests) multiplies it by 6, under alpha; with 99 it would be 0.06.
+  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', holdout: 0, permutations: 199, repeats: 1 })
   assert.equal(windows.areas.Antigua.keep[1], true)
   assert.deepEqual(windows.areas.Otra.keep, [false, true])
   assert.equal(windows.areas.Otra.stable_keep, false, 'one window is not enough to create an area')

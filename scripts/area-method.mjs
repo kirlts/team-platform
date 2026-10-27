@@ -398,13 +398,21 @@ export function holm (pValues) {
  * is at most `alpha`. The dimensions are estimates of a model and correlated with one another, and the rows of one unit are not independent: the test does not assume
  * either, but it does not model the second either, so a result near alpha is read with that in mind.
  */
-export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = DEFAULTS.alpha, permutations = DEFAULTS.permutations, rand }) {
-  const column = (rows, dim) => rows.map((r) => Number(r[dim]) || 0)
+export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = DEFAULTS.alpha, permutations = DEFAULTS.permutations, limits = [], rand }) {
   const all = [...a, ...b]
-  const observed = DIMENSIONS.map((dim) => cohenD(column(a, dim), column(b, dim)))
-  if (a.length < 2 || b.length < 2) return { dimensions: Object.fromEntries(DIMENSIONS.map((dim, i) => [dim, { d: round(observed[i], 2), p: 1, p_adjusted: 1, differs: false }])), any_differs: false, biggest_effect: 0 }
-  const hits = DIMENSIONS.map(() => 0)
-  const columns = DIMENSIONS.map((dim) => Float64Array.from(column(all, dim)))
+  // Each limit of the team that some of the rows touch is one more dimension: an indicator, 1 when the row touches it. A limit nobody touches has no variance and says nothing; the choice
+  // depends on the pooled rows only, which a permutation of the areas does not change, so it does not bias the test. Holm's adjustment then runs over all of them: two areas with the same
+  // profile of limits are called distinct by a limit no more often than `alpha` (the earlier rule, «the dominant limit differs», did it in 31 % of the pairs of 104 requests: reaudit 3, D1).
+  const touched = limits.filter((id) => all.some((r) => (r.limits ?? []).includes(id)))
+  const dims = [...DIMENSIONS.map((name) => ({ name, value: (r) => Number(r[name]) || 0 })), ...touched.map((id) => ({ name: `limit:${id}`, value: (r) => ((r.limits ?? []).includes(id) ? 1 : 0) }))]
+  const column = (rows, dim) => rows.map(dim.value)
+  // Two groups with no variance inside and different means (one touches a limit in every request, the other in none) have an unbounded standardized difference, and `cohenD` returns 0 for them.
+  // It stands here for infinity, capped at 99 so that it prints (a real standardized difference does not get near it).
+  const effect = (x, y) => { const d = cohenD(x, y); const gap = x.length >= 2 && y.length >= 2 ? mean(x) - mean(y) : 0; return d === 0 && gap !== 0 ? Math.sign(gap) * 99 : d }
+  const observed = dims.map((dim) => effect(column(a, dim), column(b, dim)))
+  if (a.length < 2 || b.length < 2) return { dimensions: Object.fromEntries(dims.map((dim, i) => [dim.name, { d: round(observed[i], 2), p: 1, p_adjusted: 1, differs: false }])), any_differs: false, biggest_effect: 0 }
+  const hits = dims.map(() => 0)
+  const columns = dims.map((dim) => Float64Array.from(column(all, dim)))
   const na = a.length
   const nb = b.length
   const order = Int32Array.from(all.map((_, i) => i))
@@ -414,7 +422,7 @@ export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = D
     for (let i = na; i < na + nb; i++) { const x = col[order[i]]; sb += x; qb += x * x }
     const ma = sa / na; const mb = sb / nb
     const pooled = Math.sqrt(((qa - na * ma * ma) + (qb - nb * mb * mb)) / (na + nb - 2))
-    return pooled === 0 ? 0 : (ma - mb) / pooled
+    return pooled === 0 ? (ma === mb ? 0 : Math.sign(ma - mb) * 99) : (ma - mb) / pooled
   }
   for (let k = 0; k < permutations; k++) {
     for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const t = order[i]; order[i] = order[j]; order[j] = t } // Fisher-Yates in place
@@ -422,14 +430,10 @@ export function compareGroups (a, b, { minEffect = DEFAULTS.minEffect, alpha = D
   }
   const p = hits.map((h) => (h + 1) / (permutations + 1))
   const adjusted = holm(p)
-  const dimensions = Object.fromEntries(DIMENSIONS.map((dim, i) => [dim, { d: round(observed[i], 2), p: round(p[i], 4), p_adjusted: round(adjusted[i], 4), differs: Math.abs(observed[i]) >= minEffect && adjusted[i] <= alpha }]))
+  const dimensions = Object.fromEntries(dims.map((dim, i) => [dim.name, { d: round(observed[i], 2), p: round(p[i], 4), p_adjusted: round(adjusted[i], 4), differs: Math.abs(observed[i]) >= minEffect && adjusted[i] <= alpha }]))
   return { dimensions, any_differs: Object.values(dimensions).some((x) => x.differs), biggest_effect: Math.max(...observed.map(Math.abs)) }
 }
 
-/**
- * The limit an area touches most. When two limits tie for the first place the area has no dominant limit (null): the order of the counts would otherwise decide the
- * criterion. Two areas differ by limit only when both have one and they are not the same.
- */
 /**
  * A multinomial naive Bayes (Laplace smoothing) trained on the summaries of `rows`, as a function from a text to the label it predicts. It is the router with no model that the experiment
  * has to beat: it reads the same words, from the construction rows, and costs nothing.
@@ -454,10 +458,6 @@ export function trainNaiveBayes (rows, labelOf) {
   }
 }
 
-const dominantLimit = (profile) => {
-  const [first, second] = profile.limits
-  return first && second && first.n === second.n ? null : first?.id ?? null
-}
 const overlap = (a, b) => { const small = Math.min(a.length, b.length); return small === 0 ? 0 : a.filter((m) => b.includes(m)).length / small }
 
 /** Measures every candidate area against the four criteria of the method. Returns the report. */
@@ -488,12 +488,9 @@ export function analyze (rows, team, { families = {}, hiddenTitles = null, ...ov
       const [x, y] = [title, t].sort() // one test per pair of areas, whichever of the two is being described
       const key = `${x}|${y}`
       // One generator per pair, seeded from the seed and the titles: adding an area does not change the p-values of the pairs that were already there.
-      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, rand: seededRandom((o.seed ^ pairSeed(key)) >>> 0) }))
+      if (!tests.has(key)) tests.set(key, compareGroups(byArea.get(x), byArea.get(y), { minEffect: o.minEffect, alpha: o.alpha, permutations: o.permutations, limits: (team.limits ?? []).map((l) => l.id), rand: seededRandom((o.seed ^ pairSeed(key)) >>> 0) }))
       const test = tests.get(key)
-      const mine = dominantLimit(p)
-      const theirs = dominantLimit(profiles.get(t))
-      const limitDiffers = mine !== null && theirs !== null && mine !== theirs
-      return [t, { biggest_effect: round(test.biggest_effect, 2), limit_differs: limitDiffers, dimensions: test.dimensions, distinct: limitDiffers || test.any_differs }]
+      return [t, { biggest_effect: round(test.biggest_effect, 2), dimensions: test.dimensions, distinct: test.any_differs }]
     }))
     const recall = recognized.per_class[title]
     const criteria = {

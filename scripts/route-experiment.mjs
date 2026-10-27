@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Measures how much a model agrees with the extracted rows when it routes requests reading only the descriptions of the areas and the profiles of the members.
 //
-//   node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes purposes.json [--stage tune|confirm]) --team team.json [--families f.json]
+//   node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes purposes.json [--stage tune|confirm] [--descriptions edits.json] [--min-border-confusions n]) --team team.json [--families f.json]
 //        [--sample n] [--judge] [--judge-model m] [--labels labels.jsonl] [--validation validation.json] [--versus other-result.json] [--accept 0.8]
 //        [--model claude-haiku-5-5] [--parallel 6] [--out result.json]
 //
@@ -17,7 +17,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, analyze, hiddenAreas, propose, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
+import { DEFAULTS, analyze, hiddenAreas, propose, validateLoadFile, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, trainNaiveBayes, validateTeam, wilson, wilsonSampleSize, withAreas } from './area-method.mjs'
 import { keyRows, referenceLabels, rowsByUnit, unitStrata } from './row-validation.mjs'
 import { loadProvider } from './request-rows.mjs'
 import { KPIS } from '../src/execute/judge.js'
@@ -176,11 +176,19 @@ export function baselines (sample, team, majorityArea, reference = (r) => r, pre
  * Builds the descriptions and the profiles with the construction side of the rows and returns the held-out set to measure them on. `stage` is `tune` while the
  * descriptions are being corrected and `confirm` for the one reading that is reported; a unit is never on both sides.
  */
-export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, ...proposal } = {}) {
+export function buildAndSplit (rows, team, { stage = 'tune', holdout, seed = 7, descriptions = null, ...proposal } = {}) {
   if (!['tune', 'confirm'].includes(stage)) throw new Error('stage must be tune or confirm')
   const sets = splitUnits(rows, { holdout, seed })
   // The construction side is already the share that is left after holding out: its minimum is the interval count, not four times as much.
   const { spec, skipped, report } = propose(sets.build, team, { ...proposal, holdout: 0 })
+  // `descriptions` (area title to text) is what the team corrected or confirmed after reading the draft: it replaces the draft text of that area, so the correction is what is measured on the
+  // held-out set and not a new draft. A title that the construction side does not propose is an error: the correction would be measured on nothing.
+  if (descriptions) {
+    const unknown = Object.keys(descriptions).filter((t) => !spec.areas.some((a) => a.title === t))
+    if (unknown.length) throw new Error(`The descriptions name areas that the construction side does not propose: ${unknown.join(', ')}`)
+    for (const a of spec.areas) if (typeof descriptions[a.title] === 'string') a.description = descriptions[a.title]
+    validateLoadFile(spec)
+  }
   return { load: spec, skipped, report, test: sets[stage], buildUnits: new Set(sets.build.map((r) => r.unit)), buildRows: sets.build, sets: { build: sets.build.length, tune: sets.tune.length, confirm: sets.confirm.length }, stage }
 }
 
@@ -441,7 +449,7 @@ export function acceptDecision (result, accept, { allowUnvalidated = false } = {
 async function main (argv) {
   const [rowsFile, ...rest] = argv
   const option = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback }
-  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--out result.json]'
+  const usage = 'Uso: node scripts/route-experiment.mjs rows.jsonl (--load load.json | --holdout [0.5] --purposes p.json [--stage tune|confirm] [--descriptions edits.json] [--min-border-confusions n]) --team team.json [--families f.json] [--sample n] [--judge] [--judge-model m] [--versus other-result.json] [--labels labels.jsonl --reference-rater name [--units units.jsonl --raw]] [--validation validation.json] [--again] [--compare-load load.json] [--accept 0.8 [--allow-unvalidated]] [--model claude-haiku-5-5] [--provider ./module.mjs] [--parallel 6] [--out result.json]'
   const holdout = rest.includes('--holdout')
   if (!rowsFile || !option('--team') || (holdout ? !option('--purposes') || option('--load') : !option('--load'))) { console.error(usage); process.exit(2) }
   const provider = await loadProvider(option('--provider'), option('--model', 'claude-haiku-5-5'))
@@ -460,7 +468,7 @@ async function main (argv) {
     confirm = confirmGate(`${rowsFile}.confirm.json`, { stage: option('--stage', 'tune'), again: rest.includes('--again') })
     if (!confirm.allowed) { console.error(confirm.message); process.exit(2) }
     const fraction = option('--holdout') && !option('--holdout').startsWith('--') ? Number(option('--holdout')) : undefined
-    const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')) })
+    const built = buildAndSplit(rows, team, { stage: option('--stage', 'tune'), holdout: fraction, families, purposes: readJson(option('--purposes')), ...(option('--descriptions') ? { descriptions: readJson(option('--descriptions')) } : {}), ...(option('--min-border-confusions') ? { minBorderConfusions: Number(option('--min-border-confusions')) } : {}) })
     load = built.load
     merge = Object.fromEntries(built.skipped.filter((x) => x.merge_into).map((x) => [x.title, x.merge_into]))
     pool = built.test

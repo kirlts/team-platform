@@ -16,6 +16,7 @@ export const TOKEN = 'test-token-not-a-secret'
 const EXEC_BODY_LIMIT = 16384 // bytes, measured 2026-10-27 (between 16,072 accepted and 17,072 refused)
 const EXEC_ANSWER_LIMIT = 10 * 1024 * 1024 // bytes after JSON encoding, measured 2026-10-27
 
+// outside-the-image: docker — a test double: it runs only in the tests of drivers/fly-machines, on a machine with Docker, never in the worker image
 const docker = (...args) => new Promise((resolve) => execFile('docker', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => resolve({ code: error ? (error.code ?? 1) : 0, stdout, stderr })))
 
 export async function startFlyDouble ({ app = 'double-app' } = {}) {
@@ -76,6 +77,7 @@ export async function startFlyDouble ({ app = 'double-app' } = {}) {
     }
     return new Promise((resolve) => {
       // `stdin` is ignored: the command reads /dev/null, as on the real machine.
+      // outside-the-image: docker — a test double: it runs only in the tests of drivers/fly-machines, on a machine with Docker, never in the worker image
       const child = spawn('docker', ['exec', machine.container, ...body.command], { stdio: ['ignore', 'pipe', 'pipe'] })
       let stdout = ''
       let stderr = ''

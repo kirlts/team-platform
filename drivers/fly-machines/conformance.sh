@@ -11,6 +11,10 @@
 # TP_FLY_IMAGE set, that image is used as it is and nothing is built.
 set -Eeuo pipefail
 
+# A `docker` shell function exported by the caller (a wrapper that allocates a terminal, for instance) would be inherited here and would echo the standard
+# input of `docker login`, which is the token. The real executable is the one this script needs.
+unset -f docker 2>/dev/null || true
+
 : "${TP_FLY_APP:?TP_FLY_APP is not set: the Fly app whose machines the run creates}"
 TOKEN="${FLY_API_TOKEN:-}"
 [ -n "$TOKEN" ] || { [ -z "${TP_FLY_TOKEN_FILE:-}" ] || TOKEN="$(cat "$TP_FLY_TOKEN_FILE")"; }

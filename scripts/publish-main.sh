@@ -6,7 +6,8 @@
 #
 #   <sha>       what to publish: `origin/desarrollo` (the default), or a commit that is `desarrollo` or an ancestor of it.
 #               `main` only moves forward to it by fast-forward (the rule is in the script next to this one, see its header).
-#   --dry-run   does everything except tag and push: the same worktree, the same battery, the same conformance run.
+#   --dry-run   does everything except tag and push: the same worktree, the same battery, the same conformance run. It does not
+#               stop at the first failing step: it runs them all, so that the verdict and the seconds of each one are printed.
 #
 # What it does, in this order, on THAT sha and nowhere else (a temporary worktree under .claude/worktrees/, removed when it ends):
 #   1. rule      the sha is `desarrollo` or an ancestor, and a fast-forward of `main`.
@@ -62,7 +63,7 @@ CMD_PANEL="${PUBLISH_PANEL_CMD:-npm run test:panel}"
 CMD_CLIENT="${PUBLISH_CLIENT_CMD:-npm run test:client}"
 CMD_CONF="${PUBLISH_CONFORMANCE_CMD:-node scripts/host-conformance.mjs --driver drivers/docker-local}"
 
-SUMMARY=(); WT=""; TAG_MADE=""
+SUMMARY=(); WT=""; TAG_MADE=""; FAILED=0
 now() { date +%s.%N; }
 dt() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", b - a }'; }
 note() { echo "publish-main: $*"; }
@@ -154,7 +155,10 @@ run() { # <name> <command>
   (cd "$WT" && bash -c "$cmd"); rc=$?
   if [ "$rc" = 0 ]; then SUMMARY+=("$(printf '%-12s' "$name") ok    $(dt "$t" "$(now)")s   $cmd"); return 0; fi
   SUMMARY+=("$(printf '%-12s' "$name") FAILED (exit $rc)  $(dt "$t" "$(now)")s   $cmd")
-  note "$name failed (exit $rc)" >&2; finish 1
+  note "$name failed (exit $rc)" >&2
+  # A real run stops at the first failure. A dry run goes on, so that the seconds and the verdict of every step are measured.
+  if [ "$DRY" = 1 ]; then FAILED=1; return 0; fi
+  finish 1
 }
 changed() { # <prefix>
   [ -n "$PREV" ] || return 0
@@ -169,6 +173,7 @@ run conformance "$CMD_CONF"
 
 # 7. push --------------------------------------------------------------------------------------------------------------------
 if [ "$DRY" = 1 ]; then
+  [ "$FAILED" = 0 ] || { note "dry run: a step failed, nothing would be published"; finish 1; }
   note "dry run: would publish $TAG at $SHA; nothing was tagged or pushed"
   [ -z "$RELEASE_PROBLEM" ] && finish 0
   finish 3

@@ -203,3 +203,14 @@ test('the door does not publish without the mark: the hook of the toy rejects a 
   const r = sh(t.repo, 'git', ['push', 'origin', `${sha}:refs/heads/main`])
   assert.notEqual(r.status, 0)
 })
+
+test('--dry-run does not stop at the first failing step: it runs the rest and still exits 1', () => {
+  const t = makeToy('dry-failing')
+  t.release('0.2.0'); t.commit('second'); t.git('push', '-q', 'origin', 'desarrollo')
+  const r = t.publish(['--dry-run'], { PUBLISH_TEST_CMD: 'exit 4' })
+  assert.equal(r.status, 1)
+  assert.deepEqual(t.ran().map((l) => l.split(' ')[0]), ['conformance'])
+  assert.match(r.stdout, /battery\s+FAILED \(exit 4\)/)
+  assert.match(r.stdout, /conformance\s+ok/)
+  assert.deepEqual(t.leftover(), [])
+})

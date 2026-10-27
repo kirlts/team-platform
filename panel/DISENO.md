@@ -1,5 +1,7 @@
 # Diseño visual del panel
 
+Este documento es el referente de la estética del panel: un cambio de tokens o de materiales que no esté escrito aquí no entra, y si hace falta, primero se cambia este documento con su medición (UD-312). El dueño, 2026-10-27 00:45: «no perdamos tiempo en esto. Solo me importa que lo que vaya integrándose al canónico lo haga siguiendo su estética actual sin estropearla».
+
 Piel Y2K futurista sobre un programa de gestión estándar. La estructura, los rótulos, la densidad y la edición en el lugar no cambian; cambian los materiales. Orden de prioridad: jerarquía visual, identidad propia y espacio, y después la cita estética. Ningún efecto se aplica por sistema: cada uno aparece en las pocas superficies donde ordena la lectura.
 
 ## Referencias consultadas
@@ -29,7 +31,7 @@ El coordinador entregó una lista de valores que delatan diseño generado (versi
 | Acento `#6366F1`, degradado púrpura a azul, verde `#10B981` | Acento azul eléctrico OKLCH tono 250; el lila (tono 305) sólo aparece como brillo difuso de fondo y nunca en un degradado hacia el azul; verde lima (tono 125) reservado |
 | Fondos `#09090B` y `#18181B` | Oscuro con tinte azul (OKLCH, luminosidad 0,17 a 0,30) |
 | Texto con `bg-clip-text` y degradado | Ninguno. El cromo vive en la barra superior, no en el texto |
-| Inter y `system-ui` como única familia; peso 800 con tracking negativo | Orbitron (rótulos y títulos) y Source Sans 3 (texto); tracking positivo en mayúsculas |
+| Inter y `system-ui` como única familia; peso 800 con tracking negativo | Orbitron (sólo la marca, ver «Tipografía») y Source Sans 3 (títulos, rótulos y texto); tracking positivo en mayúsculas |
 | `max-w-7xl mx-auto`, simetría centrada, `grid-cols-3` | Contenido alineado a la izquierda en una grilla de 12 columnas (vistas de 8, 10 y 12 columnas), columnas 5/7 y 7/5 alternadas, sin centrado |
 | `p-6`, `gap-4` y `gap-6` en todo | Ritmo de 4 px exactos con valores de grupo (8, 12, 16, 20) y de sección (24, 40); relación macro a micro de 5 a 1 |
 | `rounded-xl`, `rounded-2xl`, `border-gray-200`, `shadow-md` | Radios de 3 a 8 px en contenedores, forma de hoja (3 y 10 px en esquinas opuestas) y píldora sólo en controles; sombras de varias capas teñidas de azul |
@@ -55,7 +57,7 @@ Todos están en `@theme` de `src/styles.css`, en OKLCH. El tema oscuro redefine 
 | `glass` `glass-strong` | blanco con alfa 0,64 · 0,88 | 0,30 0,05 262 alfa 0,58 · 0,26 alfa 0,90 | Paneles y ventanas emergentes |
 | `chrome-1` a `chrome-4` | 0,995 · 0,92 · 0,84 · 0,94 (tono 240 a 250) | 0,40 · 0,30 · 0,21 · 0,27 | Barra superior: tubo plateado con línea de horizonte |
 | `edge` | 0,58 0,07 252 | 0,64 0,08 255 | Borde de controles, 3 a 1 contra el vidrio |
-| `open` `answered` `closed` | texto, fondo y luz por estado (ámbar, azul, plata) | equivalentes | Insignias de estado con luz |
+| `open` `answered` `closed` | texto, fondo y luz por estado (rojo, amarillo, azul) | equivalentes | Luz y palabra del estado en el detalle de un mensaje y en la lista publicada; forma de contorno en las marcas (ver «Estados y avisos») |
 
 ### Forma, sombra y vidrio
 
@@ -85,6 +87,8 @@ El desenfoque se usa en pocas superficies grandes. Las filas no lo llevan, por c
 | Encabezado (`text-lg`) | Source Sans 3 | 18,75 px | Escala de razón 1,25: 12, 15, 18,75, 23,4 |
 
 Los tamaños son tokens de `@theme` (`--text-xs`, `--text-sm`, `--text-read`, `--text-lg`). Ningún componente escribe un tamaño propio por debajo del encabezado: `src/type-scale.test.ts` lo exige en el código y `test:fit` mide cada texto visible en el navegador (las iniciales de un avatar son decoración y quedan exentas).
+
+Orbitron salió de los títulos de pantalla y de los rótulos de sección el 2026-10-21 (`cd001a46`, hallazgos J1-A-55 y J2-A-42, resueltos en H-355 y H-541 de `docs/HALLAZGOS.md`): las tildes de las mayúsculas tocan la letra y sus mayúsculas anchas se leen mal a 12 px. Es la tipografía de la marca y de nada más: `Wordmark` la toma de `--wordmark-font` y ningún otro componente usa `--font-display`. Volver a ponerla en un título exige primero cambiar esta tabla con su medición.
 
 Las fuentes están empaquetadas en `src/assets/fonts/` (WOFF2 variable, subconjunto latino) con su licencia OFL al lado. Ninguna se pide a un servidor externo; `font-src 'self'` basta, y `assetsInlineLimit: 0` impide que Vite las convierta en `data:`. Las cifras con cero tachado de Orbitron no se usan en datos: la fecha y la hora van en Source Sans 3.
 
@@ -245,13 +249,13 @@ UD-050. El texto de la interfaz es el de un programa de gestión: sustantivo cor
 - Un campo editable vacío se dibuja con borde punteado y la palabra «Completar» (J1-A-23). El contador de lo que lista la vista va junto al título (J1-A-22). Un estado vacío o de error es un bloque en el cuerpo con su salida (`EmptyState`), y una dirección desconocida muestra «Página no encontrada» (J1-A-10).
 - Deshacer y Rehacer no se dibujan mientras no haya nada que deshacer ni rehacer (J1-A-25).
 - Una plantilla se edita como formulario (campos con casilla «Obligatorio» e instrucciones al modelo en su propia sección); el archivo con su cabecera YAML se construye al guardar y no se muestra (J1-A-32).
-- El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado es una insignia con luz.
+- El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado se dice con su forma y su palabra (ver «Estados y avisos»).
 - Los anchos de columna siguen el contenido: la lista de mensajes ocupa 60 rem y deja el resto al fondo.
 - Trabajo de un agente (`AgentWork`, B7): en la ficha de un mensaje que atiende un agente, mientras espera, corre o falla, un panel de vidrio con una fila por tramo (Máquina, Sesión, Entrega): marca, nombre y tiempo, y la barra del trabajo bajo el tramo en curso. Con un «Reintentar» en el hilo, cada fila dice «Se repite» o «No se repite». Sin color nuevo: marca de acento al terminar o correr, de peligro al fallar, tenue si espera. Terminado el trabajo el panel desaparece y los tramos quedan en Detalles › Tiempos.
 
 ## Estados y avisos
 
-UD-029, UD-036 y UD-041. Un mensaje tiene tres estados y la interfaz no muestra otra categoría: abierto rojo, respondido amarillo, cerrado azul, siempre con su forma (triángulo, reloj, punto), su palabra y el número. Lo que afecta a la persona sale de una sola fuente, `GET /messages/summary`. Hay un solo lugar protagonista: la campana de la barra superior, el único relleno saturado de la interfaz, con el color del estado más alto presente (abierto antes que respondido; los cerrados no avisan). Mensajes, los chips de Para mí, los conteos por área y la marca de cada fila van en peso callado: fondo neutro y el estado sólo en el color de su forma. El borde izquierdo de cada fila lleva el color de su estado, también el de un cerrado. Los conteos por área dicen «N abiertos» y «N respondidos» y llevan a Mensajes filtrado por esa área y ese estado. La campana lista, mensaje por mensaje, lo que su número suma (`items` del resumen), cada uno con la palabra de su estado. Un contador que cambia de una cifra a otra pulsa una vez. `npm run contraste` mide el texto sobre el relleno de la campana (4,5) y el borde de cada estado sobre vidrio, cromo y su fondo suave (3).
+UD-029, UD-036 y UD-041. Un mensaje tiene tres estados y la interfaz no muestra otra categoría: abierto rojo, respondido amarillo, cerrado azul, siempre con su forma (triángulo, reloj, punto), su palabra y el número. Lo que afecta a la persona sale de una sola fuente, `GET /messages/summary`. Hay un solo lugar protagonista: la campana de la barra superior, el único relleno saturado de la interfaz, con el color del estado más alto presente (abierto antes que respondido; los cerrados no avisan). Mensajes, los chips de Para mí, los conteos por área y la marca de cada fila van en peso callado: fondo neutro y el estado sólo en el color de su forma. El borde izquierdo de cada fila lleva el color de su estado, también el de un cerrado. Los conteos por área dicen «N abiertos» y «N respondidos» y llevan a Mensajes filtrado por esa área y ese estado. La campana lista, mensaje por mensaje, lo que su número suma (`items` del resumen), cada uno con la palabra de su estado. Un contador que cambia de una cifra a otra pulsa una vez. Dónde hay luz y dónde contorno, tal como está hoy. La luz de estado (`.led`: punto con halo y la palabra, sin píldora) la llevan el estado del detalle de un mensaje, el de la lista publicada y el punto de guardado (`SaveDot`). Las marcas que cuentan o listan (barra superior, barra lateral, pestañas de estado de un área, fila de una lista) son la forma de contorno (triángulo, reloj, punto) con su número y sin contenedor. Lo decidió UD-036 (un solo relleno, la campana), lo escribió el dueño en UD-041 («esos son los tres estados que quiero ver en esta interfaz»), UD-100 («bastan los íconos de color con un número») y UD-130 («necesito que no estén rodeados con contenedor»); lo aplicaron `99e34df1` y `56a49550` el 2026-10-21. Una luz con halo en esas marcas es una deriva nueva, no la reposición de una anterior. `npm run contraste` mide el texto sobre el relleno de la campana (4,5) y el borde de cada estado sobre vidrio, cromo y su fondo suave (3).
 
 ## Vista de un área
 

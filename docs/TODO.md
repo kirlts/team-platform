@@ -4,7 +4,7 @@
 >
 > Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-21: 865 del servidor en verde (`npm test`, 6 omitidas por falta de llave, imagen o red), 74 del banco (`node --test bench/`) y 164 del panel (`vitest run`, 29 archivos).
 
-## Leyenda de símbolos Kairós
+## Leyenda de símbolos
 
 | Símbolo | Significado |
 |---|---|
@@ -21,13 +21,13 @@
 
 > Ref: MASTER-SPEC §1 a §8
 
-### [TASK-001] Inicializar el eje documental Kairós
+### [TASK-001] Inicializar el eje documental
 
 > Ref: MASTER-SPEC §1
 
 **Checks cubiertos:** Gobernanza transversal
 
-- [x] `docs/` desde las plantillas, REPOMAP, `.gitignore` con el bloque Kairós `2026-10-20 21:05:00`
+- [x] `docs/` desde las plantillas, REPOMAP, `.gitignore` con el bloque de gobierno `2026-10-20 21:05:00`
 - [x] Decisiones UD-001 a UD-010 con las palabras de Martín `2026-10-20 22:10:00`
 - [x] Investigación del motor de análisis y adjuntos en `docs/investigaciones/` `2026-10-20 21:50:00`
 - [x] MASTER-SPEC §1 a §8, RULES, LICENSE MIT `2026-10-20 22:30:00`

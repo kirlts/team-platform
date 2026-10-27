@@ -1,6 +1,6 @@
 // The models, the Guards and the assessment of a message (UD-295) seen from the panel, in a real browser against dev-server.mjs: `npm run test:flows`.
 // The Editor picks the light and the larger model and writes the Guards of an area; the card shows the Guards a message touches; the detail shows the assessment and the
-// IMK judgement, and a person changes the assessment from it.
+// job judgement, and a person changes the assessment from it.
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
@@ -134,7 +134,7 @@ describe('assessment of a message (UD-295)', () => {
     })
   }
 
-  test('the detail of a worked message shows the model, the cost and the IMK judgement with its axes against their target', async () => {
+  test('the detail of a worked message shows the model, the cost and the job judgement with its axes against their target', async () => {
     const { page, context } = await session(SIZES[0][1])
     try {
       const { done_id: doneId } = await panel.control.execution()

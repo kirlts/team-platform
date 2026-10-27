@@ -10,7 +10,7 @@ This workflow operates in two modes automatically detected by the repository's s
 
 The system scans the repository looking for evidence of an existing testing strategy. Evidence includes, but is not limited to:
 
-- `docs/TEST.md` (formal Kairós contract)
+- `docs/TEST.md` (formal framework contract)
 - Test runners configuration (`pytest.ini`, `pyproject.toml [tool.pytest]`, `jest.config.*`, `vitest.config.*`, `.mocharc.*`, `phpunit.xml`)
 - Test directories (`test/`, `tests/`, `__tests__/`, `spec/`)
 - Inline tests or validation scripts in CI/CD (`.github/workflows/`, `Makefile` with `test` target)

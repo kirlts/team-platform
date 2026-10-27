@@ -124,7 +124,7 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       title: text,
       fields: fieldsSchema,
       body: text,
-      // UD-295: what the analyzer says about the request beyond its text (KAIROS-PARA-TEAM-PLATFORM.md of the host): what is expected of Claude in natural words, the Guards of the
+      // UD-295: what the analyzer says about the request beyond its text: what is expected of Claude in natural words, the Guards of the
       // area it touches (the one boolean thing) and continuous estimates with their reason. They go before the assignees: who answers depends on them. The grammar cannot bound a number
       // (Anthropic does not support `minimum`/`maximum` in it), so the range is checked by the validation and by the system.
       expectation: { type: 'string' },
@@ -135,7 +135,7 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       certainty: unitNumber,
       estimate_reason: { type: 'string' },
       // UD-307: `idea_guard` is the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea»: the model judges whether it applies,
-      // reading the spirit of the message and who wrote it, and the system obeys the boolean. `idea` (0 to 1) is context for the session and for the IMK judgement; it decides nothing.
+      // reading the spirit of the message and who wrote it, and the system obeys the boolean. `idea` (0 to 1) is context for the session and for the job judgement; it decides nothing.
       idea: unitNumber,
       idea_guard: { type: 'boolean' },
       idea_reason: { type: 'string' },

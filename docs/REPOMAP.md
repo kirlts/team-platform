@@ -1,11 +1,11 @@
 # REPOMAP: team-platform
 
-> Generated: 2026-10-20 23:35 (Kairós v0.99). Updated: 2026-10-21  
+> Generated: 2026-10-20 23:35 (framework v0.99). Updated: 2026-10-21  
 > Purpose: Routing matrix. Defines when the AI is authorized to read each directory or file.
 
 ## Authoring Constraints (Read Before Populating)
 
-- **Scope:** The agent maps the host project only. Kairós release metadata files (`README-KAIROS.md`, `kairos-version.txt`) are distribution artifacts and do not appear as Domain Axioms or individual rows. If listed at all, they are compressed into a single noise cluster row. The `.agents/` directory is the **active governance layer** and is handled by a hardcoded mandatory row below; it is not classified as a noise cluster or invisible infrastructure. The documentary axis files in `docs/` are project documentation, not governance. `docs/MASTER-SPEC.md` receives an individual row as a Domain Axiom; the remaining axis files defined in `04-documentation.md` are grouped into a single row.
+- **Scope:** The agent maps the host project only. Framework release metadata files (`README-FRAMEWORK.md`, `framework-version.txt`) are distribution artifacts and do not appear as Domain Axioms or individual rows. If listed at all, they are compressed into a single noise cluster row. The `.agents/` directory is the **active governance layer** and is handled by a hardcoded mandatory row below; it is not classified as a noise cluster or invisible infrastructure. The documentary axis files in `docs/` are project documentation, not governance. `docs/MASTER-SPEC.md` receives an individual row as a Domain Axiom; the remaining axis files defined in `04-documentation.md` are grouped into a single row.
 - **Abstraction level:** Source code files are always mapped at the directory level, rather than as individual rows. Only documentation and specification files qualify for individual rows as Domain Axioms, per the three-signal detection algorithm in the `/repomap` workflow.
 - **Anti-recency bias:** The physical timestamp of a file is not a factor. Recently modified files are not elevated. Prominence is determined by the architectural role defined in `MASTER-SPEC`, not by modification date.
 - **MECE:** Every row is Mutually Exclusive (no overlapping access conditions) and Collectively Exhaustive (every directory or logical cluster is represented).
@@ -39,4 +39,4 @@
 | `ejemplos/` | **[Test Data]** The sample set of `POST /ops/seed`, «Sembrar ejemplos» and `scripts/sembrar.mjs --ejemplo`: one send per loose file, one per subfolder (`EXAMPLES_DIR` overrides the path). Copied into the image. | When changing what the sample set sends or its cost. |
 | `LICENSE` | **[Root Config]** MIT (UD-004). | When adding a dependency, to check license compatibility (MASTER-SPEC §3.1). |
 | `Dockerfile`, `compose.yml`, `compose.override.example.yml`, `.dockerignore`, `.env.example`, `package.json`, `package-lock.json`, `README.md` | **[Root Config]** Image build, the one-service compose, the override for another project's compose, the variable names without values, the pinned dependencies, and the public entry page. | Only when touching packaging, dependencies or the public description; `README.md` also when the install steps change. |
-| `.gitignore` | **[Root Config]** Ignore rules, including the Kairós block (scratch, personal roles, living document), `.env`, the local data volume and the private bench cases. | Only when adding a new artifact class that must not be committed. |
+| `.gitignore` | **[Root Config]** Ignore rules, including the framework block (scratch, personal roles, living document), `.env`, the local data volume and the private bench cases. | Only when adding a new artifact class that must not be committed. |

@@ -7,7 +7,7 @@
 
 ---
 
-## Kairós Symbol Legend
+## Symbol Legend
 
 | Symbol | Meaning |
 |---|---|

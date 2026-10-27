@@ -187,6 +187,5 @@ describe('an idea is shown, not delivered (UD-307)', () => {
     assert.equal(plain.stable, exploring.stable)
     assert.doesNotMatch(plain.variable, /<exploration>/)
     assert.match(exploring.variable, /<exploration>[\s\S]*mostly an idea to explore \(0\.90 of 1\): lo dijo como una posibilidad[\s\S]*Nothing you build goes to production on its own/)
-    assert.doesNotMatch(exploring.variable, /Kratos|Khaos|Filo|Gravitas/)
   })
 })

@@ -3,7 +3,7 @@
 > Canonical truth for all formal promise verifications and testing boundaries.
 > Generated and maintained exclusively by the `/derive` algorithm.
 
-## Kairós Symbol Legend
+## Symbol Legend
 
 | Symbol | Meaning |
 |---|---|

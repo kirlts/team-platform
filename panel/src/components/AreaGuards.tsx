@@ -9,7 +9,7 @@ import { useT } from '@/i18n'
 import { useUndo } from '@/lib/undo'
 
 /**
- * The Guards of an area (UD-295, Kairós), under its description, which describes its space: its walls, the only boolean thing, each with the mechanism that holds it and whether it is about a person. The Editor writes them (configured
+ * The Guards of an area (UD-295), under its description, which describes its space: its walls, the only boolean thing, each with the mechanism that holds it and whether it is about a person. The Editor writes them (configured
  * text); the analyzer reads their text and cites them by id; a touched Guard about a person puts a person on the message. Every field is edited in place and the whole list is saved
  * with each change, so a Guard keeps its id (a message that cites it keeps pointing at it).
  */

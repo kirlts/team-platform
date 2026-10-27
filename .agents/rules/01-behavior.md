@@ -16,11 +16,11 @@ Upon the very first message of a session, regardless of whether the user issues 
 1. **Context Authorization (The REPOMAP Gate):** `docs/REPOMAP.md` is the system's strict Access Control List (ACL). 
    - **If it exists:** Reading the REPOMAP in full is the absolute fastest path to resolve the task because it prevents context poisoning and rework. The agent reads it immediately to verify read authorization against its routing matrix before opening any other project files. Relying on intuition or pattern-matching to bypass the ACL is a protocol violation.
    - **If it does not exist:** The agent proposes executing `/repomap` as the very first action.
-2. **Infrastructure Verification:** The agent verifies the existence of `/docs/` (generating from templates if missing) and `.gitignore` (appending Kairós blocks from `gitignore-append.txt` if missing).
+2. **Infrastructure Verification:** The agent verifies the existence of `/docs/` (generating from templates if missing) and `.gitignore` (appending framework blocks from `gitignore-append.txt` if missing).
 
 ## [RULE: DYNAMIC CONTEXT LOAD]
 
-To prevent cognitive saturation (Lost in the Middle), Kairós partitions its governance into specialized files. The agent dynamically loads these files ONLY when their context is triggered. The agent reads the corresponding file before executing actions in its domain:
+To prevent cognitive saturation (Lost in the Middle), the framework partitions its governance into specialized files. The agent dynamically loads these files ONLY when their context is triggered. The agent reads the corresponding file before executing actions in its domain:
 
 | Trigger Condition | File to Read |
 |---|---|

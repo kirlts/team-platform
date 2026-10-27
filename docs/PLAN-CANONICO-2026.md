@@ -32,12 +32,12 @@ reloj («una semana sin fallas»): cada criterio es un evento o un conteo.
 | Canario de Claude desatendido | existe, en el anfitrión; en el canónico, `scripts/canary.mjs` en `wt-driver-local` | mismos árboles |
 | Anfitriones instalados | 1 | el único que sirve una instancia |
 | Instalación en un servidor limpio con dominio propio | sin probar | `docs/TODO.md`, EPIC-007 |
-| Cómo avanza `main` | sólo con `DEPLOY_PUBLISHES_MAIN=<sha>`, marca que exporta el guion de despliegue del anfitrión; espejo en un flujo de GitHub Actions sobre `ubuntu-latest` | `.githooks/pre-push`, `.github/workflows/main-solo-desde-desarrollo.yml` |
+| Cómo avanza `main` | sólo con `DEPLOY_PUBLISHES_MAIN=<sha>`, marca heredada que el gancho acepta; espejo en un flujo de GitHub Actions sobre `ubuntu-latest` | `.githooks/pre-push`, `.github/workflows/main-solo-desde-desarrollo.yml` |
 | Filas abiertas en `docs/HALLAZGOS.md` | 0 contra `main` al 21-10 | cabecera del documento |
 | Puntos sin marcar en `docs/TODO.md` | 14; 9 esperan hardware, dominio, llave o a Martín | `grep -c '^- \[ \]'` |
 | Estética del panel | tokens en `panel/DISENO.md` y `panel/src/styles.css` (Orbitron, Source Sans 3, OKLCH, vidrio, cromo, gel, luces de estado). La auditoría de hoy midió dos derivas respecto de DISENO.md: Orbitron salió de los títulos el 21-10 (`cd001a46`) y las luces de estado pasaron a contador de contorno (`56a49550`, `99e34df1`); ninguno de los 59 commits posteriores de `styles.css` cita la estética como motivo | rama `wt-identidad` (`b32ad0fe`), `AUDITORIA.md` con 52 capturas |
 | Worktrees vivos en el repositorio canónico | 140 | `ls .claude/worktrees` |
-| Vocabulario de la interfaz | Kairós en documentos; rótulos del panel en castellano estándar | `docs/KAIROS.md`, `panel/src` |
+| Vocabulario de la interfaz | rótulos del panel en castellano estándar | `panel/src` |
 
 ## 2. Qué difiere del diseño, por clase
 
@@ -45,7 +45,7 @@ reloj («una semana sin fallas»): cada criterio es un evento o un conteo.
 |---|---|---|
 | **Pieza genérica que vive en un anfitrión** | el canario; el capturador de pantallas con máscara y guardia; las guardias de órdenes y de herramientas del arnés; la exigencia de cierre de sesión; el barrido de máquinas huérfanas; el mapa del repositorio; las instrucciones genéricas del arnés mezcladas con las del anfitrión | Cada una entra al canónico con su prueba; el anfitrión borra su copia cuando el canario pasa con la del canónico |
 | **Contrato sin driver ni conformidad** | 46 variables documentadas en MASTER-SPEC §7.5, ningún driver en el árbol, ninguna prueba que diga «este anfitrión cumple» | `docs/CONTRATO-DE-ANFITRION.md` con versión, `drivers/docker-local` de referencia y `scripts/host-conformance.mjs` |
-| **Publicación de `main` atada a un anfitrión** | `DEPLOY_PUBLISHES_MAIN` la emite el despliegue del primer anfitrión; sin él, el canónico no publica | Puerta propia del canónico: el sello lo emite `scripts/publish-main.sh` tras la batería y la conformidad; el anfitrión fija su versión por sha o digest, no por `main` |
+| **Publicación de `main` sin puerta propia** | `DEPLOY_PUBLISHES_MAIN` era la única marca que el gancho aceptaba; sin ella, `main` no avanzaba | Puerta propia del canónico: el sello lo emite `scripts/publish-main.sh` tras la batería y la conformidad; quien instala fija su versión por sha o digest, no por `main` |
 | **Instalación no reproducible** | EPIC-007 sin servidor limpio; `compose.override.example.yml` sin instalación que lo pruebe | La instalación se prueba en el segundo anfitrión y queda como guion repetible |
 | **Capacidades maduradas bajo presión, sin lista** | reintentar, retomar por versión, Guardia de la idea, entrega aparte, revisión por persona, medios en la respuesta: cada una con prueba, ninguna en una lista que diga qué es 1.0 | `docs/CAPACIDADES-1.0.md`: una fila por capacidad, su prueba desde el envío hasta la respuesta y su veredicto de juez |
 | **Estética que deriva sin que nadie lo mida** | dos derivas medidas respecto de DISENO.md, en 59 commits que no la nombran | Toda pantalla que entra se juzga contra DISENO.md antes de fusionarse; las dos derivas se reponen como restauración |
@@ -60,7 +60,7 @@ Las siete son la misma deriva: una verdad del producto que vive fuera del reposi
 | Anfitriones que instalan el canónico sin copiar archivos a mano | 0 de 1 | 2 de 2 (el primero, migrado; el segundo, nuevo) | `scripts/host-conformance.mjs` en verde en cada uno |
 | Archivos del arnés genérico fuera del canónico | 54 | 0 que no nombren al anfitrión | inventario del directorio de integración del anfitrión |
 | Drivers conformes | 0 | 3: local de referencia, máquinas efímeras del primer anfitrión, máquinas bajo demanda del segundo | `host-conformance.mjs --driver <ruta>` |
-| Cómo avanza `main` | marca del anfitrión | sello de la puerta del canónico | `.githooks/pre-push`, `scripts/publish-main.sh` |
+| Cómo avanza `main` | marca heredada | sello de la puerta del canónico | `.githooks/pre-push`, `scripts/publish-main.sh` |
 | Capacidades 1.0 con prueba e2e y juez | sin lista | todas las de la lista | `docs/CAPACIDADES-1.0.md` |
 | Pantallas fusionadas sin veredicto contra DISENO.md | sin medir | 0 | columna «juez» de `docs/CAPACIDADES-1.0.md` |
 | Worktrees | 140 | sólo los de agentes vivos | `scripts/clean-worktrees.sh --list` |
@@ -128,10 +128,10 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | Pieza | Qué es | Estado |
 |---|---|---|
 | C1 `scripts/publish-main.sh` | La única puerta: toma el sha de `desarrollo`, corre la batería dirigida sobre ese sha, corre la conformidad con `docker-local`, y emite el sello `RELEASE_PUBLISHES_MAIN=<sha>` para el gancho | hecho (`d2250ba6`) |
-| C2 Gancho `pre-push` | Acepta el sello de C1 en vez de `DEPLOY_PUBLISHES_MAIN`; lo demás igual: `desarrollo` o ancestro, avance rápido, nunca borrar | hecho (`d2250ba6`): acepta `RELEASE_PUBLISHES_MAIN`; la marca vieja sigue aceptada hasta C5 (línea `RETIRO-DEPLOY`) |
+| C2 Gancho `pre-push` | Acepta el sello de C1 en vez de `DEPLOY_PUBLISHES_MAIN`; lo demás igual: `desarrollo` o ancestro, avance rápido, nunca borrar | hecho (`d2250ba6`): acepta `RELEASE_PUBLISHES_MAIN`; la marca vieja sigue aceptada hasta su retiro, C5 (línea `RETIRO-DEPLOY`) |
 | C3 Flujo de GitHub Actions | Queda como espejo opcional de la misma regla; no es requisito: la verificación corre en la máquina que publica. Nada del canónico depende de tener presupuesto en GitHub | hecho (`d2250ba6`): el flujo sólo mide avance rápido, espejo opcional |
 | C4 Versión y etiqueta | Cada publicación de `main` lleva etiqueta `vX.Y.Z` y una línea en `CHANGELOG.md`; el anfitrión fija la que instala por sha o digest | hecho (`d2250ba6`): `prepare-release.mjs` y etiqueta `vX.Y.Z` |
-| C5 El anfitrión deja de mover `main` | Su despliegue ya no exporta la marca; fija versión del canónico como fija la de cualquier dependencia | por hacer en el anfitrión, con el lote de estabilización (versión fijada `45b2cf6a`) |
+| C5 Retiro de la marca heredada | El gancho deja de aceptar `DEPLOY_PUBLISHES_MAIN` (se borra la línea `RETIRO-DEPLOY`); quien instala fija la versión del canónico como fija la de cualquier dependencia | por hacer, tras la primera publicación con `publish-main.sh` |
 
 ### D. Núcleo 1.0
 
@@ -170,7 +170,7 @@ La auditoría y las tres direcciones de `wt-identidad` quedan como medición (`d
 | 0 Contrato | A1, A2, A3, A6 | `node scripts/host-conformance.mjs --driver drivers/docker-local` sale 0 en una instalación limpia. Cumplido el 2026-10-26 a las 21:17, en un clon limpio de `desarrollo` (`40d710fc`) |
 | 1 Traer lo genérico | B1 a B7 | El primer anfitrión borra su copia de cada pieza y su canario pasa con la del canónico |
 | 2 Segundo anfitrión | A4, F1, F2, D4 | `scripts/canary.mjs` sale 0 contra el segundo anfitrión, con `drivers/fly-machines`, instalado siguiendo `INSTALACION.md` sin un paso a mano fuera del documento |
-| 3 Publicación propia | C1 a C5 | `main` avanza una vez por `publish-main.sh`; el gancho rechaza la marca vieja; el primer anfitrión fija versión por sha |
+| 3 Publicación propia | C1 a C5 | `main` avanza una vez por `publish-main.sh`; el gancho rechaza la marca vieja; quien instala fija versión por sha |
 | 4 Capacidades 1.0 | D1, D2, D3, D5 | Cada fila de `CAPACIDADES-1.0.md` con prueba verde y veredicto |
 | 5 Estética conservada | E1 a E4 | Las dos derivas repuestas con veredicto; el juez de E2 corre en la primera pantalla que la fase 1 o 4 fusione; `THEME_CSS` del primer anfitrión intacto |
 

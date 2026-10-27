@@ -5,7 +5,7 @@ Fecha: 2026-10-25. Pedido de Martín, 02:25: «empujar un poco los límites de H
 Resultado:
 
 1. Haiku 5.5 cerró 6 de 7 corridas de seis tareas reales de este repositorio, desde un cambio de rótulo hasta una migración con API y pantalla. Sonnet 5.5 cerró las seis.
-2. Ninguna estimación del analizador separa la corrida que falló de las que cerraron. Con estos datos no hay límite que derivar. `EXECUTE_LIGHT_LIMITS` queda sin límite (`create=1 irreversibility=1 certainty=0`) hasta que los juicios del IMK acumulen casos.
+2. Ninguna estimación del analizador separa la corrida que falló de las que cerraron. Con estos datos no hay límite que derivar. `EXECUTE_LIGHT_LIMITS` queda sin límite (`create=1 irreversibility=1 certainty=0`) hasta que los juicios de cada trabajo acumulen casos.
 3. Con los precios publicados Haiku costó 0,055 USD las seis tareas y Sonnet 0,557 USD: diez veces menos. El costo que informa la CLI dice lo contrario: 2,18 USD contra 0,86 USD. No se explicó la diferencia. Antes de afirmar un ahorro hay que leer el informe de uso de la consola de Anthropic.
 4. Haiku tardó 48 minutos en las seis tareas y Sonnet 10; tres tareas de Haiku pasaron de 10 minutos. Las corridas compartieron la máquina con otras sesiones (carga de 10 a 45): el tiempo es orientativo.
 
@@ -45,7 +45,7 @@ Costo con precios publicados: lectura de caché, escritura de caché y salida a 
 | ¿Qué cuesta más, Haiku o Sonnet? | Por los precios publicados, Haiku diez veces menos. Por la CLI, Haiku 2,5 veces más. Sin resolver |
 | ¿Y en tiempo? | En T3 y T4 Haiku dio 1,7 y 2,5 veces más pasos y tardó 31 y 9 veces más minutos |
 
-Dos consecuencias para el diseño. Primera: el fallo de Haiku no avisó. La escalada por `cannot_close` o `blocked` no lo habría visto. Lo ven la comprobación del anfitrión (gancho `Stop`) y el juicio del IMK.
+Dos consecuencias para el diseño. Primera: el fallo de Haiku no avisó. La escalada por `cannot_close` o `blocked` no lo habría visto. Lo ven la comprobación del anfitrión (gancho `Stop`) y el juicio del trabajo.
 
 Segunda: la autoevaluación también se equivoca al revés. En la segunda corrida de T5 pidió escalar un trabajo que ya estaba bien. Una escalada de más cuesta una pasada de Sonnet; una que falta deja un trabajo que no hace lo que dice.
 
@@ -53,7 +53,7 @@ Segunda: la autoevaluación también se equivoca al revés. En la segunda corrid
 
 Con n = 1 por tarea no se separa una dimensión. El criterio queda escrito: el límite es el valor medio entre la mayor estimación de lo que Haiku cerró y la menor de lo que no cerró. Se fija sólo cuando esos dos rangos no se cruzan en al menos 20 trabajos juzgados.
 
-Esos trabajos los acumula el juicio del IMK de cada trabajo real (`execute_judgments`). El guion se repite con `node bench/model-limits.mjs --model claude-haiku-5-5` y con `--model claude-sonnet-5-5`, y suma casos.
+Esos trabajos los acumula el juicio del trabajo de cada trabajo real (`execute_judgments`). El guion se repite con `node bench/model-limits.mjs --model claude-haiku-5-5` y con `--model claude-sonnet-5-5`, y suma casos.
 
 ## Costo de la corrida
 

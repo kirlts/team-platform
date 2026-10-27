@@ -24,8 +24,8 @@ if (process.env.FAKE_EXECUTE_FAIL_FIRST) {
 let stdin = ''
 process.stdin.on('data', (d) => { stdin += d })
 process.stdin.on('end', async () => {
-  // The Guard of the idea and the IMK judge go through the text provider, never by spawning `claude` in the worker (which has none in production): a call that reaches here is the defect of 2026-10-26.
-  if (stdin.startsWith('Eres el analizador de pedidos') || stdin.startsWith('Eres un juez del IMK')) process.exit(1)
+  // The Guard of the idea and the job judge go through the text provider, never by spawning `claude` in the worker (which has none in production): a call that reaches here is the defect of 2026-10-26.
+  if (stdin.startsWith('Eres el analizador de pedidos') || stdin.startsWith('Eres un juez de trabajos')) process.exit(1)
   const team = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('TEAM_')))
   if (state) appendFileSync(`${state}/calls.jsonl`, `${JSON.stringify({ pid: process.pid, t0: Date.now(), args: process.argv.slice(2), cwd: process.cwd(), team, stdin, otel: Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'TRACEPARENT' || k.startsWith('OTEL_') || k.startsWith('CLAUDE_CODE_'))) })}\n`)
   const out = (e) => process.stdout.write(`${JSON.stringify(e)}\n`)

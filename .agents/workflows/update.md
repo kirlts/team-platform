@@ -1,40 +1,40 @@
 ---
-description: /update - Updates the Kairós governance system to its latest official version without affecting your project code.
+description: /update - Updates the governance system to its latest official version without affecting your project code.
 ---
 
 # Update
 
-This workflow updates the Kairós governance files (rules, workflows, skills, templates) to the latest version available in the remote repository, without affecting the user's project documentation.
+This workflow updates the governance files (rules, workflows, skills, templates) to the latest version available in the remote repository, without affecting the user's project documentation.
 
 ## Configuration Variables
 
-- **REPO_OWNER:** kirlts
-- **REPO_NAME:** kairos
+- **REPO_OWNER:** (declared by the project that distributes the framework)
+- **REPO_NAME:** (declared by the project that distributes the framework)
 - **BRANCH:** main
-- **VERSION_FILE:** kairos-version.txt
+- **VERSION_FILE:** framework-version.txt
 
 ## Step 0: Local Version Detection
 
-The first line of `kairos-version.txt` at the root of the local repository is read. This represents the installed version.
+The first line of `framework-version.txt` at the root of the local repository is read. This represents the installed version.
 
 ## Step 1: Remote Version Detection
 
 The remote version file is read at:
 
 ```text
-https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{BRANCH}/kairos-version.txt
+https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{BRANCH}/framework-version.txt
 ```
 
 The first line is extracted as the remote version. The rest of the file represents the governance file manifest.
 
 ## Step 2: Version Comparison
 
-- If local version == remote version → the system reports "Kairós is up to date" and stops.
+- If local version == remote version → the system reports "the framework is up to date" and stops.
 - If local version < remote version → the system proceeds with the update.
 
 ## Step 3: Change Detection
 
-Using the manifest from the remote `kairos-version.txt`:
+Using the manifest from the remote `framework-version.txt`:
 
 For EACH path listed in the remote manifest vs the local manifest:
 
@@ -51,7 +51,7 @@ The user is presented with a table of detected changes:
 
 **The system prevents applying any changes without explicit user approval.**
 
-Files within `docs/` are not touched during an `/update`. They belong to the project, not Kairós.
+Files within `docs/` are not touched during an `/update`. They belong to the project, not the framework.
 
 ## Step 5: Application
 
@@ -61,11 +61,11 @@ For each approved file:
 - **MODIFY:** The local file is replaced with the remote version.
 - **DELETE:** The local file is deleted. Its parent directory is purged if it becomes empty.
 
-The local `kairos-version.txt` is updated with the new version and manifest.
+The local `framework-version.txt` is updated with the new version and manifest.
 
 ## Step 6: Post-Update
 
-- An entry is added to `docs/CHANGELOG.md` under the `[Kairós]` section.
+- An entry is added to `docs/CHANGELOG.md` under the `[Framework]` section.
 - The user is notified if any new rules require action (e.g., new available workflow).
 
 ## Step 7: Template Change Detection

@@ -1,6 +1,6 @@
 // UD-295: the model of the unattended session comes from the area and from what the analyzer estimates about the message, never from a box a level puts it in. The light model takes
 // what stays within its limits, the area's larger one the rest; a person's Guard puts a person on the message next to Claude; a session of the light model that cannot close goes on
-// in the larger one, on the same branch, and the thread says so; every finished job is judged with the IMK.
+// in the larger one, on the same branch, and the thread says so; every finished job is judged by the job judge.
 import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -28,11 +28,11 @@ describe('model by area and by estimates', () => {
   let extra = {}
   let routing = 'agent'
 
-  // The text provider answers the Guard of the idea and the IMK judge (FAKE_JUDGE=off makes the judge fail the way a missing key does), as in production: the worker has no `claude`.
+  // The text provider answers the Guard of the idea and the job judge (FAKE_JUDGE=off makes the judge fail the way a missing key does), as in production: the worker has no `claude`.
   const KPI_IDS = ['1.1', '1.2', '1.3', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3']
   const fakeText = { name: 'fake', model: 'claude-haiku-5-5', complete: async (req) => {
     const prompt = req.messages[0].content
-    if (prompt.startsWith('Eres un juez del IMK')) {
+    if (prompt.startsWith('Eres un juez de trabajos')) {
       if (process.env.FAKE_JUDGE === 'off') throw new Error('anthropic: sin clave')
       const kpis = KPI_IDS.map((id) => ({ id, applies: id === '2.1' || id === '1.2', score: id === '2.1' ? 1 : 0, quote: id === '2.1' || id === '1.2' ? 'Arreglé la pantalla' : '', claim: 'c', reasoning: 'r' }))
       return { json: { quadrant: 'execute', kpis, summary: 'Adecuado.' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
@@ -247,7 +247,7 @@ describe('model by area and by estimates', () => {
     assert.equal(modelOf(calls().at(-1)), 'claude-sonnet-5-5')
   })
 
-  it('every finished job is judged with the IMK: 12 KPI, 4 axes against the target of the quadrant, saved with the job and shown in its detail; a judge that cannot run leaves the job unjudged', async () => {
+  it('every finished job is judged by the job judge: 12 KPI, 4 axes against the target of the quadrant, saved with the job and shown in its detail; a judge that cannot run leaves the job unjudged', async () => {
     startWorker()
     const id = await publish('Cambiar un rótulo.')
     await settle(id)

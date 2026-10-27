@@ -2,7 +2,7 @@
 
 > Derived using the Promise Decomposition Algorithm. Canonical verification contract.
 
-## Kairós Symbol Legend
+## Symbol Legend
 
 | Symbol | Meaning |
 |---|---|

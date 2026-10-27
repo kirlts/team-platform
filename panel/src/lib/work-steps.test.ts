@@ -58,12 +58,14 @@ describe('workSteps', () => {
     const d = { ...base, job_status: 'failed', phases: [phase('create', 95000), phase('run', 1000, 'error')] }
     expect(states(d)).toEqual(['machine:done', 'session:failed'])
     expect(workSteps(d, 'work').steps.map((s) => s.repeats)).toEqual([true, true])
+    expect(workSteps(d, 'work').partial).toBe(false)
   })
 
   it('a failed delivery keeps the work: a publish retry repeats only the delivery', () => {
     const d = { ...base, job_status: 'done', phases: [phase('create', 1000), phase('run', 2000), phase('deliver', 900, 'error')], deliver: { job_id: '4', job_status: 'failed', phase: null, attempts: 1 } }
     const w = workSteps(d, 'publish')
     expect(w.state).toBe('failed')
+    expect(w.partial).toBe(true)
     expect(w.steps.map((s) => `${s.key}:${s.state}:${s.repeats}`)).toEqual(['machine:done:false', 'session:done:false', 'deliver:failed:true'])
   })
 

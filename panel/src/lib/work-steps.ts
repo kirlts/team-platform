@@ -30,7 +30,7 @@ export function stepOfPhase(phase: string | null | undefined): StepKey | null {
  * here: the job status and the phase are the server's; this only orders them. `retry` is the `retry_action` of the retryable notice of the thread:
  * `publish` repeats only the delivery, `work` repeats every stretch.
  */
-export function workSteps(d: MessageTiming, retry: 'publish' | 'work' | null = null): { state: WorkState; steps: WorkStep[] } {
+export function workSteps(d: MessageTiming, retry: 'publish' | 'work' | null = null): { state: WorkState; steps: WorkStep[]; partial: boolean } {
   const deliverFailed = d.deliver?.job_status === 'failed'
   const failed = d.job_status === 'failed' || deliverFailed
   const state: WorkState = failed ? 'failed' : d.job_status === 'queued' ? 'queued' : d.job_status === 'running' ? 'running' : 'done'
@@ -74,5 +74,6 @@ export function workSteps(d: MessageTiming, retry: 'publish' | 'work' | null = n
     const repeats = state !== 'failed' || !retry ? null : retry === 'work' ? true : key === 'deliver'
     return { key, state: s, ms, repeats }
   })
-  return { state, steps }
+  // The retry leaves some stretch as it is: only then do the rows say what each one does. When it repeats everything, «Reintentar trabajo» says it and a note on every row would sit next to a done mark as a contradiction.
+  return { state, steps, partial: steps.some((s) => s.repeats === false) }
 }

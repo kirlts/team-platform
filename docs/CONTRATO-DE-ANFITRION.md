@@ -170,7 +170,7 @@ Copia `{workdir}` a la máquina, corre ahí `bash run.sh` y devuelve su salida.
 | Línea `result` | Cierra el trabajo. Debe traer `structured_output`, o el trabajo falla con `invalid_output` |
 | Código de salida | El de la sesión. Un código distinto de 0 sin línea `result` es falla de infraestructura (`execute_no_result`): un segundo intento y después una persona |
 | Plazo | `EXECUTE_TIMEOUT_MS` menos lo que gastó CREATE. Al vencer: SIGTERM, y SIGKILL tras `EXECUTE_KILL_GRACE_MS`. El trabajo falla con `execute_timeout` |
-| Repetible | Si el trabajador se reinicia con la sesión en curso, el núcleo no destruye la máquina y el trabajador siguiente vuelve a llamar RUN para el mismo trabajo. RUN debe reengancharse a la sesión viva y no empezar otra |
+| Apagado del trabajador | Si el trabajador se apaga en orden (un despliegue) con la sesión en curso, cancela RUN con SIGTERM, omite COLLECT y llama DESTROY. El trabajo vuelve a la cola sin gastar el intento y el intento siguiente llama CREATE y RUN de nuevo, con una máquina nueva. RUN no tiene que reengancharse a una sesión anterior |
 
 Dentro de la máquina `run.sh` necesita `bash`, `node` (lo usa `team`), `claude` y red hacia `EXECUTE_TEAM_URL`. Hace `cd` a `$TEAM_REPO_DIR` si el entorno de la máquina la define, y al directorio del trabajo si no. `TEAM_REPO_DIR` no puede venir de `EXECUTE_SESSION_ENV`, que rechaza claves `TEAM_*`. `bypassPermissions` no arranca como root fuera de un sandbox, así que la sesión corre con un usuario sin privilegios.
 
@@ -194,10 +194,11 @@ Retira la máquina.
 
 | Elemento | Contrato |
 |---|---|
-| Cuándo corre | Siempre: tras éxito, tras fallo, tras plazo vencido, tras abortarse el trabajo y cuando CREATE falló a medias. No corre si la compuerta respondió 75 sin ejecutar CREATE, porque no se creó nada |
-| Idempotente | Una máquina que no existe ya está destruida y la orden sale con 0 |
-| Código distinto de 0 | Se registra en el registro del trabajador. No falla el trabajo |
-| Excepción | Si el trabajador se apaga (un despliegue) mientras RUN corre, la máquina y la sesión quedan vivas para el intento siguiente y ni COLLECT ni DESTROY corren. El driver debe declarar una vida máxima a cada máquina para que ninguna quede para siempre |
+| Cuándo corre | Siempre: tras éxito, tras fallo, tras plazo vencido, tras abortarse el trabajo, en el apagado ordenado del trabajador y cuando CREATE falló a medias. No corre si la compuerta respondió 75 sin ejecutar CREATE, porque no se creó nada |
+| Idempotente | Una máquina que no existe ya está destruida y la orden sale con 0. Un error (permiso, red, un servicio que no contesta) nunca es «no existe»: sale distinto de 0 |
+| Código distinto de 0 | No falla el trabajo. El núcleo lo deja registrado con el motivo y la máquina sigue anotada como viva: se reintenta cuando arranca el trabajador, y `GET /health` pasa a `degraded` con `machines.failed` mientras tanto |
+| Máquinas huérfanas | El núcleo anota cada máquina en `execute_machines` antes de llamar CREATE, con `{job_id}`, `{workdir}` y el nombre por omisión `team-job-<job_id>`, y cierra la fila cuando DESTROY sale con 0. Si el trabajador muere sin aviso (SIGKILL, corte de luz), la fila queda abierta. El trabajador siguiente llama DESTROY de cada fila abierta cuyo trabajo ya no corre con arriendo vigente, al arrancar y cuando vence un arriendo. Para esa llamada `{machine}` es el nombre que imprimió CREATE (o el de omisión si murió antes) y `{workdir}` es la ruta que el trabajo tuvo, que a esa hora ya no existe: DESTROY no puede depender de su contenido. Una máquina del anfitrión sin fila en la base (creada fuera del núcleo, o por un CREATE que no llegó a anotarse) no la barre el núcleo: es del anfitrión |
+| Vida máxima | Sigue siendo prudente que el driver declare una vida máxima a cada máquina: es el último respaldo si el anfitrión no contesta DESTROY durante días |
 | Plazo | `EXECUTE_TIMEOUT_MS` |
 
 ### DELIVER
@@ -305,7 +306,6 @@ Se comparó este documento con MASTER-SPEC §7.5 (`docs/MASTER-SPEC.md`), `.env.
 | Plan canónico 2026, §1 | 46 variables `EXECUTE_*` en `src/config.js` | Son 45 nombres distintos (`src/config.js:352-421`). Con `EXECUTE_CONTRACT_VERSION` son 46 |
 | MASTER-SPEC `:548-569` | La tabla de variables omite nueve | `EXECUTE_DELIVER_CONCURRENCY`, `EXECUTE_DIRECT_HOST_INSTRUCTIONS`, `EXECUTE_DIRECT_SESSION_ENV`, `EXECUTE_MACHINE_CLAUDE_BIN`, `EXECUTE_MAX_ATTEMPTS`, `EXECUTE_OTEL_ENV`, `EXECUTE_SESSION_ENV`, `EXECUTE_TEAM_URL` y `EXECUTE_WORK_ROOT` están en `src/config.js:351-421` |
 | `.env.example` y MASTER-SPEC | No mencionan `TEAM_WORKER_VERSION` | `src/execute/resume.js:29` la lee para decidir cuándo se vuelve a lanzar un trabajo que falló por infraestructura |
-| MASTER-SPEC `:537` | DESTROY corre siempre, también «al abortarse el trabajo» | Un apagado del trabajador durante RUN deja la máquina viva y omite COLLECT y DESTROY (`src/execute/runners.js:170-174`) |
 | MASTER-SPEC `:539` | `{workdir}` contiene `run.sh`, `env.sh`, `prompt.md` y `bin/team` | También `system.md`, `thread/`, `captures/` y `attachments/` (`src/execute/runners.js:101-103`, `src/execute/handler.js:530-531`) |
 | MASTER-SPEC `:579` | El código 75 de DELIVER espera y reintenta sin gastar intento | Con `##team wait in-machine` falla de inmediato, y la misma salida repetida `ceil(64 min / EXECUTE_CAPACITY_WAIT_MS)` veces también (`src/execute/deliver.js:340-359`) |
 | MASTER-SPEC `:582` | Un plazo vencido de DELIVER es una falla que no vuelve a Claude | Además se repite una vez antes de pasar a una persona (`src/execute/deliver.js:329-337`) |

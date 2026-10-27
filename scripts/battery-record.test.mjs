@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { spawn, spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildRecord, buildVerification, externalBases, failedFiles, failedNames, finalBase, hostFingerprint, imageBase, parseCounts, readNote, verificationProblems, writeNote } from './battery-record.mjs'
+import { buildRecord, buildVerification, externalBases, failedFiles, failedNames, finalBase, hostFingerprint, imageBase, parseCounts, pickBase, readNote, verificationProblems, writeNote } from './battery-record.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_ENV = { GIT_AUTHOR_NAME: 'author', GIT_AUTHOR_EMAIL: 'a@t', GIT_COMMITTER_NAME: 'author', GIT_COMMITTER_EMAIL: 'a@t', GIT_CONFIG_NOSYSTEM: '1' }
@@ -236,7 +236,10 @@ test('a verification has exactly the fields the reader needs and is built only f
   const sha = 'a'.repeat(40)
   const results = [{ name: 'complete', cmd: 'npm run test:completa', exit: 0 }, { name: 'panel', cmd: 'npm run test:panel', exit: 0 }]
   const v = buildVerification({ sha, host: '0123456789abcdef', results, baseDigest: DIGEST, date: new Date('2026-10-26T23:00:00.123Z') })
-  assert.deepEqual(v, { formato: 1, sha, resultado: 'verde', anfitrion: '0123456789abcdef', imagen_base: DIGEST, comandos: [{ orden: 'npm run test:completa', codigo: 0 }, { orden: 'npm run test:panel', codigo: 0 }], momento: '2026-10-26T23:00:00Z' })
+  assert.deepEqual(v, { formato: 1, sha, resultado: 'verde', anfitrion: '0123456789abcdef', imagen_base: DIGEST, node: process.version, comandos: [{ orden: 'npm run test:completa', codigo: 0 }, { orden: 'npm run test:panel', codigo: 0 }], momento: '2026-10-26T23:00:00Z' })
+  assert.equal(buildVerification({ sha, host: '0123456789abcdef', results, baseDigest: DIGEST, nodeVersion: 'v24.1.0' }).node, 'v24.1.0')
+  assert.throws(() => buildVerification({ sha, host: '0123456789abcdef', results, baseDigest: DIGEST, nodeVersion: '24' }), /Node version/)
+  assert.ok(verificationProblems({ ...v, node: undefined }, sha).length > 0)
   assert.deepEqual(verificationProblems(v, sha), [])
   assert.throws(() => buildVerification({ sha, host: '0123456789abcdef', results: [{ ...results[0], exit: 1 }], baseDigest: DIGEST }), /did not exit 0/)
   assert.throws(() => buildVerification({ sha, host: '0123456789abcdef', results, baseDigest: null, baseReason: 'offline' }), /digest of the image base is unknown \(offline\)/)
@@ -260,8 +263,9 @@ test('run with a host writes the verification a reader accepts, from another rep
   const r = t.run(sha, { BATTERY_TEST_DIGESTS: digests }, ['--compose', compose])
   assert.equal(r.status, 0, r.stdout + r.stderr)
   const v = JSON.parse(r.stdout)
-  assert.deepEqual(Object.keys(v), ['formato', 'sha', 'resultado', 'anfitrion', 'imagen_base', 'comandos', 'momento'])
+  assert.deepEqual(Object.keys(v), ['formato', 'sha', 'resultado', 'anfitrion', 'imagen_base', 'node', 'comandos', 'momento'])
   assert.equal(v.imagen_base, DIGEST)
+  assert.equal(v.node, process.version)
   assert.equal(v.anfitrion, hostFingerprint(readFileSync(compose, 'utf8')))
   assert.deepEqual(v.comandos.map((c) => c.codigo), [0, 0, 0, 0])
   const elsewhere = makeElsewhere(t)
@@ -287,4 +291,96 @@ test('without the digest of the image base nothing is written: neither the verif
   assert.match(r.stderr, /digest of the image base is unknown/)
   assert.equal(t.notesRef(), '')
   assert.equal(sh(t.repo, 'git', ['ls-remote', 'origin', 'refs/notes/verificaciones']).stdout.trim(), '')
+})
+
+test('--base-image names the base the host declares: the digest comes from the detailed record when the ref is a FROM, else from the registry', () => {
+  const bases = [{ ref: 'node:24-alpine', digest: `sha256:${'e'.repeat(64)}` }, { ref: 'alpine:3.24', digest: DIGEST }]
+  assert.deepEqual(pickBase({ baseImage: 'node:24-alpine', rootRef: 'alpine:3.24', bases }), { digest: `sha256:${'e'.repeat(64)}` })
+  assert.deepEqual(pickBase({ rootRef: 'alpine:3.24', bases }), { digest: DIGEST }, 'without --base-image: the root of the last stage')
+  const calls = []
+  const lookup = (ref) => { calls.push(ref); return { digest: `sha256:${'f'.repeat(64)}` } }
+  assert.deepEqual(pickBase({ baseImage: 'other:1', rootRef: 'alpine:3.24', bases, lookup }), { digest: `sha256:${'f'.repeat(64)}` })
+  assert.deepEqual(calls, ['other:1'])
+  assert.equal(pickBase({ baseImage: 'other:1', bases, lookup: () => ({ digest: null, reason: 'offline' }) }).digest, null)
+
+  const t = makeToy()
+  writeFileSync(join(t.repo, 'Dockerfile'), 'FROM node:24-alpine AS panel\nFROM alpine:3.24 AS base\nFROM base\n')
+  ok(t.repo, 'git', ['add', 'Dockerfile']); ok(t.repo, 'git', ['commit', '-q', '-m', 'dockerfile'])
+  const sha = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
+  const digests = JSON.stringify({ 'alpine:3.24': DIGEST, 'node:24-alpine': `sha256:${'e'.repeat(64)}` })
+  const r = t.run(sha, { BATTERY_TEST_DIGESTS: digests }, ['--anfitrion', '0123456789abcdef', '--base-image', 'node:24-alpine'])
+  assert.equal(r.status, 0, r.stdout + r.stderr)
+  assert.equal(JSON.parse(r.stdout).imagen_base, `sha256:${'e'.repeat(64)}`)
+  // A ref that is neither a FROM nor resolvable writes nothing.
+  const t2 = makeToy()
+  const bad = t2.run(t2.second, { BATTERY_TEST_DIGESTS: '{}' }, ['--anfitrion', '0123456789abcdef', '--base-image', 'unknown:1'])
+  assert.equal(bad.status, 1)
+  assert.match(bad.stderr, /digest of the image base is unknown/)
+  assert.equal(t2.notesRef(), '')
+})
+
+// A toy whose commit passed the battery (detailed record only) and whose Dockerfile has two external bases.
+function passedToy (over = {}, args = []) {
+  const t = makeToy()
+  writeFileSync(join(t.repo, 'Dockerfile'), 'FROM node:24-alpine AS panel\nFROM alpine:3.24 AS base\nFROM base\n')
+  ok(t.repo, 'git', ['add', 'Dockerfile']); ok(t.repo, 'git', ['commit', '-q', '-m', 'dockerfile'])
+  t.sha = ok(t.repo, 'git', ['rev-parse', 'HEAD'])
+  t.digests = JSON.stringify({ 'alpine:3.24': DIGEST, 'node:24-alpine': `sha256:${'e'.repeat(64)}` })
+  const r = t.run(t.sha, { BATTERY_TEST_DIGESTS: t.digests, ...over }, args)
+  return { t, r }
+}
+const verifRef = (t) => sh(t.repo, 'git', ['ls-remote', 'origin', 'refs/notes/verificaciones']).stdout.trim()
+// regenerate must not run anything: every double of the orders and the digest table are gone from its environment.
+const regen = (t, args) => sh(t.repo, 'node', ['scripts/battery-record.mjs', 'regenerate', t.sha, ...args], { TMPDIR: join(t.dir, 'tmp'), BATTERY_TEST_CMD: 'exit 9', BATTERY_PANEL_CMD: 'exit 9', BATTERY_CLIENT_CMD: 'exit 9', BATTERY_STATIC_CMD: 'exit 9' })
+
+test('regenerate rewrites only the verification from the detailed record already published, without running the orders', () => {
+  // Publish only the detailed record (no host given), then regenerate with the host and the base the host declares.
+  const first = passedToy()
+  const t1 = first.t
+  assert.equal(first.r.status, 0, first.r.stderr)
+  assert.equal(verifRef(t1), '', 'no host: no verification')
+  const detailBefore = sh(t1.repo, 'node', ['scripts/battery-record.mjs', 'show', t1.sha, '--ref', 'battery']).stdout
+  const compose = join(t1.dir, 'compose.yml')
+  writeFileSync(compose, 'image: reg/app:${V:-48a684af79c77ec05b7faab46750c2de5a17cbf5}\n')
+  const dry = regen(t1, ['--compose', compose, '--base-image', 'node:24-alpine', '--dry-run'])
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.equal(verifRef(t1), '', '--dry-run pushes nothing')
+  assert.match(dry.stderr, /--dry-run, nothing pushed/)
+  const w = regen(t1, ['--compose', compose, '--base-image', 'node:24-alpine'])
+  assert.equal(w.status, 0, w.stderr)
+  const v = JSON.parse(w.stdout)
+  assert.deepEqual(JSON.parse(dry.stdout).comandos, v.comandos)
+  assert.deepEqual(Object.keys(v), ['formato', 'sha', 'resultado', 'anfitrion', 'imagen_base', 'node', 'comandos', 'momento'])
+  assert.equal(v.sha, t1.sha)
+  assert.equal(v.anfitrion, hostFingerprint(readFileSync(compose, 'utf8')))
+  assert.equal(v.imagen_base, `sha256:${'e'.repeat(64)}`, 'the digest of the declared base comes from image_base of the detail, no registry')
+  assert.equal(v.node, JSON.parse(detailBefore).node, 'node comes from the detailed record')
+  assert.deepEqual(v.comandos.map((c) => c.codigo), [0, 0, 0, 0])
+  assert.deepEqual(v.comandos.map((c) => c.orden), JSON.parse(detailBefore).commands.map((c) => c.cmd), 'the orders are the ones that ran, not the doubles of this call')
+  assert.match(verifRef(t1), /refs\/notes\/verificaciones$/)
+  assert.equal(sh(t1.repo, 'node', ['scripts/battery-record.mjs', 'show', t1.sha, '--ref', 'battery']).stdout, detailBefore, 'the detailed record is untouched')
+  const shown = sh(t1.repo, 'node', ['scripts/battery-record.mjs', 'show', t1.sha])
+  assert.equal(shown.status, 0, shown.stderr)
+  assert.deepEqual(JSON.parse(shown.stdout), v)
+  // Without a host, or for a commit with no detail, nothing is written.
+  assert.equal(regen(t1, []).status, 2)
+  const none = sh(t1.repo, 'node', ['scripts/battery-record.mjs', 'regenerate', t1.first, '--anfitrion', '0123456789abcdef', '--base-image', 'node:24-alpine'])
+  assert.equal(none.status, 1)
+  assert.match(none.stderr, /no detailed record/)
+})
+
+test('regenerate rejects a detailed record with an order that did not exit 0 and writes nothing', () => {
+  const { t, r } = passedToy()
+  assert.equal(r.status, 0, r.stderr)
+  const hand = join(t.dir, 'hand')
+  ok(t.dir, 'git', ['clone', '-q', t.remote, 'hand'])
+  ok(hand, 'git', ['fetch', '-q', 'origin', 'refs/notes/battery:refs/notes/battery'])
+  const detail = JSON.parse(ok(hand, 'git', ['notes', '--ref=battery', 'show', t.sha]))
+  detail.commands[1].exit = 1
+  ok(hand, 'git', ['notes', '--ref=battery', 'add', '-f', '-m', JSON.stringify(detail), t.sha])
+  ok(hand, 'git', ['push', '-q', 'origin', 'refs/notes/battery'])
+  const w = regen(t, ['--anfitrion', '0123456789abcdef', '--base-image', 'node:24-alpine'])
+  assert.notEqual(w.status, 0)
+  assert.match(w.stderr, /not valid|did not exit 0/)
+  assert.equal(verifRef(t), '')
 })

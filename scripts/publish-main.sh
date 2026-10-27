@@ -46,6 +46,8 @@
 #   PUBLISH_CLIENT_CMD        step 5 (default `npm run test:client`)
 #   PUBLISH_HOST_COMPOSE      the compose file of the host the publication is for; with it, step 7 also writes the verification a host
 #                             reads (refs/notes/verificaciones); without it, only the detailed record (refs/notes/battery)
+#   PUBLISH_HOST_BASE_IMAGE   the base image the host declares (a reference such as `name:tag`), for `imagen_base` of that verification;
+#                             without it, the external root of the last stage of the Dockerfile
 #   PUBLISH_CONFORMANCE_CMD   step 6 (default `node scripts/host-conformance.mjs --driver drivers/docker-local`)
 #   TMPDIR                    where the steps write (default $HOME/.cache: /tmp is memory)
 set -u -o pipefail
@@ -190,6 +192,7 @@ if [ "$DRY" = 1 ]; then
 fi
 t0=$(now)
 HOSTARG=(); [ -z "${PUBLISH_HOST_COMPOSE:-}" ] || HOSTARG=(--compose "$PUBLISH_HOST_COMPOSE")
+[ -z "${PUBLISH_HOST_BASE_IMAGE:-}" ] || HOSTARG+=(--base-image "$PUBLISH_HOST_BASE_IMAGE")
 if node "$AQUI/scripts/battery-record.mjs" write "$SHA" --from "$RESULTS" --remote "$REMOTE" ${HOSTARG[@]+"${HOSTARG[@]}"} >/dev/null; then
   SUMMARY+=("record        ok    $(dt "$t0" "$(now)")s   refs/notes/battery $SHA")
 else

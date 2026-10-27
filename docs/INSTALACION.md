@@ -56,11 +56,12 @@ La nota es un objeto JSON con estos campos, todos obligatorios:
 | `sha` | Los 40 caracteres del commit probado; el de la nota |
 | `resultado` | `verde` |
 | `anfitrion` | Huella del compose del anfitrión contra el que pasaron las pruebas: su texto con cada sha de 40 caracteres (y su sufijo `-<huella>`) reemplazado por `V`, SHA-256, primeros 16 caracteres |
-| `imagen_base` | Digest de la imagen sobre la que se construye la imagen de producción: la base externa de la última etapa del `Dockerfile`. `sha256:` y 64 caracteres hexadecimales |
+| `imagen_base` | Digest de la imagen base que el anfitrión declara (`--base-image <ref>`). Sin esa opción, la base externa de la última etapa del `Dockerfile`. `sha256:` y 64 caracteres hexadecimales |
+| `node` | Versión de Node con que corrieron las órdenes, como la imprime `node --version` (`v24.1.0`) |
 | `comandos` | Lista no vacía de `{ "orden": "<comando corrido>", "codigo": <código de salida> }`, todos con código `0` |
 | `momento` | Fecha y hora UTC, ISO 8601 |
 
-La huella del anfitrión se entrega al escribir: `--compose <archivo>` la calcula del compose del anfitrión y `--anfitrion <16 hex>` la recibe hecha. Sin ninguna de las dos se escribe sólo el registro detallado. Si no se puede resolver el digest de la imagen base, no se escribe ninguno de los dos.
+La huella del anfitrión se entrega al escribir: `--compose <archivo>` la calcula del compose del anfitrión y `--anfitrion <16 hex>` la recibe hecha. Sin ninguna de las dos se escribe sólo el registro detallado. La imagen base la nombra el anfitrión con `--base-image <ref>` (por ejemplo `node:24-alpine`): el digest sale de `image_base` del registro detallado si la referencia es un `FROM` externo del `Dockerfile`, y si no, se consulta con `docker buildx imagetools inspect <ref>`. Si no se puede resolver el digest de la imagen base, no se escribe ninguno de los dos.
 
 `refs/notes/battery` guarda el registro detallado, para auditar: `tree`, `date`, `node`, `runner`, `commands` (`cmd`, `exit`, `seconds`, `tests`, `pass`, `fail` y `log_sha256`, la huella de su salida completa), `skipped` (lo que la puerta no corrió y por qué) e `image_base` (referencia y digest de cada base externa del `Dockerfile`). Con el script del canónico se lee con `--ref battery`:
 
@@ -72,7 +73,15 @@ El script acepta un prefijo del sha, comprueba que la nota corresponde al commit
 
 Una orden que falló y nombra sus archivos de prueba se repite una vez, sólo en esos archivos. Si pasan, el registro detallado la deja con `exit` 0 y lleva `first_run` y `retried`. La verificación nombra la orden con lo que se repitió, para que no diga que la primera corrida pasó.
 
-Quién lo escribe: `scripts/publish-main.sh` lo deja al publicar `main`, con lo que su batería ya corrió (con `PUBLISH_HOST_COMPOSE` escribe también la verificación). `node scripts/battery-record.mjs run <sha> --compose <archivo>` lo genera para un commit que no se publicó. Sus órdenes son `test:completa`, `test:panel`, `test:client` y `node --test src/static.test.js`, una tras otra: la primera levanta contenedores y las demás abren puertos.
+Quién lo escribe: `scripts/publish-main.sh` lo deja al publicar `main`, con lo que su batería ya corrió (con `PUBLISH_HOST_COMPOSE` escribe también la verificación). `node scripts/battery-record.mjs run <sha> --compose <archivo> --base-image <ref>` lo genera para un commit que no se publicó. `PUBLISH_HOST_BASE_IMAGE` pasa la misma referencia a `scripts/publish-main.sh`. Sus órdenes son `test:completa`, `test:panel`, `test:client` y `node --test src/static.test.js`, una tras otra: la primera levanta contenedores y las demás abren puertos.
+
+Cuando el anfitrión endurece el formato de la verificación, las ya publicadas se reescriben sin repetir la batería:
+
+```
+node scripts/battery-record.mjs regenerate <sha> --compose <archivo> --base-image <ref> [--dry-run]
+```
+
+Toma las órdenes, sus códigos, `first_run`/`retried`, `node` y los digests del registro detallado de ese sha en `refs/notes/battery`, y reescribe sólo `refs/notes/verificaciones` con el mismo empuje sin forzar. No escribe nada si el registro detallado no existe o si una orden no salió 0. `--dry-run` imprime la verificación y no empuja.
 
 ## 1. Sola en un VPS
 

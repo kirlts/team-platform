@@ -2,18 +2,25 @@
 // The battery record: for every commit that passed the complete battery, git notes in the canonical's remote. A host that installs
 // that commit reads them with one command instead of repeating, in its own image, tests the canonical already passed. Two references:
 //   refs/notes/verificaciones  the record a host reads (format 1, exactly these fields: formato, sha, resultado «verde», anfitrion,
-//                              imagen_base, comandos [{orden, codigo}], momento). `anfitrion` is the fingerprint of the host's
+//                              imagen_base, node, comandos [{orden, codigo}], momento). `anfitrion` is the fingerprint of the host's
 //                              compose file, given with --compose <path> or --anfitrion <16 hex>; the file is named generically here.
+//                              `imagen_base` is the digest of the base image the host declares, given with --base-image <ref>; `node`
+//                              is the version the orders ran with, as `node --version` prints it.
 //   refs/notes/battery         the same facts and more (seconds, counts, hash of each output, tree, runner, what was skipped), for
 //                              whoever audits. Written first; the verification is written last, once everything else is in place.
 //
-//   node scripts/battery-record.mjs run <sha> [--remote origin] [--no-push] [--no-retry] [--compose <file> | --anfitrion <16 hex>]
+//   node scripts/battery-record.mjs run <sha> [--remote origin] [--no-push] [--no-retry] [--compose <file> | --anfitrion <16 hex>] [--base-image <ref>]
 //        runs the four orders on <sha> in a worktree of its own (removed at the end) and writes the note only if all exited 0.
 //        An order that fails and names its failing test files is repeated once, only on those files (the rule of the repository for a
 //        failure); if they pass, the order is recorded with exit 0 plus `first_run` and `retried`, so the note says it happened.
-//   node scripts/battery-record.mjs write <sha> --from <results.jsonl> [--remote origin] [--compose <file> | --anfitrion <16 hex>]
+//   node scripts/battery-record.mjs write <sha> --from <results.jsonl> [--remote origin] [--compose <file> | --anfitrion <16 hex>] [--base-image <ref>] [--dry-run]
 //        writes the note from the results of orders somebody else ran (scripts/publish-main.sh, which runs the battery as the door
 //        to `main` and hands over what it ran instead of running it twice). Same rule: nothing is written unless all exited 0.
+//   node scripts/battery-record.mjs regenerate <sha> [--remote origin] [--compose <file> | --anfitrion <16 hex>] [--base-image <ref>] [--dry-run]
+//        rewrites ONLY the verification from the detailed record already published in refs/notes/battery for <sha>, without running
+//        the battery again: the orders, their codes, `first_run`/`retried`, `node` and the base digests come from that record. Writes
+//        nothing when there is no detailed record or an order did not exit 0. Same push as `write` (never forced). --dry-run prints the
+//        verification and pushes nothing.
 //   node scripts/battery-record.mjs result --name N --exit E --seconds S --log FILE --cmd CMD
 //        prints the line of results.jsonl for an order somebody else ran (counts and hash come from its log).
 //   node scripts/battery-record.mjs show <sha> [--remote <url>] [--ref verificaciones|battery] [--trace]
@@ -36,8 +43,10 @@
 //   schema, sha, tree, date (ISO with offset), node, runner (user@host), commands[] (name, cmd, exit, seconds, tests/pass/fail when
 //   the order prints them, log_sha256 = SHA-256 of the whole output), skipped[] (name, reason: an order the door did not run), and
 //   image_base[] (ref and digest of each external `FROM` of the Dockerfile at that sha; digest null with the reason when unknown).
-// The `imagen_base` of the verification is the digest of the base the production image is built on: the external root of the last
-// stage of the Dockerfile. A verification is not written without it.
+// The `imagen_base` of the verification is the digest of the base image the host declares (--base-image <ref>: the digest comes from
+// `image_base[]` of the detailed record when the ref is a FROM of the Dockerfile, else from the registry). Without --base-image it is
+// the external root of the last stage of the Dockerfile. A verification is not written without it. The canonical cannot know what each
+// host declares, so the reference always arrives as an argument.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
@@ -234,10 +243,23 @@ export function hostFingerprint (composeText) {
   return createHash('sha256').update(text.replace(/[0-9a-f]{40}(-[0-9a-z]+)?/g, 'V')).digest('hex').slice(0, 16)
 }
 
-// The verification a host reads (format 1). Throws unless every order exited 0 and the base digest is known.
-export function buildVerification ({ sha, host, results, baseDigest, baseReason, date = new Date() }) {
+// The base the verification names: `baseImage` (the ref the host declares) when given, else the external root of the last stage of
+// the Dockerfile (`rootRef`). The digest comes from `bases` (the entries of `image_base`) when that ref is one of them and has a digest;
+// otherwise `lookup` resolves it. Returns { digest, reason }.
+export function pickBase ({ baseImage, rootRef, bases, lookup = lookupDigest }) {
+  const ref = baseImage ?? rootRef
+  if (!ref) return { digest: null, reason: 'no --base-image and no FROM at that commit' }
+  const entry = bases.find((b) => b.ref === ref)
+  if (entry?.digest) return { digest: entry.digest }
+  if (baseImage) return lookup(ref)
+  return { digest: null, reason: entry?.reason ?? 'no Dockerfile or no FROM at that commit' }
+}
+
+// The verification a host reads (format 1). Throws unless every order exited 0, the base digest is known and the Node version is given.
+export function buildVerification ({ sha, host, results, baseDigest, baseReason, nodeVersion = process.version, date = new Date() }) {
   if (!/^[0-9a-f]{16}$/.test(host ?? '')) throw new Error(`the host fingerprint must be 16 hex digits, got ${host}`)
   if (!/^sha256:[0-9a-f]{64}$/.test(baseDigest ?? '')) throw new Error(`no verification: the digest of the image base is unknown${baseReason ? ` (${baseReason})` : ''}`)
+  if (!/^v\d+\.\d+\.\d+/.test(nodeVersion ?? '')) throw new Error(`no verification: the Node version must look like \`node --version\`, got ${nodeVersion}`)
   const ran = results.filter((r) => !r.skipped)
   const bad = ran.filter((r) => r.exit !== 0)
   if (ran.length === 0 || bad.length > 0) throw new Error('no verification: an order did not exit 0, or none ran')
@@ -247,6 +269,7 @@ export function buildVerification ({ sha, host, results, baseDigest, baseReason,
     resultado: 'verde',
     anfitrion: host,
     imagen_base: baseDigest,
+    node: nodeVersion,
     // An order repeated only on its failed files is named with what was repeated: the note must not say the first run exited 0.
     comandos: ran.map((r) => ({ orden: r.retried ? `${r.cmd} (first run failed; repeated only: ${r.retried.files.join(' ')})` : r.cmd, codigo: r.exit })),
     momento: `${date.toISOString().slice(0, 19)}Z`,
@@ -261,6 +284,7 @@ export function verificationProblems (r, sha) {
   if (r.resultado !== 'verde') problems.push(`resultado ${r.resultado}`)
   if (!/^[0-9a-f]{16}$/.test(r.anfitrion ?? '')) problems.push('anfitrion is not 16 hex digits')
   if (!/^sha256:[0-9a-f]{64}$/.test(r.imagen_base ?? '')) problems.push('imagen_base is not a sha256 digest')
+  if (!/^v\d+\.\d+\.\d+/.test(r.node ?? '')) problems.push('node is not a version as `node --version` prints it')
   if (!Array.isArray(r.comandos) || r.comandos.length === 0 || r.comandos.some((c) => !c || typeof c.orden !== 'string' || c.codigo !== 0)) problems.push('comandos is empty or has a code other than 0')
   if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(r.momento ?? '')) problems.push('momento is not a UTC ISO date')
   return problems
@@ -368,8 +392,8 @@ function parseArgs (argv) {
   const opts = { _: [] }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--no-push' || a === '--trace' || a === '--no-retry') opts[a.slice(2)] = true
-    else if (['--remote', '--ref', '--anfitrion', '--compose', '--from', '--name', '--exit', '--seconds', '--log', '--cmd'].includes(a)) opts[a.slice(2)] = argv[++i]
+    if (a === '--no-push' || a === '--trace' || a === '--no-retry' || a === '--dry-run') opts[a.slice(2)] = true
+    else if (['--remote', '--ref', '--anfitrion', '--compose', '--base-image', '--from', '--name', '--exit', '--seconds', '--log', '--cmd'].includes(a)) opts[a.slice(2)] = argv[++i]
     else if (a.startsWith('--')) { console.error(`battery-record: unknown option ${a}`); process.exit(2) }
     else opts._.push(a)
   }
@@ -411,14 +435,14 @@ function recordsFor (root, sha, results, skipped, opts) {
     console.error('battery-record: no --compose or --anfitrion given: only the detailed record is written, not the verification a host reads')
     return { battery, verification: null }
   }
-  const root_ = dockerfile.status === 0 ? finalBase(dockerfile.raw) : null
-  const entry = bases.find((b) => b.ref === root_)
-  const verification = buildVerification({ sha, host, results, baseDigest: entry?.digest, baseReason: entry?.reason ?? 'no Dockerfile or no FROM at that commit' })
+  const base = pickBase({ baseImage: opts['base-image'], rootRef: dockerfile.status === 0 ? finalBase(dockerfile.raw) : null, bases })
+  const verification = buildVerification({ sha, host, results, baseDigest: base.digest, baseReason: base.reason, nodeVersion: battery.node })
   return { battery, verification }
 }
 
 // Writes the detailed record first and the verification last: the verification is the signal a host acts on.
-function persist (root, remote, { battery, verification }) {
+function persist (root, remote, { battery, verification }, { dryRun = false } = {}) {
+  if (dryRun) { console.error(`battery-record: --dry-run, nothing pushed for ${battery.sha} on ${remote}`); return }
   const written = []
   const w = writeNote(root, remote, battery, { kind: 'battery' })
   written.push(`${KINDS.battery.ref} (lap ${w.lap})`)
@@ -496,8 +520,34 @@ function commandWrite (opts) {
   const results = lines.filter((l) => !l.skipped)
   const skipped = lines.filter((l) => l.skipped).map((l) => ({ name: l.name, reason: l.skipped }))
   const records = recordsFor(root, sha, results, skipped, opts)
-  persist(root, remote, records)
+  persist(root, remote, records, { dryRun: opts['dry-run'] })
   console.log(JSON.stringify(records.verification ?? records.battery))
+  return 0
+}
+
+// Rewrites only the verification, from the detailed record already published for the sha. Runs nothing.
+function commandRegenerate (opts) {
+  const root = repoRoot()
+  const remote = opts.remote ?? 'origin'
+  if (!opts._[1]) { console.error('usage: battery-record regenerate <sha> [--compose <file> | --anfitrion <16 hex>] [--base-image <ref>] [--dry-run]'); return 2 }
+  const host = hostOf(opts)
+  if (!host) { console.error('battery-record regenerate: --compose <file> or --anfitrion <16 hex> is required'); return 2 }
+  const sha = resolveCommit(root, opts._[1], remote)
+  const detail = readNote(root, remote, sha, { kind: 'battery' })
+  if (detail.status === 'missing') { console.error(`battery-record: no detailed record for ${sha} on ${remote} (${detail.reason}): nothing written`); return 1 }
+  if (detail.status === 'invalid') { console.error(`battery-record: the detailed record of ${sha} is not valid (${detail.problems?.join('; ') ?? detail.reason}): nothing written`); return 3 }
+  const rec = detail.record
+  const results = rec.commands.map(({ cmd, exit, retried }) => ({ cmd, exit, ...(retried ? { retried } : {}) }))
+  const dockerfile = git(root, ['show', `${sha}:Dockerfile`])
+  const base = pickBase({ baseImage: opts['base-image'], rootRef: dockerfile.status === 0 ? finalBase(dockerfile.raw) : null, bases: rec.image_base ?? [] })
+  const verification = buildVerification({ sha, host, results, baseDigest: base.digest, baseReason: base.reason, nodeVersion: rec.node })
+  if (!opts['dry-run']) {
+    const v = writeNote(root, remote, verification, { kind: 'verificaciones' })
+    console.error(`battery-record: wrote ${KINDS.verificaciones.ref} (lap ${v.lap}) for ${sha} on ${remote}`)
+  } else {
+    console.error(`battery-record: --dry-run, nothing pushed for ${sha} on ${remote}`)
+  }
+  console.log(JSON.stringify(verification))
   return 0
 }
 
@@ -532,8 +582,8 @@ function commandShow (opts) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const opts = parseArgs(process.argv.slice(2))
-  const table = { run: commandRun, write: commandWrite, result: commandResult, show: commandShow }
+  const table = { run: commandRun, write: commandWrite, regenerate: commandRegenerate, result: commandResult, show: commandShow }
   const fn = table[opts._[0]]
-  if (!fn) { console.error('usage: battery-record <run|write|result|show> <sha> [options]'); process.exit(2) }
+  if (!fn) { console.error('usage: battery-record <run|write|regenerate|result|show> <sha> [options]'); process.exit(2) }
   Promise.resolve().then(() => fn(opts)).then((code) => process.exit(code), (e) => { console.error(`battery-record: ${e.message}`); process.exit(1) })
 }

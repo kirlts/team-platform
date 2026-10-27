@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-27
+
+- Telemetría del panel: la muestra de la etapa feedback ya no se pierde cuando la página está ocupada y el envío termina antes del pintado; se usa el momento en que se oyó el primer cambio como respaldo.
+
 ## [0.1.2] - 2026-10-27
 
 - Una sesión que termina sin cumplir lo pedido por algo ajeno al trabajo (un acceso, una dependencia, un servicio externo) ofrece «Reintentar» igual que una que falló (UD-314). La salida estructurada lo declara con `unfulfilled` (opcional, aditivo; `contract_version` no sube) y `outcome: blocked` cuenta igual; el mensaje no se cierra.

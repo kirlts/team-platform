@@ -129,3 +129,24 @@ describe('a forwarded message in the prompt and the schema (UD-272)', () => {
     assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['approved', 'approved_reply', 'attachments', 'captures', 'close', 'close_reason', 'mode', 'no_capture_reason', 'summary', 'touches_screen'])
   })
 })
+
+describe('what every session of the platform needs, whoever hosts it (plan B5)', () => {
+  it('the full prompt carries how to work cheaply, what a compaction keeps, how an answer is built and who decides the media', () => {
+    const { stable } = buildExecuteParts(input(1))
+    assert.match(stable, /cost grows with the square of its turns/)
+    assert.match(stable, /Open a screenshot again only when the code it shows changed/)
+    assert.match(stable, /more than five files to an `Explore` subagent that returns paths and lines/)
+    assert.match(stable, /When your context is compacted, the summary keeps: the `message` and `job` blocks, the plan[^.]*the branch and its last commit[^.]*verdict of any judge/)
+    assert.match(stable, /opens with the conclusion and follows with the evidence, each claim with its source: file and line, query and result, commit, capture, or an external page with its date/)
+    assert.match(stable, /the repository stays as it was: no branch, no commits, no delivery/)
+    assert.match(stable, /Whether a reply carries a photo, a video or a screenshot is your decision, and you take it by reading the template/)
+    assert.match(stable, /it never chooses one for you/)
+    assert.match(stable, /profile is empty, write for someone who does not program/)
+  })
+  it('it is the same text for every job and for every host: the stable part does not change with the host instructions it does not include', () => {
+    const a = buildExecuteParts(input(1, { hostInstructions: '' })).stable
+    const b = buildExecuteParts(input(2, { hostInstructions: 'Reglas del anfitrión' })).stable
+    for (const piece of ['## Working well', 'Whether a reply carries a photo']) assert.ok(a.includes(piece) && b.includes(piece), piece)
+    assert.ok(!a.includes('<host_instructions>') && b.includes('<host_instructions>'))
+  })
+})

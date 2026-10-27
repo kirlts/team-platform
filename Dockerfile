@@ -170,6 +170,8 @@ COPY scripts/remove-member.mjs ./scripts/remove-member.mjs
 COPY scripts/walkthrough.mjs ./scripts/walkthrough.mjs
 COPY scripts/repo-map.mjs ./scripts/repo-map.mjs
 COPY scripts/tiempos.mjs ./scripts/tiempos.mjs
+# The canary runs inside the worker after a deploy (`docker exec <worker> node scripts/canary.mjs`); it imports only Node's own modules.
+COPY scripts/canary.mjs ./scripts/canary.mjs
 COPY --from=panel /out ./panel/dist
 RUN mkdir -p /data && chown node:node /data
 USER node

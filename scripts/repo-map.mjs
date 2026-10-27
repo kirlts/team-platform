@@ -6,11 +6,13 @@
 //               list's folders and their counts, so it is rebuilt only when the structure changes, never by hand.
 //   hot files   the files most touched by commits of the last 30 days (`git log --since=30.days --name-only`), without lock files, builds or generated
 //               files; with `paths` (TEAM_MAP_PATHS, comma-separated prefixes) only those of the area's folders.
+//   notes       lines the host writes about its own repository (the file `.team/map-notes.txt` of the repository, or the one TEAM_MAP_NOTES names; one line per note): what the file list cannot say, such as the command that picks the tests
+//               of a change or where the decisions are written. They go after the structure and are the last thing the budget cuts.
 //   footer      the two commands that produced it.
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { promisify } from 'node:util'
 
 const run = promisify(execFile)
@@ -19,6 +21,7 @@ const git = async (cwd, args) => (await run('git', ['-c', 'core.quotepath=off', 
 
 export const MAP_DAYS = 30 // Martín's window: the files most touched in the last 30 days
 export const MAP_TOP_FILES = 10
+export const MAP_NOTES_FILE = '.team/map-notes.txt' // where a repository keeps its notes for the map unless TEAM_MAP_NOTES names another file; it travels with the code it describes
 export const MAP_MAX_TOKENS = 800 // Martín's budget for the whole map
 // A line of code or Spanish prose is about 3 characters per token with the current tokenizer; the measurement of UD-295 sets the real figure.
 export const CHARS_PER_TOKEN = 3
@@ -58,8 +61,17 @@ export function placesOf (files) {
   }
   return KINDS.map(([kind, pattern]) => {
     const found = [...dirs].filter(([dir]) => pattern.test(dir.split('/').at(-1))).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2)
-    return found.length ? `${kind}: ${found.map(([dir, n]) => `${dir} (${n})`).join(', ')}` : null
+    if (!found.length) return null
+    // The newest migration says which number comes next; the name sorts last because migrations are numbered or dated.
+    const latest = kind === 'migraciones' ? files.filter((f) => !NOISE.test(f) && f.startsWith(`${found[0][0]}/`) && !f.slice(found[0][0].length + 1).includes('/')).sort().at(-1) : null
+    return `${kind}: ${found.map(([dir, n]) => `${dir} (${n})`).join(', ')}${latest ? `; última ${latest.split('/').at(-1)}` : ''}`
   }).filter(Boolean)
+}
+
+/** The host's notes: the non-empty lines of the file `ref` (relative to `cwd`, or absolute). No file or no `ref` is no notes: the map is a help, never a reason for a session not to start. */
+export async function readNotes (cwd, ref) {
+  if (!ref) return []
+  try { return (await readFile(isAbsolute(ref) ? ref : join(cwd, ref), 'utf8')).split('\n').map((l) => l.trim()).filter(Boolean) } catch { return [] }
 }
 
 /** The structure text; the cached copy when the hash of the folders is the same. */
@@ -88,15 +100,16 @@ export async function hotFiles (cwd, { days = MAP_DAYS, top = MAP_TOP_FILES, pat
 }
 
 /** The map as text within `maxTokens`: the hot files are cut from the bottom first, then the structure lines. */
-export async function buildRepoMap ({ cwd = process.cwd(), days = MAP_DAYS, top = MAP_TOP_FILES, maxTokens = MAP_MAX_TOKENS, charsPerToken = CHARS_PER_TOKEN, paths = [], brief = false } = {}) {
+export async function buildRepoMap ({ cwd = process.cwd(), days = MAP_DAYS, top = MAP_TOP_FILES, maxTokens = MAP_MAX_TOKENS, charsPerToken = CHARS_PER_TOKEN, paths = [], brief = false, notes = [] } = {}) {
   const files = (await git(cwd, ['ls-files'])).split('\n').filter(Boolean)
   const structure = await structureText(cwd, files)
   const hot = await hotFiles(cwd, { days, top, paths })
   const source = `Fuente: git ls-files (carpetas y nombres, sin leer archivos) y git log --since=${days}.days --name-only${paths.length ? ` en ${paths.join(', ')}` : ''}.`
   const budget = maxTokens * charsPerToken
+  let kept = [...notes]
   const build = (n, structureLines) => [
-    '<repo_map>', ...structureLines,
-    hot.length ? `Más tocados en ${days} días: ${hot.slice(0, n).map(([f, c]) => `${f} (${c})`).join(', ')}` : null,
+    '<repo_map>', ...structureLines, ...kept,
+    hot.length && n > 0 ? `Más tocados en ${days} días: ${hot.slice(0, n).map(([f, c]) => `${f} (${c})`).join(', ')}` : null,
     source, '</repo_map>'
   ].filter(Boolean).join('\n')
   // `brief` (the light model, KAIROS-PARA-TEAM-PLATFORM.md of the host §6): only where things live and the paths most touched; no folder counts.
@@ -105,5 +118,6 @@ export async function buildRepoMap ({ cwd = process.cwd(), days = MAP_DAYS, top 
   let text = build(n, lines)
   while (text.length > budget && n > 0) text = build(--n, lines)
   while (text.length > budget && lines.length > 1) { lines = lines.slice(0, -1); text = build(n, lines) }
-  return { text, structureHash: structure.hash, cached: structure.cached, hotFiles: n, estimatedTokens: Math.ceil(text.length / charsPerToken) }
+  while (text.length > budget && kept.length > 0) { kept = kept.slice(0, -1); text = build(n, lines) }
+  return { text, structureHash: structure.hash, cached: structure.cached, hotFiles: n, notes: kept.length, estimatedTokens: Math.ceil(text.length / charsPerToken) }
 }

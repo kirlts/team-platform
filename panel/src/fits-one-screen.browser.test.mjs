@@ -258,6 +258,9 @@ const VIEWS = [
   { name: 'inicio con diez envíos', path: '/', prepare: sendTen, compare: true, scrolls: true },
   { name: 'mensajes', path: '/messages' },
   { name: 'detalle', path: null },
+  // The work of an agent in the sheet (B7): the session running and a delivery that failed, the tallest panel (it adds the stretch under the name and the phone button).
+  { name: 'trabajo en la sesión', path: null, work: 'session' },
+  { name: 'trabajo con la entrega fallida', path: null, work: 'failed_delivery' },
   { name: 'áreas', path: '/areas' },
   // The templates start open (UD-252, which UD-017 allows): at 1280x720 the page scrolls, and only its height checks are lifted.
   { name: 'área abierta', path: '/areas/a-error', scrolls: true },
@@ -482,10 +485,14 @@ for (const [width, height] of SIZES) {
           const body = await (await page.request.get(`${ORIGIN}/api/messages`)).json()
           const list = Array.isArray(body) ? body : body.items
           const rich = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
+          // The messages the example server seeds for each state of the work of an agent; asked once per run.
+          panel.work ??= await panel.control.agentWork()
           for (const view of VIEWS) {
-            const path = view.path ?? `/messages/${rich.id}`
+            const path = view.path ?? `/messages/${view.work ? panel.work[view.work] : rich.id}`
             if (view.name === 'configuración') await seedProject(page)
             await open(page, path)
+            // Without the panel on screen the view would prove nothing about it.
+            if (view.work) await page.getByTestId('agent-work').first().waitFor({ timeout: 10000 })
             const base = view.prepare ? await view.prepare(page) : undefined
             if (BREAK === 'documento-alto' && view.name === 'inicio') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:2000px">x</div>'))
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))

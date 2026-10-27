@@ -763,6 +763,8 @@ const JOB_STATE_OF = { queued: 'queued', extracting: 'running', analyzing: 'runn
 let olderJobs = []
 /** The seeded execution of `/_control/execution` (UD-262), or null. */
 let execution = null
+/** The timing of the messages `/_control/agent-work` seeds, by message id (B7). */
+const workTimings = new Map()
 /** UD-275: the reviews held for a person, by message id: `{ branch, held_reason, job_id, agent_id, delivering_job_id }`. */
 const reviews = new Map()
 const purgedJobs = new Set()
@@ -874,6 +876,25 @@ function control(path, query) {
     execution = { doneId: done.id, liveId: live.id, deliver: query.get('deliver') === '1' }
     return { done_id: done.id, live_id: live.id }
   }
+  if (path === '/_control/agent-work') {
+    // B7: one message per state of the work of an agent in the sheet: waiting, creating the machine, in the session, failed session (the retry runs the work again), failed delivery (the retry only publishes).
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const phase = (name, duration_ms, status = 'unset') => ({ name, duration_ms, offset_ms: null, status })
+    const timing = (message_id, over) => ({ message_id, machine: true, delivers: true, job_id: `j-work-${message_id}`, job_status: 'running', trace_id: null, phase: null, attempts: 1, elapsed_ms: null, first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null, total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null, ...over })
+    const failure = (action) => [{ author_id: 'u-claude', kind: 'answer', created_at: ago(2), body: action === 'publish' ? 'Claude no pudo entregar el cambio: se acabó el tiempo.' : 'Claude no pudo responder: se acabó el tiempo.', retryable: true, retry_action: action, replaced_by_job_id: null, retrying: false }]
+    const make = (title, over, rs = []) => {
+      const msg = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title, body: `${title}: mensaje que trabaja Claude.`, created_at: ago(30), assignee_ids: ['u-claude'], attachment_ids: [] }, rs)
+      workTimings.set(msg.id, timing(msg.id, over))
+      return msg.id
+    }
+    return {
+      queued: make('Trabajo en cola', { job_status: 'queued' }),
+      machine: make('Trabajo creando la máquina', { phase: 'create', elapsed_ms: 38_000 }),
+      session: make('Trabajo en la sesión', { phase: 'run', elapsed_ms: 212_000, phases: [phase('create', 95_000)] }),
+      failed_session: make('Trabajo con la sesión fallida', { job_status: 'failed', phases: [phase('create', 95_000), phase('run', 300_000, 'error')] }, failure('work')),
+      failed_delivery: make('Trabajo con la entrega fallida', { job_status: 'done', phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000), phase('deliver', 42_000, 'error')], deliver: { job_id: 'j-work-deliver', job_status: 'failed', phase: null, attempts: 1 } }, failure('publish')),
+    }
+  }
   if (path === '/_control/review') {
     // UD-275: a message whose delivery is held: Claude's reply with the «Propuesta» screenshots and the review block waiting for a person.
     if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
@@ -888,6 +909,7 @@ function control(path, query) {
   if (path === '/_control/reset') {
     reviews.clear()
     execution = null
+    workTimings.clear()
     executeJobs.clear()
     for (const t of jobs.values()) clearTimeout(t)
     jobs.clear()
@@ -1143,6 +1165,7 @@ const server = createServer(async (req, res) => {
           phases: [], slowest: [], turns: [], tree: null, deliver: { job_id: 'j-exec1', job_status: 'running', phase: 'deliverDeploy', attempts: 1 },
         })
       }
+      if (workTimings.has(timingMatch[1])) return send(res, 200, workTimings.get(timingMatch[1]))
       const agentRun = executeJobs.get(timingMatch[1])
       if (agentRun) {
         return send(res, 200, {

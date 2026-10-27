@@ -5,10 +5,11 @@
 // Standalone on purpose: only Node built-ins, so the worker can copy this one file into a machine it creates.
 
 import { createHmac } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { mkdir, open, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // `{masked}` is the one line of the text that depends on the host: with screenshots that show people allowed (UD-270, TEAM_CAPTURES_UNMASKED) an unmasked capture needs no open zone.
 const HELP_TEMPLATE = `team: talks to the Team Platform API as the agent member of this session.
@@ -29,6 +30,8 @@ Commands:
                                                   report the time this session spent in the judge, in the delivery or waiting; added up per job.
                                                   With «delivery», --ok says whether the delivery reached production
   team guard                                      PreToolUse hook (event on stdin): refuses a push to main or a forced push (UD-295)
+  team hook <commands|tools|close>                the hooks of the host's guards file (EXECUTE_GUARDS_FILE): refuse a Bash command, refuse a tool, hold the session at its end.
+                                                  Event on stdin; the list is the file TEAM_GUARDS_FILE names. Without it the call goes through
   team map [--brief]                              short map of the repository: folders, where screens, API, migrations and tests live, files most touched in 30 days
   team mentions [<job_id>]                        for the hook of the session (UD-285): takes the replies that mentioned the agent while it works and prints them as the
                                                   JSON of a Claude Code hook (additionalContext); their files are left in $TEAM_THREAD_DIR. Prints nothing when there is nothing new
@@ -209,6 +212,18 @@ export function refuseCommand (command) {
   return null
 }
 
+const HOOK_FILES = { commands: 'commands.mjs', tools: 'tools.mjs', close: 'close.mjs' }
+const HOOK_NAMES = Object.keys(HOOK_FILES)
+
+/** The text on stdin (the event of a Claude Code hook); empty when stdin is a terminal. */
+const readStdin = () => new Promise((done) => {
+  let text = ''
+  if (process.stdin.isTTY) { done(''); return }
+  process.stdin.setEncoding('utf8')
+  process.stdin.on('data', (c) => { text += c })
+  process.stdin.on('end', () => done(text))
+})
+
 export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   const { positional, options } = parseArgs(argv)
   const [command, ...rest] = positional
@@ -216,11 +231,12 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   if (command === 'map') {
     // UD-295: the short map of the repository the session starts in; `--hook` wraps it as the context of a SessionStart hook.
     try {
-      const { buildRepoMap } = await import('./repo-map.mjs')
+      const { buildRepoMap, readNotes, MAP_NOTES_FILE } = await import('./repo-map.mjs')
       const paths = String(env.TEAM_MAP_PATHS ?? '').split(',').map((p) => p.trim()).filter(Boolean)
-      const map = await buildRepoMap({ cwd: process.cwd(), paths, brief: options.brief === true })
+      const notes = await readNotes(process.cwd(), env.TEAM_MAP_NOTES || MAP_NOTES_FILE) // the host's own lines about its repository: a file in it, `.team/map-notes.txt` unless TEAM_MAP_NOTES says another
+      const map = await buildRepoMap({ cwd: process.cwd(), paths, brief: options.brief === true, notes })
       return { code: 0, out: options.hook ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: map.text } }) : map.text, err: '' }
-    } catch (error) { return { code: 0, out: '', err: `team map: ${error.message}` } } // the map is a help: a repository without git starts the session without it
+    } catch (error) { return { code: 1, out: '', err: `team map: ${error.message}` } } // exit 1 and not 2: a SessionStart hook that fails does not stop the session, but it no longer fails silently (a missing companion started sessions without a map and exited 0)
   }
   if (command === 'guard') {
     // UD-295: PreToolUse hook of a direct fix on a light model. A rule that must hold is enforced here and not asked in the prompt: the session never pushes `main`
@@ -230,6 +246,17 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
     try { event = JSON.parse(raw) } catch { /* no event: nothing to refuse */ }
     const refusal = refuseCommand(event?.tool_name === 'Bash' ? String(event?.tool_input?.command ?? '') : '')
     return refusal ? { code: 2, out: '', err: refusal } : { code: 0, out: '', err: '' }
+  }
+  if (command === 'hook') {
+    // The hooks of the host's guards file (src/execute/hooks/). Next to this file in a job directory (`bin/hooks/`), under src/ in the repository.
+    const name = rest[0]
+    if (!HOOK_NAMES.includes(name)) return { code: 1, out: '', err: `team hook: use «team hook <${HOOK_NAMES.join('|')}>».` }
+    let event = {}
+    try { event = JSON.parse(await readStdin()) } catch { /* no event: nothing to refuse */ }
+    const beside = new URL(`./hooks/${HOOK_FILES[name]}`, import.meta.url)
+    const { run } = await import(existsSync(fileURLToPath(beside)) ? beside.href : new URL(`../src/execute/hooks/${HOOK_FILES[name]}`, import.meta.url).href)
+    const r = run({ event, env })
+    return { code: r.code, out: r.stdout, err: r.stderr }
   }
   if (command === 'walkthrough') {
     try {

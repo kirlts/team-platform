@@ -116,6 +116,7 @@ Su comportamiento está en «Las cinco órdenes».
 | `EXECUTE_DIRECT_SESSION_ENV` | vacía | Lo mismo, sólo para sesiones del modelo liviano | UD-295 |
 | `EXECUTE_OTEL_ENV` | vacía | Pares `CLAVE=valor` para la telemetría propia de `claude -p` (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_*`) | UD-262 |
 | `EXECUTE_DIRECT_STOP_COMMAND` | vacía | Orden del gancho `Stop` de una sesión liviana. Código de salida 2 con el motivo en stderr devuelve la sesión al trabajo | UD-295 |
+| `EXECUTE_GUARDS_FILE` | vacía | Ruta de un JSON con las listas del anfitrión para los ganchos de toda sesión. Vacía: la sesión no declara ninguno de estos ganchos. Ver «Guardias de la sesión» | Opcional: un anfitrión sin ella conserva su comportamiento |
 | `EXECUTE_DIRECT_TOOLS` | `Bash,Read,Edit,Write,Grep,Glob,Agent` | Herramientas de una sesión liviana (`--tools`). Vacía: todas | Medición del 2026-10-25: 29.302 tokens con estas siete contra 53.938 con todas |
 | `EXECUTE_STABLE_AS_SYSTEM` | `0` | `1` envía la parte estable del prompt como `--append-system-prompt-file`, que la API guarda en caché entre sesiones | Medición `2026-10-23-tokens-y-cache.md` |
 | `EXECUTE_CONTRACT_VERSION` | sin declarar | Versión del contrato que cumple el driver (ver «Versión del contrato») | Este documento |
@@ -143,7 +144,7 @@ Las órdenes se declaran como texto de shell y corren con `/bin/sh -c` en la má
 | DESTROY | `{job_id}`, `{workdir}`, `{machine}` | `TEAM_JOB_ID`, `TEAM_WORKDIR` |
 | DELIVER | `{message_id}`, `{job_id}`, `{branch}`, `{workdir}` | Ver «DELIVER» |
 
-`{workdir}` de las órdenes de máquina contiene `run.sh` (la invocación de `claude`), `env.sh` (modo 600, lleva el secreto del agente), `prompt.md` y `bin/team`. Además `system.md` con `EXECUTE_STABLE_AS_SYSTEM`, `thread/` cuando el trabajo atiende una mención, y los directorios `captures/` y `attachments/` donde la sesión deja capturas y documentos.
+`{workdir}` de las órdenes de máquina contiene `run.sh` (la invocación de `claude`), `env.sh` (modo 600, lleva el secreto del agente), `prompt.md`, `bin/team` y `bin/look` con la carpeta `bin/captures/` que éste ejecuta. Además `system.md` con `EXECUTE_STABLE_AS_SYSTEM`, `guards.json` con `EXECUTE_GUARDS_FILE`, `thread/` cuando el trabajo atiende una mención, y los directorios `captures/` y `attachments/` donde la sesión deja capturas y documentos.
 
 Las señales van sólo al grupo de procesos que lanzó el trabajador. Nunca se señala a un proceso padre.
 
@@ -220,6 +221,84 @@ Antes de DELIVER, el núcleo corre `EXECUTE_DELIVER_CHECK_COMMAND`, si existe, c
 
 En verde, la respuesta final es el `summary` de la sesión con «En producción desde HH:MM <zona>.» al final. El núcleo la publica sólo después de la confirmación del código 0.
 
+## Guardias de la sesión
+
+Una regla que el modelo tiene que recordar falla el día que no la recuerda. El núcleo trae los ganchos de Claude Code que la hacen cumplir y el anfitrión sólo escribe la lista. Los ganchos son parte del núcleo (`src/execute/hooks/`). Están escritos en Node y sólo usan módulos propios, porque la máquina trae `bash`, `node` y `claude` y nada más. El trabajador los copia a `bin/hooks/` del directorio del trabajo. Los declara en la configuración de la sesión (`--settings`), junto a los ganchos que ya declara, y los llama como `team hook <commands|tools|close>`. Vale para cualquier modelo y cualquier runner. Un anfitrión no copia ni registra nada.
+
+`EXECUTE_GUARDS_FILE` es un JSON. El trabajador lo lee al empezar cada trabajo. El trabajo falla con `guards_file_invalid` y el motivo en la respuesta, sin reintento. Fallan: un archivo ilegible, que no es JSON, con una clave desconocida, con una expresión regular inválida o con una regla sin mensaje. Un error de tipeo no puede dejar una sesión sin guardia. Una copia del archivo viaja con el directorio del trabajo y `TEAM_GUARDS_FILE` la señala. Sin esa variable, o con la copia ilegible, cada gancho deja pasar la llamada: una guardia rota no detiene la sesión.
+
+Ningún bloque es obligatorio y un bloque vacío no declara su gancho.
+
+### `commands`: órdenes de Bash que se niegan
+
+Gancho `PreToolUse` sobre `Bash`. Antes de ejecutar la orden la compara con las reglas, en este orden: primero las nombradas que el anfitrión encendió y después las suyas. La primera que coincide niega la orden y su `message` vuelve al modelo como motivo. Código de salida 0 siempre: la negación es la respuesta JSON `permissionDecision: deny`.
+
+| Clave | Qué es |
+|---|---|
+| `builtin` | Lista de reglas nombradas del núcleo que se encienden. Ninguna está encendida por omisión |
+| `protected_branches` | Ramas a las que `protected-push` niega empujar. Omisión: `main` y `master` |
+| `rules` | Reglas propias, en el orden en que se evalúan |
+
+Reglas nombradas:
+
+| Nombre | Niega |
+|---|---|
+| `forced-push` | `git push` con `--force`, `-f`, `--force-with-lease` o `+rama` |
+| `protected-push` | `git push` a una de `protected_branches`, también como `HEAD:rama` o `refs/heads/rama` |
+| `no-verify` | `git commit` o `git push` con `--no-verify` |
+| `amend` | `git commit` con `--amend` |
+| `add-all` | `git add -A`, `--all` y `.` |
+| `stash` | `git stash` |
+| `waiting` | `sleep <n>`, `watch` y los bucles `until` o `while` que duermen con `sleep` |
+
+Una regla propia es `{ id?, match, unless?, line_requires?, args_required?, message }`:
+
+| Clave | Qué es |
+|---|---|
+| `match` | Expresión regular de JavaScript, o lista de ellas que deben coincidir todas en algún punto de la orden. `{START}` es el comienzo de una orden simple: principio del texto, tras `;`, `&`, `\|`, `(` o un salto de línea, o tras `then`, `do` o `else` |
+| `unless` | La regla no se aplica si esta expresión coincide en cualquier punto de la orden |
+| `line_requires` | Por cada coincidencia de la primera expresión de `match`, el texto de su línea anterior a la coincidencia debe cumplir esta expresión; si no, se niega. Sirve para exigir un envoltorio, por ejemplo que una prueba pesada corra dentro de una orden que reparte la máquina |
+| `args_required` | Por cada coincidencia de la primera expresión de `match`, su primer grupo de captura debe traer una palabra posicional (ni bandera ni número); si no, se niega. Sirve para una prueba que corre todo el proyecto cuando no se le nombran archivos |
+| `message` | Lo que lee el modelo. Obligatorio: debe decir la orden correcta, no sólo que está prohibido |
+
+### `tools`: herramientas que se quitan
+
+Gancho `PreToolUse` sobre los nombres que aparezcan en la lista (el `matcher` es su unión).
+
+| Clave | Qué es |
+|---|---|
+| `deny` | Lista de `{ tools, message }`. La herramienta se niega siempre |
+| `deny_background` | Lista de `{ tools, message }`. La herramienta se niega sólo con `run_in_background: true`. Un subagente en segundo plano obliga a la sesión a esperarlo con vueltas vacías, y cada vuelta lee otra vez el contexto entero |
+
+### `close`: qué debe cumplirse al terminar
+
+Gancho `Stop`. Es la mitad de la exigencia de cierre que sólo la sesión puede corregir. La otra mitad no necesita gancho y ya está en el trabajador. Una sesión sin salida estructurada, o con una que no cumple la plantilla, hace fallar el trabajo con `invalid_output`. Una sin línea `result` lo hace fallar con `execute_no_result`. Ambos dejan el motivo en el hilo. El gancho devuelve la sesión al trabajo **una vez** (con `stop_hook_active` la deja terminar) y le da las órdenes exactas de lo que falta. No hace nada si el repositorio no tiene un cambio: la respuesta va en el hilo.
+
+| Clave | Qué exige |
+|---|---|
+| `base` | Rama desde la que se cuentan los commits de la sesión, por ejemplo `origin/main`. Omisión: la rama por omisión del remoto (`origin/HEAD`). Si ninguna existe no hay nada que contar y el gancho deja terminar |
+| `clean_tree` | `true`: ningún cambio sin commitear en archivos versionados |
+| `pushed_branch` | `true`: con commits propios, la rama está empujada con su último commit (`@{u}` igual a `HEAD`), porque el sistema entrega lo que hay en `origin` |
+| `review` | Un cambio que lo requiere lleva la marca de un revisor distinto de su autor sobre el árbol final |
+
+`review` es `{ paths?, except?, only?, only_except?, trailer, not_by?, message }`. El cambio la requiere en dos casos. Uno: algún archivo cambiado coincide con `paths` y no con `except`. Otro: todos los archivos cambiados coinciden con `only` y no con `only_except`, por ejemplo un cambio que sólo toca documentos. La marca es una línea de un mensaje de commit `<trailer>: <revisor> <sha del árbol>` con el árbol de `HEAD`. No vale si el revisor es autor de algún commit de la sesión. Tampoco vale si está en `not_by`, por ejemplo el nombre de la propia sesión; no distingue mayúsculas. Un cambio posterior a la marca la invalida. En `message`, `{tree}`, `{job}` y `{branch}` se reemplazan por el árbol de `HEAD`, `TEAM_JOB_ID` y `TEAM_BRANCH`: ahí va la orden exacta que deja la marca.
+
+Ejemplo mínimo:
+
+```json
+{
+  "commands": { "builtin": ["forced-push", "protected-push", "no-verify"], "protected_branches": ["main"] },
+  "tools": { "deny_background": [{ "tools": ["Agent"], "message": "Lanza el subagente en primer plano." }] },
+  "close": { "base": "origin/main", "clean_tree": true, "pushed_branch": true }
+}
+```
+
+El anfitrión prueba su archivo ejecutando `team hook` con el evento de Claude Code en la entrada estándar, igual que la sesión:
+
+```sh
+echo '{"tool_name":"Bash","tool_input":{"command":"git push --force origin x"}}' | TEAM_GUARDS_FILE=guards.json node scripts/team.mjs hook commands
+```
+
 ## Marcadores `##team`
 
 Son líneas completas. El núcleo las lee y no las cuenta como salida ni como referencia.
@@ -248,10 +327,68 @@ Un 75 repetido de DELIVER con la misma salida deja de ser una espera. El límite
 | `TEAM_CAPTURES_DIR`, `TEAM_CAPTURES_MAX`, `TEAM_CAPTURES_MAX_BYTES`, `TEAM_CAPTURES_OPEN_ZONE`, `TEAM_CAPTURES_UNMASKED`, `TEAM_LANGUAGE` | Reglas de las capturas y lengua de la respuesta |
 | `TEAM_ATTACHMENTS_DIR`, `TEAM_ATTACHMENTS_MAX`, `TEAM_ATTACHMENTS_MAX_BYTES` | Dónde la sesión deja documentos PDF y sus topes |
 | `TEAM_THREAD_DIR` | Archivos del hilo, sólo en un trabajo que atiende una mención |
+| `TEAM_GUARDS_FILE` | Copia del archivo de `EXECUTE_GUARDS_FILE` dentro del directorio del trabajo; sólo con ese archivo declarado. La leen los ganchos de la sesión |
 | `TRACEPARENT` | Continúa la traza del trabajo |
+| `TEAM_MAP_PATHS`, `TEAM_MAP_NOTES` | Opcionales; el anfitrión las declara en `EXECUTE_SESSION_ENV`. `team map` las lee: prefijos de carpeta que acotan los archivos más tocados, y la ruta de un archivo de notas (relativa al repositorio de la sesión o absoluta; por omisión `.team/map-notes.txt` del repositorio) cuyas líneas entran al mapa después de la estructura. Sirven para lo que la lista de archivos no dice, como el comando que elige las pruebas de un cambio. Un archivo ausente deja el mapa como estaba |
 | Pares de `EXECUTE_SESSION_ENV`, `EXECUTE_DIRECT_SESSION_ENV` y `EXECUTE_OTEL_ENV` | Los que el anfitrión declaró |
 
-`bin/team` está en el `PATH` de la sesión. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`.
+`bin/team` está en el `PATH` de la sesión. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`, y `hook` para los ganchos de «Guardias de la sesión».
+
+`bin/look` también está en el `PATH`: es la herramienta que mira la interfaz del anfitrión y deja las capturas. Ver «Herramienta de captura `look`».
+
+## Herramienta de captura `look`
+
+`look` es un navegador sin cabeza que la sesión usa para mirar la interfaz del anfitrión, sólo leyendo, y dejar capturas que cumplen UD-268. Sale del núcleo en `src/execute/captures/`; el trabajador la copia a `{workdir}/bin/captures/` junto a `team`, así que una máquina sin repositorio la tiene. Es opcional: sin Playwright en la máquina dice en una línea que no puede (código 6) y la sesión sigue sin capturas. El núcleo no trae Playwright: lo trae el anfitrión (`LOOK_PLAYWRIGHT_DIR`, `TEAM_PLAYWRIGHT_DIR`, el directorio de trabajo o `~/.tp-playwright`). Un comando del anfitrión que corre fuera de un trabajo (el que toma el «después» de una entrega, por ejemplo) instala la herramienta en un directorio `bin` con `node <app>/src/execute/captures/install.mjs <bin>`, donde `<app>` es `/app` en la imagen del núcleo.
+
+El núcleo no conoce ninguna dirección, cuenta, ruta de pantalla ni clave de persona del anfitrión. Todo eso entra por las variables de abajo y por un archivo que el anfitrión declara: el adaptador.
+
+### Variables de `look`
+
+Las lee la sesión, no el trabajador. El anfitrión las fija en el entorno de la máquina o con `EXECUTE_SESSION_ENV` (los valores sin espacios). Todas son opcionales.
+
+| Variable | Omisión | Qué gobierna | Origen de la omisión |
+|---|---|---|---|
+| `LOOK_HOST` | vacía | Ruta del adaptador (un módulo ES), relativa al directorio de trabajo de la sesión. Sin él `look` mira una dirección anónima | Sin anfitrión no hay cuenta ni rutas que conocer |
+| `LOOK_ORIGIN` | la del adaptador | Origen que se mira (`https://…`, sin ruta). Sin ésta ni la del adaptador: código 2 | El núcleo no conoce ninguna |
+| `LOOK_MASK` | `on`, salvo que `TEAM_CAPTURES_UNMASKED` sea `allowed` o `1` | `on` o `off`: si cubre los datos de personas antes de capturar. `--mask` y `--no-mask` mandan sobre ella | UD-268: `masked: false` sin zona abierta no se adjunta; UD-270: con `TEAM_CAPTURES_UNMASKED` el anfitrión acepta personas en las capturas |
+| `LOOK_TIMEOUT_S` | `5 × (2,9 + 4,2 × pantallas)` segundos | Plazo de toda la corrida. Al vencer sale con 4 y nombra la fase | Medición del 2026-10-23 del primer anfitrión: 7,6 s una corrida de una pantalla (2,9 s de arranque y 4,2 s de pantalla), con margen de cinco veces para una máquina cargada. Un valor que no sea un número mayor que cero detiene la corrida con código 2 |
+| `LOOK_OUT` | `$TEAM_CAPTURES_DIR`, y sin ella `$TMPDIR/look` | Carpeta donde caen las capturas sin ruta propia. Con `$TEAM_CAPTURES_DIR` la ruta de la declaración es relativa a esa carpeta | La carpeta que `checkCaptures` exige |
+| `LOOK_CHROMIUM` | vacía | Ejecutable de Chromium. Vacía: el de Playwright si está en disco, y si no `google-chrome`, `chromium` o `chromium-browser` de `/usr/bin` | Nombres estándar de los paquetes |
+| `LOOK_PLAYWRIGHT_DIR` | vacía | Directorio con `node_modules/playwright`, relativo al de trabajo o absoluto. Se busca antes que `TEAM_PLAYWRIGHT_DIR`, que ya lee `team walkthrough` | Misma búsqueda que `team walkthrough` |
+| `LOOK_DEBUG` | vacía | Con cualquier valor, `look` cuenta en stderr cada espera | Diagnóstico |
+
+`look` también lee `TEAM_CAPTURES_DIR` y `TEAM_CAPTURES_UNMASKED`, que el trabajador ya pasa (ver «Entorno de la sesión»).
+
+### Salida y códigos
+
+Primero el texto de la pantalla (un árbol con títulos, enlaces, botones, campos y tablas, una fila por línea). La captura sólo con `--shot`, o sola si la página tiene menos de 80 caracteres de texto. Cada captura termina con una línea `LOOK_CAPTURE {"path":…,"alt":…,"place":…,"as":…,"masked":…}`, que es un elemento de la lista `captures` de UD-268. `masked` es `true` sólo si no quedó ningún residuo detectable y había algo contra qué comprobar; `look` no lee píxeles, así que un nombre dibujado en una imagen no se cubre.
+
+| Código | Significa |
+|---|---|
+| 0 | Miró lo pedido |
+| 1 | Falló otra cosa; el mensaje dice qué |
+| 2 | Argumentos, adaptador o variables inválidos |
+| 3 | La sesión terminó y no se pudo rehacer. La pantalla no se captura |
+| 4 | Se agotó el plazo (`LOOK_TIMEOUT_S`) |
+| 5 | No pudo entrar |
+| 6 | El navegador no arranca, o no hay Playwright |
+
+### El adaptador del anfitrión
+
+Un módulo ES cuyo `export default` es un objeto. Todos los campos son opcionales; la cabecera de `src/execute/captures/host.js` es la referencia y `src/execute/captures/testing/host-example.mjs` un ejemplo que corre.
+
+| Campo | Qué declara |
+|---|---|
+| `origin` | El origen que se mira, si no llega `LOOK_ORIGIN` |
+| `flags` | Opciones con valor que `look` acepta además de las suyas (`--clinic X`); llegan a `session` como `options` |
+| `session({ options, api, log, fail, fresh })` | Cómo entra y como quién. Devuelve `{ as, init }`: `as` es una línea que va en cada captura; `init` puede traer `sessionStorage`, `localStorage`, `cookies` y `headers` que se ponen en el navegador antes de la primera página. `api` es un `fetch` bajo la guardia de sólo lectura; un POST suyo debe estar en `guard.sessionPosts`. `fail(mensaje, código)` termina la corrida |
+| `url({ place, first, session, origin })`, `menuStart(…)` | La dirección de una ruta y el punto de partida de un menú, cuando no son `origen + ruta` |
+| `guard.browserPosts`, `guard.blockedGets`, `guard.sessionPosts` | La guardia. Una petición sale sólo si es del origen y es GET, HEAD u OPTIONS, o un POST listado. Los `blockedGets` son GET que no son lectura pura (devuelven un secreto, marcan algo como leído, registran una exportación) y se cortan igual. Todo websocket se cierra. `get-effects.mjs` ayuda a encontrarlos leyendo el código del servidor |
+| `mask.patterns`, `mask.personKey`, `mask.genericKey`, `mask.personContext`, `mask.learnFrom` | Lo que se cubre, además de correos y teléfonos internacionales: patrones propios (documentos de identidad, teléfonos locales) y las claves con que el servidor del anfitrión nombra personas en sus respuestas JSON. `look` aprende de esas respuestas qué valores tapar |
+| `loadingText`, `expiredText`, `loginPaths` | Qué texto dice que la página no terminó de cargar, cuál que la sesión terminó, y qué rutas de entrada no cuentan como sesión vencida si responden 401 |
+| `allowHosts`, `playwrightDirs`, `context`, `effectMarks` | Otros hosts que el navegador puede resolver, dónde buscar Playwright, opciones del contexto (idioma, zona horaria) y marcas propias para `get-effects.mjs` |
+
+La cuenta con que `session` entra debe ser de solo lectura en el servidor del anfitrión: la guardia de `look` es la segunda capa y la primera es del servidor.
 
 ## `EXECUTE_HOST_INSTRUCTIONS`
 

@@ -17,6 +17,7 @@ scripts
 !scripts/walkthrough.mjs
 !scripts/repo-map.mjs
 !scripts/tiempos.mjs
+!scripts/canary.mjs
 data
 backups
 *.log

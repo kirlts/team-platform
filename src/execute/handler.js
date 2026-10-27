@@ -9,8 +9,8 @@
 // posts the one closing reply when the delivery ends. Without the command everything above stays as it was.
 
 import { execFile } from 'node:child_process'
-import { copyFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import Ajv from 'ajv'
@@ -34,6 +34,7 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
+import { installLook } from './captures/install.mjs'
 import { capturesDir, capturesEnv, closingCaptures, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
@@ -53,15 +54,6 @@ const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
 // Modules that `team.mjs` imports at run time and that must travel with it (only Node built-ins inside): without them `team walkthrough` died with «Cannot find module walkthrough.mjs» (job 144, 2026-10-24).
 export const TEAM_COMPANIONS = ['walkthrough.mjs']
-// The capture tool (`look`) travels the same way, as a folder: `bin/look` runs `bin/captures/look.mjs`. Only the sources go, never the tests next to them or their fixtures (`testing/`).
-const LOOK_FOLDER = new URL('./captures/', import.meta.url)
-const LOOK_SHIM = '#!/bin/sh\n# nice: a work machine may be shared by several sessions; a capture should not slow the others\nif command -v nice >/dev/null 2>&1; then exec nice -n 10 node "$(dirname "$0")/captures/look.mjs" "$@"; fi\nexec node "$(dirname "$0")/captures/look.mjs" "$@"\n'
-/** Copies the tool into `<bin>/captures` and writes `<bin>/look`. */
-export async function installLook (bin) {
-  const from = fileURLToPath(LOOK_FOLDER)
-  await cp(from, join(bin, 'captures'), { recursive: true, filter: (source) => !/\.test\.m?js$|^testing(\/|$)/.test(relative(from, source)) })
-  await writeFile(join(bin, 'look'), LOOK_SHIM, { mode: 0o755 })
-}
 const PROVIDER = 'claude-code'
 const STDERR_TAIL_CHARS = 600 // declared courtesy: the cause of a process that fails is at the END of its stderr (the start is ssh and useradd noise); enough for the last lines, short enough for `last_error`
 
@@ -265,7 +257,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       await copyFile(TEAM_SCRIPT, join(workdir, 'bin', 'team.mjs'))
       for (const name of TEAM_COMPANIONS) await copyFile(fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)), join(workdir, 'bin', name))
       await writeFile(join(workdir, 'bin', 'team'), '#!/bin/sh\nexec node "$(dirname "$0")/team.mjs" "$@"\n', { mode: 0o755 })
-      await installLook(join(workdir, 'bin'))
+      await installLook(join(workdir, 'bin')) // `look`, the capture tool (src/execute/captures/), travels with the job directory as a folder
       let cwd = workdir
       let worktree = null
       if (x.runner === 'local' && x.repoDir) {

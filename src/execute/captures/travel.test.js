@@ -6,8 +6,9 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { installLook } from '../handler.js'
+import { installLook } from './install.mjs'
 
 const exec = promisify(execFile)
 let dir
@@ -40,6 +41,18 @@ describe('look from a copy of the folder', () => {
         if (spec.startsWith('./')) assert.ok(files.includes(spec.slice(2)), `${file} imports ${spec}, which is not a source of the folder`)
       }
     }
+  })
+
+  it('the installer runs on its own, the way a host command outside a job uses it: `node install.mjs <bin>`', async () => {
+    const other = await mkdtemp(join(tmpdir(), 'look-install-'))
+    try {
+      await exec(process.execPath, [fileURLToPath(new URL('./install.mjs', import.meta.url)), join(other, 'bin')])
+      const installed = await readdir(join(other, 'bin'), { recursive: true })
+      assert.ok(installed.includes('look') && installed.includes('captures/look.mjs'), installed.join(', '))
+      assert.deepEqual(installed.filter((f) => /\.test\.|testing/.test(f)), [])
+      assert.equal((await exec(join(other, 'bin', 'look'), ['--help'])).stdout.startsWith('look [place…]'), true)
+      await assert.rejects(exec(process.execPath, [fileURLToPath(new URL('./install.mjs', import.meta.url))]), /usage: node install.mjs/)
+    } finally { await rm(other, { recursive: true, force: true }) }
   })
 
   it('refuses to run without an address and says what to set (exit 2)', async () => {

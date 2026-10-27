@@ -257,7 +257,7 @@ Un 75 repetido de DELIVER con la misma salida deja de ser una espera. El límite
 
 ## Herramienta de captura `look`
 
-`look` es un navegador sin cabeza que la sesión usa para mirar la interfaz del anfitrión, sólo leyendo, y dejar capturas que cumplen UD-268. Sale del núcleo en `src/execute/captures/`; el trabajador la copia a `{workdir}/bin/captures/` junto a `team`, así que una máquina sin repositorio la tiene. Es opcional: sin Playwright en la máquina dice en una línea que no puede (código 6) y la sesión sigue sin capturas. El núcleo no trae Playwright: lo trae el anfitrión (`LOOK_PLAYWRIGHT_DIR`, `TEAM_PLAYWRIGHT_DIR`, el directorio de trabajo o `~/.tp-playwright`).
+`look` es un navegador sin cabeza que la sesión usa para mirar la interfaz del anfitrión, sólo leyendo, y dejar capturas que cumplen UD-268. Sale del núcleo en `src/execute/captures/`; el trabajador la copia a `{workdir}/bin/captures/` junto a `team`, así que una máquina sin repositorio la tiene. Es opcional: sin Playwright en la máquina dice en una línea que no puede (código 6) y la sesión sigue sin capturas. El núcleo no trae Playwright: lo trae el anfitrión (`LOOK_PLAYWRIGHT_DIR`, `TEAM_PLAYWRIGHT_DIR`, el directorio de trabajo o `~/.tp-playwright`). Un comando del anfitrión que corre fuera de un trabajo (el que toma el «después» de una entrega, por ejemplo) instala la herramienta en un directorio `bin` con `node <app>/src/execute/captures/install.mjs <bin>`, donde `<app>` es `/app` en la imagen del núcleo.
 
 El núcleo no conoce ninguna dirección, cuenta, ruta de pantalla ni clave de persona del anfitrión. Todo eso entra por las variables de abajo y por un archivo que el anfitrión declara: el adaptador.
 

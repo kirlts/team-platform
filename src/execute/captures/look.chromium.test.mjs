@@ -87,6 +87,10 @@ before(async () => {
         try { new WebSocket(base.replace('http', 'ws') + '/ws') } catch {}
         </script>`, 'Writes'))
     }
+    if (url.pathname === '/wbr') {
+      // Each email is drawn with <wbr> after the at sign and each dot: no text node matches the pattern, the joined text does. Measured by the first host on 2026-10-24 in a list of people.
+      return html(PAGE('<h1>Team</h1><table><tr><td><span>ana.perez<wbr>@<wbr>shop<wbr>.<wbr>example</span></td></tr></table>' + (url.searchParams.has('control') ? '<div><span>luis<wbr>@<wbr>shop.example<button>Edit</button></span></div>' : ''), 'Team'))
+    }
     if (url.pathname === '/loop') return html(PAGE('<script>while (true) {}</script>', 'Loop'))
     if (url.pathname === '/blank') return html('<!doctype html><title>Blank</title><p>Almost nothing to read here</p>')
     return html(ORDERS)
@@ -190,6 +194,17 @@ describe('look: capturing and covering people', needsChromium, () => {
     const r = await look(['/', 'Orders'], withSession)
     assert.equal(r.code, 0, r.stderr)
     assert.ok(!/12\.345\.678-5/.test(r.stdout), 'the id pattern of the adapter covers it')
+  })
+
+  it('an email split by <wbr> is covered whole and masked is true; next to a control it stays, and masked is false', async () => {
+    const covered = await look(['/wbr', '--shot', 'wbr.png'])
+    assert.equal(covered.code, 0, covered.stderr)
+    assert.ok(!/ana\.perez/.test(covered.stdout), covered.stdout)
+    assert.match(covered.stdout, /masked: 1 data of people, 0 left/)
+    assert.equal(JSON.parse(covered.stdout.match(CAPTURE_LINE)[1]).masked, true)
+    const control = await look(['/wbr?control=1', '--shot', 'control.png'])
+    assert.match(control.stdout, /1 left/, 'the datum beside a control cannot be covered without breaking the control: it stays and is counted')
+    assert.equal(JSON.parse(control.stdout.match(CAPTURE_LINE)[1]).masked, false)
   })
 
   it('--phone captures 390 pixels wide and the default is 1280', async () => {

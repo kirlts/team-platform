@@ -25,7 +25,7 @@ export function ReplyTools({ message, reply }: { message: MessageDetail; reply: 
   const fail = (err: unknown) => notices.show({ text: errorText(err) })
   const mentioned = reply.mentions ?? []
   return (
-    <ul aria-label={t('reply.tools')} data-testid="reply-tools" className="flex flex-wrap items-center gap-2 pt-1">
+    <ul aria-label={t('reply.tools')} data-testid="reply-tools" className="flex flex-wrap items-center gap-x-1 gap-y-0 pt-1">
       <li>
         <input
           ref={input}
@@ -39,12 +39,12 @@ export function ReplyTools({ message, reply }: { message: MessageDetail; reply: 
             if (files.length) add.mutate({ replyId: reply.id, files }, { onError: fail })
           }}
         />
-        <button type="button" disabled={add.isPending} onClick={() => input.current?.click()} aria-label={t('media.attach')} title={t('media.attach')} className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-3 text-sm font-semibold text-muted hover:bg-hover hover:text-accent disabled:opacity-50 max-md:min-h-11 pointer-coarse:min-h-11">
+        <button type="button" disabled={add.isPending} onClick={() => input.current?.click()} aria-label={t('media.attach')} title={t('media.attach')} className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-2 text-sm font-semibold text-muted hover:bg-hover hover:text-accent disabled:opacity-50 max-md:min-h-11 pointer-coarse:min-h-11">
           <Paperclip size={16} aria-hidden /> {t('media.attach')}
         </button>
       </li>
       <li className="flex items-center gap-1">
-        <RecordAudioButton disabled={add.isPending} onRecorded={(file) => add.mutate({ replyId: reply.id, files: [file] }, { onError: fail })} onProblem={(p) => notices.show({ text: t(p === 'microphone' ? 'media.noMicrophone' : 'media.recordFailed') })} />
+        <RecordAudioButton className="px-2" disabled={add.isPending} onRecorded={(file) => add.mutate({ replyId: reply.id, files: [file] }, { onError: fail })} onProblem={(p) => notices.show({ text: t(p === 'microphone' ? 'media.noMicrophone' : 'media.recordFailed') })} />
       </li>
       <li>
         <MemberPicker
@@ -52,6 +52,7 @@ export function ReplyTools({ message, reply }: { message: MessageDetail; reply: 
           selected={mentioned}
           label={t('mention.add')}
           shortLabel={t('mention.addShort')}
+          triggerClassName="!px-2"
           onChange={(ids) => {
             const fresh = ids.filter((id) => !mentioned.includes(id))
             if (fresh.length === 0) return // a mention is not taken back here: the ones already made stay

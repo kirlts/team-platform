@@ -91,8 +91,11 @@ describe('replying by voice', () => {
       await tools.waitFor()
       await tools.getByTestId('reply-add-files').setInputFiles(AUDIO)
       await page.getByTestId('reply-transcript').waitFor()
-      await tools.getByRole('button', { name: 'Quitar foto.png' }).click()
-      await tools.getByRole('button', { name: 'Quitar foto.png' }).waitFor({ state: 'detached' })
+      // The file is drawn once, in the reply, and its «Quitar» is beside it: the tools row does not list it again.
+      assert.equal(await tools.getByRole('button', { name: 'Quitar foto.png' }).count(), 0)
+      assert.equal(await page.getByRole('button', { name: 'Quitar foto.png' }).count(), 1)
+      await page.getByRole('button', { name: 'Quitar foto.png' }).click()
+      await page.getByRole('button', { name: 'Quitar foto.png' }).waitFor({ state: 'detached' })
       await tools.getByRole('button', { name: 'Mencionar a un miembro' }).click()
       await page.getByRole('menuitemcheckbox', { name: 'Claude' }).click()
       await page.locator('[data-mention]').first().waitFor()

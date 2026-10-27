@@ -53,14 +53,20 @@ export interface Formats {
   duration: (ms: number) => string
 }
 
+/**
+ * The locale that writes the numbers. «es-419» is a language, not a country, and its CLDR data writes the point as the decimal mark («1,234.50»), which is not how the team reads a figure;
+ * plain «es» writes «1234,50». English keeps its own.
+ */
+const numberLocale = (language: Language) => (language === 'es-419' ? 'es' : language)
+
 export function createFormats(language: Language, words: { today: string; yesterday: string }): Formats {
   const date = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' })
   const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hour12: false })
   const short = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' })
-  const number = new Intl.NumberFormat(language, { maximumFractionDigits: 1 })
+  const number = new Intl.NumberFormat(numberLocale(language), { maximumFractionDigits: 1 })
   const clock = (d: Date) => time.format(d)
   const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: false })
-  const fixed = (digits: number) => new Intl.NumberFormat(language, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const fixed = (digits: number) => new Intl.NumberFormat(numberLocale(language), { minimumFractionDigits: digits, maximumFractionDigits: digits })
   const decimals = new Map<number, Intl.NumberFormat>()
   const decimal = (n: number, digits = 2) => {
     if (!decimals.has(digits)) decimals.set(digits, fixed(digits))

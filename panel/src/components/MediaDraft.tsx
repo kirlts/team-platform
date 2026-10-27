@@ -226,7 +226,7 @@ export function RecordingStatus({ seconds }: { seconds: number }) {
  * «Grabar audio» for a message or a reply that already exists (UD-071, UD-279): records with the microphone and hands the file over when it stops, so it joins
  * as any other attachment. While it records, the button says «Detener grabación» and the timer is beside it.
  */
-export function RecordAudioButton({ onRecorded, disabled, onProblem }: { onRecorded: (file: File) => void; disabled?: boolean; onProblem?: (problem: MediaProblem) => void }) {
+export function RecordAudioButton({ onRecorded, disabled, onProblem, className }: { onRecorded: (file: File) => void; disabled?: boolean; onProblem?: (problem: MediaProblem) => void; className?: string }) {
   const t = useT()
   const recorder = useRef<Recording | null>(null)
   const [seconds, setSeconds] = useState<number | null>(null)
@@ -261,7 +261,7 @@ export function RecordAudioButton({ onRecorded, disabled, onProblem }: { onRecor
   return (
     <>
       {recording && <RecordingStatus seconds={seconds} />}
-      <Button type="button" variant="ghost" size="sm" aria-label={label} title={available ? label : t('media.needsHttps')} disabled={disabled || !available} onClick={() => void toggle()} className={cn('px-3', recording && 'text-danger')}>
+      <Button type="button" variant="ghost" size="sm" aria-label={label} title={available ? label : t('media.needsHttps')} disabled={disabled || !available} onClick={() => void toggle()} className={cn('px-3', recording && 'text-danger', className)}>
         {recording ? <Square size={14} fill="currentColor" aria-hidden /> : <Mic size={16} aria-hidden />}
         <span>{label}</span>
       </Button>

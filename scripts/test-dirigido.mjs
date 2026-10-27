@@ -61,11 +61,16 @@ if (panelCode.length) {
 const imageTests = new Set(config.image.tests)
 const touchesImage = changed.some((file) => config.image.paths.some((p) => file === p || file.startsWith(p)))
 if (touchesImage) for (const t of imageTests) selected.add(t)
-// Tests on a real Docker daemon (src/testing/areas.json, «daemon»): they do not skip without Docker, they fail, so they run only when the change touches what they walk.
+// Tests on a real Docker daemon (src/testing/areas.json, «daemon»): they run only when the change touches what they walk, and then the daemon is DEMANDED
+// (TEAM_REQUIRE_ENV=docker, src/testing/requires.js): without it they fail instead of skipping, because a skipped test did not pass.
 const daemonTests = new Set(config.daemon.tests)
 const touchesDaemon = changed.some((file) => config.daemon.paths.some((p) => file === p || file.startsWith(p)))
 if (touchesDaemon) for (const t of daemonTests) selected.add(t)
 const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f) || imageTests.has(f) || daemonTests.has(f)).sort()
+// The directed run is the machine of the person who changed the code: a selected test that declares it needs a Docker daemon (requires('docker'))
+// demands it, as these tests always did here. The battery of a publication runs in the image, which has none, and skips them with the reason.
+const declaresDocker = (f) => /requires\(\s*'docker'/.test(readFileSync(path.join(root, f), 'utf8'))
+const childEnv = files.some(declaresDocker) ? { ...process.env, TEAM_REQUIRE_ENV: [...new Set([...(process.env.TEAM_REQUIRE_ENV ?? '').split(',').filter(Boolean), 'docker'])].join(',') } : process.env
 const browserFiles = files.filter((f) => f.endsWith('.browser.test.mjs'))
 const nodeFiles = files.filter((f) => !f.endsWith('.browser.test.mjs'))
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always), ${browserFiles.length} of them in the browser.`)
@@ -83,7 +88,7 @@ if (browserFiles.length) {
 // the width the cores allow. The rest run with one process per core.
 let status = 0
 if (nodeFiles.length) {
-  const r = spawnSync(process.execPath, ['--test', `--test-concurrency=${availableParallelism()}`, ...nodeFiles], { cwd: root, stdio: 'inherit' })
+  const r = spawnSync(process.execPath, ['--test', `--test-concurrency=${availableParallelism()}`, ...nodeFiles], { cwd: root, stdio: 'inherit', env: childEnv })
   status = r.status ?? 1
 }
 // The unit tests of the panel take about four seconds (one jsdom per worker), so a change in the panel runs them all.

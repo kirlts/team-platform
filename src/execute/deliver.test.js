@@ -721,7 +721,7 @@ describe('deliver job', () => {
     // The first delivery leaves a commit on the branch (what a fix of the host would be) and fails; the second pass must start from that commit.
     startWorker({
       repoDir: repo,
-      deliverCommand: `if [ -e ${ok} ]; then echo ref-repo; else touch ${ok}; git -C ${repo} update-ref refs/heads/{branch} $(git -C ${repo} commit-tree -m ahead -p main main^{tree}); echo FAIL; exit 3; fi`
+      deliverCommand: `if [ -e ${ok} ]; then echo ref-repo; else touch ${ok}; git -C ${repo} update-ref refs/heads/{branch} $(git -C ${repo} -c user.name=t -c user.email=t@x.org commit-tree -m ahead -p main main^{tree}); echo FAIL; exit 3; fi`
     })
     const messageId = await publishedMessage('Con repositorio.')
     await settle(messageId)

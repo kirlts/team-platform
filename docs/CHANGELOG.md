@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-27
+
+- La imagen base del Dockerfile se fija por digest (`node:24-alpine` y `alpine:3.24`, consultados el 2026-10-27 con `docker buildx imagetools inspect`), y la etapa `battery` parte de la misma imagen que la de producción.
+- La batería de una publicación corre dentro de esa imagen (`scripts/battery-image.sh`, usado por `scripts/publish-main.sh` y `scripts/battery-record.mjs run`): el registro guarda el `node` de adentro, el digest fijado como `imagen_base` y las pruebas saltadas por entorno con su motivo. La conformidad con docker-local corre fuera de la imagen, en la máquina que publica, y el registro lo declara.
+- Las pruebas que exigen Docker, git con identidad o ganchos, Chromium o red lo declaran con `src/testing/requires.js` y, si el entorno no lo trae, se saltan con el motivo escrito en lugar de fallar. Una guardia (`src/testing/environment-declared.test.js`) falla si una prueba usa Docker o commits sin declararlo. Las que sólo fallaban por falta de identidad de git ahora la configuran en su repositorio temporal.
 - El límite de una persona y la espera de una idea se sostienen también sin `EXECUTE_DELIVER_COMMAND` (enmienda de UD-313). El archivo de guardias puede listar en `commands.deliveries` las órdenes que entregan; mientras el límite o la idea esperan, la sesión nace con ellas negadas, lo que deja en la rama pasa a una persona y su `review: approve` lanza la pasada que entrega. Sin la lista, `GET /health` queda `degraded` si hay un límite de persona. Los límites instaladas después de evaluar un mensaje se juzgan al arrancar su trabajo (migración `0041`), los `touches_<nombre>` de la salida se cruzan con las que marcó el analizador y un límite puede llevar `key`. Aditivo, no sube `contract_version`.
 - El juez de trabajos cuenta para decidir sólo si está calibrado contra personas (`EXECUTE_JUDGE_REFERENCE_FILE`, alfa de Krippendorff ordinal por eje, umbral 0,80). Mientras no, sus juicios salen con `calibrated: false` y el panel dice «Sin calibrar». El juez recibe `idea`, la sesión recibe la descripción del área, y la escalada registra si su disparador es declarado o comprobado.
 

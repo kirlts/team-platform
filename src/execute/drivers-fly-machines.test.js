@@ -1,7 +1,7 @@
 // The driver of Fly Machines (drivers/fly-machines/) against a double of the Fly Machines API (src/execute/fly-api-double.js) whose machines are Docker containers of
 // the driver's own image, and the real `runMachine` of the worker, with a fake `claude` inside the machine. Nothing is spent in Fly. What this test cannot say is
 // whether the real API behaves as the double does: the double reproduces what was measured on 2026-10-27 and the real run is `node scripts/host-conformance.mjs
-// --driver drivers/fly-machines` (README of the driver). Without Docker this test FAILS and says so: a skipped test did not pass.
+// --driver drivers/fly-machines` (README of the driver). Without a Docker daemon it is skipped with its reason (src/testing/requires.js); where the change touches what it walks the directed run demands the daemon (TEAM_REQUIRE_ENV=docker) and then it FAILS without one.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, describe, it } from 'node:test'
 import { loadConfig } from '../config.js'
+import { requires } from '../testing/requires.js'
 import { fillCommand, runMachine, spawnStreaming, writeMachineFiles } from './runners.js'
 import { TOKEN, startFlyDouble } from './fly-api-double.js'
 
@@ -58,7 +59,7 @@ fi
 echo '{"type":"result","subtype":"success","is_error":false,"session_id":"sess-1","total_cost_usd":0}'
 `
 
-describe('drivers/fly-machines', () => {
+describe('drivers/fly-machines', { skip: requires('docker') }, () => {
   let dir, repo, state, jobs, counter, flyApi
   const saved = {}
   const setEnv = (values) => { for (const [k, v] of Object.entries(values)) { if (!(k in saved)) saved[k] = process.env[k]; if (v === undefined) delete process.env[k]; else process.env[k] = v } }
@@ -88,7 +89,7 @@ describe('drivers/fly-machines', () => {
 
   before(async () => {
     try { execFileSync('docker', ['info'], { stdio: 'ignore' }) } catch {
-      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and does not skip without one')
+      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and it was demanded (TEAM_REQUIRE_ENV=docker)')
     }
     dir = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'driver-fly-'))
     jobs = join(dir, 'jobs'); mkdirSync(jobs)

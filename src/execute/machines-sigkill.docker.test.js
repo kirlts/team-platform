@@ -1,6 +1,6 @@
 // Piece B4 with a worker killed without warning: the worker is a real process (`node src/worker.js`, WORKER_MODE=external) with drivers/docker-local against a real
 // Docker daemon. RUN is running, the process gets SIGKILL, another worker starts and nothing is left alive: the container is destroyed (or taken over by the next
-// attempt of the job) and `GET /health` says `machines.open` is 0 again. Without Docker this test FAILS and says so: a skipped test did not pass.
+// attempt of the job) and `GET /health` says `machines.open` is 0 again. Without a Docker daemon it is skipped with its reason (src/testing/requires.js); where the change touches what it walks the directed run demands the daemon (TEAM_REQUIRE_ENV=docker) and then it FAILS without one.
 // It is a `.docker.test.js`: run it with `npm run test:sigkill`. The directed selection runs it when the change touches what it walks (src/testing/areas.json, «daemon»); the others of its kind stay out.
 // Its instance (TP_DOCKER_INSTANCE) is its own, so the tests of the driver that run beside it neither count nor touch its machines.
 import assert from 'node:assert/strict'
@@ -13,6 +13,7 @@ import { after, afterEach, before, describe, it } from 'node:test'
 import { updateMember } from '../domain/members.js'
 import { setProjectDescription } from '../domain/settings.js'
 import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { requires } from '../testing/requires.js'
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const DRIVER = fileURLToPath(new URL('../../drivers/docker-local/', import.meta.url))
@@ -31,7 +32,7 @@ sleep 300
 const LEASE_MS = 3000 // a test bound
 const HEARTBEAT_MS = 500 // a test bound, below the lease as the configuration demands
 
-describe('B4 with SIGKILL of a real worker process', () => {
+describe('B4 with SIGKILL of a real worker process', { skip: requires('docker') }, () => {
   let env, dir, editor, jobId, messageId, agentId
   const children = []
   const saved = {}
@@ -85,7 +86,7 @@ describe('B4 with SIGKILL of a real worker process', () => {
 
   before(async () => {
     try { execFileSync('docker', ['info'], { stdio: 'ignore' }) } catch {
-      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and does not skip without one')
+      assert.fail('Docker does not answer (docker info failed): this test needs a Docker daemon and it was demanded (TEAM_REQUIRE_ENV=docker)')
     }
     // The message is made by this process (a pipeline-only worker analyses it); the execute job is enqueued by hand once that worker is stopped, and run by the child processes.
     env = await makeEnv({ worker: true, config: { identity: { login: { ipMax: 1000 } } } })

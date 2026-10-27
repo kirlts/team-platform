@@ -51,7 +51,7 @@ test('the ffmpeg stage pins the version and verifies the tarball checksums', STA
 });
 
 test('the shipped image carries the two static binaries and not the Alpine ffmpeg package', STATIC, () => {
-  const base = /FROM alpine:[\d.]+ AS base\n([\s\S]*?)\n\n/.exec(dockerfile)?.[1] ?? '';
+  const base = /FROM alpine:[\d.]+(?:@sha256:[0-9a-f]{64})? AS base\n([\s\S]*?)\n\n/.exec(dockerfile)?.[1] ?? '';
   assert.ok(base.includes('COPY --from=ffmpeg /out/bin/ffmpeg /out/bin/ffprobe /usr/local/bin/'));
   assert.ok(!/apk add[^\n]*\bffmpeg\b/.test(base), 'the base stage installs the full ffmpeg package');
   const finalStage = dockerfile.slice(dockerfile.lastIndexOf('\nFROM base\n'));

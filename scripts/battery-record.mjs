@@ -30,6 +30,14 @@
 // The same read as one line of git, from any repository, with the full sha:
 //   git fetch -q https://github.com/kirlts/team-platform.git +refs/notes/verificaciones:refs/notes/verificaciones && git notes --ref=verificaciones show <full sha>
 //
+// Where the orders run. The battery (complete, panel, client, static) runs INSIDE the pinned image of the `battery` stage of the Dockerfile
+// (scripts/battery-image.sh): `node` of the record is the one the image reports, `imagen_base` is the digest the Dockerfile pins for that
+// stage (not whatever the machine that publishes has), and the detailed record lists in `skipped_tests` every test the image skipped with the
+// reason it wrote (a test that needs a Docker daemon, a git identity, Chromium or a network declares it in src/testing/requires.js). The
+// order that needs the machine itself, the conformance of the docker-local driver (scripts/publish-main.sh, step 6), runs outside the image,
+// is marked `where: "host"` in `commands[]` of the detailed record, and its Node is not the one of `node`. BATTERY_*_CMD overrides (tests)
+// run as given, outside the image.
+//
 // Why a git note and not a file: every write is a commit of the reference, so writing one by hand leaves the
 // author, the date and the parent in the history of the reference (`show --trace`). Writes are fast-forward pushes, never forced.
 // If the remote advanced between the fetch and the push (another writer), the note is applied again on top of the new head and the
@@ -75,6 +83,12 @@ export const ORDERS = [
   { name: 'static', env: 'BATTERY_STATIC_CMD', cmd: 'node --test src/static.test.js' },
 ]
 
+// The script that runs a command inside the pinned image on the commit checked out in a directory.
+export const IMAGE_SCRIPT = join(here, 'battery-image.sh')
+const quote = (text) => `'${text.replaceAll("'", "'\\''")}'`
+/** The command line that runs `cmd` inside the image on the HEAD of `tree`. */
+export const inImage = (cmd, tree) => `bash ${quote(IMAGE_SCRIPT)} --tree ${quote(tree)} -- ${quote(cmd)}`
+
 export function git (cwd, args, input) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', input, maxBuffer: 1 << 28, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
   return { status: r.status, out: (r.stdout ?? '').trim(), raw: r.stdout ?? '', err: (r.stderr ?? '').trim() }
@@ -95,6 +109,29 @@ export function parseCounts (output) {
   return {}
 }
 
+// What scripts/battery-image.sh printed before the command: the Node of the image, the digest of its pinned base and the tree it tested.
+// Empty when the command did not run in the image.
+export function imageMarkers (output) {
+  const text = output.replace(ANSI, '')
+  const pick = (key, re) => { const m = new RegExp(`^battery-image: ${key} (${re})\\s*$`, 'm').exec(text); return m ? m[1] : undefined }
+  const node = pick('node', 'v\\d+\\.\\d+\\.\\d+\\S*')
+  const image = pick('image', 'sha256:[0-9a-f]{64}')
+  const tree = pick('tree', '[0-9a-f]{40}')
+  return { ...(node ? { node } : {}), ...(image ? { image } : {}), ...(tree ? { tree } : {}) }
+}
+
+// The tests an output reports as skipped, each with the reason it wrote: `﹣ name (1.2ms) # reason` (spec) or `ok 3 - name # SKIP reason` (TAP).
+export function skippedTests (output) {
+  const found = []
+  for (const line of output.replace(ANSI, '').split('\n')) {
+    const spec = /^\s*﹣\s+(.+?)\s+\(\d+(?:\.\d+)?ms\)(?:\s+#\s*(.*))?$/.exec(line)
+    const tap = spec ? null : /^\s*ok \d+ - (.+?)\s+#\s+SKIP\b\s*(.*)$/.exec(line)
+    const m = spec ?? tap
+    if (m) found.push({ test: m[1], reason: (m[2] ?? '').replace(/^SKIP\s*/, '').trim() || 'no reason written' })
+  }
+  return found
+}
+
 // The names of what failed in an output, for the one-line-per-test report.
 export function failedNames (output) {
   const names = new Set()
@@ -106,14 +143,14 @@ export function failedNames (output) {
 }
 
 // Runs one order with bash in `cwd`, mirrors its output to the terminal, writes it to `logPath` and hashes the whole of it.
-export function runOrder ({ name, cmd, cwd, env, logPath, echo = true }) {
+export function runOrder ({ name, cmd, run = cmd, where, cwd, env, logPath, echo = true }) {
   return new Promise((resolveRun) => {
     const started = process.hrtime.bigint()
     const hash = createHash('sha256')
     const log = createWriteStream(logPath)
     // NODE_TEST_CONTEXT would make a nested `node --test` skip its files when this script itself runs inside a test.
     const { NODE_TEST_CONTEXT: _context, ...inherited } = process.env
-    const child = spawn('bash', ['-c', cmd], { cwd, env: { ...inherited, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn('bash', ['-c', run], { cwd, env: { ...inherited, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
     // The output goes to stderr: stdout of this script is the record, for whoever pipes it.
     const take = (chunk) => { hash.update(chunk); log.write(chunk); if (echo) process.stderr.write(chunk) }
     child.stdout.on('data', take)
@@ -122,7 +159,8 @@ export function runOrder ({ name, cmd, cwd, env, logPath, echo = true }) {
       log.end(() => {
         const seconds = Math.round(Number(process.hrtime.bigint() - started) / 1e8) / 10
         const output = readFileSync(logPath, 'utf8')
-        resolveRun({ name, cmd, exit: code ?? 128, seconds, ...(signal ? { signal } : {}), ...parseCounts(output), log_sha256: hash.digest('hex'), failed: code === 0 ? [] : failedNames(output) })
+        const skipped = skippedTests(output)
+        resolveRun({ name, cmd, ...(where ? { where } : {}), exit: code ?? 128, seconds, ...(signal ? { signal } : {}), ...parseCounts(output), ...imageMarkers(output), ...(skipped.length ? { skipped_tests: skipped } : {}), log_sha256: hash.digest('hex'), failed: code === 0 ? [] : failedNames(output) })
       })
     }
     child.on('error', () => done(127, null))
@@ -140,19 +178,24 @@ export function failedFiles (output) {
 // The rule of the repository for a failure: repeat only what failed, once (docs of the door, «un reintento repite sólo lo que falló»).
 // Returns the order's result as it stands to be recorded: untouched when it passed or names no file; with exit 0 and the declared
 // `first_run` and `retried` when the files that failed pass on their own. A file that fails again leaves the order failed.
-export async function retryFailedFiles (result, { cwd, env, logPath }) {
+export async function retryFailedFiles (result, { cwd, env, logPath, wrap = (c) => c }) {
   if (result.exit === 0) return result
   const files = failedFiles(readFileSync(logPath, 'utf8'))
   if (files.length === 0) return result
   const quoted = files.map((f) => `'${f.replaceAll("'", "'\\''")}'`).join(' ')
   const cmd = `node --test ${quoted}`
   console.error(`\n==> retry only what failed in ${result.name}: ${cmd}`)
-  const again = await runOrder({ name: `${result.name}-retry`, cmd, cwd, env, logPath: `${logPath}.retry` })
+  const again = await runOrder({ name: `${result.name}-retry`, cmd, run: wrap(cmd), cwd, env, logPath: `${logPath}.retry` })
   if (again.exit !== 0) return { ...result, retried: { files, exit: again.exit, seconds: again.seconds } }
   const { tests, pass, fail } = result
   return {
     name: result.name,
     cmd: result.cmd,
+    ...(result.where ? { where: result.where } : {}),
+    ...(result.node ? { node: result.node } : {}),
+    ...(result.image ? { image: result.image } : {}),
+    ...(result.tree ? { tree: result.tree } : {}),
+    ...(result.skipped_tests ? { skipped_tests: result.skipped_tests } : {}),
     exit: 0,
     seconds: result.seconds,
     log_sha256: result.log_sha256,
@@ -182,6 +225,9 @@ export function lookupDigest (ref) {
     const known = JSON.parse(process.env.BATTERY_TEST_DIGESTS)[ref]
     return known ? { digest: known } : { digest: null, reason: 'not in BATTERY_TEST_DIGESTS' }
   }
+  // A reference pinned by digest (`name:tag@sha256:...`, as the Dockerfile declares them) already says which image it is.
+  const pinned = /@(sha256:[0-9a-f]{64})$/.exec(ref)
+  if (pinned) return { digest: pinned[1] }
   const reasons = []
   const remote = spawnSync('docker', ['buildx', 'imagetools', 'inspect', ref], { encoding: 'utf8' })
   const m = remote.status === 0 ? /^Digest:\s+(sha256:[0-9a-f]{64})/m.exec(remote.stdout) : null
@@ -208,16 +254,22 @@ export function buildRecord ({ sha, tree, results, skipped = [], bases, date = n
   const pad = (n) => String(Math.abs(n)).padStart(2, '0')
   const off = -date.getTimezoneOffset()
   const stamp = `${new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19)}${off >= 0 ? '+' : '-'}${pad(Math.trunc(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`
+  // What ran in the image reports the Node and the digest of the image; what ran outside it (`where: "host"`) is declared as such, with its own Node.
+  const inside = ran.filter((r) => r.where !== 'host')
+  const nodeOf = inside.find((r) => r.node)?.node ?? nodeVersion
+  const imageDigest = inside.find((r) => r.image)?.image
+  const skippedTests = inside.flatMap((r) => (r.skipped_tests ?? []).map((t) => ({ order: r.name, ...t })))
   return {
     schema: SCHEMA,
     sha,
     tree,
     date: stamp,
-    node: nodeVersion,
+    node: nodeOf,
     runner: runner ?? `${userInfo().username}@${hostname()}`,
-    commands: ran.map(({ name, cmd, exit, seconds, tests, pass, fail, log_sha256: logHash, first_run: firstRun, retried }) => ({ name, cmd, exit, seconds, ...(tests !== undefined ? { tests, pass, fail } : {}), log_sha256: logHash, ...(retried ? { first_run: firstRun, retried } : {}) })),
+    commands: ran.map(({ name, cmd, where, node, exit, seconds, tests, pass, fail, log_sha256: logHash, first_run: firstRun, retried }) => ({ name, cmd, ...(where ? { where } : {}), ...(where === 'host' && node ? { node } : {}), exit, seconds, ...(tests !== undefined ? { tests, pass, fail } : {}), log_sha256: logHash, ...(retried ? { first_run: firstRun, retried } : {}) })),
     skipped,
     image_base: bases,
+    ...(imageDigest ? { image: imageDigest, skipped_tests: skippedTests } : {}),
   }
 }
 
@@ -393,7 +445,7 @@ function parseArgs (argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--no-push' || a === '--trace' || a === '--no-retry' || a === '--dry-run') opts[a.slice(2)] = true
-    else if (['--remote', '--ref', '--anfitrion', '--compose', '--base-image', '--from', '--name', '--exit', '--seconds', '--log', '--cmd'].includes(a)) opts[a.slice(2)] = argv[++i]
+    else if (['--remote', '--ref', '--anfitrion', '--compose', '--base-image', '--from', '--name', '--exit', '--seconds', '--log', '--cmd', '--where', '--node'].includes(a)) opts[a.slice(2)] = argv[++i]
     else if (a.startsWith('--')) { console.error(`battery-record: unknown option ${a}`); process.exit(2) }
     else opts._.push(a)
   }
@@ -417,6 +469,16 @@ function resolveCommit (root, wanted, remote) {
   return r.out
 }
 
+// The base image the verification names. When the battery ran in the pinned image, that is the digest the image reported: the record says where
+// the tests ran, whatever the host declares; a different `--base-image` is reported on stderr, not recorded. Otherwise (a double, an old record)
+// it is the host's reference, else the root of the last stage of the Dockerfile (pickBase).
+export function baseOf ({ baseImage, dockerfile, bases, imageDigest, lookup = lookupDigest, warn = (m) => console.error(m) }) {
+  const declared = pickBase({ baseImage, rootRef: dockerfile ? finalBase(dockerfile) : null, bases, lookup })
+  if (!imageDigest) return declared
+  if (baseImage && declared.digest !== imageDigest) warn(`battery-record: the host declares ${baseImage} (${declared.digest ?? 'digest unknown'}) but the battery ran in the image pinned by the Dockerfile (${imageDigest}); the record names the one it ran in`)
+  return { digest: imageDigest }
+}
+
 // The fingerprint of the host the tests ran against: given as 16 hex digits or computed from its compose file. Null when neither is given.
 function hostOf (opts) {
   if (opts.anfitrion) return opts.anfitrion
@@ -435,7 +497,7 @@ function recordsFor (root, sha, results, skipped, opts) {
     console.error('battery-record: no --compose or --anfitrion given: only the detailed record is written, not the verification a host reads')
     return { battery, verification: null }
   }
-  const base = pickBase({ baseImage: opts['base-image'], rootRef: dockerfile.status === 0 ? finalBase(dockerfile.raw) : null, bases })
+  const base = baseOf({ baseImage: opts['base-image'], dockerfile: dockerfile.status === 0 ? dockerfile.raw : null, bases, imageDigest: battery.image })
   const verification = buildVerification({ sha, host, results, baseDigest: base.digest, baseReason: base.reason, nodeVersion: battery.node })
   return { battery, verification }
 }
@@ -483,17 +545,20 @@ async function commandRun (opts) {
   try {
     for (const rel of ['', 'panel', 'packages/client']) prepareModules(root, common, wt, rel)
     for (const order of ORDERS) {
-      const cmd = process.env[order.env] ?? order.cmd
-      console.error(`\n==> ${order.name}: ${cmd}`)
+      // The orders run inside the pinned image; an override (the doubles of the tests) runs as given, outside it.
+      const override = process.env[order.env]
+      const cmd = override ?? order.cmd
+      const wrap = override === undefined ? (c) => inImage(c, wt) : (c) => c
+      console.error(`\n==> ${order.name}: ${cmd}${override === undefined ? ' (in the image)' : ''}`)
       const logPath = join(logs, `${order.name}.log`)
-      let r = await runOrder({ name: order.name, cmd, cwd: wt, env: { TMPDIR: tmp }, logPath })
-      if (!opts['no-retry']) r = await retryFailedFiles(r, { cwd: wt, env: { TMPDIR: tmp }, logPath })
+      let r = await runOrder({ name: order.name, cmd, run: wrap(cmd), ...(override === undefined ? { where: 'image' } : {}), cwd: wt, env: { TMPDIR: tmp }, logPath })
+      if (!opts['no-retry']) r = await retryFailedFiles(r, { cwd: wt, env: { TMPDIR: tmp }, logPath, wrap })
       results.push(r)
       if (r.exit !== 0) break // the record needs all of them; the rest would only spend the machine
     }
     const bad = results.filter((r) => r.exit !== 0)
     console.error('\nbattery-record: orders')
-    for (const r of results) console.error(`  ${r.name.padEnd(9)} ${r.exit === 0 ? 'ok    ' : `FAILED (${r.exit})`} ${r.seconds}s ${r.tests !== undefined ? `${r.pass}/${r.tests} pass` : ''}${r.retried ? ` (repeated only: ${r.retried.files.join(', ')})` : ''}  ${r.cmd}`)
+    for (const r of results) console.error(`  ${r.name.padEnd(9)} ${r.exit === 0 ? 'ok    ' : `FAILED (${r.exit})`} ${r.seconds}s ${r.tests !== undefined ? `${r.pass}/${r.tests} pass` : ''}${r.skipped_tests ? ` ${r.skipped_tests.length} skipped` : ''}${r.retried ? ` (repeated only: ${r.retried.files.join(', ')})` : ''}  ${r.cmd}`)
     if (bad.length) {
       for (const r of bad) for (const n of r.failed) console.error(`  failed: ${n}`)
       console.error(`battery-record: nothing written for ${sha}; logs in ${logs}`)
@@ -539,7 +604,7 @@ function commandRegenerate (opts) {
   const rec = detail.record
   const results = rec.commands.map(({ cmd, exit, retried }) => ({ cmd, exit, ...(retried ? { retried } : {}) }))
   const dockerfile = git(root, ['show', `${sha}:Dockerfile`])
-  const base = pickBase({ baseImage: opts['base-image'], rootRef: dockerfile.status === 0 ? finalBase(dockerfile.raw) : null, bases: rec.image_base ?? [] })
+  const base = baseOf({ baseImage: opts['base-image'], dockerfile: dockerfile.status === 0 ? dockerfile.raw : null, bases: rec.image_base ?? [], imageDigest: rec.image })
   const verification = buildVerification({ sha, host, results, baseDigest: base.digest, baseReason: base.reason, nodeVersion: rec.node })
   if (!opts['dry-run']) {
     const v = writeNote(root, remote, verification, { kind: 'verificaciones' })
@@ -552,10 +617,12 @@ function commandRegenerate (opts) {
 }
 
 function commandResult (opts) {
-  if (!opts.name || opts.exit === undefined || !opts.log || !opts.cmd) { console.error('usage: battery-record result --name N --exit E --seconds S --log FILE --cmd CMD'); return 2 }
+  if (!opts.name || opts.exit === undefined || !opts.log || !opts.cmd) { console.error('usage: battery-record result --name N --exit E --seconds S --log FILE --cmd CMD [--where image|host] [--node vX.Y.Z]'); return 2 }
   const raw = readFileSync(opts.log)
   const output = raw.toString('utf8')
-  console.log(JSON.stringify({ name: opts.name, cmd: opts.cmd, exit: Number(opts.exit), seconds: Number(opts.seconds), ...parseCounts(output), log_sha256: createHash('sha256').update(raw).digest('hex') }))
+  const skipped = skippedTests(output)
+  // `--where host` marks an order that ran on the publishing machine and not in the image; `--node` is that machine's Node.
+  console.log(JSON.stringify({ name: opts.name, cmd: opts.cmd, ...(opts.where ? { where: opts.where } : {}), ...(opts.node ? { node: opts.node } : {}), exit: Number(opts.exit), seconds: Number(opts.seconds), ...parseCounts(output), ...(opts.where === 'host' ? {} : imageMarkers(output)), ...(skipped.length && opts.where !== 'host' ? { skipped_tests: skipped } : {}), log_sha256: createHash('sha256').update(raw).digest('hex') }))
   return 0
 }
 

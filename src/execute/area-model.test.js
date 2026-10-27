@@ -16,6 +16,7 @@ import { createExecuteHandler } from './handler.js'
 import { EXECUTE_MODEL_IDS, resolveExecuteModel } from '../domain/execute-models.js'
 import { modelFor } from '../domain/assessment.js'
 import { closeReason } from './auto-close.js'
+import { KPIS, judgmentsOfMessage } from './judge.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
@@ -29,12 +30,15 @@ describe('model by area and by estimates', () => {
   let routing = 'agent'
 
   // The text provider answers the Guard of the idea and the job judge (FAKE_JUDGE=off makes the judge fail the way a missing key does), as in production: the worker has no `claude`.
+  const judgePrompts = []
   const KPI_IDS = ['1.1', '1.2', '1.3', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3']
   const fakeText = { name: 'fake', model: 'claude-haiku-5-5', complete: async (req) => {
     const prompt = req.messages[0].content
     if (prompt.startsWith('Eres un juez de trabajos')) {
       if (process.env.FAKE_JUDGE === 'off') throw new Error('anthropic: sin clave')
-      const kpis = KPI_IDS.map((id) => ({ id, applies: id === '2.1' || id === '1.2', score: id === '2.1' ? 1 : 0, quote: id === '2.1' || id === '1.2' ? 'Arreglé la pantalla' : '', claim: 'c', reasoning: 'r' }))
+      judgePrompts.push(prompt)
+      // FAKE_JUDGE=bad: a quote that is not in the evidence, the way a model that invents one answers.
+      const kpis = KPI_IDS.map((id) => ({ id, applies: id === '2.1' || id === '1.2', score: id === '2.1' ? 1 : 0, quote: id === '2.1' || id === '1.2' ? (process.env.FAKE_JUDGE === 'bad' ? 'Una cita que nadie escribió' : 'Arreglé la pantalla') : '', claim: 'c', reasoning: 'r' }))
       return { json: { quadrant: 'execute', kpis, summary: 'Adecuado.' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
     }
     return { json: { idea: 0.1, idea_guard: false, idea_reason: 'razón de prueba' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
@@ -229,6 +233,10 @@ describe('model by area and by estimates', () => {
     assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'message.execute_escalate' AND entity_id = ?", id).n, 1)
     const timing = (await env.app.inject({ method: 'GET', url: `/api/messages/${id}/timing`, headers: panel(editor) })).json()
     assert.ok(timing.cost_usd >= 2 * 1.2, `the cost is the whole of the message: ${timing.cost_usd}`)
+    // 2026-10-26: the attempt of the light model that did not close is judged as well, so the comparison between models counts the failures.
+    const judged = judgmentsOfMessage(env.db, id)
+    assert.deepEqual(judged.map((j) => [j.job_id, j.worked_with]), [[String(first.id), 'claude-haiku-5-5'], [String(second.id), 'claude-sonnet-5-5']])
+    assert.ok(judgePrompts.some((p) => p.includes('no_cerro: sí')), 'the judge is told that the light attempt did not close')
   })
 
   it('a retry of a failed session on the light model runs with the area larger model', async () => {
@@ -263,5 +271,33 @@ describe('model by area and by estimates', () => {
     await settle(other)
     assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM execute_judgments WHERE message_id = ?', other).n, 0)
     assert.equal(get(env.db, 'SELECT status FROM jobs WHERE message_id = ?', other).status, 'done', 'the job does not depend on its judge')
+  })
+
+  it('the judge reads the anchors of the levels and the description of the area and of the project as evidence', async () => {
+    startWorker()
+    const before = judgePrompts.length
+    const id = await publish('Cambiar otro rótulo.')
+    await settle(id)
+    const prompt = judgePrompts.at(before)
+    assert.ok(prompt, 'the judge ran')
+    for (const k of KPIS) for (const text of k.levels) assert.ok(prompt.includes(text), `anchor of ${k.id}: ${text}`)
+    const area = get(env.db, 'SELECT a.title, a.description FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ?', id)
+    assert.ok(prompt.includes(`<descripcion_del_area>\n${area.title}\n${area.description}`.trim()), 'the description of the area is evidence')
+    assert.match(prompt, /<descripcion_del_proyecto>\n[\s\S]*\n<\/descripcion_del_proyecto>/)
+    assert.match(prompt, /<primera_propuesta>\n\(vacío\)\n<\/primera_propuesta>/, 'there is no first proposal to hand over yet')
+  })
+
+  it('an answer of the judge that does not validate is not a judgement: nothing is saved, the reason is audited, the cost counts and the job is done', async () => {
+    process.env.FAKE_JUDGE = 'bad'
+    startWorker()
+    const id = await publish('Cambiar un tercer rótulo.')
+    await settle(id)
+    assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM execute_judgments WHERE message_id = ?', id).n, 0)
+    const row = get(env.db, "SELECT member_id, entity, detail_json FROM audit_log WHERE action = 'job.judge_rejected' ORDER BY id DESC LIMIT 1")
+    assert.equal(row.entity, 'job')
+    const detail = JSON.parse(row.detail_json)
+    assert.equal(detail.message_id, id)
+    assert.match(detail.reason, /quote_not_in_evidence: 1\.2/)
+    assert.equal(get(env.db, 'SELECT status FROM jobs WHERE message_id = ?', id).status, 'done')
   })
 })

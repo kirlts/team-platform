@@ -121,6 +121,22 @@ TEAM_EMAIL=… TEAM_PASSWORD=… node scripts/check-sse.mjs https://team.ejemplo
 
 La segunda línea abre el flujo de eventos y falla si el proxy retiene el primer byte o el latido de 15 s. Con nginx basta el encabezado `X-Accel-Buffering: no`, que el servidor ya envía.
 
+### Comprobar el proxy y la cookie sin dominio
+
+Caddy emite su propio certificado para `localhost` (TLS interno). El inicio de sesión, la cookie `__Host-session` y el flujo de eventos se prueban así en cualquier equipo con Docker, sin dominio ni puerto 80 público. Sólo la emisión del certificado de Let's Encrypt exige el dominio.
+
+```sh
+printf '{\n\tadmin off\n}\nlocalhost:8443 {\n\ttls internal\n\treverse_proxy 127.0.0.1:3000\n}\n' > Caddyfile
+docker run -d --name caddy-prueba --network host -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2
+sleep 5 && docker cp caddy-prueba:/data/caddy/pki/authorities/local/root.crt caddy-root.crt
+curl -sS --cacert caddy-root.crt -c jar -D - -o /dev/null -X POST https://localhost:8443/api/auth/login -H 'content-type: application/json' -H 'x-team-request: panel' -d "{\"email\":\"$TEAM_EMAIL\",\"password\":\"$TEAM_PASSWORD\"}"
+curl -sS --cacert caddy-root.crt -b jar https://localhost:8443/api/me
+NODE_EXTRA_CA_CERTS=caddy-root.crt node scripts/check-sse.mjs https://localhost:8443
+docker rm -f caddy-prueba; rm -f Caddyfile jar caddy-root.crt
+```
+
+`TEAM_EMAIL` y `TEAM_PASSWORD` van exportados en el shell, con los datos del Editor. La primera respuesta es `HTTP/2 200` con `set-cookie: __Host-session=…; Path=/; HttpOnly; Secure; SameSite=Lax`, la segunda trae el correo del Editor y la tercera termina en `PASS`. Medido el 2026-10-26 en un clon limpio de `desarrollo` instalado con `scripts/install.sh` (33 s con las capas en caché, `healthy`): inicio de sesión 200, `/api/me` 200 con la cookie y 401 sin ella, `PASS first byte 12 ms, first heartbeat 15010 ms`. `caddy-root.crt` es la autoridad interna de ese Caddy: no se instala en ningún almacén de confianza.
+
 ## 2. Dentro del compose de otro proyecto
 
 El servicio entra a la red por omisión del proyecto y no publica puertos. Los demás servicios lo alcanzan en `http://team-platform:3000`. Para servirlo bajo el mismo origen del sitio, el proxy del proyecto le reenvía una ruta o un subdominio.

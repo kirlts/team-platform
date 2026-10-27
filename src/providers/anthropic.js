@@ -38,8 +38,9 @@ export const ANTHROPIC_DEFAULTS = Object.freeze({
   // Longest wait of a follower for its leader. A leader answers its first event in 1.2 to 1.9 s (same probe); this is about ten times
   // that, so a leader that hangs delays the others by no more than this before they go as they did before.
   cacheWarmupMaxWaitMs: 15_000,
-  // Characters per token to decide, before sending, whether the system prompt reaches the cacheable minimum (the analyzer uses the
-  // same 3, `charsPerToken` of src/analyze/config.js).
+  // Characters per token to decide, before sending, whether the system prompt reaches the cacheable minimum. It is its own value: the
+  // analyzer's `charsPerToken` (src/analyze/config.js) was measured on Spanish units (2.25), and this one counts the instructions of the
+  // system prompt, which are not measured; 3 stays until `bench/calibrate.mjs` has runs that say otherwise.
   charsPerToken: 3,
 });
 

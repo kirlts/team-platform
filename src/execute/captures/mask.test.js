@@ -6,9 +6,9 @@ import { parseHTML } from 'linkedom'
 import { applyMask, DEFAULT_PATTERNS, maskPatterns, serializePattern } from './mask.js'
 
 function page (html) {
-  const { document, window } = parseHTML(`<!doctype html><html><body>${html}</body></html>`)
+  const { document } = parseHTML(`<!doctype html><html><body>${html}</body></html>`)
   globalThis.document = document
-  globalThis.window = window
+  globalThis.window = {} // the page's own window holds only the state of the mask (a document of linkedom shares its window between parses)
   return document
 }
 afterEach(() => { delete globalThis.document; delete globalThis.window })
@@ -56,6 +56,13 @@ describe('applyMask', () => {
     page('<p>Quarterly numbers, no people here</p>')
     const result = run()
     assert.deepEqual([result.hits, result.residue, result.sources, result.masked], [0, 0, 0, false])
+  })
+
+  it('counts what was covered in the whole document: a second call that finds everything covered already still has sources', () => {
+    page('<p>ana@example.org</p>')
+    assert.equal(run().masked, true)
+    const again = run()
+    assert.deepEqual([again.hits, again.residue, again.masked], [1, 0, true])
   })
 
   it('counts the learned values as sources: with them a page without matches is masked', () => {

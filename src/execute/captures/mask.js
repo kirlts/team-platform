@@ -35,11 +35,13 @@ export function applyMask ({ values, learned, patterns }) {
   const list = [...words].sort((a, b) => b.length - a.length).map(escape)
   const byValue = list.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${list.join('|')})(?![\\p{L}\\p{N}])`, 'giu') : null
   const rules = patterns.map((p) => new RegExp(p.source, p.flags))
-  let hits = 0
+  // What was covered is counted for the whole document, not for this call: the observer below covers what a click draws, and the next call finds it
+  // already covered. Counting only its own sweep would report «no sources» for a page that is fully covered, and masked would come out false.
+  const state = (window.__lookMask ??= { hits: 0 })
   const cover = (s) => {
     let t = s
-    for (const p of rules) t = t.replace(p, () => { hits++; return MASK })
-    if (byValue) t = t.replace(byValue, () => { hits++; return MASK })
+    for (const p of rules) t = t.replace(p, () => { state.hits++; return MASK })
+    if (byValue) t = t.replace(byValue, () => { state.hits++; return MASK })
     return t
   }
   const matches = (s) => rules.some((p) => { p.lastIndex = 0; return p.test(s) }) || (byValue ? (byValue.lastIndex = 0, byValue.test(s)) : false)
@@ -86,6 +88,6 @@ export function applyMask ({ values, learned, patterns }) {
   let residue = 0
   for (const p of rules) residue += (visible.match(p) || []).length
   if (byValue) residue += (visible.match(byValue) || []).length
-  const sources = hits + learned
-  return { hits, residue, sources, masked: residue === 0 && sources > 0 }
+  const sources = state.hits + learned
+  return { hits: state.hits, residue, sources, masked: residue === 0 && sources > 0 }
 }

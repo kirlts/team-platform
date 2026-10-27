@@ -1,4 +1,4 @@
-import { Check, Clock, X } from '@/components/icons'
+import { Check, Clock, Ring, X } from '@/components/icons'
 import { useLookups } from '@/components/lookups'
 import { Meter } from '@/components/Meter'
 import { RetryButton } from '@/components/RetryExecute'
@@ -16,7 +16,9 @@ const STATE_LABEL: Record<Exclude<StepState, 'pending'>, MessageKey> = { done: '
 function Mark({ state }: { state: StepState }) {
   if (state === 'done') return <Check size={16} aria-hidden className="shrink-0 text-accent" />
   if (state === 'failed') return <X size={16} aria-hidden className="shrink-0 text-danger" />
-  return <Clock size={16} aria-hidden className={cn('shrink-0', state === 'running' ? 'text-accent' : 'text-faint')} />
+  if (state === 'running') return <Clock size={16} aria-hidden className="shrink-0 text-accent" />
+  // A stretch not started yet: an empty circle, a shape of its own, so it reads apart from the running one without its color (UD-041: no word).
+  return <Ring size={16} aria-hidden className="shrink-0 text-faint" />
 }
 
 /**

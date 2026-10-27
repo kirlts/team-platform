@@ -86,6 +86,8 @@ export const Sparkles = make(['M9 3.2c.5 3.4 2.2 5.1 5.6 5.6-3.4.5-5.1 2.2-5.6 5
 // Priority marks (UD-029): the shape also says the priority, so the color is never the only signal.
 export const AlertTriangle = make(['M10 3.4 17.2 16H2.8L10 3.4Z', 'M10 8.2v3.6', 'M10 13.9v.1'])
 export const Clock = make(['M10 3.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Z', 'M10 6.4V10l2.4 1.6'])
+// The ring of Clock without its hands: something that has not started yet.
+export const Ring = make(['M10 3.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Z'])
 export const InfoDot = make(['M10 3.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Z', 'M10 9v4.4', 'M10 6.7v.1'])
 // Three dots: the actions of a row on a phone, where the word «Acciones» would take the name's room.
 export const MoreVertical = make([], () => (

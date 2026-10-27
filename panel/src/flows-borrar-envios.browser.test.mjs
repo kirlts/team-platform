@@ -58,6 +58,7 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
 
       assert.equal(await drawer.getByTestId('delete-send').innerText(), 'Borrar envío')
       assert.equal(await drawer.getByTestId('delete-send-all').count(), 0, 'the second form is in the menu, not drawn beside the first')
+      await drawer.getByRole('button', { name: /^Borrar/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await drawer.getByRole('button', { name: /^Borrar/ }).count(), 1, 'one delete button in the block')
       await drawer.getByTestId('delete-send-more').click()
       assert.equal((await page.getByTestId('delete-send-all').innerText()).trim(), 'Borrar envío y mensajes')

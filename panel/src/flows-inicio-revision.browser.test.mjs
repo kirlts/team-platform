@@ -10,7 +10,7 @@ let panel
 let origin = ''
 
 before(async () => {
-  panel = await startPanel(Number(process.env.PANEL_FLOWS_INICIO_REVISION_PORT ?? 8964), { stepMs: 80 })
+  panel = await startPanel(Number(process.env.PANEL_FLOWS_INICIO_REVISION_PORT ?? 9209), { stepMs: 80 })
   origin = panel.origin
 })
 
@@ -77,6 +77,7 @@ describe('the proposal block (I1, I4, I5)', () => {
         await sendAndReview(page)
         const region = page.getByRole('region', { name: 'Análisis' })
         assert.equal(await region.getByRole('button', { name: /^Borrar/ }).count(), 0, `a second red way out beside «Descartar envío» (${viewport.width} px)`)
+        await region.getByRole('button', { name: 'Descartar envío' }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await region.getByRole('button', { name: 'Descartar envío' }).count(), 1)
         const send = region.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
         assert.match(await send.getAttribute('class'), /btn-gel/, 'the action the screen asks for is the gel')
@@ -104,6 +105,7 @@ describe('the proposal block (I1, I4, I5)', () => {
       const trigger = page.getByRole('button', { name: /^Texto sin mensaje/ })
       await trigger.waitFor()
       assert.equal(await page.getByText('Partes sin mensaje').count(), 0, 'the old name is gone')
+      await trigger.locator('svg').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await trigger.locator('svg').count(), 1, 'a mark says it opens something')
     } finally {
       await context.close()
@@ -161,7 +163,9 @@ describe('Inicio when the lists do not load (I7)', () => {
       await page.locator('main#main').waitFor()
       const retry = page.locator('main').getByRole('button', { name: 'Reintentar' })
       await retry.first().waitFor({ timeout: 20000 })
+      await retry.first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await retry.count(), 1, 'one Reintentar for the two lists')
+      await page.locator('main').getByRole('alert').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.locator('main').getByRole('alert').count(), 1, 'the failure is said once')
       refused = false
       await retry.click()

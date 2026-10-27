@@ -914,6 +914,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Enlace `mailto:` a un Editor elegido por el servidor: expone el correo de un miembro a cualquiera que abra la página.
 **Consecuencias:** Ninguna en código. La fila H-3008 queda cerrada con esta decisión.
 **Condiciones de reversión:** Si el dueño quiere la vía de contacto, se agrega el ajuste `contact` con valor opcional y la nota lo muestra cuando existe.
+**Enmienda 2026-10-27 (sesión, juez de Entrada e Inicio):** la nota «Cuentas creadas por el equipo» sale de la entrada. Es ayuda por omisión y una pantalla de acceso se explica sola. El encargo de la sesión coordinadora pidió retirarla. La vía de contacto sigue sin existir y las condiciones de reversión no cambian.
 
 ## [UD-160] La vista de un área no repite el chip de su área en cada mensaje
 

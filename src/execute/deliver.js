@@ -37,6 +37,7 @@ import { parseJson } from '../db/util.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { handOffToPerson } from '../domain/escalation.js'
 import { guardsOf, liftPersonGuards, openPersonGuards } from '../domain/assessment.js'
+import { limitNoticeLines } from './limit-notice.js'
 import { permanent } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
 import { Deferred } from '../domain/pipeline.js'
@@ -164,7 +165,7 @@ export function heldBody ({ output, reason, language, captures = false }) {
   const t = textsOf(language)
   const base = output ?? {}
   const why = String(reason ?? '').trim().replace(/[.\s]+$/, '') || t.heldReason
-  const summary = [String(base.summary ?? '').trim(), t.held(why, captures)].filter(Boolean).join('\n\n')
+  const summary = [String(base.summary ?? '').trim(), t.held(why, captures), ...limitNoticeLines(base.limit_notice, language)].filter(Boolean).join('\n\n') // the warning of a limit of a person: consequence and alternative, the same lines as without a delivery job
   return replyBody({ summary })
 }
 

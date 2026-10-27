@@ -20,7 +20,8 @@ import { holdMode, limitsHoldState, personLimitsDeclared, withDeliveriesDenied }
 import { parseGuards } from './hooks/guards.js'
 import { refusalOf } from './hooks/commands.mjs'
 import { buildExecuteParts } from './prompt.js'
-import { declaredGuards } from '../domain/assessment.js'
+import { declaredGuards, liftPersonGuards, openPersonGuards } from '../domain/assessment.js'
+import { audit } from '../domain/audit.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 let PORT = 0
@@ -167,6 +168,11 @@ describe('a limit about a person and an idea, in an instance with no delivery co
     assert.equal(shown.pending_delivery.state, 'held')
     assert.notEqual(get(env.db, 'SELECT status FROM messages WHERE id = ?', id).status, 'closed')
     assert.equal(audited('message.limit_held', id).length, 1)
+    // The warning (consequence and alternative) is in the reply and was recorded as shown (third audit, H-1).
+    assert.match(shown.replies.at(-1).body, /Riesgo si se cruza: Se cobra un monto equivocado a un cliente\./)
+    assert.match(shown.replies.at(-1).body, /Alternativa que no lo cruza: Dejar el cambio en la rama y pedir el monto a una persona\./)
+    assert.match(shown.replies.at(-1).body, /Quien apruebe levanta el límite y queda registrado\./)
+    assert.deepEqual(JSON.parse(audited('message.limit_notice', id)[0].detail_json).guards, [1])
     assert.match(get(env.db, 'SELECT delivery_hold_reason FROM execute_runs WHERE message_id = ?', id).delivery_hold_reason, /G1: Nada toca pagos/)
     assert.equal(audited('message.guard_lifted', id).length, 0)
     // 3. An answer that settles nothing leaves the limit open and starts nothing.
@@ -190,6 +196,28 @@ describe('a limit about a person and an idea, in an instance with no delivery co
     assert.deepEqual(refused(answers().at(-1)), [], 'the pass that was released declares no refusal: it may run the orders of the host')
     assert.match(calls().at(-1).stdin, /pass: a person released the hold/)
     assert.doesNotMatch(calls().at(-1).stdin, /<hold>/)
+  })
+
+  it('a session that ends done with a limit of a person open and no warning fails: the notice is checked by form, and a limit is lifted only after its warning was shown', async () => {
+    extra = { guards_touched: [1], expectation: 'Preparar el cambio del cobro.' }
+    process.env.FAKE_EXECUTE_NO_NOTICE = '1'
+    start()
+    const id = await publish('Cambiar el cobro del plan, sin aviso.')
+    await settled(id, 1)
+    delete process.env.FAKE_EXECUTE_NO_NOTICE
+    assert.equal(jobs(id)[0].status, 'failed', 'the output without limit_notice is not valid')
+    assert.match(get(env.db, 'SELECT last_error FROM jobs WHERE id = ?', jobs(id)[0].id).last_error ?? '', /limit_notice/)
+    assert.equal(audited('message.limit_held', id).length, 0, 'nothing reached a person')
+    // Lifting: with no warning shown nothing is lifted; once it was recorded, it is.
+    const message = get(env.db, 'SELECT id, area_id, guards_json FROM messages WHERE id = ?', id)
+    const ana = get(env.db, "SELECT id FROM members WHERE email = 'ana@x.org'").id
+    assert.deepEqual(openPersonGuards(env.db, message, [1]), [1])
+    message.guards_json = '[1]'
+    assert.equal(liftPersonGuards(env.db, message, { memberId: ana }), false)
+    assert.equal(audited('message.guard_lifted', id).length, 0)
+    audit(env.db, { memberId: ana, action: 'message.limit_notice', entity: 'message', entityId: id, detail: { guards: [1] } })
+    assert.equal(liftPersonGuards(env.db, message, { memberId: ana }), true)
+    assert.equal(audited('message.guard_lifted', id).length, 1)
   })
 
   it('an idea is shown and not delivered by the session either, and the approval of a person releases it', async () => {

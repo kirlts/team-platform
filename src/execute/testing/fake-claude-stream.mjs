@@ -119,7 +119,7 @@ process.stdin.on('end', async () => {
   if (mode === 'no-structured') return out({ ...base, result: 'done, but no structured output' })
   if (mode === 'api-error') return out({ ...base, is_error: true, result: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}' })
   if (mode === 'invalid-output') return out({ ...base, result: '', structured_output: { outcome: 'done' } })
-  out({ ...base, result: '', structured_output: { outcome: 'done', summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}), ...(process.env.FAKE_CANNOT_CLOSE_ON && process.argv.includes(process.env.FAKE_CANNOT_CLOSE_ON) ? { cannot_close: true } : {}) } })
+  out({ ...base, result: '', structured_output: { outcome: 'done', summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_NO_NOTICE ? {} : { limit_notice: { consequence: 'Se cobra un monto equivocado a un cliente.', alternative: 'Dejar el cambio en la rama y pedir el monto a una persona.' } }), ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}), ...(process.env.FAKE_CANNOT_CLOSE_ON && process.argv.includes(process.env.FAKE_CANNOT_CLOSE_ON) ? { cannot_close: true } : {}) } })
   }
   // Several tools with ids, one failing, a subagent with its own tool, a turn per model message (FAKE_EXECUTE_MULTI=1).
   async function multi () {

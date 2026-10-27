@@ -4,6 +4,7 @@
 import { compileOutputSchema, parseTemplate } from '../analyze/templates.js'
 import { helpText } from '../../scripts/team.mjs'
 import { decisionCheckSchema } from './decision-check.js'
+import { limitNoticeSchema } from './limit-notice.js'
 
 /** What a forwarded job may do (UD-272): carry the work out, or investigate and recommend without changing anything. */
 export const FORWARD_MODES = ['resolve', 'investigate']
@@ -87,13 +88,13 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
       }
     : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...screen, ...closing, ...forwarding, ...review, ...escalation } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...screen, ...closing, ...forwarding, ...review, ...escalation, limit_notice: limitNoticeSchema({ validation }) } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary, captures, ...screen, ...closing, ...forwarding, ...review, ...escalation, decision_check: decisionCheckSchema({ validation }) }
+    properties: { ...(declared.properties ?? {}), summary, captures, ...screen, ...closing, ...forwarding, ...review, ...escalation, decision_check: decisionCheckSchema({ validation }), limit_notice: limitNoticeSchema({ validation }) }
   }
 }
 
@@ -206,7 +207,8 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     ...(hold ? [block('hold', [
       `Nothing you do in this session may put work in production: ${[...(hold.guards.length ? [`it touches a limit that only a person lifts (${hold.guards.join('; ')})`] : []), ...(hold.idea ? ['what is asked is an idea to explore'] : [])].join(', and ')}. The orders that deliver are refused here; do not work around the refusal.`,
       'Build and check the work, push the branch of the `job` block and finish with `outcome` `done`. The system hands the branch to a person with your `summary`, and a person releases it by answering in the thread.',
-      'Say in `summary` which limit stopped the delivery and what happens if it is crossed, and, when it applies, what the work does without crossing it. Do not write that it is published or when it will be.'
+      ...(hold.guards.length ? ['Fill `limit_notice` (`consequence`: what happens if the limit is crossed; `alternative`: what the work does, or what the person can do, without crossing it); the system shows both to the person and a person lifts the limit only after they were shown.'] : []),
+      'Do not write that it is published or when it will be.'
     ].join('\n'))] : []),
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     ...(mention ? [block('mentioned', mention)] : []), // UD-278: who called the agent and the whole thread (src/execute/mention-context.js)

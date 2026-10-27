@@ -39,6 +39,7 @@ import { installLook } from './captures/install.mjs'
 import { capturesDir, capturesEnv, closingCaptures, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
+import { limitNoticeLines, limitNoticeProblem } from './limit-notice.js'
 import { approveDelivery } from './approve.js'
 import { discardDelivery, pendingDelivery } from '../domain/delivery-review.js'
 import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from './mention-context.js'
@@ -122,7 +123,7 @@ export function assessmentText (message, db, { hold = 'deliver' } = {}) {
     none: 'this instance cannot refuse the delivery from here, so do not deliver this work to production yourself: leave the branch pushed and finish, and you do not close'
   }[hold] ?? ''
   const aboutPerson = (g) => (open.has(g.id)
-    ? ` (about a person: it is not crossed without a person lifting it. Say in your reply which Guard it touches and what happens if it is crossed, and propose an alternative that does what was asked without crossing it. You may prepare the work on the branch; ${toPerson})`
+    ? ` (about a person: it is not crossed without a person lifting it. Fill limit_notice with what happens if it is crossed (consequence) and an alternative that does what was asked without crossing it (alternative): the system shows both to the person and a person lifts the limit only after they were shown. You may prepare the work on the branch; ${toPerson})`
     : ' (about a person: a person lifted it for this message)')
   if (guards.length) lines.push('', 'Guards of the area that this message touches:', ...guards.map((g) => `- G${g.id}: ${g.text}${g.mechanism ? ` (held by: ${g.mechanism})` : ''}${g.person ? aboutPerson(g) : ''}`))
   return lines.join('\n')
@@ -178,7 +179,7 @@ export function claudeArgs (x, schema, { light = false, assessed = false, guards
   ]
 }
 
-const SYSTEM_READ_FIELDS = ['cannot_close', 'approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
+const SYSTEM_READ_FIELDS = ['cannot_close', 'approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'limit_notice', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
 
 /**
  * What the sender reads of the structured output (UD-276): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
@@ -690,10 +691,18 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     const reviewAction = review ? asked ?? 'none' : null
     const untouched = reviewAction === 'approve' || reviewAction === 'discard' || reviewAction === 'none' // the review is answered or left as it is: no change, no delivery, no close
     const investigate = mode === 'investigate' || untouched // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
+    // Third audit of the method (H-1): a session that ends `done` with a limit of a person open (the analyzer's or the one it declares with `touches_<name>`) owes the warning, checked by form like `decision_check`.
+    const personIds = new Set(guardsOf(db, message.area_id).filter((g) => g.person === true).map((g) => g.id))
+    const owedGuards = !investigate && output.outcome === 'done'
+      ? openPersonGuards(db, message, declaredGuards(guardsOf(db, message.area_id), output).filter((id) => personIds.has(id)))
+      : []
+    const noNotice = limitNoticeProblem(output.limit_notice, owedGuards.length > 0)
+    if (noNotice) throw permanent(`La salida estructurada no cumple el formato: ${noNotice}`, 'invalid_output')
     const documentLines = documentNotes(documents.rejected, author?.language)
     const rejectedCaptures = describeRejected(result.structured_output, captured.rejected) // which captures the system left out and why: the reply says it, never «the session left none»
-    const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
-    let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
+    const { decision_check: check, limit_notice: notice, ...visible } = output // the check is shown as the question, not as JSON
+    const noticeLines = owedGuards.length > 0 ? limitNoticeLines(notice, author?.language) : []
+    let body = [replyBody(visible), ...decisionLines(check), ...noticeLines].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
     // UD-295: the job judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Every job is judged, also the attempt of the light model
     // that did not close and the work then goes on in the larger one: leaving it out made the comparison between models favour the light one (audit 2026-10-26). A judge that cannot run
@@ -751,6 +760,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         message.guards_json = JSON.stringify(merged)
         audit(db, { memberId: agent.id, action: 'message.guards_declared', entity: 'message', entityId: messageId, detail: { job_id: job.id, declared: declaredIds, added: missedIds }, now })
       }
+      // The warning of the limits of a person is shown with this hand-over (the reply below or the delivery job's held reply): record it, so that lifting those limits requires that it was shown.
+      if (owedGuards.length > 0) audit(db, { memberId: agent.id, action: 'message.limit_notice', entity: 'message', entityId: messageId, detail: { job_id: job.id, guards: owedGuards, consequence: String(notice.consequence).trim(), alternative: String(notice.alternative).trim() }, now })
       // UD-295: the session of the light model says, as a parameter, that it could not close, or ends `blocked`: the work is relaunched once on the area's escalation model,
       // on the same branch, and the thread says so. What the system reads is the field and the outcome, never the words; never the other way round and never twice.
       // That trigger is DECLARED by the session, not checked (second audit of the method, 2026-10-27): the audit says `trigger: 'declared'`. The one that is checked is the delivery whose

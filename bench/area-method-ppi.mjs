@@ -3,9 +3,9 @@
 //
 //   node bench/area-method-ppi.mjs [--trials 2000] [--labeled 78]
 //
-// The quantity is the rate at which the router agrees with the truth (`y`, known only for the labeled requests). The prediction is the rate at which it agrees with the extraction (`f`, known
-// for every routed request). The estimator is mean(f over the N routed requests) + mean(y - f over the n labeled ones); the classical one is mean(y over the n labeled ones). Both are
-// compared by the half width of their 95 % interval and by coverage, in a simulation where the extraction is right with probability `a` (then f = y) and otherwise f is independent of y.
+// The quantity is the rate at which the router agrees with the truth (`t`, known only for the labeled requests). The prediction is the rate at which it agrees with the extraction (`f`, known
+// for every routed request). The estimator is mean(f over the N routed requests) + mean(t - f over the n labeled ones); the classical one is mean(t over the n labeled ones). Both are
+// compared by the half width of their 95 % interval and by coverage, in a simulation where the extraction is right with probability `a` (then f = t) and otherwise f is independent of t.
 import { seededRandom } from '../scripts/area-method.mjs'
 
 const option = (name, fallback) => { const i = process.argv.indexOf(name); return i >= 0 ? Number(process.argv[i + 1]) : fallback }

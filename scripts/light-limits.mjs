@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Derives the limits of the light model (`EXECUTE_LIGHT_LIMITS`) from judged jobs, with the criterion written in docs/investigaciones/mediciones/2026-10-25-los-limites-del-modelo-ligero.md:
+// Derives the limits of the light model (`EXECUTE_LIGHT_LIMITS`) from judged jobs, with the criterion written in the measurement of 2026-10-25 on the light model (docs/investigaciones/mediciones/):
 // the limit of a dimension is the middle value between the largest estimate of what the light model closed and the smallest estimate of what it did not close, and it is fixed only
 // when those two ranges do not cross and there are at least 20 judged jobs.
 //

@@ -210,7 +210,9 @@ export function validateJudgment (out, evidence) {
 }
 
 /**
- * Mean of the scored KPI of each axis, against the target of the quadrant; an axis with none scored has no score. The target of an axis is recalculated over the KPI that were scored (second
+ * Mean of the scored KPI of each axis, against the target of the quadrant. The mean is rounded to the nearest level before it is compared (third audit, 2026-10-27): a target of 2 asked every KPI of the axis
+ * at +2, which the +2 of 2.3 («detects an imprecision nobody had seen») makes unreachable, and the rule that moves an area to the larger model could never fire. A mean of 1.5 or more is exceptional,
+ * 0.5 or more strong, -0.5 or more expected; an axis with none scored has no score. The target of an axis is recalculated over the KPI that were scored (second
  * audit of the method, 2026-10-27): the mean is taken over `kpis` of the `defined` ones, and `partial` says that some of them were left out (4.3 while the platform does not hand over the first
  * proposal, or any KPI the judge marked `applies: false`). With the 4.3 out, the axis 4 of «choose» and «negotiate» asks +2 of 4.1 and 4.2 both: that is the same bar the mean of three reaches
  * only with three +2, but it is read over fewer indicators, so a `partial` axis is compared with other axes of the same shape and not with a complete one.
@@ -221,7 +223,7 @@ export function axisScores (kpis, quadrant) {
     const own = kpis.filter((k) => k.applies && KPIS.find((x) => x.id === k.id)?.axis === axis)
     const defined = KPIS.filter((k) => k.axis === axis).length
     const score = own.length ? own.reduce((a, k) => a + k.score, 0) / own.length : null
-    return { axis, name, score, target: target[axis], meets: score === null ? null : score >= target[axis], kpis: own.length, defined, partial: own.length < defined }
+    return { axis, name, score, target: target[axis], meets: score === null ? null : Math.round(score) >= target[axis], kpis: own.length, defined, partial: own.length < defined }
   })
 }
 

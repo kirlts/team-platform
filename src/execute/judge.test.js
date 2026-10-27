@@ -2,7 +2,7 @@
 // every KPI once, every quote a piece of the evidence it was given, and a KPI whose evidence the job does not carry is never scored (audit of the distribution method, 2026-10-26).
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { KPIS, LEVEL_SCORES, buildJudgePrompt, judgeBlocks, judgeEvidence, runJudge, validateJudgment } from './judge.js'
+import { KPIS, LEVEL_SCORES, axisScores, buildJudgePrompt, judgeBlocks, judgeEvidence, runJudge, validateJudgment } from './judge.js'
 
 const job = (over = {}) => ({
   message: { title: 'Cambiar el rótulo', body: 'El botón dice Enviar y debe decir Guardar.' },
@@ -188,5 +188,23 @@ describe('runJudge', () => {
     const ac = new AbortController(); ac.abort()
     assert.equal(await runJudge({ providers: provider(answer(evidence)), prompt, evidence, signal: ac.signal }), null)
     assert.equal(await runJudge({ providers: { text: { complete: async () => { throw new Error('sin clave') } } }, prompt, evidence }), null)
+  })
+})
+
+describe('the target of an axis', () => {
+  const scored = (scores) => Object.entries(scores).map(([id, score]) => ({ id, applies: true, score, quote: 'q', claim: 'c', reasoning: 'r' }))
+  it('is met when the mean, rounded to the nearest level, reaches it: a mean of 1.5 is exceptional', () => {
+    // Execute asks +2 of the axis 2. Two +2 and one +1 (mean 1.67) is an exceptional axis; before, only three +2 met it.
+    const axis = (kpis) => axisScores(scored(kpis), 'execute').find((a) => a.axis === 2)
+    assert.equal(axis({ '2.1': 2, '2.2': 2, '2.3': 1 }).meets, true)
+    assert.equal(axis({ "2.1": 2, "2.2": 1, "2.3": 1 }).meets, false) // 1.33 rounds to +1
+  })
+  it('a mean under 1.5 does not meet an exceptional target, and one under -0.5 does not meet the expected minimum', () => {
+    const axisOf = (kpis, quadrant, n) => axisScores(scored(kpis), quadrant).find((a) => a.axis === n)
+    assert.equal(axisOf({ '2.1': 2, '2.2': 1, '2.3': 1 }, 'execute', 2).meets, false)
+    assert.equal(axisOf({ '2.1': 2, '2.2': 1, '2.3': 1 }, 'generate', 2).meets, true)
+    assert.equal(axisOf({ '2.1': 0, '2.2': -1, '2.3': 0 }, 'generate', 2).meets, true) // -0.33 rounds to 0: expected
+    assert.equal(axisOf({ '2.1': -1, '2.2': -1, '2.3': 0 }, 'generate', 2).meets, false) // -0.67 rounds to -1
+    assert.equal(axisOf({ '2.1': 2, '2.2': 2, '2.3': 2 }, 'execute', 2).meets, true)
   })
 })

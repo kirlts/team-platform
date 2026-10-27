@@ -97,7 +97,7 @@ describe('replying by voice', () => {
       await page.getByRole('button', { name: 'Quitar foto.png' }).click()
       await page.getByRole('button', { name: 'Quitar foto.png' }).waitFor({ state: 'detached' })
       await tools.getByRole('button', { name: 'Mencionar a un miembro' }).click()
-      await page.getByRole('menuitemcheckbox', { name: 'Claude' }).click()
+      await page.getByRole('option', { name: 'Claude' }).click()
       await page.locator('[data-mention]').first().waitFor()
       const detail = await (await page.request.get(`${origin}/api/messages/${id}`)).json()
       const last = detail.replies.at(-1)

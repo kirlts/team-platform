@@ -101,6 +101,7 @@ export const en: Record<MessageKey, Message> = {
   'compose.sendFailed': 'Could not send: {reason}',
   'compose.to': 'To',
   'compose.sendAs': 'Send as',
+  'compose.leftTo': '{name} removed from {to}',
 
   'media.attach': 'Attach',
   'media.file': 'File',

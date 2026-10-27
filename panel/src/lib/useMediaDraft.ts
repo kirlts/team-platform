@@ -5,6 +5,8 @@ export interface LocalFile {
   key: string
   file: File
   url: string
+  /** Length of an audio the person recorded here, from the timer they watched: a recording in the browser carries no length of its own. */
+  seconds?: number
 }
 
 /** Why a media action failed; the component turns it into a catalog string. */
@@ -33,9 +35,9 @@ export function useMediaDraft() {
     return () => clearInterval(tick)
   }, [recording !== null]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addFiles = useCallback((files: File[]) => {
+  const addFiles = useCallback((files: File[], seconds?: number) => {
     if (files.length === 0) return
-    setLocals((prev) => [...prev, ...files.map((file) => ({ key: `${file.name}-${file.size}-${crypto.randomUUID()}`, file, url: URL.createObjectURL(file) }))])
+    setLocals((prev) => [...prev, ...files.map((file) => ({ key: `${file.name}-${file.size}-${crypto.randomUUID()}`, file, url: URL.createObjectURL(file), ...(seconds === undefined ? {} : { seconds }) }))])
   }, [])
 
   const removeLocal = useCallback((key: string) => {
@@ -65,10 +67,11 @@ export function useMediaDraft() {
     setProblem(null)
     if (recording && recorder.current) {
       const rec = recorder.current
+      const seconds = recording.seconds
       recorder.current = null
       setRecording(null)
       try {
-        addFiles([await rec.stop()])
+        addFiles([await rec.stop()], seconds)
       } catch {
         setProblem('record')
       }

@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { useT, type MessageKey } from '@/i18n'
+import { useFormat, useT, type MessageKey } from '@/i18n'
 import { mmss } from '@/lib/format'
 import { kindFromMime } from '@team-platform/client'
-import type { MediaDraft, MediaProblem } from '@/lib/useMediaDraft'
+import type { LocalFile, MediaDraft, MediaProblem } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { canRecord, startRecording, type Recording } from '@/lib/recorder'
 import { Thumb } from './Thumb'
@@ -127,7 +127,10 @@ export function LinkRow({ draft }: { draft: MediaDraft }) {
   const close = () => {
     draft.setLinkOpen(false)
     setValue('')
+    // The error belongs to the field: with the field gone it goes too, it is not left for the list of attachments to show.
+    if (draft.problem === 'link') draft.setProblem(null)
   }
+  const invalid = draft.problem === 'link'
   // A div and not a form: this row sits inside the form of a reply or of an edit, and a nested form submits the outer one (the page reloads and loses text and files).
   const submit = () => {
     if (!value.trim()) return close()
@@ -145,6 +148,8 @@ export function LinkRow({ draft }: { draft: MediaDraft }) {
           type="url"
           inputMode="url"
           placeholder="https://"
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? 'compose-link-error' : undefined}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -154,38 +159,76 @@ export function LinkRow({ draft }: { draft: MediaDraft }) {
               submit()
             }
           }}
-          className="h-8 flex-1"
+          className={cn('h-8 flex-1 pointer-coarse:h-11', invalid && 'border-danger')}
         />
-        {/* The one control with the weight of an action in the row: the field has its own border only when it has the focus (J3-B-19). */}
-        <Button type="button" variant="primary" className="h-8" onClick={submit}>
+        {/* Glass: the gel is for the action of the screen («Enviar»), and this is a step toward it (DISENO.md). */}
+        <Button type="button" variant="secondary" className="h-8 pointer-coarse:h-11" onClick={submit}>
           {t('media.add')}
         </Button>
       </div>
+      {/* The error sits under the field that caused it (a problem of the link is never shown elsewhere). */}
+      {invalid && (
+        <p id="compose-link-error" role="alert" className="mt-1 text-xs text-danger">
+          {t(PROBLEM.link)}
+        </p>
+      )}
     </div>
+  )
+}
+
+/** Length of an audio in seconds: the timer of the recording when it was recorded here, otherwise what the file says about itself (a stream without a length reports none, and then nothing is shown). */
+function useAudioSeconds(local: LocalFile, isAudio: boolean): number | undefined {
+  const [read, setRead] = useState<number>()
+  useEffect(() => {
+    if (!isAudio || local.seconds !== undefined) return
+    const probe = new Audio()
+    probe.preload = 'metadata'
+    const onMeta = () => Number.isFinite(probe.duration) && setRead(Math.round(probe.duration))
+    probe.addEventListener('loadedmetadata', onMeta)
+    probe.src = local.url
+    return () => {
+      probe.removeEventListener('loadedmetadata', onMeta)
+      probe.removeAttribute('src')
+    }
+  }, [isAudio, local.seconds, local.url])
+  return local.seconds ?? read
+}
+
+/** A file added to the draft: its thumbnail, its name, its weight and, for an audio, its length. */
+function LocalChip({ local: l, busy, onRemove }: { local: LocalFile; busy?: boolean; onRemove: () => void }) {
+  const t = useT()
+  const format = useFormat()
+  const kind = kindFromMime(l.file.type, l.file.name)
+  const seconds = useAudioSeconds(l, kind === 'audio')
+  return (
+    <li className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md bg-surface py-0.5 pl-1 pr-0.5">
+      <Thumb item={{ kind, src: l.url, name: l.file.name, size: l.file.size }} px={28} />
+      <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
+      <span className="shrink-0 text-xs tabular-nums text-muted">{[seconds === undefined ? '' : mmss(seconds), format.fileSize(l.file.size)].filter(Boolean).join(' · ')}</span>
+      {!busy && (
+        <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger pointer-coarse:min-h-11 pointer-coarse:min-w-11" onClick={onRemove}>
+          <X size={13} aria-hidden />
+        </button>
+      )}
+    </li>
   )
 }
 
 /** Thumbnails and links already added, each with its name and weight in view, and the reason if something failed. */
 export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: boolean }) {
   const t = useT()
+  // A problem of the link is said in the link row, under its field; the list says the rest.
+  const problem = draft.problem === 'link' ? null : draft.problem
   return (
     <>
       {draft.linkOpen && <LinkRow draft={draft} />}
-      {(!draft.empty || draft.problem) && (
+      {(!draft.empty || problem) && (
     <div className="flex flex-col gap-1.5 border-t border-line px-2.5 py-2">
       {!draft.empty && (
         // One row of chips, all of one height class: attaching one more does not move what is below until the row is full (J1-B-01).
         <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-1.5">
           {draft.locals.map((l) => (
-            <li key={l.key} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md bg-surface py-0.5 pl-1 pr-0.5">
-              <Thumb item={{ kind: kindFromMime(l.file.type, l.file.name), src: l.url, name: l.file.name, size: l.file.size }} px={28} />
-              <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
-              {!busy && (
-                <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger pointer-coarse:min-h-11 pointer-coarse:min-w-11" onClick={() => draft.removeLocal(l.key)}>
-                  <X size={13} aria-hidden />
-                </button>
-              )}
-            </li>
+            <LocalChip key={l.key} local={l} busy={busy} onRemove={() => draft.removeLocal(l.key)} />
           ))}
           {draft.links.map((href) => (
             <li key={href} className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md bg-surface py-0.5 pl-2 pr-0.5 text-xs">
@@ -200,9 +243,9 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
           ))}
         </ul>
       )}
-      {draft.problem && (
+      {problem && (
         <p role="alert" className="text-xs text-danger">
-          {t(PROBLEM[draft.problem])}
+          {t(PROBLEM[problem])}
         </p>
       )}
     </div>

@@ -126,12 +126,12 @@ export function Templates({ area }: { area: Area }) {
                   {x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />}
                 </Fragment>
               ))}
+          {marked.length > 0 && (
+            <SelectionFoot>
+              <SelectionBar className="border-b-0" selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />
+            </SelectionFoot>
+          )}
         </section>
-        {marked.length > 0 && (
-          <SelectionFoot>
-            <SelectionBar className="border-b-0" selection={selection} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />
-          </SelectionFoot>
-        )}
       </Fold>
       <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => { await save.mutateAsync(v) }} />
     </>

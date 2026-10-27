@@ -3,7 +3,7 @@
 // row on different lines, a figure glued to its word, a window title the size of its own field labels, a list with no state.
 import assert from 'node:assert'
 import { after, before, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 let panel
 
@@ -115,6 +115,7 @@ test('a log that failed to load says so, never «Sin registros» or «Sin envío
     await page.route(/\/api\/audit(\?|$)/, fail)
     await page.route(/\/api\/inputs\?.*all=1/, fail)
     await page.goto(`${panel.origin}/settings`)
+    await openFolds(page)
     const audit = page.locator('[data-audit]')
     const queue = page.locator('[data-queue]')
     await audit.getByText('No se pudo cargar', { exact: false }).first().waitFor({ timeout: 20_000 })

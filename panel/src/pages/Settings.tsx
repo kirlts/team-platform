@@ -54,7 +54,8 @@ export function Settings() {
         </div>
         <ProviderSettings />
         <DataReset />
-        <SettingsBox fold data-queue-box title={t('queue.title')}>
+        {/* Not a fold: «Ejecuciones» inside it is one, and a fold holds no other fold. */}
+        <SettingsBox data-queue-box title={t('queue.title')}>
           <QueuePanel />
         </SettingsBox>
         <AuditLog />

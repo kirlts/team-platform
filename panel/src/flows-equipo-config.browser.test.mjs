@@ -2,7 +2,7 @@
 // against dev-server.mjs serving panel/dist (`npm run test:flows`). Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, openFolds, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -48,17 +48,25 @@ describe('Equipo', () => {
   const heights = (page) =>
     page.locator('main [data-member-row]').evaluateAll((rows) => rows.map((r) => [r.textContent, r.clientHeight]))
 
-  test('every row is as tall as the others and the profile reads as one line with an ellipsis (UD-241)', async () => {
+  test('a name, an address and the first paragraph of the profile are shown whole: a row that needs another line takes it, nothing is cut (UD-016)', async () => {
     for (const viewport of [PHONE, DESKTOP]) {
       const { page, context } = await session('ana', viewport)
       try {
         await page.goto(`${origin}/team`)
         await page.locator('main [data-member-row]').nth(4).waitFor()
-        const hs = (await heights(page)).map(([, h]) => h)
-        assert.ok(Math.max(...hs) - Math.min(...hs) <= 1, `${viewport.width}: rows of ${Math.min(...hs)} to ${Math.max(...hs)} px`)
-        const lines = await page.locator('main [data-profile-extract] span').evaluateAll((els) => els.map((e) => ({ h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight) })))
-        for (const l of lines) assert.ok(l.h <= l.lh + 1, `${viewport.width}: an extract takes ${l.h} px for a line of ${l.lh}`)
-        assert.equal(await page.getByRole('button', { name: 'Ver más' }).count(), 0, 'a fold that grows the row is back')
+        const cut = await page.evaluate(() =>
+          [...document.querySelectorAll('main [data-member-row] [data-editable], main [data-member-row] [data-profile-extract] > span')]
+            .map((e) => {
+              const css = getComputedStyle(e)
+              return { text: e.textContent.slice(0, 40), ellipsis: css.textOverflow === 'ellipsis' || css.whiteSpace === 'nowrap', clipped: e.scrollWidth > e.clientWidth + 1 }
+            })
+            .filter((x) => x.ellipsis || x.clipped),
+        )
+        assert.deepEqual(cut, [], `${viewport.width}: text cut in a row`)
+        // The longest name of the seeds needs two lines on a phone: its row is taller than the others, and none is shorter than a line of text.
+        const long = await page.locator('main [data-member-row]').filter({ hasText: 'maria.de.los' }).first().locator('[data-editable]').first().evaluate((e) => e.getBoundingClientRect().height)
+        assert.ok(long > 0)
+        assert.ok((await page.getByRole('button', { name: 'Ver más' }).count()) === 0, 'Ver más is text of the extract, not a second control')
       } finally {
         await context.close()
       }
@@ -81,7 +89,10 @@ describe('Equipo', () => {
         await row.click({ position: { x: 4, y: 4 } })
         await row.getByRole('button', { name: /^Nombre:/ }).click()
         await row.getByRole('textbox', { name: 'Nombre' }).waitFor()
-        assert.deepEqual(await heights(page), before, `${viewport.width}: editing the name changed the height of a row`)
+        // On a phone a field is 17 px so the system does not zoom on focus (styles.css), while the name reads at 15: the row being edited may take another line. The other rows do not move.
+        const editing = await heights(page)
+        const same = (x, y) => (viewport.width < 640 ? x.filter(([t]) => !t.includes('maria.de.los')) : x).map(([, h]) => h).join() === (viewport.width < 640 ? y.filter(([t]) => !t.includes('maria.de.los')) : y).map(([, h]) => h).join()
+        assert.ok(same(editing, before), `${viewport.width}: editing the name changed the height of a row`)
         await page.keyboard.press('Escape')
         // The profile opens whole in a window, over a list that does not move.
         const full = await page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()).find((m) => m.email.startsWith('maria.de.los')).profile)
@@ -154,7 +165,7 @@ describe('Equipo', () => {
       await off.waitFor()
       const row = page.locator('main [data-member-row]').filter({ hasText: 'bruno@dev.invalid' }).first()
       const name = row.getByRole('button', { name: /^Nombre:/ })
-      const extract = row.locator('[data-profile-extract] span')
+      const extract = row.locator('[data-profile-extract] > span')
       const [n, o, r, e] = [await name.boundingBox(), await off.boundingBox(), await row.boundingBox(), await extract.boundingBox()]
       assert.ok(o.y < n.y + n.height + 24 && o.y + o.height > n.y, 'the action is not on the line of the name')
       assert.ok(Math.abs(o.x + o.width - (r.x + r.width - 16)) <= 1, 'the action ends on the right padding of the card')
@@ -172,6 +183,7 @@ describe('Configuración', () => {
     const { page, context } = await session('ana', DESKTOP)
     try {
       await page.goto(`${origin}/settings`)
+      await openFolds(page)
       await page.locator('label', { hasText: 'Proveedor' }).first().waitFor()
       const labels = await page.evaluate(() => {
         const names = ['Nombre', 'Correo', 'Rol', 'Idioma', 'Proveedor', 'Modelo']

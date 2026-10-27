@@ -21,14 +21,15 @@ import { enqueueDeliver } from './enqueue.js'
 import { createExecuteHandler } from './handler.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
+const HOUR_MS = 3_600_000 // a test bound: longer than any case here, so the sweep of the leases never runs inside one
 let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
 
 describe('failure hunt: execute and deliver', () => {
   let env, state, worker, editor, editorId, author, authorId, englishAuthor, agentId, vault
   const cookieHeaders = (cookie) => ({ cookie, 'x-team-request': 'panel' })
 
-  function startWorker (execute = {}) {
-    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, {
+  function startWorker (execute = {}, queueEnv = {}) {
+    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT), ...queueEnv }, {
       execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, capacityWaitMs: 300, infraRetryWaitMs: 50, ...execute }
     })
     const handlers = {
@@ -118,14 +119,14 @@ describe('failure hunt: execute and deliver', () => {
     assert.doesNotMatch(body, /execute_no_result|claude -p/, 'plain words')
   })
 
-  it('a failure of the model service (529) runs once more and, if the second try works, nobody hears about it', async () => {
+  it('a failure of the model service (529) runs once more at its own time (not at the sweep of the leases) and, if the second try works, nobody hears about it', async () => {
     process.env.FAKE_EXECUTE_FAIL_FIRST = '1'
     process.env.FAKE_EXECUTE_FAIL_MODE = 'api-error'
-    startWorker()
-    const began = Date.now()
+    // No wall clock: the sweep of the leases (and the heartbeat) is set an hour apart, so it cannot happen while the case runs. The second try then ends only if the queue
+    // wakes for its `run_at` by itself (the timer of `armNextWake`); if it waited for the sweep, `settle` would run out of time and the case would fail.
+    startWorker({}, { QUEUE_HEARTBEAT_MS: String(HOUR_MS), QUEUE_LEASE_MS: String(2 * HOUR_MS) })
     const messageId = await publishedMessage('El servicio del modelo está saturado.')
     await settle(messageId)
-    assert.ok(Date.now() - began < 5000, `the second try starts at its time, not at the next sweep of the leases (10 s): ${Date.now() - began} ms`)
     const [job] = jobsOf(messageId, 'execute')
     assert.deepEqual([job.status, job.attempts], ['done', 2])
     assert.doesNotMatch(lastReply(messageId).body, /\*\*Resultado\*\*/)

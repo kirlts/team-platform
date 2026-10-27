@@ -1,5 +1,5 @@
 // The `main` lock of .githooks/pre-push, on toy repositories with a local remote (plan 2026, piece C2).
-// The hook accepts the mark of the publication door (RELEASE_PUBLISHES_MAIN) and, until the first host stops exporting it, the old
+// The hook accepts the mark of the publication door (RELEASE_PUBLISHES_MAIN) and, until its retirement, the inherited
 // one (DEPLOY_PUBLISHES_MAIN). Everything else about `main` is unchanged: desarrollo or an ancestor, fast-forward, never deleted.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'

@@ -46,7 +46,7 @@ The agent proposes a chapter structure. Chapters are organized by topic, not by 
 Chapters map to the major functional areas of the existing project. Each chapter explains what that area does, why it exists, and how it works.
 
 **For greenfield projects:**
-If intentions have been declared (MASTER-SPEC exists, TODO has tasks), chapters map to the planned areas. If the project is empty except for Kairos governance, the first chapter is a prologue explaining what the project intends to become.
+If intentions have been declared (MASTER-SPEC exists, TODO has tasks), chapters map to the planned areas. If the project is empty except for governance, the first chapter is a prologue explaining what the project intends to become.
 
 The agent presents the chapter plan:
 
@@ -82,7 +82,7 @@ The generated chapters are assembled into `docs/LIVING-DOCUMENT.md` with:
 1. A title derived from the project name or identity.
 2. A table of contents listing all chapters.
 3. Chapters in the approved order.
-4. No metadata headers, no version stamps, no governance markers within the prose. The document reads as a book, not as a Kairos artifact.
+4. No metadata headers, no version stamps, no governance markers within the prose. The document reads as a book, not as a governance artifact.
 
 ### Step 5: EPUB Generation
 
@@ -229,7 +229,7 @@ pandoc docs/LIVING-DOCUMENT.md \
 
 | Flag | Effect |
 |---|---|
-| `--css .agents/epub/style.css` | Applies the Kairos EPUB stylesheet: no hyphenation, page breaks after every h1/h2/h3, anti-muralla spacing, serif typography |
+| `--css .agents/epub/style.css` | Applies the EPUB stylesheet: no hyphenation, page breaks after every h1/h2/h3, anti-muralla spacing, serif typography |
 | `--toc` | Generates a navigable table of contents |
 | `--toc-depth=2` | TOC shows chapters (h1) and sections (h2) only, not subsections |
 | `--epub-chapter-level=2` | Every `##` heading begins a new EPUB chapter/spine item |

@@ -395,7 +395,7 @@ export const es419 = {
   'judgment.axis.1': 'Alineación estratégica',
   'judgment.axis.2': 'Integridad del artefacto',
   'judgment.axis.3': 'Eficiencia del proceso',
-  'judgment.axis.4': 'Sinergia y transparencia',
+  'judgment.axis.4': 'Colaboración y transparencia',
   'judgment.target': 'meta {n}',
   'judgment.meets': 'Cumple',
   'judgment.misses': 'No cumple',

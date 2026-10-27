@@ -1,4 +1,4 @@
-// UD-295, KAIROS-PARA-TEAM-PLATFORM.md of the host §6: what a direct fix on the area's light model gets that the others do not. A smaller prompt with its guards in the last
+// UD-295: what a direct fix on the area's light model gets that the others do not. A smaller prompt with its guards in the last
 // block, the paths it will probably touch and the tools it needs, and hooks that enforce what must always hold; the larger model gets the short map; only level 1 closes alone.
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'

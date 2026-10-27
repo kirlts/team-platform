@@ -125,7 +125,7 @@ export function DetailBody({ messageId }: { messageId: string }) {
 }
 
 /**
- * «Adecuación» (UD-295): the IMK judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
+ * «Adecuación» (UD-295): the judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
  * each with the quote that supports it. It answers how adequate what the model did was, which is what says whether the light model was enough.
  */
 export function JudgmentBody({ messageId }: { messageId: string }) {

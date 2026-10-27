@@ -7,7 +7,7 @@ description: Applies when creating, reading, or modifying project documentation 
 
 ## [RULE: REPOSITORY LOCALIZATION]
 
-The repository code, comments, and specific Kairós artifacts (`docs/MASTER-SPEC.md`, `docs/TODO.md`, etc.) belong to the Project Domain. When creating, writing to, or editing these files, the system silently detects the dominant language of the target file (or the user's project context) and strictly appends or modifies content in that same language. Leaking English governance reasoning into localized project documentation is not permitted.
+The repository code, comments, and specific governance artifacts (`docs/MASTER-SPEC.md`, `docs/TODO.md`, etc.) belong to the Project Domain. When creating, writing to, or editing these files, the system silently detects the dominant language of the target file (or the user's project context) and strictly appends or modifies content in that same language. Leaking English governance reasoning into localized project documentation is not permitted.
 
 ## Documentary Axis
 
@@ -36,7 +36,7 @@ All guiding project documents reside in `/docs/`. The canonical templates reside
 
 ## Framework Hermeticity
 
-If the current working directory is the canonical Kairós repository, the files inside `/docs/` are master templates and are not polluted with session-specific logic. Ephemeral logs go to volatile areas.
+If the current working directory is the canonical framework repository, the files inside `/docs/` are master templates and are not polluted with session-specific logic. Ephemeral logs go to volatile areas.
 
 ## Anti-Bias Heuristics Protocol
 

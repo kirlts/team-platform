@@ -15,7 +15,7 @@ This workflow generates a routing matrix based on the project's physical topolog
 
    Domain Axioms are documentation and specification files whose content establishes foundational definitions that other project files consume. Source code files are always mapped at the directory level (Step 2b), never as individual Domain Axioms, regardless of their architectural importance.
 
-   Kairós release metadata files (`README-KAIROS.md`, `kairos-version.txt`) are distribution artifacts and are never Domain Axioms. If included at all, they appear as a single noise cluster row. The `.agents/` directory is excluded from dynamic classification because it is hardcoded into the REPOMAP template as a mandatory governance row with an always-consult directive.
+   Framework release metadata files (`README-FRAMEWORK.md`, `framework-version.txt`) are distribution artifacts and are never Domain Axioms. If included at all, they appear as a single noise cluster row. The `.agents/` directory is excluded from dynamic classification because it is hardcoded into the REPOMAP template as a mandatory governance row with an always-consult directive.
 
    Detection applies three signals in order:
 

@@ -1,9 +1,9 @@
-// The judgement of a finished job with the IMK (UD-295, Instrumento de Medición Kairós 4.0): four axes, twelve KPI from -2 to +2, each with a quote, a claim and its reasoning
-// (the annotated scoring of PPD-K, phase 2). A cheap model judges the reply, the output and the evidence of the job; it is saved with the job and shown in its detail. It answers
+// The judgement of a finished job (UD-295): four axes, twelve KPI from -2 to +2, each with a quote, a claim and its reasoning
+// (annotated scoring). A cheap model judges the reply, the output and the evidence of the job; it is saved with the job and shown in its detail. It answers
 // «how adequate was what it did», which the estimates and the limits of the light model only guess before the work: that adequacy is what says whether the light model was enough.
 //
-// What the IMK asks of a collaboration with a person (a conversation in which the person guides the AI) mostly does not exist in an unattended job: a KPI that does not apply is
-// scored `applies: false` and is left out of its axis; it is never scored 0 to fill it. The axis target comes from the McGrath quadrant of the task (PPD-K, phase 1).
+// What this rubric asks of a collaboration with a person (a conversation in which the person guides the AI) mostly does not exist in an unattended job: a KPI that does not apply is
+// scored `applies: false` and is left out of its axis; it is never scored 0 to fill it. The axis target comes from the McGrath quadrant of the task.
 import { get, run as runSql } from '../db/index.js'
 import { estimateCostUsd } from '../telemetry/pricing.js'
 
@@ -11,10 +11,10 @@ export const AXES = Object.freeze([
   { axis: 1, name: 'Alineación estratégica' },
   { axis: 2, name: 'Integridad del artefacto' },
   { axis: 3, name: 'Eficiencia del proceso' },
-  { axis: 4, name: 'Sinergia y transparencia' }
+  { axis: 4, name: 'Colaboración y transparencia' }
 ])
 
-// Definitions condensed from IMK 4.0 (operacional), the level anchors of the original apply as written there: +2 Excepcional, +1 Fuerte, 0 Esperado (the minimum acceptable), -1 Bajo, -2 Inaceptable.
+// Definitions of the twelve KPI; the level anchors apply as written here: +2 Excepcional, +1 Fuerte, 0 Esperado (the minimum acceptable), -1 Bajo, -2 Inaceptable.
 export const KPIS = Object.freeze([
   { id: '1.1', axis: 1, name: 'Claridad estratégica', asks: 'Se articulan las prioridades y lo que se acepta sacrificar antes de construir.' },
   { id: '1.2', axis: 1, name: 'Especificación del problema', asks: 'La especificación sobre la que se construye es completa, sin ambigüedad y verificable.' },
@@ -27,10 +27,10 @@ export const KPIS = Object.freeze([
   { id: '3.3', axis: 3, name: 'Calidad del esfuerzo cognitivo', asks: 'Lo que se le pide a la persona es de alto valor (decidir, validar) y no de bajo valor (corregir, microgestionar).' },
   { id: '4.1', axis: 4, name: 'Transparencia del razonamiento', asks: 'En los puntos de decisión con costo de reversión, se exponen las alternativas consideradas y por qué se eligió.' },
   { id: '4.2', axis: 4, name: 'Intervención crítica', asks: 'Se desafía con razones una premisa del pedido cuando corresponde.' },
-  { id: '4.3', axis: 4, name: 'Sinergia emergente', asks: 'El resultado final supera la primera propuesta completa y viable de la IA.' }
+  { id: '4.3', axis: 4, name: 'Resultado sobre la primera propuesta', asks: 'El resultado final supera la primera propuesta completa y viable de la IA.' }
 ])
 
-// PPD-K phase 1: the performance expected of each axis by quadrant of the task, as the minimum score its mean must reach (Esperado 0, Fuerte 1, Excepcional 2).
+// The performance expected of each axis by quadrant of the task, as the minimum score its mean must reach (Esperado 0, Fuerte 1, Excepcional 2).
 export const QUADRANTS = Object.freeze({
   generate: { 1: 2, 2: 0, 3: 1, 4: 1 },
   choose: { 1: 1, 2: 0, 3: 0, 4: 2 },
@@ -66,7 +66,7 @@ export function judgeSchema () {
 export function buildJudgePrompt ({ message, expectation, guards, output, detail, captures, stats }) {
   const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(vacío)'}\n</${title}>`
   return [
-    'Eres un juez del IMK (Instrumento de Medición Kairós 4.0). Evalúas un trabajo que hizo una sesión de IA sin supervisión. Puntúa cada KPI de -2 a +2 (+2 Excepcional, +1 Fuerte, 0 Esperado: el mínimo aceptable, -1 Bajo, -2 Inaceptable). Para cada uno cita el texto que lo sostiene, di la afirmación y el razonamiento. Un KPI que no se puede observar en este trabajo lleva applies false. No premies el largo ni el tono: mide si lo hecho es adecuado a lo que se esperaba.',
+    'Eres un juez de trabajos de IA. Evalúas un trabajo que hizo una sesión de IA sin supervisión. Puntúa cada KPI de -2 a +2 (+2 Excepcional, +1 Fuerte, 0 Esperado: el mínimo aceptable, -1 Bajo, -2 Inaceptable). Para cada uno cita el texto que lo sostiene, di la afirmación y el razonamiento. Un KPI que no se puede observar en este trabajo lleva applies false. No premies el largo ni el tono: mide si lo hecho es adecuado a lo que se esperaba.',
     '',
     'KPI:',
     ...KPIS.map((k) => `- ${k.id} ${k.name}: ${k.asks}`),
@@ -107,7 +107,7 @@ export async function runJudge ({ providers, prompt, signal, logger = null }) {
     const kpis = out.kpis.filter((k) => KPIS.some((x2) => x2.id === k.id) && Number.isInteger(k.score) && k.score >= -2 && k.score <= 2)
     const model = r.model ?? text.model
     return { model, quadrant: out.quadrant, kpis, axes: axisScores(kpis, out.quadrant), summary: String(out.summary ?? ''), cost: estimateCostUsd({ provider: r.provider ?? text.name, model, usage: r.usage }) }
-  } catch (error) { logger?.warn({ err: error }, 'imk_judge_unavailable'); return null }
+  } catch (error) { logger?.warn({ err: error }, 'job_judge_unavailable'); return null }
 }
 
 /** Saves the judgement of a job (one per job; a second pass of the same job replaces it). */

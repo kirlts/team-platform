@@ -4,18 +4,18 @@ node_modules/
 *.log
 .DS_Store
 
-# Kairós working files (never commit)
-KAIROS-UPDATE.md
+# Framework working files (never commit)
+FRAMEWORK-UPDATE.md
 notes.md
-KAIROS-SNAPSHOT.md
-KAIROS-WORK.md
+FRAMEWORK-SNAPSHOT.md
+FRAMEWORK-WORK.md
 .agents/scratch/
 
-# Kairós roles (personal)
+# Framework roles (personal)
 .agents/roles/*
 !.agents/roles/.gitkeep
 
-# Kairós Living Document
+# Living Document
 docs/LIVING-DOCUMENT.md
 docs/*.epub
 

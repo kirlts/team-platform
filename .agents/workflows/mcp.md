@@ -2,7 +2,7 @@
 description: /mcp - Onboards and manages the MCP (Model Context Protocol) configurations for the current repository. Standardizes memory routing and tool access.
 ---
 
-# Kairós MCP Management
+# MCP Management
 
 This workflow automates the onboarding and management of Model Context Protocol (MCP) servers (like Hindsight and Composio) within the project's governance.
 

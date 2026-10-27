@@ -39,7 +39,7 @@ The system reads every template file from `.agents/templates/` into working memo
 For each existing document in `docs/`, the system compares it against its canonical template:
 
 1. **Header and identity line:** Does the document start with the canonical header pattern?
-2. **Symbol Legend:** Does the document contain the Kairós Symbol Legend table (if the template defines one)?
+2. **Symbol Legend:** Does the document contain the Symbol Legend table (if the template defines one)?
 3. **Mandatory sections:** Does the document contain every section defined in the template (e.g., `## §8. Verification Checklist` with canonical numbering)?
 4. **Closing markers:** Is the closing line (e.g., "End of the Master Specification" or equivalent) positioned AFTER all canonical sections, not before?
 5. **Summary table structure:** Does the summary table (if template defines one) contain all canonical columns (e.g., `.LLM / .HUM / .MIX` columns in TODO.md)?
@@ -57,11 +57,11 @@ For repeating items (TASKs, checks, heuristics, decisions), the system verifies 
 
 ### 0.4. Retroactive Compliance and Version Porting
 
-When templates have evolved (new sections, new fields, new columns), historical content must be evaluated. This includes **cross-version porting**: when a repository's documentation was created under a prior version of Kairos, the `/document` workflow is responsible for migrating it to the current template version without destroying information.
+When templates have evolved (new sections, new fields, new columns), historical content must be evaluated. This includes **cross-version porting**: when a repository's documentation was created under a prior version of the framework, the `/document` workflow is responsible for migrating it to the current template version without destroying information.
 
 #### Version Detection
 
-The system detects the Kairos version that generated the existing documentation by examining:
+The system detects the framework version that generated the existing documentation by examining:
 - Explicit version markers in document headers (if present).
 - Structural fingerprints: which sections exist, what format they use, what fields they contain.
 - Absence of sections that are mandatory in the current template version.
@@ -72,7 +72,7 @@ If the detected version differs from the current template version, the full port
 
 ```
 For each document in docs/:
-  Detect the Kairos version that generated it.
+  Detect the framework version that generated it.
   Load the current canonical template for this document type.
 
   For each section in the current template:

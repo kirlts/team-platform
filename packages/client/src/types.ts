@@ -199,7 +199,7 @@ export const EXECUTE_MODELS = [
   { id: 'claude-fable-5-1', label: 'Fable 5.1' },
 ] as const
 
-/** A wall of an area (UD-295, a Kairós Guard): the only boolean thing, with the mechanism that holds it; `person` marks one that is about a person. */
+/** A wall of an area (UD-295, a Guard): the only boolean thing, with the mechanism that holds it; `person` marks one that is about a person. */
 export interface Guard {
   id?: number
   text: string
@@ -218,7 +218,7 @@ export interface Assessment {
   by: string | null
 }
 
-/** The IMK judgement of a finished job (UD-295): four axes against the target of the task's quadrant, twelve KPI from -2 to +2 with quote and reasoning. */
+/** The judgement of a finished job (UD-295): four axes against the target of the task's quadrant, twelve KPI from -2 to +2 with quote and reasoning. */
 export interface Judgment {
   job_id: string
   judge_model: string
@@ -492,7 +492,7 @@ export interface MessageTiming {
   /** The model the session ran with and what it has cost so far, in USD (UD-295). */
   model?: string | null
   cost_usd?: number | null
-  /** The IMK judgement of the latest finished job (UD-295), or null. */
+  /** The judgement of the latest finished job (UD-295), or null. */
   judgment?: Judgment | null
   elapsed_ms: number | null
   first_reply_ms: number | null

@@ -63,3 +63,47 @@ test('the matcher finds a name and respects the exemptions', () => {
   assert.deepEqual(findMentions(['a/x.md'], ['zorr'], read), [])
   assert.deepEqual(findMentions(['a/x.md'], [], read), [])
 })
+
+// Terms of an external governance framework. The repository does not write that framework's name, its acronym or its own terms anywhere:
+// not in documents, code, comments, file names or the `.agents/` rules (decision of 2026-10-26). They name no one, so the list is public.
+// They are assembled from fragments so that this file does not contain them. Only `.git/` is exempt: `docs/investigaciones/` and `bench/` are
+// versioned files of this repository and the decision covers the whole repository.
+const FRAMEWORK_SUBSTRINGS = [['kair', 'ós'], ['kair', 'os'], ['grav', 'itas'], ['krat', 'os'], ['kha', 'os'], ['ppd', '-k']].map((p) => p.join(''))
+const FRAMEWORK_ACRONYM = ['i', 'mk'].join('')
+const FRAMEWORK_EXEMPT = [/^\.git\//]
+
+export function findFrameworkTerms(files, read = (f) => readFileSync(join(root, f))) {
+  const substrings = new RegExp(FRAMEWORK_SUBSTRINGS.join('|'), 'iu')
+  const acronym = new RegExp(`(?<![\\p{L}\\p{N}])${FRAMEWORK_ACRONYM}(?![\\p{L}\\p{N}])`, 'iu')
+  const hasTerm = (text) => (substrings.exec(text) ?? acronym.exec(text))?.[0]
+  const hits = []
+  for (const f of files) {
+    if (FRAMEWORK_EXEMPT.some((r) => r.test(f))) continue
+    const inName = hasTerm(f)
+    if (inName) hits.push(`${f}: file name has ${inName}`)
+    let buf
+    try { buf = read(f) } catch { continue }
+    if (buf.includes(0)) continue
+    buf.toString('utf8').split('\n').forEach((line, i) => {
+      const found = hasTerm(line)
+      if (found) hits.push(`${f}:${i + 1}: ${found}`)
+    })
+  }
+  return hits
+}
+
+test('versioned files and their names do not contain terms of an external framework', () => {
+  const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 }).split('\0').filter(Boolean)
+  const hits = findFrameworkTerms(files)
+  assert.deepEqual(hits, [], `Terms of an external framework in versioned files:\n${hits.join('\n')}`)
+})
+
+test('the framework matcher finds the word, the acronym and the names, and only .git/ is exempt', () => {
+  const word = FRAMEWORK_SUBSTRINGS[0]
+  const text = { 'a/uno.md': `uno ${word.toUpperCase()} dos\n`, 'a/dos.md': `el ${FRAMEWORK_ACRONYM.toUpperCase()} 4.0\n`, 'a/tres.md': `un ${FRAMEWORK_ACRONYM}ario y limpio\n`, 'docs/investigaciones/x.md': `${FRAMEWORK_SUBSTRINGS[1]}\n`, 'bench/x.js': `${word}\n`, '.git/x': `${word}\n` }
+  const read = (f) => Buffer.from(text[f])
+  assert.deepEqual(findFrameworkTerms(['a/uno.md', 'a/dos.md', 'a/tres.md'], read), [`a/uno.md:1: ${word.toUpperCase()}`, `a/dos.md:1: ${FRAMEWORK_ACRONYM.toUpperCase()}`])
+  assert.deepEqual(findFrameworkTerms([`a/${word}-x.md`], () => Buffer.from('limpio\n')), [`a/${word}-x.md: file name has ${word}`])
+  assert.equal(findFrameworkTerms(['docs/investigaciones/x.md', 'bench/x.js'], read).length, 2)
+  assert.deepEqual(findFrameworkTerms(['.git/x'], read), [])
+})

@@ -168,10 +168,10 @@ three-stage internal scaffold before generating any output:
    Lexical Anchors, and Tone.
 
 The persona fully permeates all agent output for the duration of the
-session. Kairos operational rules (file permissions, subset closure,
+session. The framework's operational rules (file permissions, subset closure,
 documentation governance) remain in force as structural constraints.
 The persona modulates HOW the agent thinks, writes, and communicates.
-Kairos governs WHAT the agent is permitted to do.
+The framework governs WHAT the agent is permitted to do.
 ```
 
 3. Each section is populated strictly from the tagged clusters identified in Phase 2. Inferred traits that lack direct evidence in the source material are excluded.

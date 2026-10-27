@@ -2,7 +2,7 @@
 
 > Direct traceability: each task references checks from `VERIFICATION.md`.
 
-## Kairós Symbol Legend
+## Symbol Legend
 
 | Symbol | Meaning |
 |---|---|

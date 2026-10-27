@@ -1,0 +1,13 @@
+{
+  "members": [
+    { "email": "ana@tienda.example", "name": "Ana", "kind": "person", "role": "Soy la dueña de una tienda en línea de repuestos de bicicleta. Decido precios, descuentos y todo gasto." },
+    { "email": "beto@tienda.example", "name": "Beto", "kind": "person", "role": "Llevo la bodega y los despachos de la tienda." },
+    { "email": "carla@tienda.example", "name": "Carla", "kind": "person", "role": "Atiendo a los clientes de la tienda por correo y por chat." },
+    { "email": "asistente@tienda.example", "name": "Asistente", "kind": "agent", "role": "Soy el asistente de la tienda. Atiendo lo que tiene una salida comprobable dentro de lo ya decidido." }
+  ],
+  "limits": [
+    { "id": "money", "text": "mover dinero o fijar un precio", "person": true },
+    { "id": "customer_data", "text": "datos personales de clientes", "person": false },
+    { "id": "irreversible", "text": "lo que no se deshace", "person": true }
+  ]
+}

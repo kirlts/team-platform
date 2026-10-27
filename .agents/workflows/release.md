@@ -1,18 +1,18 @@
 ---
-description: /release - Generates a new official version of the Kairós framework (Version Bump + Manifest + Public Documentation). EXCLUSIVE use in the canonical repository.
+description: /release - Generates a new official version of the governance framework (Version Bump + Manifest + Public Documentation). EXCLUSIVE use in the canonical repository.
 ---
 
-# Kairós Release
+# Framework Release
 
-This workflow automates the creation of a new Kairós framework version. It manages the semantic version calculation (SemVer), manifest reconstruction, Changelog synchronization, public documentation update, and template integrity verification.
+This workflow automates the creation of a new governance framework version. It manages the semantic version calculation (SemVer), manifest reconstruction, Changelog synchronization, public documentation update, and template integrity verification.
 
 ## Step 0: Environment Guard
 
-This workflow modifies the global distribution manifest. It is executed only if the current ecosystem is designated as the canonical Kairós repository that redistributes to others. If the execution is within a client repository (e.g., an app, a service), the system immediately aborts and notifies the user.
+This workflow modifies the global distribution manifest. It is executed only if the current ecosystem is designated as the canonical framework repository that redistributes to others. If the execution is within a client repository (e.g., an app, a service), the system immediately aborts and notifies the user.
 
 ## Step 1: Detection and Analysis
 
-1. The current `kairos-version.txt` at the repository root is read. Version `vX.Y.Z` is obtained from the first line and the manifest files. (If absent, `v0.1.0` is temporarily assumed).
+1. The current `framework-version.txt` at the repository root is read. Version `vX.Y.Z` is obtained from the first line and the manifest files. (If absent, `v0.1.0` is temporarily assumed).
 2. All current real files within the `.agents/` directory (ignoring temporary files or the `scratch/` subdirectory) are listed. Paths must be relative to the root (e.g., `.agents/rules/01-behavior.md`).
 3. The **Diff** is calculated:
    - NEW files in `.agents/` not in the old manifest (+).
@@ -53,7 +53,7 @@ The release plan is presented to the user and the system proceeds directly to ar
 ## Step 4: Artifact Generation
 
 ### 4.1 Version Manifest
-1. **Rewrite `kairos-version.txt`**: `kairos-version.txt` is updated:
+1. **Rewrite `framework-version.txt`**: `framework-version.txt` is updated:
    - Line 1: New Version (`vA.B.C`)
    - From Line 2 onwards: The clean, alphabetically indexed list of all file paths within `.agents/` (one path per line).
 
@@ -65,7 +65,7 @@ The release plan is presented to the user and the system proceeds directly to ar
 READMEs are updated in every release. Two files are mandatory:
 
 - **`.github/README.md`**: Public GitHub README.
-- **`README-KAIROS.md`**: Internal README distributed to each adopting project.
+- **`README-FRAMEWORK.md`**: Internal README distributed to each adopting project.
 
 **Update Protocol:**
 
@@ -77,7 +77,7 @@ READMEs are updated in every release. Two files are mandatory:
    - If a workflow was deleted, its row is removed.
 3. **Component table**: The system component table is verified to reflect the real structure of `.agents/`.
 4. **Tone and accessibility**: Each README is evaluated to ensure compliance:
-   - The language is accessible for a developer who does NOT know Kairós. No prior framework knowledge is assumed.
+   - The language is accessible for a developer who does NOT know the framework. No prior framework knowledge is assumed.
    - Features are described in terms of BENEFIT to the user, not internal mechanics ("Generates an exhaustive checklist from any input" > "Executes the promise decomposition algorithm").
    - No internal framework jargon is exposed.
    - Workflows are clearly described regarding both WHEN to use them and WHAT they do.
@@ -87,7 +87,7 @@ READMEs are updated in every release. Two files are mandatory:
 
 ### 4.4 Template Integrity in `/docs`
 
-The master templates in `.agents/templates/` are the source of truth for documents Kairós generates in adopting projects. Every release must verify their integrity:
+The master templates in `.agents/templates/` are the source of truth for documents the framework generates in adopting projects. Every release must verify their integrity:
 
 1. **Inventory**: All existing templates in `.agents/templates/` are listed.
 2. **Documentary Cross-Reference**: For each template corresponding to an axis document (`master-spec.md`, `todo.md`, `memory.md`, `changelog.md`, `user-decisions.md`, `technical-debt.md`), the system verifies:
@@ -110,11 +110,11 @@ Before concluding the release:
 
 1. **Git diff**: `git diff --stat` is executed to verify ONLY expected files were modified. If unexpected files are in the diff, the user is alerted.
 2. **Version Consistency**: It is verified that `vA.B.C` appears in:
-   - `kairos-version.txt` (line 1)
+   - `framework-version.txt` (line 1)
    - `.github/README.md` (Version field)
-   - `README-KAIROS.md` (Version field)
+   - `README-FRAMEWORK.md` (Version field)
    - `docs/CHANGELOG.md` (recently promoted section title)
-3. **Manifest Count**: The file count in `kairos-version.txt` is verified to exactly match the actual `.agents/` file count (excluding `scratch/`).
+3. **Manifest Count**: The file count in `framework-version.txt` is verified to exactly match the actual `.agents/` file count (excluding `scratch/`).
 
 ## Step 6: Final Instruction
 

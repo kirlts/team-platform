@@ -1,18 +1,18 @@
 // What the analyzer says about each message beyond its text (UD-295), and what the system does with it.
 //
-// Kairós does not sort work into boxes. A request is a point in a space, described by continuous estimates with their reason, and only a Guard is boolean
-// (KAIROS-PARA-TEAM-PLATFORM.md of the host §1 and §2: Vector, Filo, Contrapeso and Cadenas describe the space; the Guard is the only wall). So the analyzer returns, as
+// Work is not sorted into boxes. A request is a point in a space, described by continuous estimates with their reason, and only a Guard is boolean
+// (the space is described by estimates; the Guard is the only wall). So the analyzer returns, as
 // structured parameters it interpreted (never a pattern over a person's words, invariant 11):
 //   expectation          what is expected of Claude, in natural words: investigate, change code, both, or something nobody foresaw
 //   guards_touched       ids of the Guards of the area that the request touches: the one boolean thing
 //   understand_vs_create 0 to 1, Bloom as a scale: 0 is understanding or applying what is known, 1 is creating
-//   irreversibility      0 to 1, Gravitas: what collapses if it is ignored or done wrong, and whether it can be undone
+//   irreversibility      0 to 1: what collapses if it is ignored or done wrong, and whether it can be undone
 //   value_holder         `person` or `model`: who has the value that is missing to resolve it
 //   certainty            0 to 1, how sure the analyzer is of its own estimates
 //   estimate_reason      why, in a sentence
 //   idea_guard           boolean (UD-307): the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea» applies. The analyzer judges it
 //                        reading the spirit of the message and of who wrote it; the system obeys the boolean, no threshold, no knob. `idea_reason` says why, in a sentence
-//   idea                 0 to 1: how much of it is an idea. Context for the session and for the IMK judgement; it decides nothing
+//   idea                 0 to 1: how much of it is an idea. Context for the session and for the job judgement; it decides nothing
 // The system reads them as numbers and ids. It never reads the words of `expectation` to decide anything: that text goes to the session as it is.
 import { all, get } from '../db/index.js'
 import { deciderOf } from './escalation.js'

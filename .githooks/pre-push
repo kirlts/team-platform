@@ -6,13 +6,11 @@
 # Las marcas que se aceptan (la marca es el sha que se empuja, no un permiso general):
 #   RELEASE_PUBLISHES_MAIN=<sha>  la emite scripts/publish-main.sh, la puerta del canónico: corre la batería y la conformidad
 #                                 sobre ese sha y recién entonces empuja. Es la marca vigente.
-#   DEPLOY_PUBLISHES_MAIN=<sha>   la emite el guion de despliegue de un anfitrión que todavía publica `main` por su cuenta.
-#                                 Es la marca heredada y se retira (plan canónico 2026, §9, C5).
+#   DEPLOY_PUBLISHES_MAIN=<sha>   marca heredada, aceptada hasta su retiro (plan canónico 2026, §9, C5).
 #
-# Condición de retiro de DEPLOY_PUBLISHES_MAIN: cuando el despliegue del anfitrión deje de exportarla (pieza C5, que se hace en
-# el anfitrión) y `publish-main.sh` haya publicado `main` al menos una vez. Entonces se borra la línea marcada «RETIRO-DEPLOY»
-# de abajo y el gancho rechaza la marca vieja. Qué la traería de vuelta: que la puerta no pueda correr la batería en la máquina
-# que publica.
+# Condición de retiro de DEPLOY_PUBLISHES_MAIN: cuando ningún entorno la exporte (pieza C5) y `publish-main.sh` haya publicado
+# `main` al menos una vez. Entonces se borra la línea marcada «RETIRO-DEPLOY» de abajo y el gancho rechaza la marca vieja.
+# Qué la traería de vuelta: que la puerta no pueda correr la batería en la máquina que publica.
 #
 # Lo mismo lo mide, del lado del servidor, .github/workflows/main-solo-desde-desarrollo.yml, que es un espejo opcional: el
 # repositorio es privado en el plan gratuito (la protección de rama devuelve 403 «Upgrade to GitHub Pro») y nada depende de que corra.

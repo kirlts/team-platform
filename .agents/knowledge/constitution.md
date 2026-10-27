@@ -1,6 +1,6 @@
-# Kairós Constitution V0.99
+# Constitution V0.99
 
-This document is the source of truth for the original philosophical intent of the Kairós framework. It is not an operational instruction; operational instructions live in `.agents/rules/`. This file exists as a reference to understand the deep "why" behind the system.
+This document is the source of truth for the original philosophical intent of the governance framework. It is not an operational instruction; operational instructions live in `.agents/rules/`. This file exists as a reference to understand the deep "why" behind the system.
 
 ## On the Nature of the Catalyst
 

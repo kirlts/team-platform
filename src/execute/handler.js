@@ -137,8 +137,8 @@ export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type
  */
 export function sessionSettings ({ light = false, assessed = false, stopCommand = '', guards = null } = {}) {
   const hooks = { ...LIVE_MENTION_SETTINGS.hooks }
-  // KAIROS-PARA-TEAM-PLATFORM.md of the host §6: the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
-  // KAIROS-PARA-TEAM-PLATFORM.md of the host §6: the light model gets only the paths it will probably touch; a larger model, when the analyzer assessed the message, the short map of the repository.
+  // the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
+  // the light model gets only the paths it will probably touch; a larger model, when the analyzer assessed the message, the short map of the repository.
   if (light) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook --brief' }] }]
   else if (assessed) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook' }] }]
   if (light) {
@@ -666,7 +666,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
-    // UD-295: the IMK judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Not when the work goes on in a stronger model:
+    // UD-295: the job judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Not when the work goes on in a stronger model:
     // the judge reads the end of the work. A judge that cannot run leaves the job unjudged; the job does not depend on it.
     const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked')
     let judgment = null

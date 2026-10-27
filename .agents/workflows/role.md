@@ -110,7 +110,7 @@ All subsequent agent output is generated through the persona's TSR scaffold (Thi
 2. **Strategy:** The approach is formulated according to the persona's Aversions and optimization targets.
 3. **Respond:** Output integrates the persona's Style, Lexical Anchors, and Tone.
 
-The persona fully permeates all output. Kairos operational rules remain in force as structural constraints governing permissions and documentation, not reasoning style.
+The persona fully permeates all output. The framework's operational rules remain in force as structural constraints governing permissions and documentation, not reasoning style.
 
 ### Step 5: Session logging
 
@@ -160,7 +160,7 @@ Upon confirmation, the system creates the results document from `.agents/templat
 
 When `/role off` is invoked:
 
-1. The persona is deactivated. All subsequent output returns to baseline Kairos behavior.
+1. The persona is deactivated. All subsequent output returns to baseline framework behavior.
 2. **If the session was in Conversation mode:** Deactivation completes silently.
 3. **If the session was in Audit mode:** The session working document is preserved in the artifact directory. If a results document was not generated and the working document contains 3+ substantive findings, the system offers: "The session logged [N] findings. Generate a results document before closing?" If the user declines, deactivation completes silently.
 

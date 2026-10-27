@@ -7,7 +7,7 @@
 --   messages.estimates_json      `{ understand_vs_create, irreversibility, value_holder, certainty, reason }`; NULL for a message published before they existed.
 --   messages.assessed_by         the person who changed the assessment by hand; NULL while it is the analyzer's.
 --   jobs.model                   the model an `execute` job ran with, written when its session starts.
---   execute_judgments            the IMK judgement of a finished job: 4 axes, 12 KPI from -2 to +2 with quote and reason, by a cheap judge model.
+--   execute_judgments            the judgement of a finished job: 4 axes, 12 KPI from -2 to +2 with quote and reason, by a cheap judge model.
 ALTER TABLE areas ADD COLUMN execute_model TEXT;
 ALTER TABLE areas ADD COLUMN execute_model_light TEXT;
 ALTER TABLE areas ADD COLUMN guards_json TEXT NOT NULL DEFAULT '[]';

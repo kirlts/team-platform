@@ -42,6 +42,7 @@ import { errorSchema, member as memberSchema } from './schemas.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { buriedHandoffs } from '../domain/escalation.js'
 import { installAgentAuth } from '../execute/agent-auth.js'
+import { CONTRACT_VERSION } from '../execute/contract-version.js'
 import { registerExecuteRoutes } from '../execute/routes.js'
 import { isActivePerson } from '../domain/members.js'
 
@@ -258,7 +259,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     if (!migrated) throw new AppError(503, 'unavailable', 'La base no está migrada.')
     // UD-269 invariant: a message whose latest result from the agent asks for a person and that nobody holds. Zero when healthy; the probe turns `degraded`.
     const buried = buriedHandoffs(db)
-    const basic = { status: buried.length === 0 ? 'ok' : 'degraded', version }
+    const basic = { status: buried.length === 0 ? 'ok' : 'degraded', version, contract_version: CONTRACT_VERSION }
     // The detail (database, queue, providers) is for an active person of the team: an anonymous probe only sees whether the service is alive.
     let caller = null
     try { caller = await identity.provider.identify(request) } catch { /* no identity: basic response */ }
@@ -279,7 +280,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       200: {
         type: 'object',
         properties: {
-          status: { type: 'string' }, version: { type: 'string' },
+          status: { type: 'string' }, version: { type: 'string' }, contract_version: { type: 'integer', description: 'Version of the host contract this core implements (docs/CONTRATO-DE-ANFITRION.md).' },
           db: { type: 'object', additionalProperties: true }, queue: { type: 'object', additionalProperties: true }, worker: { type: 'string' },
           providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }, handoffs: { type: 'object', additionalProperties: true }
         }

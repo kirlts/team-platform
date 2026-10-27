@@ -14,7 +14,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 
 const run = promisify(execFile)
-// fuera-de-la-imagen: git — it runs inside the session (`team map`), on the machine or in the worktree where the session works, never in the worker
+// outside-the-image: git — it runs inside the session (`team map`), on the machine or in the worktree where the session works, never in the worker
 const git = async (cwd, args) => (await run('git', ['-c', 'core.quotepath=off', ...args], { cwd, maxBuffer: 64 * 1024 * 1024 })).stdout
 
 export const MAP_DAYS = 30 // Martín's window: the files most touched in the last 30 days

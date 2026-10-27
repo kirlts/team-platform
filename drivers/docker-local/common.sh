@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Shared by the hooks of the docker-local driver. Sourced, never run.
 #
+# Contract: this driver meets version 1 of the host contract. The host declares it with EXECUTE_CONTRACT_VERSION=1 in the environment of the worker
+# (the worker refuses to start when the major version of the core differs; `scripts/host-conformance.mjs` checks the driver).
+#
 # Settings (environment of the Team Platform worker; all optional):
 #   TP_DOCKER_IMAGE           image of the machine (default team-platform-agent:local, built from drivers/docker-local/Dockerfile)
 #   TP_DOCKER_REPO            absolute path of the host repository. Bind-mounted into the machine; the session clones it, works on the branch

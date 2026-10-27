@@ -1,5 +1,5 @@
 // The browser tests read an element's count only after the element is drawn: `locator.count()` does not wait, so a count read in the frame the page opened
-// is 0 when the machine is loaded (gallery.browser.test.mjs and flows-borrar.browser.test.mjs failed that way on the arnés, 2026-10-26, three browsers at a time).
+// is 0 when the machine is loaded (gallery.browser.test.mjs and flows-borrar.browser.test.mjs failed that way on the harness, 2026-10-26, three browsers at a time).
 // Prohibits: an `assert.equal(await <locator>.count(), N)` with N >= 1 (or `count() > 0`) whose previous line does not wait for that same locator.
 import assert from 'node:assert'
 import { readdirSync, readFileSync } from 'node:fs'

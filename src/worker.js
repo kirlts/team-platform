@@ -20,6 +20,7 @@ import { attendPendingMentions } from './domain/mentions.js'
 import { createPipeline } from './domain/pipeline.js'
 import { resumeInfraFailures } from './execute/resume.js'
 import { createDeliverHandler } from './execute/deliver.js'
+import { announceContractVersion } from './execute/contract-version.js'
 import { createExecuteHandler } from './execute/handler.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
@@ -284,6 +285,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 
 /** Builds the worker with its real dependencies. Used by `server.js` and the separate-process mode. */
 export async function buildWorker ({ db, config, events, queue = null, env = process.env, logger = createLogger(config), pollDataVersionMs = null }) {
+  announceContractVersion({ config, logger }) // before anything starts: a driver for another major version of the host contract does not run
   const outbox = queue ?? createQueue({ db, config, events })
   const modules = await loadModules(config, { db, env, log: (m) => logger.warn(m) })
   const handlers = { ...createPipeline({ db, config, queue: outbox, events, modules }), execute: createExecuteHandler({ db, config, queue: outbox, events, vault: modules.vault, getProviders: modules.getProviders, logger }), deliver: createDeliverHandler({ db, config, queue: outbox, events, logger }) }
@@ -309,7 +311,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   }
   const events = createEvents({ db })
   const telemetry = initTelemetry({ db, serviceVersion: config.version })
-  const { worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs })
+  let worker
+  try {
+    ({ worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs }))
+  } catch (error) {
+    console.error(error.message)
+    process.exit(1)
+  }
   worker.start()
   logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker running')
   // Every timer of the worker is unref'd, so nothing holds this process open (inside the API the HTTP server does) and it

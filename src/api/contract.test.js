@@ -7,6 +7,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { all, get, latestVersion, openInitialized, run } from '../db/index.js'
+import { CONTRACT_VERSION } from '../execute/contract-version.js'
 import { bootstrapFirstEditor } from '../db/seed.js'
 import { routePolicies } from '../identity/index.js'
 import { addMember, fakeAnalyze, TEST_PASSWORD, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
@@ -255,7 +256,8 @@ test('GET /jobs/:id/trace is for any person of the team and answers 404 if the j
 test('/health: the basics are public; the detail of database, queue and providers belongs to a person of the team; 503 if the database is not migrated', async () => {
   const env = await team({ modules: { getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'm', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }) } })
   const anonymous = (await env.app.inject({ url: '/health' })).json()
-  assert.deepEqual(Object.keys(anonymous).sort(), ['status', 'version'])
+  assert.deepEqual(Object.keys(anonymous).sort(), ['contract_version', 'status', 'version'])
+  assert.equal(anonymous.contract_version, CONTRACT_VERSION)
   const memberRow = (await env.api('GET', '/health', env.c.ana)).json()
   assert.equal(memberRow.db.status, 'ok') // the detail is any person's (UD-287)
   const editor = (await env.api('GET', '/health', env.c.ed)).json()

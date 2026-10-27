@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { majorOf } from './execute/contract-version.js'
 import { PROVIDER_LIMIT_DEFAULTS } from './providers/limiter.js'
 import { MAX_EVENT_BYTES } from './telemetry/ui-spec.js'
 
@@ -370,6 +371,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       capacityWaitMs: intVar(env, 'EXECUTE_CAPACITY_WAIT_MS', 30_000, { min: 1000 }), // measured 2026-10-22: creating a harness machine took 32 s (UD-262 timing); looking again sooner finds nothing free
       machineCostUsd: decimal(env, 'EXECUTE_MACHINE_COST_USD', 0, { min: 0 }), // fixed cost of each machine-runner job; host site: 0.07
       maxTurns: intVar(env, 'EXECUTE_MAX_TURNS', 60, { min: 0 }), // H-3724 brief: 60 turns; 0 = no cap on turns, only the spending caps govern (UD-283)
+      contractVersion: textValue(env, 'EXECUTE_CONTRACT_VERSION', ''), // the version of the host contract the driver meets (src/execute/contract-version.js); empty = not declared, not checked
       hostInstructions: textValue(env, 'EXECUTE_HOST_INSTRUCTIONS', ''), // path to a host .md file appended to the prompt; the host's rules
       maxSubagents: intVar(env, 'EXECUTE_MAX_SUBAGENTS', 3, { min: 0 }), // UD-255: up to three subagents per message
       // UD-255: one run can cost up to the budget; a queue retry would spend it again, so one attempt by default.
@@ -517,6 +519,7 @@ function validateConfig (config) {
     }
   }
   const x = config.execute
+  if (x.contractVersion) majorOf(x.contractVersion) // a declared version that is not digits separated by dots is a configuration error
   if (x.runner === 'machine' && (!x.machineCreate || !x.machineRun || !x.machineDestroy)) {
     throw new Error('EXECUTE_RUNNER=machine requires EXECUTE_MACHINE_CREATE, EXECUTE_MACHINE_RUN and EXECUTE_MACHINE_DESTROY.')
   }

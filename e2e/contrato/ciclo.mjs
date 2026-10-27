@@ -89,7 +89,7 @@ export async function iniciarCiclo ({ execute = {}, estimates = null, martinProf
       Object.assign(lastConfig.execute, structuredClone(baseExecute), { bin: SESSION_BIN, machineBin: SESSION_BIN, teamUrl, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 50, capacityWaitMs: 300 }, execute, over)
       const handlers = {
         ...createPipeline({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, modules: env.modules }),
-        execute: createExecuteHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, vault, progressUnitMs: unitMs, progressClock }),
+        execute: createExecuteHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events, vault, getProviders: env.modules.getProviders, progressUnitMs: unitMs, progressClock }),
         deliver: createDeliverHandler({ db: env.db, config: lastConfig, queue: env.queue, events: env.events })
       }
       worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config: lastConfig, handlers, resume: (trigger) => resumeInfraFailures({ db: env.db, config: lastConfig, events: env.events }, { trigger }) })

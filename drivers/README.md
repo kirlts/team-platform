@@ -67,6 +67,7 @@ Cuatro ganchos más una entrega de ejemplo, en `drivers/docker-local/`.
 docker build -t team-platform-agent:local drivers/docker-local
 
 EXECUTE_RUNNER=machine
+EXECUTE_CONTRACT_VERSION=1
 EXECUTE_TEAM_URL=http://host.docker.internal:3000
 EXECUTE_MACHINE_CREATE=bash /opt/team-platform/drivers/docker-local/create.sh {job_id} {workdir}
 EXECUTE_MACHINE_RUN=bash /opt/team-platform/drivers/docker-local/run.sh {job_id} {workdir} {machine}
@@ -77,6 +78,7 @@ EXECUTE_DELIVER_COMMAND=bash /opt/team-platform/drivers/docker-local/deliver.sh 
 
 | Ajuste del entorno del trabajador | Efecto |
 |---|---|
+| `EXECUTE_CONTRACT_VERSION` | Versión del contrato de anfitrión que cumple el driver (`1`). El trabajador imprime al arrancar la versión del núcleo y esta; si la versión mayor difiere, no arranca y sale con código distinto de 0. `/health` publica la del núcleo como `contract_version`. Vacía: no se declara y no se comprueba |
 | `TP_DOCKER_IMAGE` | Imagen de la máquina. Omisión `team-platform-agent:local` |
 | `TP_DOCKER_REPO` | Ruta del repositorio del anfitrión. Se monta en la máquina, la sesión lo clona, trabaja en `tp/<id>` y empuja la rama de vuelta. `deliver.sh` la busca ahí |
 | `TP_DOCKER_BASE_REF` | De dónde nace la rama. Omisión: el HEAD del repositorio |

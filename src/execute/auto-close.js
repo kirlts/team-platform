@@ -57,6 +57,7 @@ export function closeReason (db, config, { output, request = null, delivered, me
   const row = get(db, 'SELECT area_id, guards_json, estimates_json FROM messages WHERE id = ?', messageId)
   if (row && touchesPerson(db, row.area_id, { guards: JSON.parse(row.guards_json || '[]'), estimates: row.estimates_json ? JSON.parse(row.estimates_json) : null })) return null
   if (HANDOFF_OUTCOMES.includes(output?.outcome)) return null
+  if (output?.unfulfilled === true) return null // UD-314: part of what was asked is not done: the sender retries it, nothing closes
   // UD-307: an idea that was built and shown waits for the written answer of a person; only its delivery (after that answer) finishes it.
   if (!delivered && estimatesOf(row).idea_guard === true) return null
   if (!delivered && !NO_CHANGE_OUTCOMES.includes(output?.outcome)) return null

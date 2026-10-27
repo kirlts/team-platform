@@ -22,6 +22,7 @@ import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
 import { admitSession, dailyBudget, localDay, sessionReserve } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
+import { UNFULFILLED, sessionUnfulfilled } from './retry.js'
 import { audit } from '../domain/audit.js'
 import { costOfModelUsage, costOfResult } from '../telemetry/pricing.js'
 import { step } from '../domain/progress-phrases.js'
@@ -786,6 +787,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)
       if (why) closeMessage({ db, events, now }, messageId, agent.id)
+      // UD-314: the session says it could not do what was asked because of something outside the work: the reply stands for this job and carries «Reintentar» (the field, never the words).
+      if (sessionUnfulfilled(output)) markFailure(replyId, job, { code: UNFULFILLED })
       if (discarded) runSql(db, "UPDATE messages SET status = 'open', updated_at = ? WHERE id = ?", now(), messageId) // a discarded change leaves the message open (UD-275), also after the answer
       const finalAt = now()
       rec.finalReplyMs = msSince(finalAt)

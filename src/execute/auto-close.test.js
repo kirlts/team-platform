@@ -157,6 +157,7 @@ describe('Claude closes the message (UD-271)', () => {
     notClosed(await run('Una decisión de cobro.', { extra: { outcome: 'needs_decision', decision_check: CHECK, ...ASK } }), 'needs_decision')
     notClosed(await run('Algo que no es del agente.', { extra: { outcome: 'not_mine', ...ASK } }), 'not_mine')
     notClosed(await run('Algo que no se puede hacer.', { extra: { outcome: 'blocked', ...ASK } }), 'blocked')
+    notClosed(await run('Una prueba sin acceso.', { extra: { outcome: 'investigated', unfulfilled: true, ...ASK } }), 'unfulfilled (UD-314)')
   })
 
   it('a «before» without an «after» does not close; with the «after» of production it does', async () => {

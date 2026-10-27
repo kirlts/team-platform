@@ -46,6 +46,12 @@ describe('what the session may promise, how it addresses people, and what a fail
     assert.equal(schema.properties.no_capture_reason.type, 'string')
     assert.match(buildExecuteParts(input(1)).stable, /never ends without at least one screenshot or the video/)
   })
+  it('the schema offers `unfulfilled` in the grammar and the validation, and both prompts ask for it when something outside the work stops part of the request (UD-314)', () => {
+    assert.equal(finalSchema(null).properties.unfulfilled.type, 'boolean')
+    assert.equal(finalSchema(null, { validation: true }).properties.unfulfilled.type, 'boolean')
+    assert.ok(!finalSchema(null).required.includes('unfulfilled'), 'optional: an output without it stays valid')
+    assert.match(buildExecuteParts(input(1)).stable, /Unfulfilled work[\s\S]*`unfulfilled` to true[\s\S]*«Reintentar»/)
+  })
   it('the pass after a failed check says that the test may be somebody else\'s and has to be fixed at the root', () => {
     const { variable } = buildExecuteParts(input(1, { deliverFailure: { output: 'FALLA prueba: a.test.js › x' } }))
     assert.match(variable, /not an end: it is your next task/)
@@ -126,7 +132,7 @@ describe('a forwarded message in the prompt and the schema (UD-272)', () => {
     const check = new Ajv({ strict: false }).compile(finalSchema(declared, { validation: true }))
     assert.equal(check({ outcome: 'done', summary: 'x', mode: 'investigate', attachments: [{ path: 'a.pdf', name: 'A' }] }), true)
     assert.equal(check({ outcome: 'done', summary: 'x', mode: 'decide' }), false)
-    assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['approved', 'approved_reply', 'attachments', 'captures', 'close', 'close_reason', 'mode', 'no_capture_reason', 'summary', 'touches_screen'])
+    assert.deepEqual(Object.keys(finalSchema(null, { forwarded: true }).properties).sort(), ['approved', 'approved_reply', 'attachments', 'captures', 'close', 'close_reason', 'mode', 'no_capture_reason', 'summary', 'touches_screen', 'unfulfilled'])
   })
 })
 

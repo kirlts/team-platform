@@ -36,6 +36,7 @@ import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { handOffToPerson } from '../domain/escalation.js'
+import { UNFULFILLED, sessionUnfulfilled } from './retry.js'
 import { guardsOf, liftPersonGuards, openPersonGuards } from '../domain/assessment.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
@@ -242,6 +243,8 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
           messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now() }), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         if (why) closeMessage({ db, events, now }, messageId, agent.id)
+        // UD-314: the change is in production but the session said part of what was asked could not be done: this reply carries «Reintentar» for the session that said it.
+        if (payload.execute_job_id && sessionUnfulfilled(payload.output)) markFailure(replyId, { id: payload.execute_job_id }, { code: UNFULFILLED })
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
         saveRun(payload, job.id, {

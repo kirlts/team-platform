@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Una sesión que termina sin cumplir lo pedido por algo ajeno al trabajo (un acceso, una dependencia, un servicio externo) ofrece «Reintentar» igual que una que falló (UD-314). La salida estructurada lo declara con `unfulfilled` (opcional, aditivo; `contract_version` no sube) y `outcome: blocked` cuenta igual; el mensaje no se cierra.
 - El gancho `pre-push` rechaza la marca heredada `DEPLOY_PUBLISHES_MAIN` (pieza C5 del plan canónico): `main` sólo avanza con la marca de `scripts/publish-main.sh`, y quien instala fija la versión por sha o etiqueta.
 ## [0.1.1] - 2026-10-27
 

@@ -32,9 +32,9 @@ export const guardsJudgeSchema = (ids) => ({
 export function guardsJudgePrompt ({ message, areaTitle, areaDescription, guards }) {
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   return [
-    'Eres el analizador de pedidos de un equipo. Un mensaje se analizó antes de que el área tuviera las Guardias de abajo y hace falta solo este juicio.',
+    'Eres el analizador de pedidos de un equipo. Un mensaje se analizó antes de que el área tuviera los límites de abajo y hace falta solo este juicio.',
     '',
-    'Una Guardia es un límite que no se cruza. Devuelve en guards_touched los ids de las Guardias que el pedido toca, entendiendo qué se pide y para qué; una lista vacía si no toca ninguna.',
+    'Un límite no se cruza. Devuelve en guards_touched los ids de los límites que el pedido toca, entendiendo qué se pide y para qué; una lista vacía si no toca ninguna.',
     '',
     `<area>\n${areaTitle ?? ''}\n\n${areaDescription ?? ''}\n</area>`,
     `<guardias>\n${guards.map((g) => `- G${g.id}${g.person ? ' (de una persona)' : ''}: ${g.text}`).join('\n')}\n</guardias>`,

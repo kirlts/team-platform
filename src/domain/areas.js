@@ -66,7 +66,7 @@ function settleGuards (list, current) {
   let next = Math.max(0, ...current.map((g) => g.id)) + 1
   return list.map((g) => {
     const text = String(g.text ?? '').trim()
-    if (text === '') throw unprocessable('Cada Guardia lleva su texto.', 'guard_invalid')
+    if (text === '') throw unprocessable('Cada límite lleva su texto.', 'guard_invalid')
     const id = Number.isInteger(g.id) && known.has(g.id) ? g.id : next++
     // `key`: the name a template gives this Guard in its output (`touches_<key>`, read by the worker); one that is not a name is dropped, and a Guard rewritten without it keeps the one it had.
     const key = typeof g.key === 'string' && GUARD_KEY.test(g.key) ? g.key : (g.key === undefined ? current.find((c) => c.id === id)?.key : undefined)

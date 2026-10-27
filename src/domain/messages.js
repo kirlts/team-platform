@@ -477,7 +477,7 @@ export function setMessageAssessment ({ db, events, now = Date.now }, { messageI
     if (patch.expectation !== undefined) next.expectation = patch.expectation.trim()
     if (patch.guards !== undefined) {
       const known = new Set(guardsOf(db, row.area_id).map((g) => g.id))
-      if (patch.guards.some((id) => !known.has(id))) throw badRequest('Una Guardia no existe en el área del mensaje.', 'guard_invalid')
+      if (patch.guards.some((id) => !known.has(id))) throw badRequest('Un límite no existe en el área del mensaje.', 'guard_invalid')
       next.guards_json = JSON.stringify([...new Set(patch.guards)].sort((a, b) => a - b))
       next.guards_seen_json = JSON.stringify([...known].sort((a, b) => a - b)) // a person who sets the Guards has judged them all: none of the area's is left unseen
     }

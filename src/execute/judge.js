@@ -55,7 +55,7 @@ export const KPIS = Object.freeze([
     'Maneja los errores de entrada habituales; es frágil ante casos que no previó.',
     'Falla sin control o da resultados incorrectos ante entradas anómalas; riesgo de seguridad bajo o moderado.',
     'Se corrompe o falla gravemente ante cualquier desviación; riesgo de seguridad alto.'] },
-  { id: '2.3', axis: 2, name: 'Precisión y conformidad', asks: 'Lo entregado respeta las restricciones explícitas (las Guardias del área incluidas) y es correcto frente a una fuente de verdad objetiva.', levels: [
+  { id: '2.3', axis: 2, name: 'Precisión y conformidad', asks: 'Lo entregado respeta las restricciones explícitas (los límites del área incluidas) y es correcto frente a una fuente de verdad objetiva.', levels: [
     'Cumple todas las restricciones, los límites del área incluidos, y detecta una imprecisión de la fuente que nadie había visto.',
     'Cumple todas las restricciones explícitas y es correcto frente a la fuente de verdad.',
     'Cumple las restricciones principales; se desvía en aspectos menores sin invalidar el resultado.',
@@ -140,7 +140,7 @@ export function judgeBlocks ({ message, expectation, guards, output, detail, cap
     ['mensaje', `${message.title}\n\n${message.body}`],
     ['lo_esperado', expectation],
     ['guardias_tocadas', guards.map((g) => `G${g.id}: ${g.text}${g.mechanism ? ` (la sostiene: ${g.mechanism})` : ''}`).join('\n')],
-    ['idea_del_pedido', typeof idea?.idea_guard === 'boolean' ? [`idea: ${typeof idea.idea === 'number' ? `${idea.idea.toFixed(2)} de 1` : 'sin dato'}`, `la Guardia de la idea aplica: ${idea.idea_guard ? 'sí' : 'no'}`, idea.idea_reason ? `razón: ${idea.idea_reason}` : ''].filter(Boolean).join('\n') : ''],
+    ['idea_del_pedido', typeof idea?.idea_guard === 'boolean' ? [`idea: ${typeof idea.idea === 'number' ? `${idea.idea.toFixed(2)} de 1` : 'sin dato'}`, `el límite de la idea aplica: ${idea.idea_guard ? 'sí' : 'no'}`, idea.idea_reason ? `razón: ${idea.idea_reason}` : ''].filter(Boolean).join('\n') : ''],
     // Third audit of the method (H-8): who asked, as they wrote about themselves. 3.2 and 3.3 depend on what that person understands and can decide, and a judge that does not know them reads against a generic reader.
     ['perfil_de_quien_pidio', author?.profile ? `${author.name ?? ''}\n${author.profile}`.trim() : ''],
     ['descripcion_del_area', area ? `${area.title}\n${area.description ?? ''}` : ''],
@@ -165,7 +165,7 @@ export function judgeEvidence (input) {
 export function buildJudgePrompt (input) {
   const block = ([title, text]) => `<${title}>\n${textOf(text) || '(vacío)'}\n</${title}>`
   return [
-    'Eres un juez de trabajos de IA. Evalúas un trabajo que hizo una sesión de IA sin supervisión. Puntúa cada KPI de -2 a +2 (+2 Excepcional, +1 Fuerte, 0 Esperado: el mínimo aceptable, -1 Bajo, -2 Inaceptable) eligiendo el nivel cuya descripción calza con la evidencia. Para cada uno cita el texto de la evidencia que lo sostiene, copiado tal cual, y di la afirmación y el razonamiento. Un KPI que no se puede observar en este trabajo lleva applies false. Mide lo hecho frente a la descripción del área y del proyecto y a lo esperado; no premies el largo ni el tono. Si el bloque idea_del_pedido dice que la Guardia de la idea aplica, lo pedido era explorar una idea: lo adecuado es construir y mostrar sin publicar, con alternativas, y no se premia haberla publicado.',
+    'Eres un juez de trabajos de IA. Evalúas un trabajo que hizo una sesión de IA sin supervisión. Puntúa cada KPI de -2 a +2 (+2 Excepcional, +1 Fuerte, 0 Esperado: el mínimo aceptable, -1 Bajo, -2 Inaceptable) eligiendo el nivel cuya descripción calza con la evidencia. Para cada uno cita el texto de la evidencia que lo sostiene, copiado tal cual, y di la afirmación y el razonamiento. Un KPI que no se puede observar en este trabajo lleva applies false. Mide lo hecho frente a la descripción del área y del proyecto y a lo esperado; no premies el largo ni el tono. Si el bloque idea_del_pedido dice que el límite de la idea aplica, lo pedido era explorar una idea: lo adecuado es construir y mostrar sin publicar, con alternativas, y no se premia haberla publicado.',
     '',
     'KPI, con la descripción de cada nivel:',
     ...KPIS.flatMap((k) => [`- ${k.id} ${k.name}: ${k.asks}`, ...k.levels.map((text, i) => `    ${LEVEL_SCORES[i] > 0 ? '+' : ''}${LEVEL_SCORES[i]}: ${text}`)]),

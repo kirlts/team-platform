@@ -342,7 +342,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('person')],
     schema: {
       summary: 'Cambiar a mano la evaluación de un mensaje (UD-295)',
-      description: 'Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.',
+      description: 'Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), los límites del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.',
       params: idParams(),
       body: { type: 'object', minProperties: 1, additionalProperties: false, properties: { expectation: { type: 'string' }, guards: { type: 'array', items: { type: 'integer' } }, value_holder: { type: 'string', enum: ['person', 'model'] } } },
       response: { 200: messageDetail }

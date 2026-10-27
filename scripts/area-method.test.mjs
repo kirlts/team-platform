@@ -950,3 +950,36 @@ test('D7: the axes, the indicators and the goals of the document are the ones of
   }
   assert.ok(KPIS.every((k) => k.levels.length === 5), 'five anchors per indicator, as the document says')
 })
+
+// ---- Reauditoría B4: no word of a confidential unit in ANY output of the three scripts
+test('B4 (reaudit): seeded phrases never appear in an output of analyze, propose, windows, validation or the experiment', async () => {
+  const marks = ['zqxA', 'zqxB', 'zqxC', 'zqxD', 'zqxE', 'zqxF']
+  let n = 0
+  const corpus = rows.map((r, i) => {
+    if (i % 5 !== 0) return r // one row in five becomes confidential: enough of them land in every held-out set
+    n++
+    return { ...r, confidential: true, summary: `${marks[0]} resumen ${n}`, maximize: `${marks[1]} cualidad`, sacrifice: `${marks[2]} resto`, module: `${marks[3]} modulo`, intent: `${marks[4]} intencion`, who: r.who, holder: r.holder }
+  })
+  const confidentialUnits = new Set(corpus.filter((r) => r.confidential).map((r) => r.unit))
+  const clean = (label, value) => { const text = JSON.stringify(value); for (const m of marks) assert.ok(!text.includes(m), `${m} in ${label}`) }
+  // all units of a confidential row are confidential: keep the unit whole so that no open row shares its words
+  const whole = corpus.map((r) => (confidentialUnits.has(r.unit) && !r.confidential ? { ...r, confidential: true, summary: `${marks[0]} hermano`, maximize: `${marks[1]} cualidad` } : r))
+  const result = propose(whole, team, { purposes, actor: 'ana@tienda.example' })
+  clean('propose', result)
+  clean('analyze', analyze(whole, team, { permutations: 99, repeats: 1 }))
+  clean('windows', method.analyzeWindows(whole, team, { permutations: 99, repeats: 1 }))
+  clean('labels', method.labels(whole))
+  clean('validation sample', validation.drawValidationSample(whole, team))
+  const echo = { async complete (req) { return { json: { area: 'Catálogo y precios', attends: ['Asistente'], brief: req.messages[0].content } } } }
+  const keyed = validation.keyRows(whole)
+  const whole2 = await runExperiment(keyed, result.spec, team, { provider: echo, size: 200 })
+  clean('experiment on the whole corpus', whole2)
+  assert.ok(whole2.sample.confidential_left_out > 0, 'the confidential requests were left out and counted')
+  for (const stage of ['tune', 'confirm']) {
+    const built = experiment.buildAndSplit(keyed, team, { stage, purposes })
+    clean(`buildAndSplit ${stage}`, { load: built.load, skipped: built.skipped, report: built.report })
+    const run = await runExperiment(built.test, built.load, team, { provider: echo, size: 100, held: { stage, sets: built.sets } })
+    clean(`experiment ${stage}`, run)
+    assert.ok(built.test.some((r) => r.confidential), `${stage}: the held-out set has confidential rows, so the test is not empty`)
+  }
+})

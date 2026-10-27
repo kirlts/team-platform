@@ -70,7 +70,9 @@ export function drawSample (rows, load, { size = null, perArea = wilsonSampleSiz
   const titles = new Set(load.areas.map((a) => a.title))
   const discarded = []
   const pool = []
-  for (const r of rows) {
+  // A request from a confidential unit is never routed: the router rewrites the request in its brief, and the words of a recorded meeting reach no output.
+  const confidential = rows.filter((r) => r.confidential).length
+  for (const r of rows.filter((r) => !r.confidential)) {
     const area = titles.has(r.area) ? r.area : (titles.has(merge[r.area]) ? merge[r.area] : null)
     if (area === null) discarded.push(r)
     else pool.push(area === r.area ? r : { ...r, area, area_before_merge: r.area })
@@ -93,7 +95,7 @@ export function drawSample (rows, load, { size = null, perArea = wilsonSampleSiz
   if (chosen.length < target) warnings.push({ kind: 'pool_short', requested: target, available: chosen.length })
   const poolSize = new Map([...groups.entries()].map(([a, l]) => [a, l.length]))
   const drawn = chosen.reduce((m, r) => m.set(r.area, (m.get(r.area) ?? 0) + 1), new Map())
-  return { sample: chosen.map((r) => ({ ...r, weight: poolSize.get(r.area) / drawn.get(r.area) })), discarded: discarded.length, merged: pool.filter((r) => r.area_before_merge).length, warnings }
+  return { sample: chosen.map((r) => ({ ...r, weight: poolSize.get(r.area) / drawn.get(r.area) })), discarded: discarded.length, confidential, merged: pool.filter((r) => r.area_before_merge).length, warnings }
 }
 
 /**
@@ -172,7 +174,7 @@ export async function runExperiment (rows, load, team, { provider, families = {}
   const labelled = humanReference(out, sample, labels, team)
   return {
     ...summarize(out),
-    sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, merged: drawn.merged, warnings: drawn.warnings },
+    sample: { requested: size, drawn: sample.length, discarded: drawn.discarded, confidential_left_out: drawn.confidential, merged: drawn.merged, warnings: drawn.warnings },
     validated: validation?.validated === true,
     baselines: baselines(sample, team, largest),
     agreement_with_labels: labelled,

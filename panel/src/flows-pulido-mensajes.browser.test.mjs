@@ -311,7 +311,10 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
   })
 
   test('the waiting rows of Mensajes are as tall as the rows that arrive (J3-D3-03)', async () => {
-    const { page, context } = await session(PHONE)
+    // A touch phone: a coarse pointer gives the actions of the foot their 44 px, which is the height of the row on a real phone.
+    const context = await panel.browser.newContext({ viewport: PHONE, isMobile: true, hasTouch: true, locale: 'es-CL', colorScheme: 'light' })
+    const page = await context.newPage()
+    await login(page, origin, 'ana')
     try {
       // The list is held on the wire until the waiting rows are measured: an event, not a wait.
       let release
@@ -322,7 +325,8 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
       const waiting = await page.getByTestId('load-row').first().evaluate((el) => el.getBoundingClientRect().height)
       release()
       await page.locator('article').first().waitFor()
-      const real = await page.locator('article').first().evaluate((el) => el.getBoundingClientRect().height)
+      // The waiting row cannot know about thumbnails or replies, so it keeps the height of the shortest row.
+      const real = await page.locator('article').evaluateAll((els) => Math.min(...els.map((el) => el.getBoundingClientRect().height)))
       assert.ok(Math.abs(waiting - real) <= 6, `a waiting row is ${waiting} px and a row of the list ${real} px`)
     } finally {
       await context.close()

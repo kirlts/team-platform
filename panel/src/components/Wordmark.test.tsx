@@ -18,8 +18,8 @@ describe('Wordmark', () => {
     expect(text.textContent).toBe('Desarrollo Team')
   })
 
-  it('the tracking on a phone is derived from the host tracking, not a figure of its own', () => {
+  it('a phone has no tracking (measured: half of the tracking of the host did not fit at 360 px)', () => {
     const { container } = render(<Wordmark name="Team" />)
-    expect((container.firstElementChild as HTMLElement).className).toContain('max-md:tracking-[calc(var(--wordmark-tracking)*0.5)]')
+    expect((container.firstElementChild as HTMLElement).className).toContain('max-md:tracking-normal')
   })
 })

@@ -19,7 +19,7 @@ export function Header({ projectName, panelHidden = false, onOpenNav }: { projec
   const t = useT()
 
   return (
-    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-1 py-1 pl-1 pr-2 md:gap-2 md:pl-5 md:pr-3">
+    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-1 py-1 pl-1 pr-2 max-[380px]:gap-0 max-[380px]:pr-1 md:gap-2 md:pl-5 md:pr-3">
       <div className="flex min-w-0 items-center gap-1">
         {/* A phone opens the menu with it; from 768 px it only appears while the side panel is hidden, and shows it again. */}
         <Button variant="ghost" size="icon" data-testid="nav-open" aria-label={panelHidden ? t('sidebar.show') : t('nav.open')} className={cn("relative h-9 w-9 after:absolute after:-inset-[5px] after:content-[''] md:h-11 md:w-11 md:after:hidden", !panelHidden && 'md:hidden')} onClick={onOpenNav}>

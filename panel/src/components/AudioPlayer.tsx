@@ -68,7 +68,7 @@ export function AudioPlayer({ src, name, className, preload = 'metadata', onErro
           if (el) el.currentTime = Number(e.target.value)
           setTime(Number(e.target.value))
         }}
-        className="h-1 min-w-0 flex-1 accent-[var(--color-accent)]"
+        className="h-1 min-w-0 flex-1 accent-[var(--color-accent)] max-md:h-11 pointer-coarse:h-11"
       />
       <span className="shrink-0 pr-1 text-xs tabular-nums text-muted">
         {mmss(time)} / {mmss(length)}

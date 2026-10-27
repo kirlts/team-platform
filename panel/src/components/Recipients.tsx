@@ -13,7 +13,7 @@ const chip = 'inline-flex min-h-5 max-w-full items-center gap-1 rounded-full py-
  * rows as they need (UD-016: no ellipsis). `children` are extra items in the same row. `plain` leaves out the
  * avatars: a row of a list already has the sender's, and a sphere for each recipient doubles the marks (J2-A-12).
  */
-export function Recipients({ ids, max, className, children, plain = false }: { ids: string[]; max?: number; className?: string; children?: React.ReactNode; plain?: boolean }) {
+export function Recipients({ ids, max, className, children, plain = false, touch = false }: { ids: string[]; max?: number; className?: string; children?: React.ReactNode; plain?: boolean; /** The sheet of a message: the «+N» is a target of 44 px on a phone. */ touch?: boolean }) {
   const t = useT()
   const { memberName } = useLookups()
   const named = ids.filter((id) => memberName(id))
@@ -36,7 +36,7 @@ export function Recipients({ ids, max, className, children, plain = false }: { i
         <li>
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-10 pl-2 font-semibold hover:bg-accent-soft/70 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-3', plain && 'min-h-0 px-0 hover:bg-transparent hover:underline')}>
+              <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-10 pl-2 font-semibold hover:bg-accent-soft/70 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-3', plain && 'min-h-0 px-0 hover:bg-transparent hover:underline', touch && 'max-md:min-h-11 max-md:px-3 pointer-coarse:min-h-11')}>
                 {t('recipients.andMore', { n: hidden.length })}
               </button>
             </PopoverTrigger>

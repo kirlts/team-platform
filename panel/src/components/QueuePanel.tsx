@@ -6,7 +6,6 @@ import { ExecutionRuns } from '@/components/ExecutionRuns'
 import { RotateCw } from '@/components/icons'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
-import { seconds } from '@/components/Timing'
 import { TraceTree } from '@/components/TraceTree'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
@@ -67,6 +66,7 @@ export function QueuePanel() {
 /** The `execute` jobs running now: the message, the step they are in and how long they have been going (UD-262). */
 function RunningExecutions() {
   const t = useT()
+  const { duration } = useFormat()
   const running = useRunningExecutions().data ?? []
   if (running.length === 0) return null
   return (
@@ -82,7 +82,7 @@ function RunningExecutions() {
           )}
           <span data-execution-phase>{j.phase ? t(`timing.phase.${j.phase}` as MessageKey) : t('timing.running')}</span>
           <span data-execution-elapsed className="tabular-nums text-muted">
-            {seconds(Math.max(0, Date.now() - Date.parse(j.run_at)))}
+            {duration(Math.max(0, Date.now() - Date.parse(j.run_at)))}
           </span>
         </li>
       ))}

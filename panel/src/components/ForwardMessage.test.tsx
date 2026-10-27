@@ -57,30 +57,37 @@ function Mount({ children }: { children: React.ReactNode }) {
 }
 
 describe('the window to forward a message (UD-272)', () => {
-  it('lists every active member but the one who forwards, an agent included, and keeps the button off saying what is missing', async () => {
+  it('lists every active member but the one who forwards, an agent included, and says what is missing under its field only after trying', async () => {
     render(<Mount><ForwardMessage messageId="m1" /></Mount>)
     fireEvent.click(screen.getByTestId('forward-open'))
     const select = await screen.findByTestId('forward-member')
     await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Elegir', 'Ana', 'Claude']))
     const submit = screen.getByTestId('forward-submit') as HTMLButtonElement
-    expect(submit.disabled).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('Faltan el miembro y el motivo')
-    fireEvent.change(select, { target: { value: '3' } })
-    expect(screen.getByRole('status').textContent).toBe('Falta el motivo')
-    fireEvent.change(screen.getByTestId('forward-comment'), { target: { value: '   ' } })
-    expect(submit.disabled).toBe(true)
-    expect(submit.getAttribute('aria-describedby')).toBe(screen.getByRole('status').id)
-    fireEvent.change(screen.getByTestId('forward-comment'), { target: { value: 'Investiga y recomiéndame.' } })
+    // A window that has just opened says nothing is missing: nothing was tried.
     expect(submit.disabled).toBe(false)
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(submit)
+    expect(screen.getByTestId('forward-member-error').textContent).toBe('Falta el miembro')
+    expect(screen.getByTestId('forward-comment-error').textContent).toBe('Falta el motivo')
+    expect(posted.length).toBe(0)
+    fireEvent.change(select, { target: { value: '3' } })
+    expect(screen.queryByTestId('forward-member-error')).toBeNull()
+    expect(screen.getByTestId('forward-comment-error').textContent).toBe('Falta el motivo')
+    fireEvent.change(screen.getByTestId('forward-comment'), { target: { value: '   ' } })
+    expect(screen.getByTestId('forward-comment-error')).toBeTruthy()
+    fireEvent.change(screen.getByTestId('forward-comment'), { target: { value: 'Investiga y recomiéndame.' } })
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('without a member the button stays off with a reason written', async () => {
+  it('without a member the send is not made and the member field says it', async () => {
+    posted.length = 0
     render(<Mount><ForwardMessage messageId="m1" /></Mount>)
     fireEvent.click(screen.getByTestId('forward-open'))
     fireEvent.change(await screen.findByTestId('forward-comment'), { target: { value: 'Mira esto.' } })
-    expect((screen.getByTestId('forward-submit') as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('Falta el miembro')
+    fireEvent.click(screen.getByTestId('forward-submit'))
+    expect(screen.getByTestId('forward-member-error').textContent).toBe('Falta el miembro')
+    expect(screen.queryByTestId('forward-comment-error')).toBeNull()
+    expect(posted.length).toBe(0)
   })
 
   it('sends the member and the trimmed reason, and closes', async () => {

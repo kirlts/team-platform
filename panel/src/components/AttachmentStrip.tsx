@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useFormat, useT } from '@/i18n'
-import { toGalleryItems, type AttachmentScope } from '@/lib/gallery'
+import { toGalleryItems, type AttachmentScope, type GalleryItem } from '@/lib/gallery'
 import type { Attachment } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 import { MediaGalleryDialog } from './MediaGallery'
@@ -13,7 +13,7 @@ import { Thumb } from './Thumb'
  * the same everywhere. The strip stays in one row (UD-017) unless it is `named`. With `named`, every item is a row of its own with its name beside it, so no thumbnail is left
  * without one and each name sits next to what it names (J4-flow-05, J5-flow-reply-close: one name for two pictures).
  */
-export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, named = false, className }: { items: readonly Attachment[]; scope?: AttachmentScope; max?: number; px?: number; named?: boolean; className?: string }) {
+export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, named = false, className, renderAction }: { items: readonly Attachment[]; scope?: AttachmentScope; max?: number; px?: number; named?: boolean; className?: string; /** What acts on one file, after its download (the «Quitar» of the author's own reply). */ renderAction?: (item: GalleryItem) => ReactNode }) {
   const t = useT()
   const format = useFormat()
   const [open, setOpen] = useState<number | null>(null)
@@ -39,6 +39,7 @@ export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, na
               </button>
             )}
             {named && <DownloadLink href={g.download} name={g.name} />}
+            {named && renderAction?.(g)}
           </li>
         ))}
         {hidden > 0 && (

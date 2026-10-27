@@ -16,7 +16,6 @@ import { LoadState } from '@/components/LoadState'
 import { useLookups } from '@/components/lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { Page } from '@/components/Page'
-import { PageHeader } from '@/components/PageHeader'
 import { ReviewPending } from '@/components/ReviewPending'
 import { AgentWork } from '@/components/AgentWork'
 import { Recipients } from '@/components/Recipients'
@@ -35,6 +34,18 @@ import { parseTemplateFields, remapFields } from '@/lib/template'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 import { useDesktop } from '@/lib/useDesktop'
 
+/** The way back to the list: a target of 44 px on a phone and never under 24 (WCAG 2.5.8). */
+function BackLink() {
+  const t = useT()
+  return (
+    <div className="flex items-center">
+      <Link to="/messages" className="inline-flex min-h-6 items-center gap-1 text-xs text-muted hover:text-fg max-md:min-h-11 pointer-coarse:min-h-11">
+        <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
+      </Link>
+    </div>
+  )
+}
+
 export function MessageDetail() {
   const t = useT()
   const { id } = useParams()
@@ -42,11 +53,18 @@ export function MessageDetail() {
   const message = useMessage(id)
   const undo = useUndoStack()
 
+  // The waiting and failing states keep the frame of the sheet (the way back, the two columns), so nothing is rearranged when the message arrives (B2).
   if (message.isPending) {
     return (
-      <Page cols={12}>
-        <div className="glass leaf">
-          <LoadState query={message} rows={2} />
+      <Page cols="fill">
+        <BackLink />
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_clamp(26rem,28%,28rem)]">
+          <div className="glass leaf">
+            <LoadState query={message} rows={3} />
+          </div>
+          <div className="glass leaf max-md:hidden">
+            <LoadState query={message} rows={2} />
+          </div>
         </div>
       </Page>
     )
@@ -54,8 +72,8 @@ export function MessageDetail() {
   if (message.isError) {
     const missing = message.error instanceof TeamApiError && message.error.status === 404
     return (
-      <Page cols={12}>
-        <PageHeader title={t('nav.messages')} />
+      <Page cols="fill">
+        <BackLink />
         {missing ? (
           <EmptyState
             alert
@@ -69,8 +87,10 @@ export function MessageDetail() {
             {t('detail.missing')}
           </EmptyState>
         ) : (
-          <div className="glass leaf">
-            <LoadState query={message} />
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_clamp(26rem,28%,28rem)]">
+            <div className="glass leaf">
+              <LoadState query={message} />
+            </div>
           </div>
         )}
       </Page>
@@ -164,14 +184,35 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       })
       .catch((err) => notices.show({ text: errorText(err) }))
 
+  /** The count of the thread: a label and its number. */
+  const counter = (
+    <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted">
+      <span>{t('replies.title')}</span>
+      <Badge tone="neutral" className="tabular-nums">
+        {m.replies.length}
+      </Badge>
+    </span>
+  )
+  /** Reenviar and Borrar: with their words beside the title, as icons with a name on a phone, where the row of the way back has room for them. */
+  const actions = (
+    <>
+      {m.status !== 'closed' && <ForwardMessage messageId={m.id} iconOnly={!desktop} />}
+      {canDelete && (
+        <Button size={desktop ? 'sm' : 'icon'} variant="ghost" className="hover:text-danger max-md:h-11 max-md:w-11" aria-label={t('detail.delete')} title={t('detail.delete')} disabled={del.isPending} onClick={() => void remove()}>
+          <Trash2 size={14} aria-hidden /> {desktop && t('detail.delete')}
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <Page cols="fill">
-      {/* The top row keeps the way back and what undoes; the actions on the message sit in the title row (UD-309). */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
+      {/* The top row keeps the way back and what undoes; the actions on the message sit in the title row (UD-309). On a phone they come up to this row as icons of 44 px, so the title is the second line and the text of the message starts higher. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <Link to="/messages" className="inline-flex min-h-6 items-center gap-1 text-xs text-muted hover:text-fg max-md:min-h-11 pointer-coarse:min-h-11">
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
         </Link>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           {/* The thread and the message come before the field (the page is about 1.9 windows long on a phone): a way to it from the first screen. */}
           {!desktop && canReply && (
             <a
@@ -180,43 +221,29 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                 e.preventDefault()
                 document.getElementById('reply-field')?.focus()
               }}
-              className="btn btn-ghost h-8 gap-1 px-4 text-sm" /* the same face as «Reenviar» and «Borrar»: one hierarchy, one look */
+              className="btn btn-ghost h-8 gap-1 px-4 text-sm max-md:h-11" /* the same face as «Reenviar» and «Borrar»: one hierarchy, one look */
             >
               <MessageSquare size={14} aria-hidden /> {t('reply.jump')}
             </a>
           )}
+          {!desktop && actions}
           {/* The author of a reply edits it here too (UD-253): the history is theirs as well. */}
           {(canEdit || (!!me && m.replies.some((r) => r.author_id === me.id))) && <UndoButtons stack={undo} compact={!desktop} />}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        {/* Below 768 px the block dissolves into the row (display: contents): the number and the title share the first line and the count drops
-            to the line of Reenviar and Borrar. Beside the count, a long title was squeezed into a column of seven lines on a phone. */}
-        <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2 max-md:contents">
+        <div className="flex min-w-0 flex-1 basis-[16rem] items-baseline gap-2">
           {/* The number of the message, as a tracker shows it next to the title (#115): the team refers to messages by it. */}
-          <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted max-md:self-start max-md:pt-1.5 md:text-base">#{m.id}</span>
+          <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted md:text-base">#{m.id}</span>
           {/* The title takes the whole row while its field is open (CSS, in the same frame: no jump); otherwise the reply counter sits right after its last word. */}
-          <h1 className="min-w-0 has-[textarea]:flex-1 max-md:flex-1 max-md:basis-[calc(100%-4rem)]">
+          <h1 className="min-w-0 flex-1 has-[textarea]:mr-3 md:flex-none md:has-[textarea]:flex-1">
             <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
           </h1>
-          {/* The count of the thread, next to the title: the thread itself is the narrow column on the right. */}
-          {/* On a phone the counter takes its own line: beside the title it left the title a column of three words (six lines for one title). */}
-          <span data-testid="reply-count" className="inline-flex shrink-0 items-center gap-1.5 self-center text-sm text-muted max-md:basis-full">
-            <span>{t('replies.title')}</span>
-            <Badge tone="neutral" className="tabular-nums">
-              {m.replies.length}
-            </Badge>
-          </span>
+          {/* The count of the thread, next to the title on a wide window; on a phone it joins the line of state and author below. */}
+          {desktop && counter}
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-x-3">
-          {m.status !== 'closed' && <ForwardMessage messageId={m.id} />}
-          {canDelete && (
-            <Button size="sm" variant="ghost" className="hover:text-danger" disabled={del.isPending} onClick={() => void remove()}>
-              <Trash2 size={14} aria-hidden /> {t('detail.delete')}
-            </Button>
-          )}
-        </div>
+        {desktop && <div className="ml-auto flex shrink-0 items-center gap-x-3">{actions}</div>}
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_clamp(26rem,28%,28rem)]">
@@ -248,6 +275,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <time dateTime={m.created_at} className="tabular-nums">
               {format.stamp(m.created_at)}
             </time>
+            {!desktop && counter}
             {m.edited_at && (
               <time dateTime={m.edited_at} data-testid="edited-mark" className="tabular-nums">
                 {t('published.edited', { when: format.stamp(m.edited_at) })}
@@ -257,7 +285,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             {canEdit ? (
             <RecipientsEditor compact ids={m.assignee_ids} authorId={m.author_id} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
           ) : (
-            <Recipients ids={m.assignee_ids} max={desktop ? 4 : 2} />
+            <Recipients ids={m.assignee_ids} max={desktop ? 4 : 2} touch />
           )}
           </div>
 
@@ -281,7 +309,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                           title={t('media.removeShort')}
                           disabled={patchMessage.isPending}
                           onClick={() => void removeAttachment(item.id)}
-                          className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 font-semibold text-muted hover:bg-hover hover:text-danger disabled:opacity-50"
+                          className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 font-semibold text-muted hover:bg-hover hover:text-danger disabled:opacity-50 max-md:min-h-11 max-md:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                         >
                           <X size={13} aria-hidden /> {t('media.removeShort')}
                         </button>

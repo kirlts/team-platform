@@ -36,7 +36,7 @@ export function MemberPicker({
           type="button"
           aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
           title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
-          className={`hit inline-flex items-center justify-center gap-1 rounded-full font-semibold text-muted hover:bg-hover hover:text-accent ${compact ? 'min-h-6 px-1.5 text-xs' : 'min-h-8 px-3 text-sm pointer-coarse:min-h-11'}`}
+          className={`hit inline-flex items-center justify-center gap-1 rounded-full font-semibold text-muted hover:bg-hover hover:text-accent ${compact ? 'min-h-6 px-1.5 text-xs max-md:min-h-11 max-md:px-3 pointer-coarse:min-h-11' : 'min-h-8 px-3 text-sm pointer-coarse:min-h-11'}`}
         >
           {hiddenCount > 0 ? `+${hiddenCount}` : (
             <>

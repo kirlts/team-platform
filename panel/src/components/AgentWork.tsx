@@ -2,8 +2,7 @@ import { Check, Clock, Ring, X } from '@/components/icons'
 import { useLookups } from '@/components/lookups'
 import { Meter } from '@/components/Meter'
 import { RetryButton } from '@/components/RetryExecute'
-import { seconds } from '@/components/Timing'
-import { useT, type MessageKey } from '@/i18n'
+import { useFormat, useT, type MessageKey } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { workSteps, type StepKey, type StepState } from '@/lib/work-steps'
 import type { MessageDetail } from '@team-platform/client'
@@ -35,6 +34,7 @@ export function AgentWork({ message }: { message: MessageDetail }) {
 
 function Work({ message }: { message: MessageDetail }) {
   const t = useT()
+  const { duration } = useFormat()
   const timing = useMessageTiming(message.id)
   const retryRun = useRetryExecute(message.id)
   const d = timing.data
@@ -53,7 +53,7 @@ function Work({ message }: { message: MessageDetail }) {
           <li key={s.key} data-work-step={s.key} data-state={s.state} className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-0.5">
             <Mark state={s.state} />
             <span className={cn('min-w-0 break-words', s.state === 'pending' && 'text-muted')}>{t(STEP_LABEL[s.key])}</span>
-            <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])}</span>
+            <span className="text-right tabular-nums text-muted">{s.ms !== null && s.state !== 'pending' ? duration(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])}</span>
             {(s.state === 'failed' || (work.partial && s.repeats !== null)) && (
               <span className="col-start-2 col-end-4 flex flex-wrap gap-x-3 text-xs text-muted">
                 {s.state === 'failed' && <span data-work-failed className="text-danger">{t('timing.state.failed')}</span>}

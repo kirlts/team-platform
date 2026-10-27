@@ -1,7 +1,7 @@
-// UD-275 amended by UD-280: while a change waits for review the sheet shows one line of state and no actions; the review is a reply that mentions Claude.
+// UD-275 amended by UD-280: while a change waits for review the sheet shows one line of state and one control that opens the reply to the agent; the review itself is a reply that mentions Claude.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
@@ -70,24 +70,39 @@ describe('the line «Cambio listo para revisar» (UD-275, UD-280)', () => {
   })
 
   for (const who of ['editor', 'member'] as const) {
-    it(`a ${who} sees one short line and no buttons or links`, async () => {
+    it(`a ${who} sees the line and one control: reply to the agent, with the agent already mentioned`, async () => {
       role = who
       calls.length = 0
+      const asked: string[] = []
+      const listen = (e: Event) => asked.push((e as CustomEvent<{ memberId: string }>).detail.memberId)
+      window.addEventListener('team:mention-request', listen)
       render(<Mount><ReviewPending message={message()} /></Mount>)
       const block = await screen.findByTestId('review-pending')
       expect(screen.getByTestId('review-reason').textContent).toBe('Cambio listo para revisar')
-      expect(block.querySelectorAll('button, a, input, textarea').length).toBe(0)
-      expect(block.textContent).toBe('Cambio listo para revisar')
+      const reply = await screen.findByTestId('review-reply')
+      expect(reply.textContent?.trim()).toBe('Responder a Claude')
+      // The review is a reply, not a set of buttons: no «Entregar», «Pedir cambios» or «Descartar», and nothing is posted by pressing it.
+      expect(block.querySelectorAll('button').length).toBe(1)
+      fireEvent.click(reply)
+      expect(asked).toEqual(['3'])
       expect(calls).toEqual([])
+      window.removeEventListener('team:mention-request', listen)
     })
   }
 
-  it('a delivery approved by a reply shows its progress, still without actions', async () => {
+  it('a failed delivery is retried from the thread: no control to reply here', async () => {
+    role = 'member'
+    render(<Mount><ReviewPending message={message({ state: 'failed' })} /></Mount>)
+    await screen.findByTestId('review-pending')
+    await waitFor(() => expect(screen.queryByTestId('review-reply')).toBeNull())
+  })
+
+  it('a delivery approved by a reply shows its progress', async () => {
     role = 'editor'
     render(<Mount><ReviewPending message={message({ delivering_job_id: '88' })} /></Mount>)
     await screen.findByTestId('review-progress')
     act(() => store.progress({ job_id: '88', percent: 50, phrase: 'Entrega: despliegue' }))
     await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Entrega: despliegue'))
-    expect(screen.getByTestId('review-pending').querySelectorAll('button').length).toBe(0)
+    expect(screen.queryByTestId('review-reply')).toBeNull() // a delivery in course is not answered: it is followed
   })
 })

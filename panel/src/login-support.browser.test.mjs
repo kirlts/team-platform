@@ -62,6 +62,8 @@ test('while the sign-in waits for the server the entry says so: the button reads
     const button = page.getByRole('button', { name: 'Entrando' })
     await button.waitFor()
     assert.equal(await button.isDisabled(), true, 'the button cannot be pressed again')
+    assert.equal(await button.getAttribute('disabled'), null, 'it is not dimmed as a disabled gel: the word is what there is to read')
+    assert.equal(await button.evaluate((el) => getComputedStyle(el).opacity), '1', 'the word keeps its contrast')
     assert.equal(await page.getByLabel('Correo').getAttribute('readonly'), '', 'the email stops taking text')
     assert.equal(await page.getByLabel('Contraseña').getAttribute('readonly'), '', 'the password stops taking text')
     assert.equal(await page.locator('form').getAttribute('aria-busy'), 'true')
@@ -73,3 +75,20 @@ test('while the sign-in waits for the server the entry says so: the button reads
     await context.close()
   }
 })
+
+test('the fields of the entry keep their groups together: the space between two groups is more than the one inside a group, and less than twice that of the card (E-2)', async () => {
+  const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+  try {
+    const page = await context.newPage()
+    await page.goto(panel.origin)
+    const email = await page.getByLabel('Correo').boundingBox()
+    const emailLabel = await page.locator('label[for="login-email"]').boundingBox()
+    const passwordLabel = await page.locator('label[for="login-password"]').boundingBox()
+    const inside = email.y - (emailLabel.y + emailLabel.height)
+    const between = passwordLabel.y - (email.y + email.height)
+    assert.ok(between > inside * 2 && between <= 32, `${inside} px inside a group and ${between} px between two groups`)
+  } finally {
+    await context.close()
+  }
+})
+

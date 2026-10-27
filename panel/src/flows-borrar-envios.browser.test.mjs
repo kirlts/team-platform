@@ -1,4 +1,4 @@
-// UD-240 (H-3702) seen from the panel: a send is deleted for real from the drawer of Inicio with one click and no step that
+// UD-240 (H-3702), UD-253 seen from the panel: a send is deleted from the drawer of Inicio with one click, no step that
 // confirms it (UD-253); a published send has «Borrar envío», which keeps its messages, and, in the menu beside it, «Borrar envío y mensajes», which takes them too (one control per block, I4). Against dev-server.mjs serving
 // panel/dist with auto-publication on: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
@@ -118,6 +118,57 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
       await settled(page)
       assert.equal((await api(page, '/inputs?mine=1&order=desc')).items.length, 0)
       assert.equal(await page.getByTestId('send-drawer').count(), 0, 'the released analysis does not bring the deleted send back')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('«Borrar envío» offers Deshacer and the send comes back in the drawer with its message (UD-253)', async () => {
+    const { page, context } = await session()
+    try {
+      const title = 'Revisar el orden de las áreas en la barra lateral'
+      await send(page, `${title}.`)
+      const drawer = page.getByTestId('send-drawer')
+      await drawer.getByTestId('published-message').first().waitFor({ timeout: 20000 })
+      await feed(page).getByRole('radio', { name: 'Todos' }).click()
+      await feed(page).getByText(title, { exact: true }).waitFor()
+      const before = (await api(page, '/inputs?mine=1&order=desc')).items.length
+
+      await drawer.getByTestId('delete-send').click()
+      const notice = page.locator('[data-notice]')
+      await notice.getByText('Envío borrado', { exact: true }).waitFor()
+      await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
+      assert.equal((await api(page, '/inputs?mine=1&order=desc')).items.length, before - 1)
+
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
+      await page.getByTestId('send-drawer').waitFor()
+      await page.getByTestId('send-drawer').getByTestId('published-message').first().waitFor({ timeout: 10000 })
+      assert.equal((await api(page, '/inputs?mine=1&order=desc')).items.length, before, 'the send is in the list again')
+      await feed(page).getByText(title, { exact: true }).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('«Borrar envío y mensajes» offers Deshacer too: the message leaves the feed and comes back with its send', async () => {
+    const { page, context } = await session()
+    try {
+      const title = 'Confirmar que el aviso de borrado se puede deshacer'
+      await send(page, `${title}.`)
+      const drawer = page.getByTestId('send-drawer')
+      await drawer.getByTestId('published-message').first().waitFor({ timeout: 20000 })
+      await feed(page).getByRole('radio', { name: 'Todos' }).click()
+      await feed(page).getByText(title, { exact: true }).waitFor()
+
+      await drawer.getByTestId('delete-send-more').click()
+      await page.getByTestId('delete-send-all').click()
+      const notice = page.locator('[data-notice]')
+      await notice.getByText('Envío y 1 mensaje borrados', { exact: true }).waitFor()
+      await feed(page).getByText(title, { exact: true }).waitFor({ state: 'detached' })
+
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
+      await feed(page).getByText(title, { exact: true }).waitFor({ timeout: 10000 })
+      await page.getByTestId('send-drawer').waitFor()
     } finally {
       await context.close()
     }

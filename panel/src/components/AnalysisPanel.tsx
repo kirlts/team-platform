@@ -1,6 +1,7 @@
 import { AlertTriangle, ChevronDown, Plus, RotateCw, Trash2, X } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDesktop } from '@/lib/useDesktop'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
@@ -64,7 +65,7 @@ function useDiscard(input: InputRecord, onDiscarded?: (restore: () => Promise<un
  * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
  * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
-export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { input: InputRecord; onClose: () => void; onDiscarded?: (restore: () => Promise<unknown>) => boolean; onDeleted?: (id: string) => void }) {
+export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { input: InputRecord; onClose: () => void; onDiscarded?: (restore: () => Promise<unknown>) => boolean; onDeleted?: (id: string, back?: boolean) => void }) {
   const t = useT()
   const { has } = useI18n()
   const undo = useUndo()
@@ -81,6 +82,16 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
   const percent = sendPercent(input, progress)
+  const box = useRef<HTMLElement>(null)
+  const desktop = useDesktop()
+  // A proposal that arrives while its box is under the fold on a phone is brought into view: «Enviar N mensajes» sticks to the bottom of the screen only while
+  // the box is on it, and nothing else says the review is ready (I-2).
+  const ready = input.status === 'proposed'
+  useEffect(() => {
+    const el = box.current
+    if (!ready || desktop || !el) return
+    if (el.getBoundingClientRect().top > window.innerHeight - 160) el.scrollIntoView({ block: 'start' })
+  }, [ready, desktop])
   // What can be redone is also work the new analysis would take: asking is skipped only when the history is empty on both sides (J3-B-05).
   const edited = undo.undoCount > 0 || undo.redoCount > 0
 
@@ -95,6 +106,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
   return (
     // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
     <section
+      ref={box}
       aria-label={t('analysis.title')}
       data-testid="analysis-box"
       data-ui-stage={input.status === 'proposed' ? 'analysis' : undefined}
@@ -104,8 +116,8 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
     >
       {/* «Volver a analizar» keeps the right edge of the first row whatever the history has: the left group wraps inside its own space and never pushes it down (J2-B-14).
           When the two groups do not fit together (a phone) the right one drops to its own row, at the right edge, and nothing is drawn over anything (I1). */}
-      <div className="flex min-h-8 flex-wrap items-start justify-between gap-x-2 gap-y-1">
-        <div className="flex min-h-8 min-w-min grow basis-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex min-h-8 flex-wrap items-start justify-between gap-x-2 gap-y-1 max-md:flex-col max-md:items-start">
+        <div className="flex min-h-8 min-w-min grow basis-0 flex-wrap items-center gap-x-3 gap-y-1 max-md:grow-0 max-md:basis-auto">
           <div className="flex items-center gap-2">
             <h2>{t('analysis.title')}</h2>
             <AiMark />
@@ -114,7 +126,8 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
           {/* The history beside the title and «Volver a analizar» alone at the right edge: the step that drops the proposal is not one of the pair that takes a step back (J3-B-27); neither moves the other (J2-B-15). */}
           {input.status === 'proposed' && <UndoButtons stack={undo} />}
         </div>
-        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        {/* On a phone the actions sit under the title, at the column's edge (their padding is taken back), not alone at the right with air above them (I-4). */}
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 max-md:ml-[-1rem] max-md:justify-start">
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
@@ -339,7 +352,9 @@ function ProposalEditor({
   )
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    // On a phone the editor leaves its own box (`contents`): the bar of actions below sticks inside the whole box of the analysis and not inside this one,
+    // which starts lower and would leave «Enviar» under the fold with the box in view (I-2).
+    <div className="flex min-h-0 flex-1 flex-col gap-3 max-md:contents">
       {/* The system did not publish this proposal by itself (UD-070): the reason is said, and publishing by hand is the way on. */}
       {input.error_code === 'publish_blocked' && (
         <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">
@@ -376,7 +391,7 @@ function ProposalEditor({
       {/* On a phone the actions stay on screen whatever the length of the list (J1-B-29). */}
       <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-4 max-md:-mb-4 max-md:rounded-b-lg max-md:border-t max-md:border-line max-md:bg-surface max-md:px-4 max-md:py-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Button variant="ghost" className="hit text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
+          <Button variant="ghost" className="hit -ml-5 text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
             <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
           </Button>
           {discardedCount > 0 && (
@@ -476,7 +491,7 @@ function ProposalRow({
         {(templates.data?.length ?? 0) > 1 && template && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={t('template.pick', { name: template.name })} className="hit inline-flex max-w-full items-center gap-1 rounded-md px-1.5 text-left text-xs font-semibold text-muted hover:bg-hover hover:text-accent">
+              <button type="button" aria-label={t('template.pick', { name: template.name })} className="hit inline-flex max-w-full items-center gap-1 rounded-md px-1.5 text-left text-xs font-semibold text-muted hover:bg-hover hover:text-accent pointer-coarse:min-h-11">
                 {template.name}
                 <ChevronDown size={12} aria-hidden className="shrink-0" />
               </button>

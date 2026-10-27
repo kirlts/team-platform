@@ -20,6 +20,7 @@ export function Login() {
   const [pending, setPending] = useState(false)
 
   const submit = async () => {
+    if (pending) return
     const missing: Partial<Record<Field, string>> = {}
     if (!email.trim()) missing.email = t('login.missingEmail')
     if (!password) missing.password = t('login.missingPassword')
@@ -60,7 +61,7 @@ export function Login() {
           </label>
           <Input id="login-email" type="email" autoComplete="username" autoFocus readOnly={pending} aria-invalid={errors.email !== undefined ? true : undefined} aria-describedby={errors.email ? 'login-email-error' : undefined} className={fieldClass('email')} value={email} onChange={(e) => setEmail(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
-          <div className="-mt-1 min-h-6">
+          <div className="-mt-2 min-h-5">
             {errors.email && (
               <p id="login-email-error" role="alert" className="text-sm text-danger">
                 {errors.email}
@@ -74,7 +75,7 @@ export function Login() {
           </label>
           <Input id="login-password" type="password" autoComplete="current-password" readOnly={pending} aria-invalid={errors.password !== undefined ? true : undefined} aria-describedby={errors.password ? 'login-password-error' : undefined} className={fieldClass('password')} value={password} onChange={(e) => setPassword(e.target.value)} />
           {/* The line is kept free under the field, so the reason appears without moving the card. */}
-          <div className="-mt-1 min-h-6">
+          <div className="-mt-2 min-h-5">
             {errors.password && (
               <p id="login-password-error" role="alert" className="text-sm text-danger">
                 {errors.password}
@@ -82,7 +83,8 @@ export function Login() {
             )}
           </div>
         </div>
-        <Button type="submit" variant="primary" size="lg" className="justify-center" disabled={pending}>
+        {/* Not `disabled`: a disabled gel is dimmed and the word «Entrando» is the one thing to read while it waits (E-1). The submit is ignored in `submit`. */}
+        <Button type="submit" variant="primary" size="lg" className="justify-center" aria-disabled={pending || undefined}>
           {pending ? t('login.entering') : t('login.enter')}
         </Button>
       </form>

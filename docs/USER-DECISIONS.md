@@ -1096,6 +1096,8 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** Filas H-3714 a H-3718. `scripts/vps-check.mjs` borra su envío de prueba en vez de cancelarlo: diecinueve comprobaciones habían dejado diecinueve envíos «Prueba de punta a punta» en los datos del dueño.
 **Condiciones de reversión:** Cada punto se revierte por separado; la confirmación vuelve como paso en el lugar de cada control.
 
+**Enmienda 2026-10-27 (sesión, juez de Entrada e Inicio, I-8):** borrar un envío es reversible, como borrar un mensaje. `DELETE /inputs/:id?confirm=true` marca el envío borrado (`inputs.deleted_at`, migración 0041) y lo oculta de toda lectura; `POST /inputs/:id/restore` lo trae de vuelta con su propuesta, sus adjuntos y los mensajes que se fueron con él. El aviso de «Borrar envío» y de «Borrar envío y mensajes» ofrece Deshacer. El borrado real queda en `purge=true`. Los archivos de un envío borrado se conservan hasta que se purga. Sin confirmación, como antes.
+
 ## [UD-254] Team Platform es un framework; el anfitrión lo aloja en su consola y reemplaza la Mesa; Claude es un miembro con harness
 
 **Fecha:** 2026-10-22

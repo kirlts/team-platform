@@ -86,7 +86,7 @@ describe('the proposal block (I1, I4, I5)', () => {
         assert.ok(box.height < line * 2 + 16, `«Enviar 3 mensajes» is split over two lines: ${box.height} px high`)
         const actions = await region.locator('[data-actions]').boundingBox()
         assert.ok(actions.x + actions.width - (box.x + box.width) <= 24, `«Enviar 3 mensajes» is ${actions.x + actions.width - (box.x + box.width)} px from the right edge (${viewport.width} px)`)
-        // The bar of text waits as glass while it is empty, so the gel is only the one of the proposal; with something to send it is the gel again.
+        // The bar of text is glass while it is empty, so the gel is only the one of the proposal; with something to send it is the gel (DISENO.md).
         const compose = page.getByTestId('compose-send')
         assert.match(await compose.getAttribute('class'), /btn-glass/, 'two gel buttons in the view')
         await bar(page).fill('Otra cosa para enviar')
@@ -177,3 +177,84 @@ describe('Inicio when the lists do not load (I7)', () => {
     }
   })
 })
+
+describe('the proposal on a phone and the bar of text at rest (I-1 to I-4, I-6)', () => {
+  test('«Enviar N mensajes» is on the screen as soon as the proposal is, and the buttons of the box are 44 px (I-1, I-2)', async () => {
+    const { page, context } = await session('bruno', PHONE)
+    try {
+      await bar(page).fill('Corregir el desalineado del sidebar.\n\nAgregar la sincronización con WhatsApp.')
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      await page.getByRole('button', { name: /^Abrir el mensaje 1:/ }).waitFor({ timeout: 30000 })
+      await settled(page)
+      const send = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
+      const box = await send.boundingBox()
+      assert.ok(box.y >= 0 && box.y + box.height <= PHONE.height, `«Enviar» is off the screen: ${JSON.stringify(box)}`)
+      const small = await page.evaluate(() => [...document.querySelectorAll('main button, main a, main [role=radio], main [role=button]')].filter((e) => {
+        const r = e.getBoundingClientRect()
+        if (!(r.width > 0 && r.height > 0)) return false
+        const after = getComputedStyle(e, '::after')
+        const reach = after.position === 'absolute' ? [parseFloat(after.width), parseFloat(after.height)] : [0, 0]
+        return Math.max(r.height, reach[1]) < 43.5 || Math.max(r.width, reach[0]) < 43.5
+      }).map((e) => `${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)} ${(e.getAttribute('aria-label') || e.textContent).trim().slice(0, 40)}`))
+      assert.deepEqual(small.filter((x) => !/^\d+x\d+ Ir al contenido/.test(x)), [], `targets under 44 px: ${small.join(' | ')}`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the actions of a published send are 44 px too, and «Borrar envío» with its arrow', async () => {
+    const { page, context } = await session('bruno', PHONE)
+    try {
+      await panel.control.reset()
+      await bar(page).fill('Un envío que se publica solo.')
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      await page.getByRole('button', { name: /^Abrir el mensaje 1:/ }).waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).click()
+      const drawer = page.getByTestId('send-drawer')
+      await drawer.getByTestId('delete-send').waitFor({ timeout: 20000 })
+      await settled(page)
+      const names = ['delete-send', 'delete-send-more']
+      for (const id of names) {
+        const b = await drawer.getByTestId(id).first().boundingBox()
+        if (b) assert.ok(b.height >= 43.5 && b.width >= 43.5, `${id} is ${b.width}x${b.height}`)
+      }
+      const reprocess = await drawer.getByRole('button', { name: 'Reprocesar' }).boundingBox()
+      assert.ok(reprocess.height >= 43.5, `Reprocesar is ${reprocess.height} px high`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('«Descartar envío» and «Volver a analizar» start where the column starts (I-3, I-4)', async () => {
+    for (const viewport of [DESKTOP, PHONE]) {
+      const { page, context } = await session('bruno', viewport)
+      try {
+        await sendAndReview(page)
+        const region = page.getByRole('region', { name: 'Análisis' })
+        const left = (await region.getByRole('heading', { name: 'Análisis' }).boundingBox()).x
+        const discard = await region.getByRole('button', { name: 'Descartar envío' }).locator('svg').first().boundingBox()
+        assert.ok(Math.abs(discard.x - left) <= 3, `the icon of «Descartar envío» starts ${discard.x - left} px from the column (${viewport.width} px)`)
+        if (viewport.width < 768) {
+          const again = await region.getByRole('button', { name: 'Volver a analizar' }).locator('svg').first().boundingBox()
+          assert.ok(Math.abs(again.x - left) <= 3, `«Volver a analizar» starts ${again.x - left} px from the column on a phone`)
+        }
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('at rest the bar of text has a glass «Enviar» (nothing to send), and the gel comes with the text (I-6)', async () => {
+    const { page, context } = await session('bruno', DESKTOP)
+    try {
+      const compose = page.getByTestId('compose-send')
+      assert.match(await compose.getAttribute('class'), /btn-glass/)
+      assert.doesNotMatch(await compose.getAttribute('class'), /btn-gel/)
+      await bar(page).fill('Algo para enviar')
+      assert.match(await compose.getAttribute('class'), /btn-gel/)
+    } finally {
+      await context.close()
+    }
+  })
+})
+

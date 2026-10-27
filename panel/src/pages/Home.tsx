@@ -248,8 +248,6 @@ export function Home() {
   const messagesFeed = useFeed('messages', mineMessages, me?.id ?? '')
   const repliesFeed = useFeed('replies', mineReplies, me?.id ?? '')
   const feedsFailed = messagesFeed.isError && repliesFeed.isError
-  // A proposal in view is waiting for the person's «Enviar N mensajes»: that one is the action of the screen (gel), the bar's own waits as glass while it is empty.
-  const reviewing = working && drawerOpen && items.some((i) => i.kind === 'input' && i.input.id === shownId && i.input.status === 'proposed')
 
   return (
     <Page cols="inicio" airy scrolls={shown}>
@@ -285,7 +283,7 @@ export function Home() {
           )}
           </div>
         </div>
-        <ComposeBar onSubmit={submit} yielding={reviewing} />
+        <ComposeBar onSubmit={submit} />
       </section>
 
       {working && drawerOpen && (
@@ -309,8 +307,18 @@ export function Home() {
               setDiscarded({ id, restore })
               return true
             },
-            // Deleted for real: it leaves the drawer now, and the list confirms it when it catches up (UD-240).
-            onDeleted: (id) => {
+            // Deleted: it leaves the drawer now and the list confirms it when it catches up (UD-240); with Deshacer it comes back and is the send in view (UD-253).
+            onDeleted: (id, back) => {
+              if (back) {
+                setGone((set) => {
+                  const next = new Set(set)
+                  next.delete(id)
+                  return next
+                })
+                setDrawerOpen(true)
+                setSelectedId(id)
+                return
+              }
               setGone((set) => new Set(set).add(id))
               setDiscarded(null)
               setSelectedId(undefined)
@@ -408,7 +416,7 @@ function Feed({ kind, feed, mine, onMine, phone = false, bound }: { kind: 'messa
     <section aria-label={messagesKind ? t('home.latestMessages') : t('home.latestReplies')} className={cn('flex min-h-0 min-w-0 flex-col gap-3', phone && 'max-h-[calc(100dvh-6.5rem)]')}>
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <h2>
-          <Link to={`/messages?${params.toString()}`} className="hover:underline">
+          <Link to={`/messages?${params.toString()}`} className="relative hover:underline pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3.5">
             {messagesKind ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>
         </h2>

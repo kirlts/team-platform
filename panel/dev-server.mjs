@@ -1248,7 +1248,7 @@ const server = createServer(async (req, res) => {
       const long = files.find((f) => /video-largo/.test(f.filename))
       if (long) return fail(res, 422, 'El video dura demasiado.', 'video_too_long')
       const hash = createHash('sha256').update(author.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).update(recipientIds.join()).digest('hex')
-      const existing = [...inputs.values()].find((i) => i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')
+      const existing = [...inputs.values()].find((i) => !i.deleted_at && i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')
       if (existing) return send(res, 200, { input_id: existing.id, job_id: existing.job_id })
       const inputId = `i-${id()}`
       const attachmentIds = []
@@ -1276,22 +1276,40 @@ const server = createServer(async (req, res) => {
       const wanted = (url.searchParams.get('status') ?? '').split(',').filter(Boolean)
       // `all=1` (UD-251): the Editor's queue, the sends of everybody with the name of the sender, paginated; a member gets 403.
       if (url.searchParams.get('all')) {
-        const everyone = [...inputs.values()].filter((i) => !wanted.length || wanted.includes(i.status)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+        const everyone = [...inputs.values()].filter((i) => !i.deleted_at && (!wanted.length || wanted.includes(i.status))).sort((a, b) => b.created_at.localeCompare(a.created_at))
         return send(res, 200, pageOf(everyone.map((i) => ({ ...inputView(i), author_name: members.find((x) => x.id === i.author_id)?.name ?? null }))))
       }
-      const mine = [...inputs.values()].filter((i) => i.author_id === me.id && (!wanted.length || wanted.includes(i.status)))
+      const mine = [...inputs.values()].filter((i) => !i.deleted_at && i.author_id === me.id && (!wanted.length || wanted.includes(i.status)))
       // `order=desc` is the history of sends (every state, newest first); `mine=1` alone keeps the tray order.
       if (url.searchParams.get('order') === 'desc') mine.sort((a, b) => b.created_at.localeCompare(a.created_at))
       return send(res, 200, envelope(mine.map(inputView)))
     }
 
     let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel|restore|reprocess|proposal))?$/.exec(path)
-    // Deletion for real (UD-240): the sender or the Editor; with `with_messages=true` the published messages go too.
+    // Deletion (UD-240, UD-253): the sender or the Editor; reversible by default (restore brings it back); with `with_messages=true` the published messages go to the trash with it; `purge=true` is for good.
     if (m && !m[2] && method === 'DELETE') {
       const input = inputs.get(m[1])
       if (!input) return fail(res, 404, 'No existe')
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
       const withMessages = url.searchParams.get('with_messages') === 'true'
+      if (url.searchParams.get('purge') !== 'true') {
+        if (input.deleted_at) return fail(res, 404, 'No existe')
+        clearTimeout(jobs.get(input.job_id))
+        waiting.delete(input.job_id)
+        const at = new Date().toISOString()
+        input.deleted_status = input.status
+        input.deleted_at = at
+        if (['queued', 'extracting', 'analyzing'].includes(input.status)) input.status = 'cancelled'
+        let moved = 0
+        for (const msg of messages.filter((x) => x.input_id === input.id)) {
+          msg.unlinked_input_id = msg.input_id
+          msg.input_id = null
+          if (withMessages && !msg.deleted_at) { msg.deleted_at = at; msg.deleted_with_input = at; moved++ }
+        }
+        record(me, 'input.delete', 'input', input.id, { with_messages: withMessages, reversible: true })
+        return send(res, 200, { input_id: input.id, restorable: true, deleted: { attachments: 0, jobs: 1, messages: moved }, freed_bytes: 0 })
+      }
+      for (const msg of messages.filter((x) => x.unlinked_input_id === input.id)) { msg.input_id = input.id; msg.unlinked_input_id = null }
       clearTimeout(jobs.get(input.job_id))
       waiting.delete(input.job_id)
       const born = messages.filter((x) => x.input_id === input.id)
@@ -1320,7 +1338,7 @@ const server = createServer(async (req, res) => {
     }
     if (m) {
       const input = inputs.get(m[1])
-      if (!input || (input.author_id !== me.id && m[2] !== 'reprocess')) return fail(res, 404, 'No existe')
+      if (!input || (input.deleted_at && m[2] !== 'restore') || (input.author_id !== me.id && m[2] !== 'reprocess' && !(input.deleted_at && m[2] === 'restore'))) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') {
         return send(res, 200, inputView(input))
       }
@@ -1351,6 +1369,21 @@ const server = createServer(async (req, res) => {
         return send(res, 204)
       }
       if (m[2] === 'restore' && method === 'POST') {
+        if (input.deleted_at) {
+          // Undoing a deletion (UD-253): the messages that went to the trash with it come back, and every message gets its send again.
+          for (const msg of messages.filter((x) => x.unlinked_input_id === input.id)) {
+            if (msg.deleted_with_input === input.deleted_at) { msg.deleted_at = null; msg.deleted_with_input = null }
+            msg.input_id = input.id
+            msg.unlinked_input_id = null
+          }
+          if (input.status === 'cancelled' && ['queued', 'extracting', 'analyzing'].includes(input.deleted_status)) {
+            input.status = input.proposal ? 'proposed' : 'failed'
+            if (!input.proposal) input.error = 'Se borró antes de terminar el análisis.'
+          }
+          input.deleted_at = null
+          input.deleted_status = null
+          return send(res, 200, { input_id: input.id, status: input.status })
+        }
         if (input.status !== 'cancelled') return fail(res, 409, 'El input no está cancelado', 'not_cancelled')
         input.status = input.proposal ? 'proposed' : 'failed'
         if (!input.proposal) input.error = 'Se descartó antes de terminar el análisis.'

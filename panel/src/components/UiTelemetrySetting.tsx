@@ -19,6 +19,7 @@ export function UiTelemetrySetting() {
           value={enabled ? 'on' : 'off'}
           onChange={(v) => save.mutate(v === 'on')}
           label={t('settings.telemetry')}
+          quiet
           describedBy="hint-telemetry"
           options={[
             { value: 'on', label: t('settings.telemetryOn') },

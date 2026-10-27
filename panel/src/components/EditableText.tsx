@@ -56,6 +56,8 @@ export function EditableText({
   const [editing, setEditing] = useState(startEditing)
   const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string | null>(null)
+  /** Width of the text as it was read, kept while it is edited: a field that sizes to its content (a name beside its tags) would otherwise collapse to the width of an empty box. */
+  const [lockedWidth, setLockedWidth] = useState<number | null>(null)
   const discard = useRef(false)
   const saving = useRef(false)
   /** Set when the person ends the edit with the keyboard: focus goes back to the text, never to the container (J2-B-13). */
@@ -106,6 +108,7 @@ export function EditableText({
   }
 
   const open = () => {
+    setLockedWidth(reading.current?.parentElement?.getBoundingClientRect().width ?? null)
     discard.current = false
     setError(null)
     setDraft(value)
@@ -178,7 +181,7 @@ export function EditableText({
   }
 
   return (
-    <span className={cn('relative block min-w-0', className)}>
+    <span className={cn('relative block min-w-0 max-w-full', className)} style={lockedWidth ? { width: lockedWidth } : undefined}>
       <textarea
         ref={ref}
         rows={1}

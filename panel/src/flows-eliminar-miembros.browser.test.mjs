@@ -120,7 +120,7 @@ describe('Eliminar un miembro', () => {
       assert.ok(expected.messages > 0 && expected.replies > 0, 'Bruno has no history in the sample data')
       const row = rowOf(page, 'bruno@dev.invalid')
       await act(page, row, 'Bruno Prueba', 'Eliminar a Bruno Prueba')
-      await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Conserva ${expected.messages} mensajes y ${expected.replies} respuestas`, { exact: true }).waitFor()
+      await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Conserva ${expected.messages} ${expected.messages === 1 ? 'mensaje' : 'mensajes'} y ${expected.replies} ${expected.replies === 1 ? 'respuesta' : 'respuestas'}`, { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
       await settled(page)
       assert.equal(await rowOf(page, 'bruno@dev.invalid').count(), 0)

@@ -14,6 +14,7 @@ export function SettingsBox({
   hint,
   hintId,
   aside,
+  note,
   fold = false,
   className,
   children,
@@ -23,6 +24,8 @@ export function SettingsBox({
   hint?: string
   hintId?: string
   aside?: ReactNode
+  /** What the folded row says without being opened: a failure is never hidden in a fold. */
+  note?: ReactNode
   fold?: boolean
   className?: string
   children?: ReactNode
@@ -37,6 +40,7 @@ export function SettingsBox({
             <button type="button" aria-expanded={open} aria-controls={body} onClick={() => setOpen((v) => !v)} className={cn('flex min-h-12 w-full items-center gap-2 px-5 text-left hover:bg-hover pointer-coarse:min-h-12', open ? 'rounded-tl-[inherit]' : 'rounded-l-[inherit]')}>
               <ChevronRight size={16} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
               <span>{title}</span>
+              {note}
             </button>
           </h2>
           {open && aside}

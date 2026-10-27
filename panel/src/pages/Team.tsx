@@ -123,7 +123,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
     try {
       const r = await remove.mutateAsync({ id: member.id })
       const k = r.kept ?? { inputs: 0, messages: 0, replies: 0 }
-      notices.show({ text: k.messages || k.replies ? t('team.deletedWithHistory', { name: member.name, ...k }) : t('team.deletedDone', { name: member.name }) })
+      notices.show({ text: k.messages || k.replies ? t('team.deletedWithHistory', { name: member.name, messages: t('team.keptMessages', { n: k.messages }), replies: t('team.keptReplies', { n: k.replies }) }) : t('team.deletedDone', { name: member.name }) })
     } catch (err) {
       setProblem(errorText(err))
     }
@@ -151,22 +151,19 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
       <div className="flex min-w-0 items-start gap-3">
         <Avatar name={member.name} size={32} />
         <div className="min-w-0 flex-1">
-          {/* The name has a column of its own and the tags another, at the right: the name keeps its width when it is edited, and a long one takes a second line without moving the tags. */}
-          <div className="grid min-h-6 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 pointer-coarse:min-h-11 pointer-coarse:items-center">
-            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold leading-snug pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center ${member.active ? '' : 'text-muted'}`} className="block min-w-0" />
-            <span className="flex flex-wrap items-center justify-end gap-1 pt-px pointer-coarse:min-h-11">
-              {member.role === 'editor' && (
-                <Badge tone="accent" className="shrink-0" title={roleHint.editor}>
-                  {roleLabel.editor}
-                </Badge>
-              )}
-              {self && <Badge className="shrink-0">{t('team.me')}</Badge>}
-              {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
-              {!member.active && <Badge tone="outline" className="shrink-0">{t('team.inactive')}</Badge>}
-            </span>
+          <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-x-2 pointer-coarse:min-h-11">
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold leading-snug pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center ${member.active ? '' : 'text-muted'}`} className="block min-w-0 shrink" />
+            {member.role === 'editor' && (
+              <Badge tone="accent" className="shrink-0" title={roleHint.editor}>
+                {roleLabel.editor}
+              </Badge>
+            )}
+            {self && <Badge className="shrink-0">{t('team.me')}</Badge>}
+            {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
+            {!member.active && <Badge tone="outline" className="shrink-0">{t('team.inactive')}</Badge>}
           </div>
-          <div className="min-h-5">
-            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-all text-xs leading-snug text-muted pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center" className="block min-w-0 flex-1" />
+          <div className="min-h-6">
+            <EditableText value={member.email} label={t('team.fieldEmail')} canEdit validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="flex min-h-6 items-center break-all text-xs leading-snug text-muted pointer-coarse:min-h-11" className="block min-w-0 flex-1" />
           </div>
         </div>
       </div>
@@ -192,7 +189,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         >
           <span className={`block break-words ${extract ? 'text-fg' : 'text-faint'}`}>
             {extract || t('team.noProfile')}
-            {more && <span className="ml-1.5 font-semibold text-accent-deep">{t('team.profileMore')}</span>}
+            {more && <span className="ml-1.5 whitespace-nowrap font-semibold text-accent-deep">{t('team.profileMore')}</span>}
           </span>
         </button>
       )}

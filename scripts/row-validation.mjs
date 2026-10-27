@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { DEFAULTS, areaTitle, readJson, readJsonl, requiresPerson, seededRandom, shuffle, splitUnits, validateRows, validateTeam, wilson, wilsonSampleSize } from './area-method.mjs'
+import { DEFAULTS, areaTitle, readJson, readJsonl, requiresPerson, seededRandom, shuffle, unitStage, validateRows, validateTeam, wilson, wilsonSampleSize } from './area-method.mjs'
 
 /** The rows with a `key` that names each request: the unit and the order of the request inside the unit, in the order of the file. */
 export function keyRows (rows) {
@@ -56,20 +56,9 @@ export function unitStrata (unitIds, byUnit, team) {
   }))
 }
 
-/**
- * The stage a unit belongs to. Units with requests take the stage that `splitUnits` gave them. A unit with none has no row to be split by, so it takes one from a hash of its id and the seed
- * with the same proportions: the sample of a stage and the experiment of that stage agree on which units are in it.
- */
+/** The stage of every unit: the hash of its id and the seed (`unitStage`), the same for units with rows and units with none. */
 export function stageMap (rows, unitIds, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
-  const sets = splitUnits(rows, { holdout, seed })
-  const stage = new Map()
-  for (const [name, list] of Object.entries(sets)) for (const r of list) stage.set(r.unit, name)
-  for (const id of unitIds) {
-    if (stage.has(id)) continue
-    const u = parseInt(createHash('sha256').update(`${seed}:${id}`).digest('hex').slice(0, 8), 16) / 0x100000000
-    stage.set(id, u < 1 - holdout ? 'build' : u < 1 - holdout / 2 ? 'tune' : 'confirm')
-  }
-  return stage
+  return new Map([...new Set([...rows.map((r) => r.unit), ...unitIds])].map((id) => [id, unitStage(id, { holdout, seed })]))
 }
 
 function candidates (units, rows, team, { stage = 'all', holdout, splitSeed, families = {} } = {}) {

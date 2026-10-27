@@ -383,11 +383,25 @@ test('B2: the split is by unit, reproducible, and the tuning and confirmation se
   const units = (list) => new Set(list.map((r) => r.unit))
   for (const [a, b] of [['build', 'tune'], ['build', 'confirm'], ['tune', 'confirm']]) assert.equal([...units(sets[a])].filter((u) => units(sets[b]).has(u)).length, 0, `${a} and ${b} share a unit`)
   assert.equal(sets.build.length + sets.tune.length + sets.confirm.length, rows.length)
-  assert.ok(Math.abs(sets.tune.length - sets.confirm.length) < rows.length * 0.05)
+  // The stage comes from a hash per unit, so the sizes vary like a binomial: 324 units give a standard deviation of about 9 units on a side (measured on seeds 1 to 7: gaps of 7 to 27 rows of 364).
+  assert.ok(Math.abs(sets.tune.length - sets.confirm.length) < rows.length * 0.1)
   assert.ok(sets.build.length > rows.length * 0.4 && sets.build.length < rows.length * 0.6)
   assert.deepEqual(method.splitUnits(rows, { holdout: 0.5, seed: 7 }), sets)
   assert.notDeepEqual(method.splitUnits(rows, { holdout: 0.5, seed: 8 }).tune, sets.tune)
   assert.throws(() => method.splitUnits(rows.slice(0, 2), { holdout: 0.5 }), /too few/)
+})
+
+test('B1 (reaudit 3): adding a unit, or losing the rows of one, moves no other unit to another stage', () => {
+  const stageOf = (list) => new Map(list.flatMap((set, i) => set.map((r) => [r.unit, ['build', 'tune', 'confirm'][i]])))
+  const sets = (list) => { const s = method.splitUnits(list, { holdout: 0.5, seed: 7 }); return stageOf([s.build, s.tune, s.confirm]) }
+  const before = sets(rows)
+  const extra = [...rows, ...Array.from({ length: 40 }, (_, i) => ({ ...rows[0], unit: `new-unit-${i}` }))]
+  const after = sets(extra)
+  for (const [unit, stage] of before) assert.equal(after.get(unit), stage, `${unit} moved`)
+  const firstUnit = rows[0].unit
+  const without = sets(rows.filter((r) => r.unit !== firstUnit))
+  for (const [unit, stage] of without) assert.equal(before.get(unit), stage, `${unit} moved when ${firstUnit} lost its rows`)
+  assert.equal(method.unitStage('a', { seed: 7 }), method.unitStage('a', { seed: 7 }))
 })
 
 test('B2: nothing in the held-out rows reaches the descriptions or the profiles', () => {

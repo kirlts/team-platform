@@ -137,15 +137,25 @@ export function seededRandom (seed) {
 }
 
 /**
+ * The stage of one unit, from a hash of `seed:id` alone: `build` for the share `1 - holdout` of the hash range, then `tune` and `confirm` with a quarter of the range each at the
+ * default holdout (half of the held-out share each). The stage does not depend on the other units, so adding a unit, or a unit that loses its rows in a new extraction, moves no other
+ * one: a confirmation set read last week is the same set next week. 4294967296 is 2^32, the range of the 32 bits taken from the digest.
+ */
+export function unitStage (id, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
+  const u = parseInt(createHash('sha256').update(`${seed}:${id}`).digest('hex').slice(0, 8), 16) / 4294967296
+  return u < 1 - holdout ? 'build' : u < 1 - holdout / 2 ? 'tune' : 'confirm'
+}
+
+/**
  * Splits the rows by unit into the construction side and two held-out sets: `tune` (the descriptions are corrected against it) and `confirm` (it is read once, at the end).
  * A unit is always on one side only, so the examples of a description and the profiles of the members, which come from `build`, never contain a request that is measured.
+ * The side of a unit is `unitStage`, so it does not change when the corpus grows.
  */
 export function splitUnits (rows, { holdout = DEFAULTS.holdout, seed = DEFAULTS.seed } = {}) {
-  const units = shuffle([...new Set(rows.map((r) => r.unit))].sort(), seededRandom(seed))
-  const held = Math.round(units.length * holdout)
-  if (held < 2 || units.length - held < 1) throw new Error(`${units.length} units are too few to hold out ${holdout}: the tuning and the confirmation sets need one unit each at least.`)
-  const side = new Map()
-  units.forEach((u, i) => side.set(u, i >= held ? 'build' : i % 2 === 0 ? 'tune' : 'confirm'))
+  const units = [...new Set(rows.map((r) => r.unit))].sort()
+  const side = new Map(units.map((u) => [u, unitStage(u, { holdout, seed })]))
+  const count = (name) => units.filter((u) => side.get(u) === name).length
+  if (count('build') < 1 || count('tune') < 1 || count('confirm') < 1) throw new Error(`${units.length} units are too few to hold out ${holdout}: the construction, the tuning and the confirmation sets need one unit each at least.`)
   const pick = (name) => rows.filter((r) => side.get(r.unit) === name)
   return { build: pick('build'), tune: pick('tune'), confirm: pick('confirm') }
 }

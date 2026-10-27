@@ -2,7 +2,7 @@
 // Builds a routing configuration (areas, templates, member profiles) from the corpus of requests of one team.
 //
 //   node scripts/area-method.mjs labels  rows.jsonl
-//   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--out report.json]
+//   node scripts/area-method.mjs analyze rows.jsonl --team team.json [--families families.json] [--cut [AAAA-MM-DD]] [--out report.json]
 //   node scripts/area-method.mjs propose rows.jsonl --team team.json --purposes purposes.json --actor ed@x.org
 //                                        [--families families.json] [--intents intents.json] [--intent-fields fields.json] [--out load.json]
 //
@@ -467,6 +467,29 @@ export function analyze (rows, team, { families = {}, ...overrides } = {}) {
   return { rows: tagged.length, weeks: round(weeks, 1), partition: recognized, areas, warnings, knobs: o }
 }
 
+/**
+ * «Two runs in a row» of the rule that creates and merges areas means two cuts of the data by date, and not two runs over the same rows (those give the same report by
+ * construction). The rows before `cut` and the rows from `cut` are analyzed apart. Per area: whether it is kept in each window, in both (`stable_keep`: it can be born or stay)
+ * and whether it fails the volume in both (`volume_fail_both`: it merges). Without `cut`, the middle date of the rows.
+ */
+export function analyzeWindows (rows, team, { cut = null, ...options } = {}) {
+  const dates = rows.map((r) => Date.parse(r.date)).filter(Number.isFinite).sort((a, b) => a - b)
+  if (dates.length < 2) throw new Error('The windows need rows with dates.')
+  const boundary = cut ?? new Date(dates[Math.floor(dates.length / 2)]).toISOString().slice(0, 10)
+  const before = rows.filter((r) => r.date < boundary)
+  const after = rows.filter((r) => r.date >= boundary)
+  if (!before.length || !after.length) throw new Error(`The cut ${boundary} leaves one window with no rows.`)
+  const reports = [analyze(before, team, options), analyze(after, team, options)]
+  const titles = [...new Set(reports.flatMap((r) => r.areas.map((a) => a.title)))].sort()
+  const find = (report, title) => report.areas.find((a) => a.title === title)
+  const areas = Object.fromEntries(titles.map((title) => {
+    const found = reports.map((r) => find(r, title))
+    const keep = found.map((a) => a?.keep === true)
+    return [title, { keep, stable_keep: keep.every(Boolean), volume_fail_both: found.every((a) => !a || !a.criteria.volume.pass), rows: found.map((a) => a?.profile.n ?? 0) }]
+  }))
+  return { cut: boundary, windows: [{ until: boundary, rows: before.length }, { since: boundary, rows: after.length }], areas }
+}
+
 // ---- writing the descriptions: four clauses plus limits, with what enters and what does not
 const phrases = (items) => items.join('; ')
 const list = (items) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} y ${items.at(-1)}`)
@@ -674,7 +697,7 @@ function main (argv) {
   const load = (flag, fallback) => (option(flag) ? readJson(option(flag)) : fallback)
   const common = { families: load('--families', {}), ...numeric }
   try {
-    if (command === 'analyze') out(analyze(rows, team, common))
+    if (command === 'analyze') out({ ...analyze(rows, team, common), ...(rest.includes('--cut') ? { stability: analyzeWindows(rows, team, { ...common, cut: option('--cut') && !option('--cut').startsWith('--') ? option('--cut') : null }) } : {}) })
     else {
       const result = propose(rows, team, { ...common, purposes: load('--purposes', {}), intents: load('--intents', {}), intentFields: load('--intent-fields', {}), actor: option('--actor') })
       if (result.skipped.length) console.error(`Áreas que no cumplen los criterios: ${result.skipped.map((s) => `${s.title} (${s.failed.join(', ')}; se uniría a ${s.merge_into})`).join('; ')}`)

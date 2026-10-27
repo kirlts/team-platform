@@ -171,9 +171,16 @@ El informe avisa en `warnings` cuando no hay nada que repartir:
 | `single_area` | Menos de dos áreas cumplen los criterios |
 | `confirmation_short` | El conjunto de confirmación de un área tendría menos pedidos que los que pide el intervalo |
 
-El informe incluye por área su perfil. Lleva tamaño, pedidos por semana, medias de las dimensiones y fracción que exige a una persona. Lleva también quién pide, quién tiene el valor, los límites más tocados, lo que se maximiza y se sacrifica, los módulos y las intenciones. Con las mismas filas el informe es idéntico: las particiones usan una semilla fija.
+El informe incluye por área su perfil. Lleva tamaño, pedidos por semana, medias de las dimensiones y fracción que exige a una persona. Lleva también quién pide, quién tiene el valor, los límites más tocados, lo que se maximiza y se sacrifica, los módulos y las intenciones. Con las mismas filas el informe es idéntico: las particiones y las permutaciones usan una semilla fija.
 
-Cuándo cambia el conjunto. Nace un área cuando un subconjunto de otra cumple los cuatro criterios por separado en dos corridas seguidas, para que una sola corrida no decida. Se une a otra si baja del umbral de volumen en dos corridas seguidas. También se une si el enrutador la confunde con esa otra en más casos de los que acierta. Se repite la medición al sumar un miembro y cuando el equipo cambia lo que hace.
+Cuándo cambia el conjunto. Dos corridas seguidas significan dos cortes distintos de los datos, por fecha. Dos corridas sobre las mismas filas dan el mismo informe por construcción y no prueban nada. `analyze --cut AAAA-MM-DD` (sin fecha, la mediana de las fechas) analiza por separado las filas anteriores al corte y las posteriores, y agrega `stability` al informe.
+
+| Regla | Qué mira `stability` | Automatizado |
+|---|---|---|
+| Nace un área | Un subconjunto de otra cumple los criterios en las dos ventanas (`stable_keep`) | Sólo la medición. La persona define el subconjunto en `families.json` y vuelve a correr `analyze --cut` |
+| Se une a otra | Baja del volumen mínimo en las dos ventanas (`volume_fail_both`) | Sí |
+| Se une a otra | El enrutador la confunde con esa otra más veces de las que la acierta (`merge_suggestions` de la sección 9) | Sí |
+| Se repite la medición | Al sumar un miembro y cuando el equipo cambia lo que hace | No, la decide el equipo |
 
 ## 5. Descripción de un área
 

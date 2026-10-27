@@ -686,3 +686,24 @@ test('D2: two limits tied for the first place leave the area with no dominant li
   const against = report.areas.find((a) => a.title === 'Tied').criteria.distinct_treatment.against.Plain
   assert.equal(against.limit_differs, false, 'a tie of 20 and 20 does not decide the criterion')
 })
+
+// ---- D3: «two runs in a row» are two cuts of the data by date
+test('D3: the same rows analyzed twice give the same report, so that is not a second run', () => {
+  assert.deepEqual(analyze(rows, team), analyze(rows, team))
+})
+
+test('D3: an area that is kept in both windows is stable, one that appears late is not, and one that fails the volume in both merges', () => {
+  const stable = method.analyzeWindows(rows, team)
+  assert.equal(stable.windows[0].rows + stable.windows[1].rows, rows.length)
+  for (const t of ['Pedidos y envíos', 'Catálogo y precios', 'Atención al cliente']) assert.equal(stable.areas[t].stable_keep, true, `${t}: ${JSON.stringify(stable.areas[t])}`)
+  assert.equal(stable.areas.Contabilidad.stable_keep, false)
+  assert.equal(stable.areas.Contabilidad.volume_fail_both, true)
+  const late = syntheticCorpus({ sizes: { Antigua: 120, Otra: 120 }, noise: 0.3, seed: 41, leak: true })
+    .map((r, i) => ({ ...r, date: i % 2 ? '2026-03-10' : '2026-05-10' }))
+    .map((r) => (r.object === 'Otra' ? { ...r, date: '2026-05-12', severity: r.severity * 0.3 + 0.65 } : r)) // «Otra» only exists from May, and it is treated differently
+  const windows = method.analyzeWindows(late, team, { cut: '2026-04-15', permutations: 99, repeats: 1 })
+  assert.equal(windows.areas.Antigua.keep[1], true)
+  assert.deepEqual(windows.areas.Otra.keep, [false, true])
+  assert.equal(windows.areas.Otra.stable_keep, false, 'one window is not enough to create an area')
+  assert.throws(() => method.analyzeWindows(late, team, { cut: '2027-01-01' }), /no rows/)
+})

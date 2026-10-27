@@ -16,6 +16,9 @@ import { fillCommand, runMachine, spawnStreaming, writeMachineFiles } from './ru
 const DRIVER = fileURLToPath(new URL('../../drivers/docker-local/', import.meta.url))
 const IMAGE = 'team-platform-agent:test'
 const LABEL = 'team-platform.driver=docker-local'
+const INSTANCE = `dt${process.pid}` // this run's own identity on the daemon: nobody else's containers are counted or touched
+const INSTANCE_LABEL = `team-platform.instance=${INSTANCE}`
+const nameOf = (id, instance = INSTANCE) => `tp-${instance}-job-${id}`
 const HOOKS = {
   machineCreate: `bash ${DRIVER}create.sh {job_id} {workdir}`,
   machineRun: `bash ${DRIVER}run.sh {job_id} {workdir} {machine}`,
@@ -55,7 +58,7 @@ describe('drivers/docker-local', () => {
   const saved = {}
   const setEnv = (values) => { for (const [k, v] of Object.entries(values)) { if (!(k in saved)) saved[k] = process.env[k]; if (v === undefined) delete process.env[k]; else process.env[k] = v } }
   const sh = (command, extra = {}) => spawnStreaming('/bin/sh', ['-c', command], { env: process.env, keepStdout: true, timeoutMs: TIMEOUT_MS, graceMs: GRACE_MS, ...extra })
-  const jobId = () => { const id = `drvtest-${process.pid}-${++counter}`; machines.push(`tp-job-${id}`); return id }
+  const jobId = () => { const id = `drvtest-${process.pid}-${++counter}`; machines.push(nameOf(id)); return id }
   const exists = (name) => { try { execFileSync('docker', ['inspect', name], { stdio: 'ignore' }); return true } catch { return false } }
   const git = (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim()
   const lines = (stdout) => stdout.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -93,7 +96,7 @@ describe('drivers/docker-local', () => {
     git('-c', 'user.name=t', '-c', 'user.email=t@x.org', 'commit', '-q', '-m', 'base')
     // The same Dockerfile as the real image, without Claude Code (CLAUDE_PACKAGE empty): the session is the fake one.
     execFileSync('docker', ['build', '-q', '--build-arg', 'CLAUDE_PACKAGE=', '-t', IMAGE, DRIVER], { stdio: ['ignore', 'ignore', 'inherit'], timeout: 600_000 })
-    setEnv({ TP_DOCKER_IMAGE: IMAGE, TP_DOCKER_STATE: state, TP_DOCKER_REPO: repo, TP_DOCKER_MAX_CONTAINERS: undefined, ANTHROPIC_API_KEY: 'valor-de-prueba', TP_DOCKER_PASS_ENV: undefined })
+    setEnv({ TP_DOCKER_IMAGE: IMAGE, TP_DOCKER_STATE: state, TP_DOCKER_INSTANCE: INSTANCE, TP_DOCKER_REPO: repo, TP_DOCKER_MAX_CONTAINERS: undefined, ANTHROPIC_API_KEY: 'valor-de-prueba', TP_DOCKER_PASS_ENV: undefined })
   })
 
   after(() => {
@@ -108,7 +111,7 @@ describe('drivers/docker-local', () => {
     const result = await runJob(id, workdir)
     assert.equal(result.code, 0, result.stderr)
     assert.equal(result.phase, 'run')
-    assert.equal(result.machine, `tp-job-${id}`, 'the last stdout line of create is the machine')
+    assert.equal(result.machine, nameOf(id), 'the last stdout line of create is the machine')
     assert.equal(result.destroy.code, 0)
     assert.equal(result.collect.code, 0, result.collect?.stderr)
     assert.ok(!exists(result.machine), 'destroy removed the machine')
@@ -153,33 +156,33 @@ describe('drivers/docker-local', () => {
     assert.equal(result.phase, 'run')
     assert.match(result.stderr, /session not started/)
     assert.equal(result.destroy.code, 0)
-    assert.ok(!exists(`tp-job-${id}`))
+    assert.ok(!exists(nameOf(id)))
   })
 
   it('create answers 75 with `##team quota machines=N` when the declared cap is reached, and an image that does not exist is a plain failure', async () => {
     const first = jobId(); const second = jobId()
-    const alive = Number(execFileSync('docker', ['ps', '-q', '--filter', `label=${LABEL}`], { encoding: 'utf8' }).split('\n').filter(Boolean).length)
+    const alive = Number(execFileSync('docker', ['ps', '-q', '--filter', `label=${LABEL}`, '--filter', `label=${INSTANCE_LABEL}`], { encoding: 'utf8' }).split('\n').filter(Boolean).length)
     const cap = String(alive + 1)
     const a = await sh(fillCommand(HOOKS.machineCreate, { job_id: first, workdir: dir }), { env: { ...process.env, TP_DOCKER_MAX_CONTAINERS: cap } })
     assert.equal(a.code, 0, a.stderr)
     const b = await sh(fillCommand(HOOKS.machineCreate, { job_id: second, workdir: dir }), { env: { ...process.env, TP_DOCKER_MAX_CONTAINERS: cap } })
     assert.equal(b.code, 75)
     assert.ok(new RegExp(`^##team quota machines=${cap}\\s*$`, 'm').test(b.stderr), b.stderr)
-    assert.ok(!exists(`tp-job-${second}`), 'the refused job has no machine')
+    assert.ok(!exists(nameOf(second)), 'the refused job has no machine')
     // The same job asking twice gets its own machine back, not a second one.
     const again = await sh(fillCommand(HOOKS.machineCreate, { job_id: first, workdir: dir }), { env: { ...process.env, TP_DOCKER_MAX_CONTAINERS: cap } })
     assert.equal(again.code, 0)
-    assert.equal(lines(again.stdout).at(-1), `tp-job-${first}`)
+    assert.equal(lines(again.stdout).at(-1), nameOf(first))
     const missing = await sh(fillCommand(HOOKS.machineCreate, { job_id: second, workdir: dir }), { env: { ...process.env, TP_DOCKER_IMAGE: 'team-platform-agent:no-such-image' } })
     assert.equal(missing.code, 1)
     assert.match(missing.stderr, /does not exist/)
-    const d = await sh(fillCommand(HOOKS.machineDestroy, { job_id: first, workdir: dir, machine: `tp-job-${first}` }))
+    const d = await sh(fillCommand(HOOKS.machineDestroy, { job_id: first, workdir: dir, machine: nameOf(first) }))
     assert.equal(d.code, 0)
   })
 
   it('destroy is idempotent and touches only machines of the driver', async () => {
     const id = jobId()
-    const gone = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: `tp-job-${id}` }))
+    const gone = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id) }))
     assert.equal(gone.code, 0, 'a machine that does not exist is already destroyed')
     const foreign = `tp-job-foreign-${process.pid}`
     machines.push(foreign)
@@ -188,7 +191,7 @@ describe('drivers/docker-local', () => {
     assert.equal(refused.code, 1)
     assert.ok(exists(foreign), 'a container without the label of the driver is not removed')
     const notOurs = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: 'postgres' }))
-    assert.equal(notOurs.code, 1, 'a name that is not tp-job-* is refused before docker is asked')
+    assert.equal(notOurs.code, 1, 'a name that is not tp-<instance>-job-* is refused before docker is asked')
   })
 
   it('collect: exit 3 and no reference when the session left no transcript', async () => {
@@ -230,6 +233,84 @@ describe('drivers/docker-local', () => {
     it('refuses a branch name that is not tp/<id> or carries shell characters (code 2)', async () => {
       assert.equal((await deliver('main')).code, 2)
       assert.equal((await sh(`bash ${DRIVER}deliver.sh 77 5 'tp/a;b' ${dir}`)).code, 2)
+    })
+  })
+
+  describe('instances on one daemon', () => {
+    const otherEnv = (instance, extra = {}) => ({ env: { ...process.env, TP_DOCKER_INSTANCE: instance, ...extra } })
+    const labelOf = (name, key) => execFileSync('docker', ['inspect', '-f', `{{index .Config.Labels "${key}"}}`, name], { encoding: 'utf8' }).trim()
+    const bashName = (env, job) => execFileSync('bash', ['-c', `. ${DRIVER}common.sh && tp_machine_name ${job}`], { encoding: 'utf8', env }).trim()
+
+    it('two instances with the same job id at the same time make two containers, and the destroy of one never touches the other', async () => {
+      const id = jobId()
+      const other = `${INSTANCE}b`
+      const theirs = nameOf(id, other)
+      machines.push(theirs)
+      const [a, b] = await Promise.all([
+        sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir })),
+        sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }), otherEnv(other))
+      ])
+      assert.equal(a.code, 0, a.stderr)
+      assert.equal(b.code, 0, b.stderr)
+      assert.equal(lines(a.stdout).at(-1), nameOf(id))
+      assert.equal(lines(b.stdout).at(-1), theirs)
+      assert.ok(exists(nameOf(id)) && exists(theirs), 'one container each')
+      assert.equal(labelOf(nameOf(id), 'team-platform.instance'), INSTANCE)
+      assert.equal(labelOf(theirs, 'team-platform.instance'), other)
+      // The cap counts the machines of the instance that asks: a third instance with room for one is not refused by the two that are alive.
+      const third = await sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }), otherEnv(`${INSTANCE}c`, { TP_DOCKER_MAX_CONTAINERS: '1' }))
+      machines.push(nameOf(id, `${INSTANCE}c`))
+      assert.equal(third.code, 0, third.stderr)
+      // One instance asked to destroy a machine of the other: refused, by name and by label, and the container stays.
+      const refused = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: theirs }))
+      assert.equal(refused.code, 1)
+      assert.ok(exists(theirs), 'the machine of another instance is not removed')
+      // The destroy of its own removes its own only.
+      const d = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: theirs }), otherEnv(other))
+      assert.equal(d.code, 0, d.stderr)
+      assert.ok(!exists(theirs) && exists(nameOf(id)), 'only the one of the instance that asked is gone')
+      const mine = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id) }))
+      assert.equal(mine.code, 0, mine.stderr)
+      await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: nameOf(id, `${INSTANCE}c`) }), otherEnv(`${INSTANCE}c`))
+    })
+
+    it('without TP_DOCKER_INSTANCE the instance comes from the state directory: the same one for the same directory, another for another', () => {
+      const clean = { ...process.env, TP_DOCKER_INSTANCE: '' }
+      const one = bashName({ ...clean, TP_DOCKER_STATE: join(dir, 'state-one') }, 5)
+      assert.match(one, /^tp-[0-9a-f]{8}-job-5$/)
+      assert.equal(bashName({ ...clean, TP_DOCKER_STATE: join(dir, 'state-one') }, 5), one)
+      assert.notEqual(bashName({ ...clean, TP_DOCKER_STATE: join(dir, 'state-two') }, 5), one)
+    })
+
+    it('an instance that is not lower case letters and digits is a permanent fault of the setting (code 1) before docker is asked', async () => {
+      for (const bad of ['Bad_1', 'a-b', 'x'.repeat(21)]) {
+        const r = await sh(fillCommand(HOOKS.machineCreate, { job_id: jobId(), workdir: dir }), otherEnv(bad))
+        assert.equal(r.code, 1, bad)
+        assert.match(r.stderr, /TP_DOCKER_INSTANCE must be/)
+      }
+    })
+
+    it('destroy also retires the machine the core registered before CREATE answered (team-job-<id>) and the one named before instances existed (tp-job-<id>, no instance label)', async () => {
+      const id = jobId()
+      const created = await sh(fillCommand(HOOKS.machineCreate, { job_id: id, workdir: dir }))
+      assert.equal(created.code, 0, created.stderr)
+      const byDefault = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: `team-job-${id}` }))
+      assert.equal(byDefault.code, 0, byDefault.stderr)
+      assert.ok(!exists(nameOf(id)), 'the default name of the core reaches the machine this driver made for the job')
+
+      const legacy = `tp-job-legacy-${process.pid}`
+      machines.push(legacy)
+      execFileSync('docker', ['run', '-d', '--name', legacy, '--label', LABEL, IMAGE, 'sleep', '120'], { stdio: 'ignore' })
+      const old = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: legacy }))
+      assert.equal(old.code, 0, old.stderr)
+      assert.ok(!exists(legacy), 'a machine of the driver without an instance label is the register\'s to retire')
+
+      const stranger = `tp-job-stranger-${process.pid}`
+      machines.push(stranger)
+      execFileSync('docker', ['run', '-d', '--name', stranger, '--label', LABEL, '--label', `team-platform.instance=${INSTANCE}z`, IMAGE, 'sleep', '120'], { stdio: 'ignore' })
+      const refused = await sh(fillCommand(HOOKS.machineDestroy, { job_id: id, workdir: dir, machine: stranger }))
+      assert.equal(refused.code, 1)
+      assert.ok(exists(stranger), 'a machine that belongs to another instance is not removed, whatever its name')
     })
   })
 

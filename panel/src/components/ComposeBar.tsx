@@ -1,5 +1,5 @@
 import { Send } from '@/components/icons'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type Ref } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { useMe, useMembers } from '@team-platform/client/react'
@@ -24,14 +24,14 @@ export interface SendDraft {
  * «Enviar como» (UD-255): every active person of the team, the member of the session first selected. A member of kind
  * agent is not offered: the API refuses to send in its name.
  */
-function SendAs({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+function SendAs({ value, onChange, anchor }: { value: string; onChange: (id: string) => void; anchor: Ref<HTMLLabelElement> }) {
   const t = useT()
   const me = useMe().data
   const members = useMembers().data ?? []
   const people = members.filter((m) => m.active !== false && (m as { kind?: string }).kind !== 'agent')
   if (me && !people.some((m) => m.id === me.id)) people.unshift(me)
   return (
-    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-2 max-md:min-w-[14rem] max-md:flex-1">
+    <label ref={anchor} className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-2 max-md:min-w-[14rem] max-md:flex-1">
       <span className="shrink-0">{t('compose.sendAs')}</span>
       <span className="min-w-0 flex-1 md:w-44 md:flex-none">
         <NativeSelect data-testid="compose-send-as" className="pointer-coarse:h-11" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -62,6 +62,8 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   /** «Para» (UD-291): the members the send is addressed to. Empty means the automatic routing assigns, as it always did. */
   const [recipients, setRecipients] = useState<string[]>([])
   const notices = useNotices()
+  /** «Enviar como»: the notice of a change of author is drawn next to it. */
+  const sendAsBox = useRef<HTMLLabelElement>(null)
   const members = useMembers().data ?? []
   /** Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). It is said where the person is looking, with the way back. */
   const changeAuthor = (id: string) => {
@@ -72,6 +74,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
       const name = members.find((m) => m.id === id)?.name ?? ''
       notices.show({
         text: t('compose.leftTo', { name, to: t('compose.to') }),
+        near: () => sendAsBox.current,
         action: {
           label: t('undo.undo'),
           run: () => {
@@ -190,7 +193,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
           <div className="min-w-0 max-md:order-2" data-testid="compose-to">
             <RecipientsEditor ids={recipients} onChange={setRecipients} max={2} to={t('compose.to')} authorId={author} />
           </div>
-          {author && <SendAs value={author} onChange={changeAuthor} />}
+          {author && <SendAs value={author} onChange={changeAuthor} anchor={sendAsBox} />}
           <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center">
             <Send size={16} aria-hidden /> {t('compose.send')}
           </Button>

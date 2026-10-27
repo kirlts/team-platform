@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Check } from '@/components/icons'
 import { Link } from 'react-router'
 import { noticeDuration, useNotices } from '@/lib/notices'
@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils'
  * reaches it; at 768 px that left 256 px and the text broke into three lines, so a tablet keeps it at the bottom. One copy, one place (H-904).
  * It leaves by itself (UD-253): the count stops while the pointer or the focus is on it, and Escape takes it away. There is no
  * close button: a status that leaves alone and pauses for whoever reaches it meets WCAG 2.2.1 without one.
- * Its text says what happened and to whom, the link goes to it, the action undoes it.
+ * Its text says what happened and to whom, the link goes to it, the action undoes it. A notice that names the control that caused it (`near`) is drawn
+ * above that control from 1024 px, right-aligned with it, and stays at the bottom below that width, where the bar is already close.
  */
 export function NoticeHost() {
   const { current, dismiss } = useNotices()
@@ -26,6 +27,15 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
   const paused = held.pointer || held.focus
   /** What is left of the count; a pause keeps it and the count resumes from there. */
   const left = useRef(duration)
+  /** Where the control that caused it is (from 1024 px only), measured once when the notice is drawn: it lives seconds, and the page under it does not move. */
+  const [place, setPlace] = useState<{ right: number; top?: number; bottom?: number } | null>(null)
+  useLayoutEffect(() => {
+    const control = notice.near?.()
+    if (!control || !window.matchMedia('(min-width: 1024px)').matches) return
+    const box = control.getBoundingClientRect()
+    // Above the control; with no room above, under it.
+    setPlace({ right: window.innerWidth - box.right, ...(box.top > 72 ? { bottom: window.innerHeight - box.top + 8 } : { top: box.bottom + 8 }) })
+  }, [notice])
 
   useEffect(() => {
     if (paused) return
@@ -50,7 +60,7 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
   }, [dismiss])
 
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center lg:inset-x-0 lg:bottom-auto lg:top-1.5">
+    <div className={cn('pointer-events-none fixed z-40 flex', place ? 'justify-end' : 'inset-x-4 bottom-4 justify-center lg:inset-x-0 lg:bottom-auto lg:top-1.5')} style={place ?? undefined}>
       <div
         role={danger ? 'alert' : 'status'}
         aria-live={danger ? 'assertive' : 'polite'}
@@ -69,14 +79,14 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
           {(notice.link || notice.action) && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold">
               {notice.link && (
-                <Link to={notice.link.to} onClick={dismiss} className="inline-flex min-h-6 items-center text-accent hover:underline">
+                <Link to={notice.link.to} onClick={dismiss} className="inline-flex min-h-6 items-center text-accent hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                   {notice.link.label}
                 </Link>
               )}
               {notice.action && (
                 <button
                   type="button"
-                  className="inline-flex min-h-6 items-center text-accent hover:underline"
+                  className="inline-flex min-h-6 items-center text-accent hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                   onClick={() => {
                     const run = notice.action!.run
                     dismiss()

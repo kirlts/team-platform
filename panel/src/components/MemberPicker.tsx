@@ -71,9 +71,9 @@ export function MemberPicker({
         {/* A name per line and a search: nine people fit in the frame and the list says it scrolls (J1-B-15). */}
         <label className="relative mb-2 block">
           <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input ref={searchBox} type="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'ArrowDown' && moveFocus(e, -1)} aria-label={t('recipients.search', { n: members.length })} placeholder={t('recipients.search', { n: members.length })} className="well h-10 w-full rounded-field pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-accent" />
+          <input ref={searchBox} type="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'ArrowDown' && moveFocus(e, -1)} aria-label={t('recipients.search', { n: members.length })} placeholder={t('recipients.search', { n: members.length })} className="well h-10 w-full rounded-field pointer-coarse:h-11 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-accent" />
         </label>
-        <ul ref={list} role="listbox" aria-multiselectable="true" aria-label={t('recipients.label')} className="scroll-thin flex max-h-[26rem] flex-col overflow-y-auto" data-lane="member-picker">
+        <ul ref={list} role="listbox" aria-multiselectable="true" aria-label={t('recipients.label')} className="scroll-thin flex max-h-[26rem] p-1 flex-col overflow-y-auto" data-lane="member-picker">
           {shown.map((m, index) => {
             const on = selected.includes(m.id)
             return (

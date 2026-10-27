@@ -12,6 +12,8 @@ export interface Notice {
   tone?: 'info' | 'danger'
   action?: { label: string; run: () => void | Promise<unknown> }
   link?: { to: string; label: string }
+  /** The control that caused it. From 1024 px the notice is drawn next to it and not in the top bar, so what happened is read where it was done. */
+  near?: () => Element | null
 }
 
 /** Token `--notice-ms` of DISENO.md: the longest notice text (13 words) read at 190 words per minute, plus one second to notice it. */

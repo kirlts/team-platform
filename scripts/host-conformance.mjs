@@ -69,8 +69,8 @@ Requirements:
   The environment of the five orders is the one of this process plus the lines of conformance.sh; set EXECUTE_CONTRACT_VERSION there or here to declare the version.
   A 75 of CREATE, a 75 of DELIVER and a 76 of DELIVER are injected in front of the driver's order, because each driver reaches them its own way; the cases say so.
 The 75 of DELIVER carries the mark ##team wait before-machine; in-machine is not exercised, it fails the job at once by design.
-Not covered: that the machine reaches EXECUTE_TEAM_URL (the double does not call the API), the quotas of a real cloud, and DESTROY after a shutdown of the worker
-during RUN (the worker leaves the machine alone then; the sweep of orphan machines is piece B4 of the plan).
+Not covered: that the machine reaches EXECUTE_TEAM_URL (the double does not call the API), the quotas of a real cloud, and the sweep of the machines that a worker
+killed without warning leaves (the worker destroys them when it starts; src/execute/machines-docker-local.test.js covers it against real containers).
 `
 
 const CASES = [
@@ -84,6 +84,7 @@ const CASES = [
   ['destroy-run-fails', 'DESTROY runs, with exit 0, after a RUN whose session died'],
   ['destroy-deadline', 'DESTROY runs, with exit 0, after the deadline of the job was exceeded'],
   ['destroy-twice', 'DESTROY of a machine that no longer exists exits 0, twice'],
+  ['destroy-shutdown', 'DESTROY runs, with exit 0, when the worker shuts down in an orderly way while RUN is running (EXECUTE_KEEP_SESSION_ON_SHUTDOWN=0)'],
   ['create-75', 'a 75 from CREATE does not spend the attempt (injected)'],
   ['deliver-75', 'a 75 from DELIVER does not spend the attempt (injected)'],
   ['deliver-76', 'a 76 from DELIVER leaves delivery_held and no retry (injected)']
@@ -300,7 +301,7 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
 
     /** One message through the real jobs, with the settings of the case. Returns everything the cases read. */
     let counter = 0
-    async function flow (name, { double = {}, execute = {}, create75 = false, deliverMode = 'pass', delivers = true }) {
+    async function flow (name, { double = {}, execute = {}, create75 = false, deliverMode = 'pass', delivers = true, shutdownDuringRun = false }) {
       const dir = join(base, `${String(++counter).padStart(2, '0')}-${name}`)
       mkdirSync(join(dir, 'flags'), { recursive: true })
       const files = { log: join(dir, 'log'), stream: join(dir, 'session.ndjson') }
@@ -320,7 +321,13 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
       expect(published.statusCode === 200, `could not publish the message: ${published.body}`)
       const messageId = testEnv.db.prepare('SELECT id FROM messages WHERE input_id = ?').get(inputId).id
       const kinds = delivers ? ['execute', 'deliver'] : ['execute']
-      try { await until(() => jobsOf(messageId, 'execute').length > 0 && settled(messageId, kinds), { timeoutMs: CASE_WAIT_MS, everyMs: 100 }) } catch { /* the cases read what there is and say what is missing */ }
+      if (shutdownDuringRun) {
+        // The orderly shutdown of the worker (a deploy) once the session is running: `stop()` aborts the job with the reason «shutdown».
+        try { await until(() => readLog(files.log).some((l) => l.order === 'run' && l.start), { timeoutMs: HOOK_TIMEOUT_MS, everyMs: 100 }) } catch { /* the case says that RUN never started */ }
+        await worker.stop()
+      } else {
+        try { await until(() => jobsOf(messageId, 'execute').length > 0 && settled(messageId, kinds), { timeoutMs: CASE_WAIT_MS, everyMs: 100 }) } catch { /* the cases read what there is and say what is missing */ }
+      }
       // The job can be closed (its own cap, a deadline) while the order that retires the machine is still running: the verdict reads the log once DESTROY of the last CREATE has ended.
       const retired = () => { const log = readLog(files.log); const at = log.map((l) => l.order).lastIndexOf('create'); return at < 0 || log.slice(at).some((l) => l.order === 'destroy') }
       try { await until(retired, { timeoutMs: HOOK_TIMEOUT_MS, everyMs: 100 }) } catch { /* the cases say that no DESTROY ran */ }
@@ -431,6 +438,21 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
         expect(after, 'no DESTROY ran after the deadline')
         expect(after.exit === '0', `DESTROY after the deadline ended with ${after.exit}`)
         return start ? 'the session was cut during RUN' : 'the deadline expired before RUN started'
+      })
+    }
+
+    if (needs('destroy-shutdown')) {
+      // The session outlives the stop: the double sleeps longer than the whole case. The case fixes the variable it exercises: with 1 (the default) the machine stays on purpose.
+      const f = await flow('shutdown', { double: { FAKE_CANARY_SLEEP_MS: String(SLEEP_PAST_DEADLINE_MS) }, delivers: false, shutdownDuringRun: true, execute: { keepSessionOnShutdown: false } })
+      await verdicts.check('destroy-shutdown', () => {
+        const start = f.log.find((l) => l.order === 'run' && l.start)
+        expect(start, 'RUN never started, so there was no session to shut down')
+        const created = f.log.filter((l) => l.order === 'create' && l.exit === '0').at(-1)
+        const after = f.log.slice(f.log.indexOf(start)).find((l) => l.order === 'destroy')
+        expect(after, 'no DESTROY ran after the worker shut down in the middle of RUN: the machine is left alive')
+        expect(after.exit === '0', `DESTROY after the shutdown ended with ${after.exit}`)
+        expect(!created || after.machine === created.machine, `CREATE named «${created?.machine}» and DESTROY received «${after.machine}»`)
+        return `machine ${after.machine} destroyed`
       })
     }
 

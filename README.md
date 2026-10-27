@@ -4,9 +4,13 @@ Bandeja de entrada para equipos de 3 a 10 personas. Cada miembro envía lo que t
 
 Quien envía revisa la propuesta y la confirma. Quien recibe responde, y cualquier miembro cierra el mensaje. Un modelo de lenguaje lee y propone; el sistema valida cada campo contra la base y decide. Corre en un contenedor con un volumen, sobre SQLite, y toda función del panel está disponible por una API REST con contrato OpenAPI 3.1.
 
-## Instalación
+## Tres niveles de uso
 
-Requiere Docker 25 o superior con el plugin `compose`. Tres comandos:
+Cada nivel tiene una prueba: un comando que sale 0 sólo si funciona. Los detalles de cada forma de instalar, el respaldo y la actualización están en [docs/INSTALACION.md](docs/INSTALACION.md).
+
+### 1. Instalar
+
+Requiere Docker 25 o superior con el plugin `compose`.
 
 ```sh
 git clone https://github.com/kirlts/team-platform /opt/team-platform
@@ -14,7 +18,62 @@ cd /opt/team-platform
 scripts/install.sh
 ```
 
-El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. [docs/INSTALACION.md](docs/INSTALACION.md) describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`. Ahí también están el respaldo y la actualización. Vaciar los datos de prueba: `scripts/vaciar.mjs` o Configuración, sección Datos. Sembrar el juego de `ejemplos/`: «Sembrar ejemplos» en Configuración, sección Datos, o `scripts/sembrar.mjs --ejemplo` por la API; con `--carpeta` siembra otra carpeta.
+El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` (modo 600) y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. `docs/INSTALACION.md` describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`.
+
+Prueba:
+
+```sh
+curl -fsS http://127.0.0.1:3000/health
+```
+
+Responde `"status":"ok"`. La contraseña del primer Editor aparece una vez en el registro: `docker compose logs team-platform | grep 'First editor'`. Para llenar la bandeja con el juego de `ejemplos/`: «Sembrar ejemplos» en Configuración, sección Datos, o `scripts/sembrar.mjs --ejemplo`.
+
+### 2. Conectar un driver
+
+Un mensaje asignado a un miembro agente lo trabaja una sesión desatendida de Claude Code en una máquina que el anfitrión pone. Esa máquina la crea un driver: cinco guiones que cumplen [docs/CONTRATO-DE-ANFITRION.md](docs/CONTRATO-DE-ANFITRION.md). El repositorio trae dos, `drivers/docker-local` (contenedores en la misma máquina) y `drivers/fly-machines` (máquinas bajo demanda de Fly); `drivers/README.md` explica cómo escribir otro.
+
+La imagen lleva los drivers en `/app/drivers`. Los programas que un driver pide junto al trabajador (`bash` y `git` para Fly) los agrega `compose.driver.example.yml`:
+
+```sh
+COMPOSE_FILE=compose.yml:compose.driver.example.yml scripts/install.sh
+```
+
+Las líneas de `.env` que conectan cada driver están en `drivers/README.md` y en `drivers/fly-machines/README.md`. La sección «Un driver dentro del contenedor» de `docs/INSTALACION.md` da el recorrido completo.
+
+Prueba del driver, sin instancia y sin llamar a Anthropic:
+
+```sh
+TMPDIR=$HOME/.cache node scripts/host-conformance.mjs --driver drivers/docker-local
+```
+
+Termina con `contract_version: 1 met`. Prueba de la instancia con el driver conectado, una sesión real completa (gasta unos centavos):
+
+```sh
+docker compose exec -T team-platform sh -c 'TEAM_URL="http://127.0.0.1:$PORT" TEAM_EMAIL="$ADMIN_EMAIL" TEAM_PASSWORD="$ADMIN_PASSWORD" CANARY_AREA=Canario CANARY_CREATE=1 CANARY_AGENT=agente@ejemplo.invalid node scripts/canary.mjs'
+```
+
+Sale 0 cuando el agente responde «OK» en el hilo; sale 3 y nombra el tramo donde se quedó si algo falla.
+
+### 3. Poner piel
+
+El color, la tipografía y el radio del panel se cambian con una hoja de tokens, sin recompilar. La hoja va en el volumen de datos y `THEME_CSS` la nombra:
+
+```sh
+printf ':root[data-theme="light"], :root[data-theme="dark"] { --color-accent: #0a7d55; }\n:root { --radius-md: 4px; }\n' > tema.css
+docker compose cp tema.css team-platform:/data/tema.css
+echo 'THEME_CSS=/data/tema.css' >> .env
+docker compose up -d --wait
+```
+
+Las variables que acepta están en `docs/MASTER-SPEC.md` §7.8, «Contrato del tema». Un sitio que quiere sus propias vistas, y no sólo sus colores, usa el paquete `packages/client` contra la API.
+
+Prueba:
+
+```sh
+curl -fsS http://127.0.0.1:3000/theme.css | grep -- '--color-accent'
+```
+
+La hoja se lee en cada petición: editarla no exige reiniciar.
 
 ## Llaves de proveedor
 

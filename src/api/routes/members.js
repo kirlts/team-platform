@@ -147,8 +147,8 @@ export function registerMemberRoutes (app, ctx) {
     return updatedMember
   })
 
-  // Deletion for good (UD-240). A member without history goes with their credentials, sessions and identity links; one
-  // with history is a 409 `member_has_history` with the counts, and goes with everything of theirs under `purge=true`.
+  // Deletion for good (UD-240, amended by UD-292). The member goes with their credentials, sessions and identity links; what they published stays
+  // under the author «Miembro eliminado» and their unpublished sends go away, or everything of theirs goes under `purge=true`.
   app.delete('/members/:id', {
     onRequest: [requireRole('person')],
     schema: {

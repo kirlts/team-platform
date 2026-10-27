@@ -63,8 +63,9 @@ describe('the work of the agent in the sheet', () => {
     expect(steps()).toEqual(['machine:pending', 'session:pending', 'deliver:pending'])
     const [machine, session, deliver] = screen.getAllByRole('listitem')
     expect(within(machine!).getByText('En cola')).toBeTruthy()
-    expect(within(session!).getByText('Pendiente')).toBeTruthy()
-    expect(within(deliver!).getByText('Pendiente')).toBeTruthy()
+    // UD-041: a stretch that has not started carries no word, only its mark and its muted name.
+    expect(session!.textContent).toBe('Sesión')
+    expect(deliver!.textContent).toBe('Entrega')
   })
 
   it('a running job shows the stretch it is in, with its time, and the bar', async () => {

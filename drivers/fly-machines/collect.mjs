@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DriverError, execOk, findMachine, loadSettings, machineName, main, safeJob } from './lib/fly.mjs'
+import { DriverError, execOk, findMachine, isMachineOfJob, loadSettings, machineName, main, safeJob } from './lib/fly.mjs'
 import { download, untar, upload } from './lib/transfer.mjs'
 
 const MACHINE_DIR = fileURLToPath(new URL('./machine/', import.meta.url))
@@ -14,9 +14,9 @@ await main(async () => {
   const [job, workdir, machine] = process.argv.slice(2)
   if (!job || !workdir) throw new DriverError('usage: collect.sh <job_id> <workdir> <machine>')
   const s = loadSettings()
-  if (machine && machine !== machineName(job)) throw new DriverError(`not a machine of this driver: ${machine}`)
+  if (machine && !isMachineOfJob(s, job, machine)) throw new DriverError(`not a machine of this driver: ${machine}`)
   const mine = await findMachine(s, job)
-  if (!mine) throw new DriverError(`the machine ${machineName(job)} does not exist`, 2)
+  if (!mine) throw new DriverError(`the machine ${machineName(s, job)} does not exist`, 2)
 
   // pack.sh normally arrived with RUN; this makes collect independent of how far RUN got.
   await execOk(s, mine.id, ['bash', '-c', 'mkdir -p /tp/agent'])

@@ -18,6 +18,7 @@ scripts
 !scripts/repo-map.mjs
 !scripts/tiempos.mjs
 !scripts/canary.mjs
+drivers/*/Dockerfile
 data
 backups
 *.log

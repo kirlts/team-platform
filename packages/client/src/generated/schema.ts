@@ -226,6 +226,8 @@ export interface paths {
                         "application/json": {
                             status?: string;
                             version?: string;
+                            /** @description Version of the host contract this core implements (docs/CONTRATO-DE-ANFITRION.md). */
+                            contract_version?: number;
                             db?: {
                                 [key: string]: unknown;
                             };
@@ -238,6 +240,10 @@ export interface paths {
                             }[];
                             analyzer?: string;
                             handoffs?: {
+                                [key: string]: unknown;
+                            };
+                            /** @description Machines of the execute job without a recorded destruction: `open` (the ones of running jobs included) and `failed`, those whose DESTROY did not exit 0 (the status turns degraded). */
+                            machines?: {
                                 [key: string]: unknown;
                             };
                         };
@@ -2129,6 +2135,10 @@ export interface paths {
                             job_status?: string;
                             trace_id?: string | null;
                             phase?: string | null;
+                            /** @description La instancia declara una entrega aparte (`EXECUTE_DELIVER_COMMAND`): un trabajo que termine en un cambio pasa por ella. Si una sesión concreta termina en un cambio lo decide su resultado, no esta cifra. */
+                            delivers?: boolean;
+                            /** @description La sesión corre en una máquina creada para ella (`EXECUTE_RUNNER=machine`); con el ejecutor local no hay tramo de máquina. */
+                            machine?: boolean;
                             attempts?: number;
                             /** @description El modelo con que corrió la sesión del trabajo (UD-295). */
                             model?: string | null;

@@ -1,15 +1,33 @@
 // Providers module for the walkthrough on the Docker image (PROVIDERS_MODULE=./testing/walkthrough-providers-module.js):
 // the real analyzer and the real extractors talk to scripted fake providers, so a whole flow runs with no network
 // and no keys. Unlike fake-providers-module.js it needs no help from the test process (the test runs outside the
-// container): the area and the template come from the first values of the classification schema.
+// container): the template comes from the first value of the classification schema, with the area that the catalog of the prompt says it belongs to.
 // Test support: nothing here is imported from production code.
 
 import { createFakeProviders } from '../providers/fake.js'
 
+// The units are numbered in the first message that carries them; the retry after an invalid answer appends a message of feedback that does not.
 const unitIdsIn = (request) => {
-  const last = request.messages.at(-1)
-  const text = typeof last.content === 'string' ? last.content : JSON.stringify(last.content)
-  return [...text.matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]))
+  for (const message of request.messages.filter((m) => m.role === 'user')) {
+    const text = typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+    const ids = [...text.matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]))
+    if (ids.length > 0) return [...new Set(ids)]
+  }
+  return []
+}
+
+// The area of a template, from the catalog the prompt carries («Área 2: …», then «Plantilla 1: …» under it). The enums of the schema list the ids of areas and
+// templates in an order of their own, so the first of each is not a pair that belongs together.
+function areaOfTemplate (request, templateId) {
+  const system = [].concat(request.system ?? []).map((b) => (typeof b === 'string' ? b : b.text ?? '')).join('\n')
+  let area = null
+  for (const line of system.split('\n')) {
+    const a = /^(?:Área|Area) (\d+):/.exec(line)
+    if (a) area = Number(a[1])
+    const t = /^\s*(?:Plantilla|Template) (\d+):/.exec(line)
+    if (t && Number(t[1]) === templateId) return area
+  }
+  return null
 }
 
 function textScript (request) {
@@ -19,7 +37,8 @@ function textScript (request) {
   const groups = request.schema.properties.groups
   if (groups) {
     const item = groups.items.properties
-    return { json: { groups: [{ unit_ids: units, area_id: item.area_id.enum[0], template_id: item.template_id.enum[0] }], discarded: [] } }
+    const templateId = item.template_id.enum[0]
+    return { json: { groups: [{ unit_ids: units, area_id: areaOfTemplate(request, templateId) ?? item.area_id.enum[0], template_id: templateId }], discarded: [] } }
   }
   // Split check of one written group: one request, so nothing is split.
   if (request.schema.properties.requests) return { json: { requests: [{ unit_ids: units, request: 'request' }] } }

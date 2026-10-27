@@ -111,11 +111,11 @@ export function createResources(t: Transport) {
     members: {
       list: async () => unwrapList<Member>(await call(routes.memberList)),
       create: (v: NewMember) => call<Member>(routes.memberCreate, { body: v }),
-      /** `self` changes the account of the session (`/members/me`); otherwise the member `id` (Editor). */
+      /** `self` changes the account of the session (`/members/me`); otherwise the member `id` (any person; `profile` and the role are another matter, UD-287). */
       save: (v: { id: string; self: boolean; patch: MemberPatch }) =>
         v.self ? call<Member>(routes.memberPatchSelf, { body: v.patch }) : call<Member>(routes.memberPatch, { params: { id: v.id }, body: v.patch }),
       saveLanguage: (language: Language) => call<Member>(routes.memberPatchSelf, { body: { language } }),
-      /** Another member's password (Editor): it closes that person's sessions. */
+      /** Another member's password (any person, UD-287): it closes that person's sessions. */
       setPassword: (v: { id: string; password: string }) => call<Member>(routes.memberPatch, { params: { id: v.id }, body: { password: v.password } }),
       /** Deleting (any active person, UD-292): what the member published stays under «Miembro eliminado»; `purge` takes their history too. */
       delete: (v: { id: string; purge?: boolean }) =>
@@ -205,13 +205,13 @@ export function createResources(t: Transport) {
       restoreMany: (ids: readonly string[]) => call<{ ids: string[] }>(routes.messageRestoreMany, { body: { ids } }),
       /** Where the time of the execution of a message went. A 404 means it has no execution. */
       timing: (id: string) => call<MessageTiming>(routes.messageTiming, { params: { id } }),
-      /** Queues the `execute` job of a message (Editor). */
+      /** Queues the `execute` job of a message (any person, UD-287). */
       execute: (id: string) => call<Record<string, unknown>>(routes.messageExecute, { params: { id } }),
       /** Forwards the message to a member with the reason (UD-272): the same message, one more assignee and a notice in the thread; with an agent, its `execute` job. */
       forward: (id: string, v: { member_id: string; comment: string }) => call<MessageDetail>(routes.messageForward, { params: { id }, body: { member_id: v.member_id, comment: v.comment } }),
       /** Launches again the `execute` job whose failure a reply tells (UD-282): the same message, mention or forward, files and voice notes. */
       retry: (id: string, replyId: string) => call<{ job_id: string }>(routes.replyRetry, { params: { id, replyId } }),
-      /** Queues the delivery of the branch an `execute` job left (Editor; UD-263). */
+      /** Queues the delivery of the branch an `execute` job left (UD-263). */
       deliver: (id: string) => call<{ job_id: string }>(routes.messageDeliver, { params: { id } }),
       /** Discards the branch of a held delivery with a required reason (Editor; UD-275): it is never delivered. */
       discardDelivery: (id: string, reason: string) => call<{ reply_id: string }>(routes.messageDiscardDelivery, { params: { id }, body: { reason } }),
@@ -259,7 +259,7 @@ export function createResources(t: Transport) {
       },
       /** Every send of mine, newest first, whatever its state (UD-070); the ones I discarded are not part of it. */
       history: async () => unwrapList<InputRecord>(await call(routes.inputList, { search: 'mine=1&order=desc&compact=1' })).filter((i) => i.status !== 'cancelled'),
-      /** The sends of everybody (Editor), newest first, one server page. */
+      /** The sends of everybody (any person, UD-287), newest first, one server page. */
       queue: (page: number, limit: number) => call<Paged<QueueInput>>(routes.inputList, { search: `all=1&page=${page}&limit=${limit}` }),
       /** Sends the input as multipart without progress (a server, a script). Idempotent by content hash (MASTER-SPEC §1.3). */
       create: (input: NewInput, signal?: AbortSignal) => call<CreatedInput>(routes.inputCreate, { form: inputForm(input), signal }),
@@ -270,7 +270,7 @@ export function createResources(t: Transport) {
       saveProposal: (inputId: string, proposal: Proposal) => call<Proposal>(routes.inputSaveProposal, { params: { id: inputId }, body: proposal }),
       /** Changes the text of the submitted input. */
       saveText: (inputId: string, text: string) => call<InputRecord>(routes.inputSaveText, { params: { id: inputId }, body: { text } }),
-      /** Requeues the analysis; keeps the text and the extractions. Published: the Editor only, its messages go to the trash. */
+      /** Requeues the analysis; keeps the text and the extractions. Published or not, any person may; its messages go to the trash (UD-287). */
       reprocess: (inputId: string) => call<ReprocessResult>(routes.inputReprocess, { params: { id: inputId } }),
       /** Undoes a discard: the send comes back with the proposal and the edits it had. */
       restore: (inputId: string) => call<{ input_id: string; status: string }>(routes.inputRestore, { params: { id: inputId } }),
@@ -295,7 +295,7 @@ export function createResources(t: Transport) {
       check: (slot: ProviderSlot) => call<{ check: Check; slot: ProviderSlot; provider: string; model: string }>(routes.providerCheck, { params: { slot }, body: {} }),
     },
     connections: {
-      /** Providers with the state of their keys, and the presets that can be added (Editor). */
+      /** Providers with the state of their keys, and the presets that can be added (any person, UD-287). */
       list: () => call<ConnectionsView>(routes.connectionList),
       /** Adds a provider with its key; the server tests first and saves nothing when the test fails. */
       add: (v: NewConnection) => call<ConnectionResult>(routes.connectionAdd, { body: v }),
@@ -330,16 +330,16 @@ export function createResources(t: Transport) {
       save: (autoPublish: boolean) => call<{ auto_publish: boolean }>(routes.publicationPatch, { body: { auto_publish: autoPublish } }),
     },
     telemetry: {
-      /** Turns interface telemetry on or off (Editor). */
+      /** Turns interface telemetry on or off (any person, UD-287). */
       setUiEnabled: (enabled: boolean) => call(routes.telemetryPatch, { body: { ui_enabled: enabled } }),
-      /** Summary of how the interface is used (Editor). */
+      /** Summary of how the interface is used (any person, UD-287). */
       uiSummary: () => call<UiSummary>(routes.telemetryUiSummary),
       /** Sends a batch of interface events, as an object or as the JSON text already built. `keepalive` lets it outlive the page. */
       sendUi: (batch: object | string, options: { keepalive?: boolean } = {}) =>
         call(routes.telemetrySendUi, typeof batch === 'string' ? { json: batch, keepalive: options.keepalive } : { body: batch, keepalive: options.keepalive }),
     },
 
-    // ------------------------------------------------------------ Operations (Editor)
+    // ------------------------------------------------------------ Operations (any person, UD-287)
     jobs: {
       list: (state: JobState, options: { page?: number; limit?: number } = {}) =>
         call<Paged<unknown>>(routes.jobList, { search: `state=${state}${options.page ? `&page=${options.page}` : ''}&limit=${options.limit ?? 1}` }),
@@ -353,7 +353,7 @@ export function createResources(t: Transport) {
         call<Paged<AuditEntry>>(routes.auditList, { search: `page=${page}&limit=${limit}${action ? `&action=${encodeURIComponent(action)}` : ''}` }),
     },
     ops: {
-      /** History of the execute runs, newest first (Editor). */
+      /** History of the execute runs, newest first (any person, UD-287). */
       executeRuns: (filter: ExecuteRunsFilter = {}) => {
         const params = new URLSearchParams()
         for (const [key, value] of Object.entries(filter)) if (value !== undefined && value !== '') params.set(key, String(value))

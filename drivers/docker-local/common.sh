@@ -16,6 +16,10 @@
 #                             «ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN»); values never appear in a command line
 #   TP_DOCKER_STATE           directory of the driver's own state: the creation lock and the transcripts
 #                             (default ${XDG_STATE_HOME:-$HOME/.local/state}/team-platform-docker)
+#   TP_DOCKER_INSTANCE        identity of this instance of the driver on a Docker daemon that other instances share (letters and digits, at most 20).
+#                             It is in the name of every machine (tp-<instance>-job-<id>) and in the label the driver counts and checks by, so two
+#                             instances (or two runs of the conformance script) whose job ids coincide never see each other's machines.
+#                             Default: the first 8 hex digits of the sha256 of TP_DOCKER_STATE, which is already one per instance.
 
 # A `docker` shell function exported by the caller (a wrapper that allocates a terminal, for instance) would be inherited by these scripts and
 # would merge stderr into stdout, which is the NDJSON of the session. The real executable is the one the contract needs.
@@ -30,12 +34,29 @@ TP_DRIVER_LABEL="team-platform.driver=docker-local"
 # A job id is interpolated into names and paths: only letters, digits, dot, dash and underscore.
 tp_safe () { printf '%s' "$1" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^[.-]+//'; }
 
-tp_machine_name () { printf 'tp-job-%s' "$(tp_safe "$1")"; }
-
-# Only machines this driver named can be touched: never a container of someone else (the host is shared).
-tp_valid_machine () { [[ "$1" =~ ^tp-job-[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; }
-
 tp_fail () { echo "$(basename "$0"): $*" >&2; exit 1; }
+
+# The identity of this instance. Lower case letters and digits only, so that the name tp-<instance>-job-<id> is read one way.
+tp_sha () { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; }
+if [ -z "${TP_DOCKER_INSTANCE:-}" ]; then
+  TP_DOCKER_INSTANCE="$(printf '%s' "$TP_DOCKER_STATE" | tp_sha | cut -c1-8)"
+fi
+[[ "$TP_DOCKER_INSTANCE" =~ ^[a-z0-9]{1,20}$ ]] || tp_fail "TP_DOCKER_INSTANCE must be 1 to 20 lower case letters or digits: «$TP_DOCKER_INSTANCE»"
+TP_INSTANCE_LABEL="team-platform.instance=$TP_DOCKER_INSTANCE"
+
+tp_machine_name () { printf 'tp-%s-job-%s' "$TP_DOCKER_INSTANCE" "$(tp_safe "$1")"; }
+
+# Only machines this instance named can be touched: never a container of someone else (the host is shared), nor one of another instance.
+tp_valid_machine () { [[ "$1" == "tp-${TP_DOCKER_INSTANCE}-job-"* && "$1" =~ ^tp-[a-z0-9]+-job-[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; }
+
+# A machine created before instances existed was named tp-job-<id> and carries no instance label. Its name stays in the register of the core
+# (execute_machines), which is the one of this instance, so destroy.sh (only) accepts it; create, run and collect never address one.
+tp_legacy_machine () { [[ "$1" =~ ^tp-job-[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; }
+
+# The machine the register names when CREATE did not get to answer is the default of the core, team-job-<id>; the one this driver would have made is its own name.
+tp_machine_of () { # <job_id> <machine given>
+  if [ "$2" = "team-job-$1" ]; then tp_machine_name "$1"; else printf '%s' "$2"; fi
+}
 
 # `docker` must answer. Not being able to reach the daemon is a «not now» of the infrastructure, not a fault of the change.
 tp_need_docker () {
@@ -43,10 +64,12 @@ tp_need_docker () {
   docker info >/dev/null 2>&1 || { echo "$(basename "$0"): the Docker daemon does not answer" >&2; exit 75; }
 }
 
-# The machine exists and was created by this driver. Returns 0 present, 1 absent; exits 1 for a container that is not ours.
+# The machine exists and was created by this instance of the driver. Returns 0 present, 1 absent; exits 1 for a container that is not ours.
 tp_machine_state () {
-  local label
+  local label instance
   label="$(docker inspect -f '{{index .Config.Labels "team-platform.driver"}}' "$1" 2>/dev/null)" || return 1
   [ "$label" = "docker-local" ] || tp_fail "the container $1 is not a machine of this driver"
+  instance="$(docker inspect -f '{{index .Config.Labels "team-platform.instance"}}' "$1" 2>/dev/null)" || return 1
+  [ "$instance" = "$TP_DOCKER_INSTANCE" ] || tp_fail "the container $1 is not a machine of this instance ($TP_DOCKER_INSTANCE)"
   return 0
 }

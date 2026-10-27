@@ -144,7 +144,7 @@ Las órdenes se declaran como texto de shell y corren con `/bin/sh -c` en la má
 | DESTROY | `{job_id}`, `{workdir}`, `{machine}` | `TEAM_JOB_ID`, `TEAM_WORKDIR` |
 | DELIVER | `{message_id}`, `{job_id}`, `{branch}`, `{workdir}` | Ver «DELIVER» |
 
-`{workdir}` de las órdenes de máquina contiene `run.sh` (la invocación de `claude`), `env.sh` (modo 600, lleva el secreto del agente), `prompt.md` y `bin/team`. Además `system.md` con `EXECUTE_STABLE_AS_SYSTEM`, `guards.json` con `EXECUTE_GUARDS_FILE`, `thread/` cuando el trabajo atiende una mención, y los directorios `captures/` y `attachments/` donde la sesión deja capturas y documentos.
+`{workdir}` de las órdenes de máquina contiene `run.sh` (la invocación de `claude`), `env.sh` (modo 600, lleva el secreto del agente), `prompt.md`, `bin/team` y `bin/look` con la carpeta `bin/captures/` que éste ejecuta. Además `system.md` con `EXECUTE_STABLE_AS_SYSTEM`, `guards.json` con `EXECUTE_GUARDS_FILE`, `thread/` cuando el trabajo atiende una mención, y los directorios `captures/` y `attachments/` donde la sesión deja capturas y documentos.
 
 Las señales van sólo al grupo de procesos que lanzó el trabajador. Nunca se señala a un proceso padre.
 
@@ -333,6 +333,62 @@ Un 75 repetido de DELIVER con la misma salida deja de ser una espera. El límite
 | Pares de `EXECUTE_SESSION_ENV`, `EXECUTE_DIRECT_SESSION_ENV` y `EXECUTE_OTEL_ENV` | Los que el anfitrión declaró |
 
 `bin/team` está en el `PATH` de la sesión. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`, y `hook` para los ganchos de «Guardias de la sesión».
+
+`bin/look` también está en el `PATH`: es la herramienta que mira la interfaz del anfitrión y deja las capturas. Ver «Herramienta de captura `look`».
+
+## Herramienta de captura `look`
+
+`look` es un navegador sin cabeza que la sesión usa para mirar la interfaz del anfitrión, sólo leyendo, y dejar capturas que cumplen UD-268. Sale del núcleo en `src/execute/captures/`; el trabajador la copia a `{workdir}/bin/captures/` junto a `team`, así que una máquina sin repositorio la tiene. Es opcional: sin Playwright en la máquina dice en una línea que no puede (código 6) y la sesión sigue sin capturas. El núcleo no trae Playwright: lo trae el anfitrión (`LOOK_PLAYWRIGHT_DIR`, `TEAM_PLAYWRIGHT_DIR`, el directorio de trabajo o `~/.tp-playwright`). Un comando del anfitrión que corre fuera de un trabajo (el que toma el «después» de una entrega, por ejemplo) instala la herramienta en un directorio `bin` con `node <app>/src/execute/captures/install.mjs <bin>`, donde `<app>` es `/app` en la imagen del núcleo.
+
+El núcleo no conoce ninguna dirección, cuenta, ruta de pantalla ni clave de persona del anfitrión. Todo eso entra por las variables de abajo y por un archivo que el anfitrión declara: el adaptador.
+
+### Variables de `look`
+
+Las lee la sesión, no el trabajador. El anfitrión las fija en el entorno de la máquina o con `EXECUTE_SESSION_ENV` (los valores sin espacios). Todas son opcionales.
+
+| Variable | Omisión | Qué gobierna | Origen de la omisión |
+|---|---|---|---|
+| `LOOK_HOST` | vacía | Ruta del adaptador (un módulo ES), relativa al directorio de trabajo de la sesión. Sin él `look` mira una dirección anónima | Sin anfitrión no hay cuenta ni rutas que conocer |
+| `LOOK_ORIGIN` | la del adaptador | Origen que se mira (`https://…`, sin ruta). Sin ésta ni la del adaptador: código 2 | El núcleo no conoce ninguna |
+| `LOOK_MASK` | `on`, salvo que `TEAM_CAPTURES_UNMASKED` sea `allowed` o `1` | `on` o `off`: si cubre los datos de personas antes de capturar. `--mask` y `--no-mask` mandan sobre ella | UD-268: `masked: false` sin zona abierta no se adjunta; UD-270: con `TEAM_CAPTURES_UNMASKED` el anfitrión acepta personas en las capturas |
+| `LOOK_TIMEOUT_S` | `5 × (2,9 + 4,2 × pantallas)` segundos | Plazo de toda la corrida. Al vencer sale con 4 y nombra la fase | Medición del 2026-10-23 del primer anfitrión: 7,6 s una corrida de una pantalla (2,9 s de arranque y 4,2 s de pantalla), con margen de cinco veces para una máquina cargada. Un valor que no sea un número mayor que cero detiene la corrida con código 2 |
+| `LOOK_OUT` | `$TEAM_CAPTURES_DIR`, y sin ella `$TMPDIR/look` | Carpeta donde caen las capturas sin ruta propia. Con `$TEAM_CAPTURES_DIR` la ruta de la declaración es relativa a esa carpeta | La carpeta que `checkCaptures` exige |
+| `LOOK_CHROMIUM` | vacía | Ejecutable de Chromium. Vacía: el de Playwright si está en disco, y si no `google-chrome`, `chromium` o `chromium-browser` de `/usr/bin` | Nombres estándar de los paquetes |
+| `LOOK_PLAYWRIGHT_DIR` | vacía | Directorio con `node_modules/playwright`, relativo al de trabajo o absoluto. Se busca antes que `TEAM_PLAYWRIGHT_DIR`, que ya lee `team walkthrough` | Misma búsqueda que `team walkthrough` |
+| `LOOK_DEBUG` | vacía | Con cualquier valor, `look` cuenta en stderr cada espera | Diagnóstico |
+
+`look` también lee `TEAM_CAPTURES_DIR` y `TEAM_CAPTURES_UNMASKED`, que el trabajador ya pasa (ver «Entorno de la sesión»).
+
+### Salida y códigos
+
+Primero el texto de la pantalla (un árbol con títulos, enlaces, botones, campos y tablas, una fila por línea). La captura sólo con `--shot`, o sola si la página tiene menos de 80 caracteres de texto. Cada captura termina con una línea `LOOK_CAPTURE {"path":…,"alt":…,"place":…,"as":…,"masked":…}`, que es un elemento de la lista `captures` de UD-268. `masked` es `true` sólo si no quedó ningún residuo detectable y había algo contra qué comprobar; `look` no lee píxeles, así que un nombre dibujado en una imagen no se cubre.
+
+| Código | Significa |
+|---|---|
+| 0 | Miró lo pedido |
+| 1 | Falló otra cosa; el mensaje dice qué |
+| 2 | Argumentos, adaptador o variables inválidos |
+| 3 | La sesión terminó y no se pudo rehacer. La pantalla no se captura |
+| 4 | Se agotó el plazo (`LOOK_TIMEOUT_S`) |
+| 5 | No pudo entrar |
+| 6 | El navegador no arranca, o no hay Playwright |
+
+### El adaptador del anfitrión
+
+Un módulo ES cuyo `export default` es un objeto. Todos los campos son opcionales; la cabecera de `src/execute/captures/host.js` es la referencia y `src/execute/captures/testing/host-example.mjs` un ejemplo que corre.
+
+| Campo | Qué declara |
+|---|---|
+| `origin` | El origen que se mira, si no llega `LOOK_ORIGIN` |
+| `flags` | Opciones con valor que `look` acepta además de las suyas (`--clinic X`); llegan a `session` como `options` |
+| `session({ options, api, log, fail, fresh })` | Cómo entra y como quién. Devuelve `{ as, init }`: `as` es una línea que va en cada captura; `init` puede traer `sessionStorage`, `localStorage`, `cookies` y `headers` que se ponen en el navegador antes de la primera página. `api` es un `fetch` bajo la guardia de sólo lectura; un POST suyo debe estar en `guard.sessionPosts`. `fail(mensaje, código)` termina la corrida |
+| `url({ place, first, session, origin })`, `menuStart(…)` | La dirección de una ruta y el punto de partida de un menú, cuando no son `origen + ruta` |
+| `guard.browserPosts`, `guard.blockedGets`, `guard.sessionPosts` | La guardia. Una petición sale sólo si es del origen y es GET, HEAD u OPTIONS, o un POST listado. Los `blockedGets` son GET que no son lectura pura (devuelven un secreto, marcan algo como leído, registran una exportación) y se cortan igual. Todo websocket se cierra. `get-effects.mjs` ayuda a encontrarlos leyendo el código del servidor |
+| `mask.patterns`, `mask.personKey`, `mask.genericKey`, `mask.personContext`, `mask.learnFrom` | Lo que se cubre, además de correos y teléfonos internacionales: patrones propios (documentos de identidad, teléfonos locales) y las claves con que el servidor del anfitrión nombra personas en sus respuestas JSON. `look` aprende de esas respuestas qué valores tapar |
+| `loadingText`, `expiredText`, `loginPaths` | Qué texto dice que la página no terminó de cargar, cuál que la sesión terminó, y qué rutas de entrada no cuentan como sesión vencida si responden 401 |
+| `allowHosts`, `playwrightDirs`, `context`, `effectMarks` | Otros hosts que el navegador puede resolver, dónde buscar Playwright, opciones del contexto (idioma, zona horaria) y marcas propias para `get-effects.mjs` |
+
+La cuenta con que `session` entra debe ser de solo lectura en el servidor del anfitrión: la guardia de `look` es la segunda capa y la primera es del servidor.
 
 ## `EXECUTE_HOST_INSTRUCTIONS`
 

@@ -8,6 +8,7 @@
 // of `click` or `fill`). Before each step the page shows a small fixed label «Paso 2 · <label>» and the outline; the person reviewing quotes «paso 2» or
 // the second. Used from `team walkthrough`; `playwright` is loaded from the host (the repository's own dependency), never bundled.
 
+import { readdirSync } from 'node:fs'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
@@ -123,11 +124,13 @@ export function webmSize (bytes) {
 
 /**
  * Playwright from the host, wherever the `team` script runs from: the session copies `team` into its job directory, where a plain `import('playwright')`
- * finds nothing. Looked up from `$TEAM_PLAYWRIGHT_DIR`, the working directory (the repository of the branch: plataforma/ carries it), and the copy the
- * harness machine installs for the `tp` user (`~/.tp-playwright`, preparar.sh). null when none is there.
+ * finds nothing. Looked up from `$TEAM_PLAYWRIGHT_DIR`, the first-level directories of the working directory (the repository of the branch, where a
+ * subproject may carry it), the working directory itself, and the copy a work machine installs (`~/.tp-playwright`). null when none is there.
  */
 export function loadPlaywright (env = process.env, cwd = process.cwd()) {
-  const bases = [env.TEAM_PLAYWRIGHT_DIR, join(cwd, 'plataforma'), cwd, join(env.HOME ?? homedir(), '.tp-playwright')].filter(Boolean)
+  let subdirs = []
+  try { subdirs = readdirSync(cwd, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'node_modules').map((d) => join(cwd, d.name)).sort() } catch { /* not readable: no subdirectories */ }
+  const bases = [env.TEAM_PLAYWRIGHT_DIR, ...subdirs, cwd, join(env.HOME ?? homedir(), '.tp-playwright')].filter(Boolean)
   for (const base of bases) {
     try { return createRequire(join(base, 'package.json'))('playwright') } catch { /* next base */ }
   }

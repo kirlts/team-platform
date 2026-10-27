@@ -34,6 +34,7 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
+import { installLook } from './captures/install.mjs'
 import { capturesDir, capturesEnv, closingCaptures, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
@@ -65,6 +66,7 @@ export async function installTeamBin (workdir) {
   await mkdir(join(workdir, 'bin', 'hooks'))
   for (const name of HOOK_MODULES) await copyFile(fileURLToPath(new URL(`./hooks/${name}`, import.meta.url)), join(workdir, 'bin', 'hooks', name))
   await writeFile(join(workdir, 'bin', 'team'), '#!/bin/sh\nexec node "$(dirname "$0")/team.mjs" "$@"\n', { mode: 0o755 })
+  await installLook(join(workdir, 'bin')) // `look`, the capture tool (src/execute/captures/), travels with the job directory as a folder
 }
 const PROVIDER = 'claude-code'
 const STDERR_TAIL_CHARS = 600 // declared courtesy: the cause of a process that fails is at the END of its stderr (the start is ssh and useradd noise); enough for the last lines, short enough for `last_error`

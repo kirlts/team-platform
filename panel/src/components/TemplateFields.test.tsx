@@ -61,6 +61,20 @@ describe('a field with no data is not drawn', () => {
     expect(container.textContent).toBe('')
   })
 
+  it('an empty required field is drawn for both roles: the amber request only for whoever can fill it, a neutral «Falta» for whoever cannot', () => {
+    const { container, unmount } = mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit />)
+    expect(screen.getByText('Obligatorio').className).toContain('text-answered-fg')
+    expect(screen.queryByText('Falta')).toBeNull()
+    unmount()
+    const other = mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit={false} />)
+    expect(other.container.querySelector('dl')).not.toBeNull()
+    expect(screen.queryByText('Obligatorio')).toBeNull()
+    const missing = screen.getByText('Falta')
+    expect(missing.className).toContain('text-muted')
+    expect(missing.className).not.toContain('answered')
+    expect(container).toBeTruthy()
+  })
+
   it('an empty required field is drawn and says so; closed, it is not asked for', () => {
     const { rerender } = mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit />)
     expect(screen.getAllByText('Obligatorio').length).toBeGreaterThan(0)

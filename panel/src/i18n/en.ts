@@ -234,6 +234,7 @@ export const en: Record<MessageKey, Message> = {
 
   'fields.required': 'Required',
   'fields.optional': 'No value',
+  'fields.missing': 'Missing',
   'fields.add': 'Add {label}',
   'fields.requiredError': 'Required',
 

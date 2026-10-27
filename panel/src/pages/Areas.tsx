@@ -21,7 +21,7 @@ import { useNotices } from '@/lib/notices'
 import type { Area } from '@team-platform/client'
 import { useAreas, useDeleteAreas, useDeletedAreas, useDeleteArea, useMe, useRestoreArea, useRestoreAreas, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
 import { useSelection, type Selection } from '@/lib/selection'
-import { RowCheck, SelectionBar } from '@/components/SelectionBar'
+import { RowCheck, SelectionBar, SelectionFoot } from '@/components/SelectionBar'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /**
@@ -144,11 +144,13 @@ function AreaList() {
           label={t('nav.areas')}
           renderRow={(x) => (x.kind === 'live' ? <AreaRow area={x.area} selection={selection} /> : <DeletedAreaRow area={x.area} />)}
           onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('live-')).map((k) => k.slice(5)))}
-          header={
-            <>
-              {marked.length > 0 && <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} />}
-              <AreaColumns />
-            </>
+          header={<AreaColumns />}
+          footer={
+            marked.length > 0 ? (
+              <SelectionFoot>
+                <SelectionBar className="border-b-0" selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} />
+              </SelectionFoot>
+            ) : undefined
           }
           empty={areas.isPending || areas.isError ? <LoadState query={areas} /> : <EmptyState action={create}>{t('areas.none')}</EmptyState>}
         />

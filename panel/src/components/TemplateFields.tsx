@@ -35,8 +35,8 @@ export function TemplateFields({
   /** The names the person asked to add: they are drawn, open, until they hold something or the edit ends empty. */
   const [adding, setAdding] = useState<string[]>([])
   const empty = (name: string) => !(values?.[name] ?? '').trim()
-  // A required field that is empty is flagged only to whoever can fill it: for a reader it would be a name with «Obligatorio» and nothing to do.
-  const pending = (f: { name: string; required: boolean }) => f.required && !closed && canEdit && empty(f.name)
+  // An empty required field is drawn for everyone and says it is missing (UD-306); only whoever can fill it is asked to, in amber.
+  const pending = (f: { name: string; required: boolean }) => f.required && !closed && empty(f.name)
   const shown = fields.filter((f) => isStated(values?.[f.name]) || pending(f) || adding.includes(f.name))
   const absent = canEdit && !closed ? fields.filter((f) => !shown.includes(f)) : []
   if (shown.length === 0 && absent.length === 0) return null
@@ -49,7 +49,7 @@ export function TemplateFields({
               <dt className="rotulo flex items-baseline justify-between gap-2">
                 {f.label}
                 {/* What waits for a person is amber, and says it in words. */}
-                {pending(f) && <span className="font-semibold normal-case tracking-normal text-answered-fg">{t('fields.required')}</span>}
+                {pending(f) && (canEdit ? <span className="font-semibold normal-case tracking-normal text-answered-fg">{t('fields.required')}</span> : <span data-testid="field-missing" className="font-semibold normal-case tracking-normal text-muted">{t('fields.missing')}</span>)}
               </dt>
               <dd>
                 <EditableText
@@ -65,7 +65,7 @@ export function TemplateFields({
                   }}
                   placeholder={closed ? t('fields.optional') : ''}
                   displayClassName={boxed ? 'border-line' : undefined}
-                  emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
+                  emptyLabel={f.required && !closed ? (canEdit ? t('fields.required') : t('fields.missing')) : t('fields.optional')}
                   validate={f.required && !closed ? (v) => (v ? null : t('fields.requiredError')) : undefined}
                   onSave={(v) => onSave(f.name, v)}
                 />

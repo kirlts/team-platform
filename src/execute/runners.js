@@ -9,7 +9,8 @@
 //                                        DESTROY, only if the machine was reached; copies the session transcript out of the machine
 //                                        and prints where it left it (a path or an object key) as its last stdout line
 //               EXECUTE_MACHINE_DESTROY  placeholders {job_id} {workdir} {machine}; runs always: after success, failure,
-//                                        timeout or abort, and also when CREATE failed half way
+//                                        timeout, abort or an orderly shutdown of the worker, and also when CREATE failed half way. What a sudden death
+//                                        of the worker leaves is destroyed by the sweep of src/execute/machines.js when the next worker starts
 // The delivery (UD-263) is one more host command, EXECUTE_DELIVER_COMMAND, run by src/execute/deliver.js with the same placeholders
 // plus {message_id} and {branch}.
 // Signals go only to the process group this module started (detached child), never to a parent.
@@ -131,10 +132,24 @@ export function createCreationGate ({ waitMs, now = Date.now }) {
 }
 
 /**
+ * The DESTROY order of the host for one machine. Resolves like `spawnStreaming`: `code` 0 is destroyed; anything else (an exit code, a
+ * timeout, a shell that did not start) is a failure that the caller records and never reads as «there is no machine».
+ */
+export function destroyMachine ({ config, jobId, workdir, machine }) {
+  const x = config.execute
+  const shellEnv = { ...process.env, TEAM_JOB_ID: String(jobId), TEAM_WORKDIR: workdir }
+  return shell(fillCommand(x.machineDestroy, { job_id: String(jobId), workdir, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs })
+}
+
+/**
  * Machine runner: CREATE, RUN, and DESTROY in a finally. Resolves like `runLocal`, plus `machine` and `destroy`
  * ({ code, stderr }). The timeout covers CREATE and RUN together.
+ *
+ * `track` (optional) is the register of machines (src/execute/machines.js): `begin(machine)` runs BEFORE CREATE with the default name and returns
+ * a handle, `named(handle, machine)` after CREATE printed its name, and `destroyed(handle, { code, stderr })` after DESTROY. A `begin` that throws
+ * stops the job before anything is created (a machine nobody wrote down is one nobody can sweep); the other two are courtesies and never fail the job.
  */
-export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {}, phase = (name, fn) => fn(), createGate = null }) {
+export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {}, phase = (name, fn) => fn(), createGate = null, track = null }) {
   const x = config.execute
   await writeMachineFiles({ workdir, args, prompt, env, claudeBin: x.machineBin })
   const started = Date.now()
@@ -148,13 +163,17 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
   // CPU of the production machine, 2026-10-25 13:50). It gets the same answer without a process, and nothing was created, so nothing is destroyed.
   const gate = createGate ? await createGate.enter() : null
   if (gate?.blocked) return { code: 75, signal: null, timedOut: false, aborted: false, stdout: '', stderr: gate.stderr, phase: 'create', machine, gated: true }
+  const handle = track ? track.begin(machine) : null // before CREATE: a worker that dies from here on leaves the row for the sweep
   try {
     let created
     try {
       created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
     } finally { gate?.leave(created) }
     const named = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
-    if (named) machine = named
+    if (named) {
+      machine = named
+      try { track?.named(handle, machine) } catch (e) { log(`could not record the name of machine ${machine}: ${e.message}`) }
+    }
     if (created.code !== 0) {
       result = { ...created, phase: 'create', machine }
       return result
@@ -163,26 +182,21 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
     result = { ...ran, timedOut: ran.timedOut || created.timedOut, phase: 'run', machine }
     return result
   } finally {
-    // A worker that shuts down (a deploy) while the session runs leaves the machine and the session alone: the host's RUN command keeps the session
-    // apart from this connection, and the worker that takes the job next calls RUN again and attaches to it (2026-10-25, job 156: the session lived 17 min after
-    // the restart and the repetition would have started another). Destroying here would kill the work that the next attempt is going to pick up.
-    // An abort before RUN (a machine still being created) has no session to keep and is destroyed as always.
-    if (signal?.aborted && signal.reason === 'shutdown' && result?.phase === 'run') {
-      if (result) result.detached = true
-      log(`shutdown: machine ${machine} and its session stay for the next attempt of job ${jobId}`)
-      return result
-    }
     // Before destroying: afterwards the transcript is gone. A failure here is recorded and never fails the job.
     // stderr keeps its END: on a machine its start is ssh and useradd noise and the cause comes last (job 132, 2026-10-24).
+    // Not when the job was aborted (cancelled, lease lost, shutdown): nobody reads that transcript and the worker is on its way out.
     if (x.machineCollect && result?.phase === 'run' && !signal?.aborted) {
       const collected = await phase('collect', () => shell(fillCommand(x.machineCollect, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
       const ref = collected.code === 0 ? collected.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1) ?? null : null
       collect = { code: collected.code, ref, stderr: collected.stderr.slice(-2000) }
       if (collected.code !== 0) log(`the transcript of machine ${machine} could not be collected (exit ${collected.code}): ${collected.stderr.slice(-500)}`)
     }
-    // Always, even after a timeout or an abort: a machine left running is the cost that must not happen.
-    const destroyed = await phase('destroy', () => shell(fillCommand(x.machineDestroy, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
+    // Always, even after a timeout, an abort or the orderly shutdown of the worker (a deploy): a machine left running is the cost that must not happen.
+    // The session does not survive the shutdown: the next attempt creates its own machine. If this call does not finish (the worker is killed), the row
+    // of the register stays open and the next worker destroys the machine when it starts.
+    const destroyed = await phase('destroy', () => destroyMachine({ config, jobId, workdir, machine }))
     if (destroyed.code !== 0) log(`machine ${machine} could not be destroyed (exit ${destroyed.code}): ${destroyed.stderr.slice(-500)}`)
+    try { track?.destroyed(handle, { code: destroyed.code, stderr: destroyed.stderr }) } catch (e) { log(`could not record the destruction of machine ${machine}: ${e.message}`) }
     if (result) result.destroy = { code: destroyed.code, stderr: destroyed.stderr.slice(-2000) }
     if (result && collect) result.collect = collect
   }

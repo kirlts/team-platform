@@ -44,6 +44,7 @@ import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, rea
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
 import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 import { createCreationGate, runLocal, runMachine } from './runners.js'
+import { nameMachine, openMachine, recordDestroy, sweepMachines } from './machines.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 import { startProgressNotices } from './progress-timer.js'
@@ -317,6 +318,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
   // What each session that runs now may still spend: `--max-budget-usd` of its invocation. The day's cost counts a job only when its result arrives, so
   // eight sessions that start together each saw the whole remainder and could spend eight times the day's cap (UD-256).
   const reserved = new Map()
+  const machinesInFlight = new Set() // rows of `execute_machines` whose DESTROY this process has yet to run (B4): the sweep leaves them to their job
   const creationGate = createCreationGate({ waitMs: x.capacityWaitMs, now }) // UD-303: the creation of machines, one at a time, and no script while the host has just said no
 
   /** The row of `execute_runs` for an attempt (UD-262). Measuring never fails the job. */
@@ -533,9 +535,15 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
         const tracedEnv = { ...(x.sessionEnv ?? {}), ...(light ? (x.directSessionEnv ?? {}) : {}), ...otelSessionEnv(x.otelEnv, { jobId: job.id, attempt: job.attempts, messageId, traceId: job.trace_id }), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
+        // The register of machines (B4): the machine is written down before CREATE and closed by DESTROY, so what a dead worker leaves is found by the sweep.
+        const track = {
+          begin: (machine) => { const id = openMachine(db, { jobId: job.id, attempt: job.attempts, machine, workdir: dirs.workdir, now: now() }); machinesInFlight.add(id); return id },
+          named: (id, machine) => nameMachine(db, id, machine),
+          destroyed: (id, done) => { machinesInFlight.delete(id); recordDestroy(db, id, { ...done, now: now() }) }
+        }
         const opts = { config, args, prompt, onData: (c) => { try { reader.push(c) } catch (e) { logger?.warn({ err: e }, 'could not record the progress of the session') } }, signal: ctx.signal }
         const r = x.runner === 'machine'
-          ? await runMachine({ ...opts, createGate: creationGate, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })
+          ? await runMachine({ ...opts, createGate: creationGate, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase, track })
           : await phase('run', () => runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, ...tracedEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } }))
         reader.end()
         setPhase(null)
@@ -887,6 +895,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
           else if (rec.deliverJobId) updateExecuteRun(db, job.id, job.attempts, { deliver_job_id: rec.deliverJobId }) // the delivery fills the rest when it ends
         } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }
       }
+    },
+
+    /**
+     * The machines that a worker that died left alive (no row closed by DESTROY, and the job is not running under a live lease): destroys them (B4).
+     * At the start of the worker it also retries the ones whose DESTROY failed; when a lease expires, only the ones not tried yet.
+     */
+    sweepMachines ({ untriedOnly = false } = {}) {
+      return sweepMachines({ db, config, logger, now, untriedOnly, concurrency: config.worker.concurrency, inFlight: machinesInFlight })
     },
 
     onDeferred (job, deferral) {

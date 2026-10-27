@@ -20,7 +20,6 @@
 // The skip reasons all start with `requires <name>:` so that the summary of a battery can count them by requirement.
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -54,14 +53,14 @@ const probes = {
     if (path === '') return 'the checkout has no core.hooksPath: its hooks are not active'
     return existsSync(resolve(root, path, 'pre-push')) ? null : `core.hooksPath (${path}) has no pre-push hook`
   },
-  // The Chromium that the Playwright of the panel launches.
+  // The headless Chromium that the Playwright of the panel launches: it is launched and closed, because the file that `executablePath()` names
+  // is the full browser and a headless launch uses another (chrome-headless-shell), so checking a path says nothing.
   chromium () {
-    try {
-      const executable = createRequire(join(root, 'panel', 'package.json'))('playwright').chromium.executablePath()
-      return existsSync(executable) ? null : `the Chromium of the panel's Playwright is not installed (${executable})`
-    } catch (error) {
-      return `the Playwright of the panel is not installed (${first(error.message)})`
-    }
+    const script = `const { chromium } = require('playwright'); chromium.launch({ headless: true }).then((b) => b.close()).then(() => process.exit(0), (e) => { console.error(e.message); process.exit(1) })`
+    const r = spawnSync(process.execPath, ['-e', script], { cwd: join(root, 'panel'), encoding: 'utf8', timeout: PROBE_TIMEOUT_MS })
+    if (r.status === 0) return null
+    if (r.error) return `a headless Chromium did not start (${r.error.code ?? first(r.error.message)})`
+    return `the headless Chromium of the panel's Playwright does not start (${first(r.stderr) || `exit ${r.status}`})`
   },
   // The name of a public registry resolves: the machine has a network that answers. Asked in a child so that the probe stays synchronous.
   network () {

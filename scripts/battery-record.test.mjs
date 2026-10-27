@@ -10,6 +10,8 @@ import { buildRecord, buildVerification, externalBases, failedFiles, failedNames
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_ENV = { GIT_AUTHOR_NAME: 'author', GIT_AUTHOR_EMAIL: 'a@t', GIT_COMMITTER_NAME: 'author', GIT_COMMITTER_EMAIL: 'a@t', GIT_CONFIG_NOSYSTEM: '1' }
+// Two tests call writeNote() in this process, whose git commands inherit this environment: the identity is the test's own, not the machine's.
+Object.assign(process.env, GIT_ENV)
 let base
 let counter = 0
 

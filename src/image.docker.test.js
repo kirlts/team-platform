@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { after, test } from 'node:test'
+import { requires } from './testing/requires.js'
 
 const image = process.env.TEAM_PLATFORM_IMAGE
 const name = `team-platform-test-${process.pid}`
@@ -12,7 +13,7 @@ const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', std
 
 after(() => { if (image) try { docker('rm', '-f', name) } catch { /* it was never created */ } })
 
-test('HP-006: the image starts with --network none and answers /health, and nothing outside is reachable', { skip: image ? false : 'TEAM_PLATFORM_IMAGE is not set (npm run test:image)' }, async () => {
+test('HP-006: the image starts with --network none and answers /health, and nothing outside is reachable', { skip: image ? requires('docker') : 'TEAM_PLATFORM_IMAGE is not set (npm run test:image)' }, async () => {
   docker('run', '-d', '--name', name, '--network', 'none', image)
   // The image declares a HEALTHCHECK against /health with a 1 s start interval: wait for its verdict.
   let status = 'starting'

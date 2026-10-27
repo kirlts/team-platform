@@ -44,10 +44,13 @@ DIR="$MAIN/.claude/worktrees"
 
 # Every path a live process has as cwd or open file. Unreadable entries (other users) are skipped.
 open_paths() {
-  local p
+  local p f many=0
+  # GNU readlink takes many files in one call (fast: one fork per process); the one of busybox (Alpine) takes a single argument and would see
+  # only the first open file of each process, so there each file gets its own call.
+  [ "$(readlink /proc/self/cwd /proc/self/exe 2>/dev/null | wc -l)" -ge 2 ] && many=1
   for p in /proc/[0-9]*; do
     readlink "$p/cwd" 2>/dev/null
-    readlink "$p"/fd/* 2>/dev/null
+    if [ "$many" = 1 ]; then readlink "$p"/fd/* 2>/dev/null; else for f in "$p"/fd/*; do readlink "$f" 2>/dev/null; done; fi
   done
 }
 OPEN=$(open_paths)

@@ -161,12 +161,13 @@ CMD ["sh", "-c", "sh scripts/check-ffmpeg.sh && node --test src/extract/*.test.j
 # and scripts/battery-record.mjs). It starts from the same pinned node image as test-deps, so `node --version` and the base digest of a
 # battery record are those of this file and not those of the machine that publishes. It carries the dependencies of the three packages the
 # battery tests (the root, the panel and the client), plus `bash` and `git`, which the orders and the tests of the publication door use, and
-# the Alpine `ffmpeg` package, which the extraction tests call to generate audio and video inputs (the same one extract-test installs).
+# the Alpine `ffmpeg` package, which the extraction tests call to generate audio and video inputs (the same one extract-test installs), and `curl`,
+# which scripts/install.sh calls (the test of the installer runs it against a file:// source).
 # The source is not in the image: scripts/battery-image.sh mounts the commit read-only and copies it to /app at run time, so a layer
 # depends on the lockfiles and not on the commit. The image has no Docker daemon, no Chromium and no identity for git: a test that needs
 # one declares it (src/testing/requires.js) and is skipped with its reason, which the summary counts. It runs as `node`, like production.
 FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS battery
-RUN apk add --no-cache bash git ffmpeg \
+RUN apk add --no-cache bash git ffmpeg curl \
  && mkdir /app && chown node:node /app
 USER node
 WORKDIR /app

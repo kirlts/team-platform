@@ -498,8 +498,8 @@ function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem;
   const isPdf = !!item.src && /\.pdf$/i.test(item.name ?? '')
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 px-4 py-3 text-center">
-      {/* The page fits the width of the frame: the viewer of Firefox (pdf.js) opened it wider than a phone and cut its right edge; Chromium reads the same fragment. */}
-      {isPdf && <iframe src={`${item.src}#view=FitH`} title={name} loading="eager" className={cn('w-full rounded-md border border-line bg-surface', 'h-[60dvh]')} />}
+      {/* The page fits the width of the frame: the viewer of Firefox (pdf.js) opened it wider than a phone and cut its right edge; `zoom` is the parameter of pdf.js and `view` the one of Chromium. */}
+      {isPdf && <iframe src={`${item.src}#zoom=page-width&view=FitH`} title={name} loading="eager" className={cn('w-full rounded-md border border-line bg-surface', 'h-[60dvh]')} />}
       {!isPdf && <FileText size={24} aria-hidden className="text-accent-deep" />}
       <p className="text-sm font-semibold [overflow-wrap:anywhere]">{name}</p>
       {item.src && (

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-28
+
 - Cierre con evidencia: una entrega que ya estaba en producción cierra el mensaje; la segunda pasada recibe el resumen y las capturas de la primera; una mención cierra si quien la escribió lo pidió; un motivo escrito de por qué no hay captura (`no_capture_reason`) cierra igual; el prompt pide resultado, captura, video y cierre.
 
 ## [0.1.4] - 2026-10-27

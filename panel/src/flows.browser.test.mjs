@@ -174,12 +174,12 @@ describe('analysis proposal', () => {
     try {
       await sendInput(page, 'Primera idea para el equipo.\n\nSegunda idea para el equipo.')
       await openFirst(page, 20000)
-      assert.equal(await page.getByRole('button', { name: /^Partes sin mensaje/ }).count(), 0)
+      assert.equal(await page.getByRole('button', { name: /^Texto sin mensaje/ }).count(), 0)
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
-      await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor()
+      await page.getByRole('button', { name: /^Texto sin mensaje/ }).waitFor()
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       await page.getByRole('group', { name: 'Historial de cambios' }).getByRole('button', { name: 'Deshacer' }).click()
-      await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: /^Texto sin mensaje/ }).waitFor({ state: 'detached' })
       // What was edited survives a reload: the draft is on the server. The message came back folded, like every other (UD-257).
       await openFirst(page)
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea/ }).click()
@@ -750,6 +750,7 @@ describe('states, keyboard and rows', () => {
       await page.getByLabel('Contraseña').fill('corta')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').first().waitFor()
+      assert.equal(await page.getByLabel('Correo').inputValue(), 'ana@dev.invalid', 'the form keeps what was typed')
       assert.equal(await page.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note under the button')
     } finally {
       await context.close()
@@ -1081,7 +1082,7 @@ describe('tray and proposal (round 2, judge B)', () => {
     }
   })
 
-  test('history buttons: Volver a analizar does not move, «Partes sin mensaje» is a button and removing has a single Deshacer that pushes nothing (J2-B-14, J2-B-15, J2-B-21)', async () => {
+  test('history buttons: Volver a analizar does not move, «Texto sin mensaje» is a button and removing has a single Deshacer that pushes nothing (J2-B-14, J2-B-15, J2-B-21)', async () => {
     const { page, context } = await session('sofia')
     try {
       await sendInput(page, THREE)
@@ -1107,8 +1108,8 @@ describe('tray and proposal (round 2, judge B)', () => {
       // The original is beside the analysis and always open: the proposal keeps its width whatever the original says (J2-B-20, UD-046).
       const original = await page.getByTestId('original-box').boundingBox()
       assert.ok(original.x + original.width <= region.x + 1, 'the original sits to the left of the analysis')
-      const unitsButton = page.getByRole('button', { name: /^Partes sin mensaje/ })
-      assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Partes sin mensaje» has the shape of a button')
+      const unitsButton = page.getByRole('button', { name: /^Texto sin mensaje/ })
+      assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Texto sin mensaje» has the shape of a button')
       await unitsButton.click()
       const items = page.locator('[data-lane="discarded-units"] li')
       assert.ok((await items.count()) >= 1)

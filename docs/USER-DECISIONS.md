@@ -914,6 +914,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Enlace `mailto:` a un Editor elegido por el servidor: expone el correo de un miembro a cualquiera que abra la página.
 **Consecuencias:** Ninguna en código. La fila H-3008 queda cerrada con esta decisión.
 **Condiciones de reversión:** Si el dueño quiere la vía de contacto, se agrega el ajuste `contact` con valor opcional y la nota lo muestra cuando existe.
+**Enmienda 2026-10-27 (sesión, juez de Entrada e Inicio):** la nota «Cuentas creadas por el equipo» sale de la entrada. Es ayuda por omisión y una pantalla de acceso se explica sola. El encargo de la sesión coordinadora pidió retirarla. La vía de contacto sigue sin existir y las condiciones de reversión no cambian.
 
 ## [UD-160] La vista de un área no repite el chip de su área en cada mensaje
 
@@ -1094,6 +1095,8 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Decisión:** (1) La lista «Descartados» de Inicio se retira; la ruta de restaurar un envío descartado se conserva. (2) El autor de una respuesta la edita en el lugar, como el emisor edita su mensaje (UD-071). (3) Mensajes, respuestas y lo que se liste se pueden marcar varios y borrar de una vez, con Deshacer. (4) Ningún borrado del panel pide confirmación: ni paso en el lugar, ni palabra escrita, ni diálogo. Lo reversible ofrece Deshacer en el aviso; lo irreversible se hace y se informa. La API conserva `confirm=true`, que el panel envía siempre. (5) El aviso es efímero: desaparece solo, sin botón de cerrar obligatorio, y aparece centrado. (6) En Inicio, «Últimos mensajes» y «Últimas respuestas» miden lo mismo y su alto sigue a su contenido: sin cajas vacías de alto fijo.
 **Consecuencias:** Filas H-3714 a H-3718. `scripts/vps-check.mjs` borra su envío de prueba en vez de cancelarlo: diecinueve comprobaciones habían dejado diecinueve envíos «Prueba de punta a punta» en los datos del dueño.
 **Condiciones de reversión:** Cada punto se revierte por separado; la confirmación vuelve como paso en el lugar de cada control.
+
+**Enmienda 2026-10-27 (sesión, juez de Entrada e Inicio, I-8):** borrar un envío es reversible, como borrar un mensaje. `DELETE /inputs/:id?confirm=true` marca el envío borrado (`inputs.deleted_at`, migración 0041) y lo oculta de toda lectura; `POST /inputs/:id/restore` lo trae de vuelta con su propuesta, sus adjuntos y los mensajes que se fueron con él. El aviso de «Borrar envío» y de «Borrar envío y mensajes» ofrece Deshacer. El borrado real queda en `purge=true`. Los archivos de un envío borrado se conservan hasta que se purga. Sin confirmación, como antes.
 
 ## [UD-254] Team Platform es un framework; el anfitrión lo aloja en su consola y reemplaza la Mesa; Claude es un miembro con harness
 

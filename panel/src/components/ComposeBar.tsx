@@ -50,6 +50,7 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
  * and links. On send the bar empties at once and is ready for the next one (UD-025): the upload and
  * the analysis go on in the tray, never here; so does a failed upload, with its own Reintentar.
  */
+/** «Enviar» is glass while there is nothing to send and gel once there is (DISENO.md, «Jerarquía y distribución»): a disabled gel would be the only gel of the screen at rest. */
 export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void }) {
   const t = useT()
   const draft = useMediaDraft()
@@ -201,7 +202,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
           <ClipMenu draft={draft} labeled />
           <CaptureButtons draft={draft} labeled />
         </div>
-        <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center md:order-3 md:ml-auto">
+        <Button variant={empty || draft.recording ? 'secondary' : 'primary'} size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center md:order-3 md:ml-auto">
           <Send size={16} aria-hidden /> {t('compose.send')}
         </Button>
       </div>

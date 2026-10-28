@@ -20,7 +20,17 @@ export function Segmented<T extends string>({
   describedBy?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cn('inline-flex self-start', quiet ? 'gap-1 rounded-[var(--quiet-tab-radius)] bg-[var(--quiet-tab-track)] p-0.5' : 'well opt-track rounded-full p-0.5')}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      aria-describedby={describedBy}
+      className={cn(
+        'inline-flex self-start',
+        quiet ? 'gap-1 rounded-[var(--quiet-tab-radius)] bg-[var(--quiet-tab-track)] p-0.5' : 'well opt-track rounded-full p-0.5',
+        // A finger needs 44 px (WCAG 2.5.8 asks 24, the platforms 44): the buttons grow and the small filter gives the extra back with a negative margin, so its row keeps its height (I3).
+        size === 'sm' && 'pointer-coarse:-my-2.5',
+      )}
+    >
       {options.map((o) => (
         <button
           key={o.value}

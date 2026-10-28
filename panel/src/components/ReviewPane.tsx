@@ -15,7 +15,7 @@ interface Props {
   /** The send just discarded, while the drawer has no other one open: its place with the way back. */
   discarded?: { onUndo: () => void }
   /** The send was deleted for real (UD-240): the page stops showing it at once. */
-  onDeleted?: (inputId: string) => void
+  onDeleted?: (inputId: string, back?: boolean) => void
 }
 
 /**

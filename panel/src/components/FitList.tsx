@@ -15,7 +15,7 @@ function chrome(el: HTMLElement | null): number {
   return ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((sum, key) => sum + (parseFloat(style[key as 'borderTopWidth']) || 0), 0)
 }
 
-/** Height of the pager strip: 32 px buttons, 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
+/** Height of the pager strip: 32 px buttons (44 px under a finger, I3), 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
 const PAGER_HEIGHT = 49
 
 /**
@@ -289,7 +289,7 @@ export function FitList<T>({
                   aria-label={t('pager.previous')}
                   disabled={history.length === 0}
                   onClick={() => go(history[history.length - 1] ?? 0, true)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
                 >
                   <ChevronLeft size={16} aria-hidden />
                 </button>
@@ -298,7 +298,7 @@ export function FitList<T>({
                   aria-label={t('pager.next')}
                   disabled={first + (count ?? 0) >= rows.length}
                   onClick={() => go(first + (count ?? 0), false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
                 >
                   <ChevronRight size={16} aria-hidden />
                 </button>

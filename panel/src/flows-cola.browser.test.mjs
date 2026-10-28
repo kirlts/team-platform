@@ -91,7 +91,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       assert.match(await row(queue, 'Diego Prueba').locator('[data-queue-state]').innerText(), /Fallido/)
       assert.equal(await queue.locator('[data-job-count="failed"]').innerText(), '2', 'the failed send and the older failed job')
       assert.equal(await queue.locator('[data-job-count="running"]').innerText(), '0')
-      for (const name of ['Reprocesar', 'Borrar', 'Traza']) assert.ok((await row(queue, 'Carla Prueba').getByRole('button', { name, exact: true }).count()) === 1, name)
+      for (const name of ['Reprocesar', 'Borrar envío', 'Traza']) assert.ok((await row(queue, 'Carla Prueba').getByRole('button', { name, exact: true }).count()) === 1, name)
     } finally {
       await context.close()
     }
@@ -160,7 +160,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       await openFolds(page)
       const queue = page.locator('[data-queue]')
       const carla = row(queue, 'Carla Prueba')
-      await carla.getByRole('button', { name: 'Borrar', exact: true }).click()
+      await carla.getByRole('button', { name: 'Borrar envío', exact: true }).click()
       await page.locator('[data-notice]').getByText('Envío borrado', { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'no window over the page')
       await carla.waitFor({ state: 'detached' })

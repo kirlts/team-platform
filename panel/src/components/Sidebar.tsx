@@ -172,21 +172,21 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
   const counts = areaCounts(summary, areaId)
   return (
     <>
-      {/* Both slots are drawn whenever the area has any count, so the triangles share one column and the clocks another in every row; a slot with no count stays empty. */}
-      {(counts.open > 0 || counts.answered > 0) &&
-        PENDING.map((status) => {
-          // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
-          const scope = t('areas.countOf', { title, count: label({ [status]: counts[status] }) })
-          return (
-            <span key={status} data-count-slot={status} className="nav-slot">
-              {counts[status] > 0 && (
-                <Link to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
-                  <StateMark status={status} n={counts[status]} showWord={false} plain className="gap-0.5 border-0 px-0" />
-                </Link>
-              )}
-            </span>
-          )
-        })}
+      {/* The slots hold their columns in every row: the triangles share one and the clocks another. A row with no count draws none; one with only answered ones draws only the clock's, so
+          its name takes the room of the open slot that is empty to its left. An empty slot to the right of a count stays, reserved (UD-315). */}
+      {PENDING.filter((status) => counts[status] > 0 || (status === 'answered' && counts.open > 0)).map((status) => {
+        // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
+        const scope = t('areas.countOf', { title, count: label({ [status]: counts[status] }) })
+        return (
+          <span key={status} data-count-slot={status} className="nav-slot">
+            {counts[status] > 0 && (
+              <Link to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
+                <StateMark status={status} n={counts[status]} showWord={false} plain className="gap-0.5 border-0 px-0" />
+              </Link>
+            )}
+          </span>
+        )
+      })}
     </>
   )
 }

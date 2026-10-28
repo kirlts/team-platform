@@ -239,7 +239,7 @@ describe('Entrada', () => {
     })
   }
 
-  test('a refused login shows the reason under its field, inside the card, readable, and the card does not move', async () => {
+  test('a refused login shows the reason under the card, readable, and the card does not move', async () => {
     const context = await panel.browser.newContext({ viewport: DESKTOP, locale: 'es-CL' })
     const page = await context.newPage()
     try {
@@ -252,7 +252,7 @@ describe('Entrada', () => {
       const after = await card.boundingBox()
       const notice = await alert.boundingBox()
       assert.ok(Math.abs(after.y - before.y) < 0.5 && Math.abs(after.height - before.height) < 0.5, 'the card moved')
-      assert.ok(notice.y >= after.y && notice.y + notice.height <= after.y + after.height, 'the reason is outside the card')
+      assert.ok(notice.y >= after.y + after.height - 0.5 && notice.y - (after.y + after.height) <= 24, 'the reason is under the card, next to it')
       assert.ok(notice.y + notice.height <= DESKTOP.height, 'the reason is off the screen')
     } finally {
       await context.close()

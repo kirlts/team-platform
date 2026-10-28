@@ -399,7 +399,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         throw Object.assign(new Error(`La orden de entrega respondió «ahora no» ${streak} veces seguidas con el mismo motivo: ${tail(output, 600) || 'sin salida'}`), { code: 'deliver_env', output, stuck: true, retryable: false })
       }
       runSql(db, 'UPDATE jobs SET payload_json = ? WHERE id = ?', JSON.stringify({ ...fresh, defer_streak: { key, n: streak } }), job.id)
-      throw new Deferred(x.capacityWaitMs, step('deliverWait'))
+      throw new Deferred(x.capacityWaitMs, step('deliverWait', { seconds: Math.round(x.capacityWaitMs / 1000) }))
     }
     if (result.code === DELIVER_HELD && !(payload.requested_by ?? payload.approved_by)) return holdForReview({ reason: (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS), ms })
     if (result.code !== 0) {

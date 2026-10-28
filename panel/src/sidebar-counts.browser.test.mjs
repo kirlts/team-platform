@@ -45,7 +45,7 @@ async function session(viewport, { withCounts = true } = {}) {
     const res = await route.fetch()
     const body = await res.json()
     const areas = Array.isArray(body) ? body : body.items
-    areas.slice(0, 4).forEach((a, i) => { a.title = ['Producto', 'Soporte', 'Archivo', LONG][i] })
+    areas.slice(0, 4).forEach((a, i) => { a.title = ['Producto', 'Nueva funcionalidad', 'Archivo', LONG][i] })
     await route.fulfill({ response: res, json: body })
   })
   await page.route(/\/api\/messages\/summary$/, async (route) => {
@@ -81,9 +81,10 @@ const rows = (page) =>
         right: box.right,
         navRight: navBox.right,
         nameRight: nameBox.right,
+        nameBoxRight: nameBox.right,
+        cut: name.scrollWidth > name.clientWidth,
         lines: Math.round(nameBox.height / lh),
         title: name.getAttribute('title'),
-        cut: name.scrollWidth > name.clientWidth,
         marks: [...wrap.querySelectorAll('a.nav-count')].map((a) => {
           const r = a.getBoundingClientRect()
           return { status: a.getAttribute('data-count-status'), text: a.textContent.trim(), href: a.getAttribute('href'), label: a.getAttribute('aria-label'), title: a.getAttribute('title'), left: r.left, right: r.right, centerY: r.top + r.height / 2, hasShape: !!a.querySelector('svg'), icon: (() => { const r = a.querySelector('svg').getBoundingClientRect(); return { left: r.left, right: r.right, centerY: r.top + r.height / 2 } })(), digits: (() => { const r = a.querySelector('.tabular-nums').getBoundingClientRect(); return { left: r.left, centerY: r.top + r.height / 2 } })(), word: /abiert|respond/i.test(a.textContent) }
@@ -100,7 +101,7 @@ for (const [name, viewport] of VIEWPORTS) {
     test('draws exactly the counts above zero, with no word, each one a filtered link', async () => {
       const { page, context, ids } = await session(viewport)
       try {
-        const [producto, soporte, archivo, largo] = await rows(page).then((all) => ['Producto', 'Soporte', 'Archivo', LONG].map((n) => all.find((r) => r.name === n)))
+        const [producto, soporte, archivo, largo] = await rows(page).then((all) => ['Producto', 'Nueva funcionalidad', 'Archivo', LONG].map((n) => all.find((r) => r.name === n)))
         const [a0, a1, a2, a3] = ids()
         const shape = (r) => r.marks.map((m) => `${m.status}:${m.text}`)
         assert.deepEqual(shape(producto), ['open:5', 'answered:2'])
@@ -145,10 +146,15 @@ for (const [name, viewport] of VIEWPORTS) {
         }
         // An empty slot is reserved: the clock of «Soporte» (no open ones) sits under the clock of «Producto».
         const clock = (name) => marked.find((r) => r.name === name).marks.find((m) => m.status === 'answered').icon.left
-        assert.ok(Math.abs(clock('Soporte') - clock('Producto')) <= TOLERANCE)
+        assert.ok(Math.abs(clock('Nueva funcionalidad') - clock('Producto')) <= TOLERANCE)
         for (const r of marked) {
-          assert.equal(r.slots.length, 2, `${r.name}: two slots`)
-          assert.ok(Math.abs(r.slots[1].left - r.slots[0].right - 8) <= TOLERANCE, `${r.name}: slots ${r.slots[0].right} and ${r.slots[1].left}`)
+          // A row with only answered ones has no open slot: its name takes that room. An open count keeps the clock's slot reserved at its right.
+          const openOnly = r.marks.every((m) => m.status === 'answered')
+          assert.equal(r.slots.length, openOnly ? 1 : 2, `${r.name}: slots ${r.slots.map((x) => x.status)}`)
+          if (r.slots.length === 2) assert.ok(Math.abs(r.slots[1].left - r.slots[0].right - 8) <= TOLERANCE, `${r.name}: slots ${r.slots[0].right} and ${r.slots[1].left}`)
+          // The name reaches the first slot of the row: nothing empty is left between them.
+          assert.ok(r.slots[0].left - r.nameBoxRight <= 6, `${r.name}: ${r.slots[0].left - r.nameBoxRight} px free before the first count`)
+          if (r.name !== LONG) assert.equal(r.cut, false, `${r.name} is cut with room to spare`)
           for (const m of r.marks) {
             assert.ok(m.digits.left - m.icon.right <= 2 + TOLERANCE, `${r.name} ${m.status}: ${m.digits.left - m.icon.right} px between icon and number`)
             assert.ok(Math.abs(m.icon.centerY - m.digits.centerY) <= TOLERANCE, `${r.name} ${m.status}: icon ${m.icon.centerY}, number ${m.digits.centerY}`)
@@ -159,6 +165,52 @@ for (const [name, viewport] of VIEWPORTS) {
         await context.close()
       }
     })
+
+    if (viewport.width < 768) {
+      test('on a touch screen each count is a target as tall as its row and as wide as its slot, with nothing moved', async () => {
+        const { page, context } = await session(viewport)
+        try {
+          const hits = await page.evaluate(() =>
+            [...document.querySelectorAll('[data-lane="areas-nav"] a.nav-count')].map((a) => {
+              const slot = a.closest('[data-count-slot]').getBoundingClientRect()
+              const row = a.closest('[data-nav-row]').getBoundingClientRect()
+              const on = (x, y) => !!document.elementFromPoint(x, y)?.closest('a.nav-count')?.isSameNode(a)
+              const t = slot.top
+              return { height: slot.height, width: slot.width, name: a.getAttribute('aria-label'), corners: [on(slot.left + 1, slot.top + 2), on(slot.right - 1, slot.top + 2), on(slot.left + 1, slot.bottom - 2), on(slot.right - 1, slot.bottom - 2)], rowHeight: row.height, t }
+            }),
+          )
+          assert.ok(hits.length >= 5)
+          for (const h of hits) {
+            assert.ok(h.height >= 44, `${h.name}: target ${h.height} px tall`)
+            assert.ok(h.width >= 30, `${h.name}: target ${h.width} px wide`)
+            assert.deepEqual(h.corners, [true, true, true, true], `${h.name}: the corners of its slot do not hit it`)
+          }
+        } finally {
+          await context.close()
+        }
+      })
+    } else {
+      test('a count under the pointer or with focus shows a ring that is not the fill of the lit row', async () => {
+        const { page, context } = await session(viewport)
+        try {
+          const link = page.locator('a.nav-count[data-count-status="open"]').first()
+          await link.hover()
+          const ring = () => link.evaluate((a) => ({ ring: getComputedStyle(a).boxShadow, fill: getComputedStyle(a.closest('[data-nav-row]')).backgroundColor }))
+          await page.waitForFunction((el) => getComputedStyle(el).boxShadow !== 'none', await link.elementHandle())
+          await settled(page)
+          const hover = await ring()
+          assert.ok(/3px/.test(hover.ring) && !hover.ring.startsWith(hover.fill), `hover ring ${hover.ring} on fill ${hover.fill}`)
+          await page.mouse.move(700, 450)
+          await page.keyboard.press('Tab')
+          await link.focus()
+          await settled(page)
+          const focus = await ring()
+          assert.ok(/3px/.test(focus.ring) && !focus.ring.startsWith(focus.fill), `focus ring ${focus.ring} on fill ${focus.fill}`)
+        } finally {
+          await context.close()
+        }
+      })
+    }
 
     test('a count arriving changes no row height, the marks end at one right edge and the long name neither pushes them out nor splits the row', async () => {
       const bare = await session(viewport, { withCounts: false })

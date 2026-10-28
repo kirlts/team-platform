@@ -909,11 +909,10 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
         return (a + 0.05) / (b + 0.05)
       }, style.color)
       assert.ok(ratio >= 4.5, `contrast ${ratio.toFixed(2)}`)
-      // The error lives under its field, in a line the form keeps free.
-      const email = await page.getByLabel('Correo').boundingBox()
+      // The error lives under the card, out of its flow.
       const said = await alert.boundingBox()
-      assert.ok(said.y >= email.y + email.height, 'the error is under its field')
       const after = await card.boundingBox()
+      assert.ok(said.y >= after.y + after.height - 0.5, 'the error is under the card')
       assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, 'the card keeps its shape and its place with the errors')
     } finally {
       await context.close()

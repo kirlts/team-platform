@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router'
 import { Atmosphere } from '@/components/Atmosphere'
 import { AlertTriangle, RotateCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/cli
 import { ROUTER_BASENAME } from '@/lib/base'
 import { NoticeProvider } from '@/lib/notices'
 import { NoticeHost } from '@/components/NoticeHost'
+import { checkSession, saveDraftText } from '@/lib/session'
 import { useSidebarHidden } from '@/lib/sidebar'
 import { useDesktop } from '@/lib/useDesktop'
 import { Areas } from '@/pages/Areas'
@@ -37,6 +38,14 @@ function Shell() {
   const desktop = useDesktop()
   // The side panel is hidden with the button next to the user and shown again with the one in the bar; the choice is the person's (UD-047).
   const [hidden, setHidden] = useSidebarHidden(me?.id)
+  // A screen drawn from data already in memory makes no call: asking «me» on each change of screen is what notices that the session is over.
+  const { pathname } = useLocation()
+  const firstPath = useRef(pathname)
+  useEffect(() => {
+    if (firstPath.current === pathname) return
+    firstPath.current = pathname
+    checkSession()
+  }, [pathname])
 
   const logout = async () => {
     let hostLogout: string | undefined
@@ -48,6 +57,7 @@ function Shell() {
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
       try {
         localStorage.removeItem('team-active-input')
+        saveDraftText('')
       } catch {
         // Without storage there is nothing to delete.
       }

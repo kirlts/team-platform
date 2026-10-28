@@ -93,6 +93,7 @@ test('a nonexistent email, a wrong password and a locked account respond exactly
   const b = await attemptNo('ana@x.org', 'incorrecta-incorrecta')
   const c = await attemptNo('bloqueada@x.org', TEST_PASSWORD) // even though the password is correct
   assert.equal(a.status, 401)
+  assert.equal(JSON.parse(a.body).code, 'invalid_credentials') // a bad pair is not an ended session: the panel reads the code (`unauthenticated` says «La sesión terminó»)
   assert.deepEqual(a, b)
   assert.deepEqual(b, c)
   await env.close()

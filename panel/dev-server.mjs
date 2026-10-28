@@ -1010,7 +1010,7 @@ function control(path, query) {
     const waiting = work('Entrega en espera por capacidad del anfitrión', { phase: 'deliver', elapsed_ms: 190_000, phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000)], deliver: { job_id: 'j-d75', job_status: 'queued', phase: 'deliver', attempts: 1 } }, [
       { author_id: 'u-claude', kind: 'answer', created_at: ago(20), body: 'Construido; entregando a producción.' },
     ])
-    emit(null, 'progress', { job_id: 'j-d75', percent: 60, phrase: 'En espera: entrega a producción', code: 'deliverWait', vars: {}, at: new Date().toISOString() })
+    emit(null, 'progress', { job_id: 'j-d75', percent: 60, phrase: 'En espera: entrega a producción', code: 'deliverWait', vars: { seconds: 30 }, at: new Date().toISOString() })
     out.delivery_waiting_75 = waiting.id
     // Exit 76: the host holds the delivery for a person. The review line and the reply that says why.
     const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
@@ -1050,6 +1050,7 @@ function control(path, query) {
     out.budget_spent = budget.id
     // The panel «Trabajo» with its stretch «Máquina» (creating the machine).
     out.work_machine = control('/_control/agent-work', query).machine
+    out.many_recipients = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Mensaje con varios destinatarios', body: 'Lo ven cuatro personas.', created_at: ago(20), assignee_ids: ['u-ana', 'u-bruno', 'u-diego', 'u-carla'], attachment_ids: [] }).id
     out.idea_guard = control('/_control/idea-guard', query).message_id
     out.handoff = control('/_control/handoff', query).message_id
     return out

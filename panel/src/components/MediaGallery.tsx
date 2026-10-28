@@ -253,7 +253,7 @@ export function MediaGallery({
 
       {/* The text read from a photo, a document or a link goes under the viewer, not inside the slide: the slides keep the height of their medium. Its own short lane, so it never pushes the strip away. */}
       {item.transcriptSrc && item.kind !== 'audio' && item.kind !== 'video' && (
-        <div data-gallery-extracted className="flex max-h-36 min-h-0 flex-col">
+        <div data-gallery-extracted className="flex max-h-36 min-h-0 flex-col px-1.5">
           <Transcript key={item.id} src={item.transcriptSrc} kind={item.kind} />
         </div>
       )}

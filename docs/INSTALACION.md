@@ -285,7 +285,7 @@ scripts/backup.sh
 WITH_FILES=1 DEST=/var/backups/team scripts/backup.sh
 ```
 
-`WITH_FILES=1` agrega un `tar` con los adjuntos y las plantillas editadas. Respaldo nocturno, con `crontab -e`:
+`WITH_FILES=1` agrega un `tar` con los adjuntos, las plantillas editadas y `secrets.key`, la clave maestra de las claves guardadas desde Configuración (si el servicio usa `SECRETS_KEY` en `.env`, no hay archivo y esa variable se respalda aparte). Sin la clave maestra, una restauración en un volumen nuevo deja ilegibles las claves de proveedor guardadas. Respaldo nocturno, con `crontab -e`:
 
 ```
 0 3 * * * cd /opt/team-platform && scripts/backup.sh
@@ -295,14 +295,14 @@ Restaurar una copia, con el servicio detenido. La base y los adjuntos se restaur
 
 ```sh
 docker compose stop
-docker compose run --rm --no-deps -v "$PWD/backups:/restore:ro" --entrypoint sh team-platform \
-  -c 'rm -f /data/team.db-wal /data/team.db-shm && cp /restore/team-<fecha>.db /data/team.db'
-docker compose run --rm --no-deps -T -v "$PWD/backups:/restore:ro" --entrypoint sh team-platform \
-  -c 'cd /data && tar -xf /restore/files-<fecha>.tar'
-docker compose start
+docker compose run --rm --no-deps --user root -v "$PWD/backups:/restore:ro" --entrypoint sh team-platform \
+  -c 'rm -f /data/team.db-wal /data/team.db-shm && cp /restore/team-<fecha>.db /data/team.db && chown node:node /data/team.db'
+docker compose run --rm --no-deps -T --user root -v "$PWD/backups:/restore:ro" --entrypoint sh team-platform \
+  -c 'cd /data && tar -xf /restore/files-<fecha>.tar && chown -R node:node /data'
+docker compose up -d --wait
 ```
 
-La segunda orden sólo hace falta si el respaldo se hizo con `WITH_FILES=1`. Los miembros y las contraseñas vienen en la base: tras restaurar, entran las cuentas del servicio de origen, no `ADMIN_EMAIL`. El respaldo queda con modo 600 en una carpeta 700 porque guarda las claves con hash y los adjuntos.
+La segunda orden sólo hace falta si el respaldo se hizo con `WITH_FILES=1`. La última sirve igual con el servicio detenido que con el volumen destruido (`docker compose down -v`): en el segundo caso las órdenes anteriores crean el volumen y el servicio arranca sobre la base restaurada, sin crear un Editor nuevo. Se necesitan el clon, el `.env` y la imagen del servidor; en un servidor sin ellos se corre antes `scripts/install.sh --no-start`, que escribe `.env`, y `docker compose build`. Los miembros y las contraseñas vienen en la base: tras restaurar, entran las cuentas del servicio de origen, no `ADMIN_EMAIL`. El respaldo queda con modo 600 en una carpeta 700 de quien lo hizo porque guarda las claves con hash y los adjuntos. Por eso la restauración entra como `root` (`--user root`): el usuario `node` del contenedor no puede leer esa carpeta si quien respaldó es otro, y devuelve `Permission denied`. El `chown` final deja los archivos a nombre de `node`, con quien corre el servicio.
 
 Medido el 2026-10-21 en el VPS de 2 núcleos, con una base de 19 MB y adjuntos de 82 MB. Respaldo con `WITH_FILES=1`: 1,8 s. Detener, restaurar la base y volver a estar sano: 5,1 s. Restaurar los adjuntos: 5,6 s.
 

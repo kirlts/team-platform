@@ -27,6 +27,7 @@ const requestCodes = new Set([
   ...grab(/\b(?:badRequest|forbidden|conflict|unprocessable)\((?:[^()]|\([^()]*\))*?,\s*'([a-z_]+)'/g),
   ...grab(/\bemptyCode: '([a-z_]+)'/g),
   ...grab(/\.send\(\{ code: '([a-z_]+)'/g),
+  ...grab(/invalidCredentials = .*new AppError\(401, '([a-z_]+)'/g),
 ])
 
 // Codes a job can fail with: `permanent` and `infra`, the extractors, the providers and the analyzers.

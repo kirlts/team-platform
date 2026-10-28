@@ -57,15 +57,14 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
       await feed(page).getByText(title, { exact: true }).waitFor()
 
       assert.equal(await drawer.getByTestId('delete-send').innerText(), 'Borrar envío')
-      assert.equal(await drawer.getByTestId('delete-send-all').count(), 0, 'the second form is in the menu, not drawn beside the first')
+      // The other form is drawn beside the first, with its own label: no arrow without a name, no tooltip a finger cannot read (judge of Inicio, finding 4).
       await drawer.getByRole('button', { name: /^Borrar/ }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
-      assert.equal(await drawer.getByRole('button', { name: /^Borrar/ }).count(), 1, 'one delete button in the block')
-      await drawer.getByTestId('delete-send-more').click()
-      assert.equal((await page.getByTestId('delete-send-all').innerText()).trim(), 'Borrar envío y mensajes')
-      await page.keyboard.press('Escape')
+      assert.equal(await drawer.getByRole('button', { name: /^Borrar/ }).count(), 2, 'both forms of deleting are drawn')
+      assert.equal((await drawer.getByTestId('delete-send-all').innerText()).trim(), 'Borrar envío y mensajes')
       const before = (await api(page, '/inputs?mine=1&order=desc')).items.length
       await drawer.getByTestId('delete-send').click()
-      await page.locator('[data-notice]').getByText('Envío borrado', { exact: true }).waitFor()
+      // The notice says what became of the messages: they stay.
+      await page.locator('[data-notice]').getByText('Envío borrado; su mensaje se conserva', { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'no window opens over the page')
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
       await settled(page)
@@ -90,8 +89,7 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
       await feed(page).getByRole('radio', { name: 'Todos' }).click()
       await feed(page).getByText(title, { exact: true }).waitFor()
 
-      await drawer.getByTestId('delete-send-more').click()
-      await page.getByTestId('delete-send-all').click()
+      await drawer.getByTestId('delete-send-all').click()
       await page.locator('[data-notice]').getByText('Envío y 1 mensaje borrados', { exact: true }).waitFor()
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
       await feed(page).getByText(title, { exact: true }).waitFor({ state: 'detached' })
@@ -110,7 +108,7 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
       const drawer = page.getByTestId('send-drawer')
       await drawer.locator('[data-ui-stage="progress"]').waitFor()
       await settled(page)
-      assert.equal(await drawer.getByTestId('delete-send-more').count(), 0, 'nothing published, so there is nothing more to take')
+      assert.equal(await drawer.getByTestId('delete-send-all').count(), 0, 'nothing published, so there is nothing more to take')
       await drawer.getByTestId('delete-send').click()
       await page.locator('[data-notice]').getByText('Envío borrado', { exact: true }).waitFor()
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
@@ -136,7 +134,7 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
 
       await drawer.getByTestId('delete-send').click()
       const notice = page.locator('[data-notice]')
-      await notice.getByText('Envío borrado', { exact: true }).waitFor()
+      await notice.getByText('Envío borrado; su mensaje se conserva', { exact: true }).waitFor()
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
       assert.equal((await api(page, '/inputs?mine=1&order=desc')).items.length, before - 1)
 
@@ -160,8 +158,7 @@ describe('deleting a send from the drawer (UD-240, UD-253)', () => {
       await feed(page).getByRole('radio', { name: 'Todos' }).click()
       await feed(page).getByText(title, { exact: true }).waitFor()
 
-      await drawer.getByTestId('delete-send-more').click()
-      await page.getByTestId('delete-send-all').click()
+      await drawer.getByTestId('delete-send-all').click()
       const notice = page.locator('[data-notice]')
       await notice.getByText('Envío y 1 mensaje borrados', { exact: true }).waitFor()
       await feed(page).getByText(title, { exact: true }).waitFor({ state: 'detached' })

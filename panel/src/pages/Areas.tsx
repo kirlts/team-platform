@@ -255,7 +255,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
         <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-sm text-muted pointer-coarse:min-h-11" />
       </div>
       <Button size="sm" variant="ghost" className="max-sm:col-start-3 max-sm:row-start-1 justify-self-end text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" data-repeat-ok="per-area" onClick={() => void remove()}>
-        <Trash2 size={16} aria-hidden /> {t('bulk.delete')}
+        <Trash2 size={16} aria-hidden /> <span className="max-sm:sr-only">{t('bulk.delete')}</span>{/* on a phone, with controls of 44 px, the word would take the room of the name: the name of the button is still read */}
       </Button>
     </section>
   )

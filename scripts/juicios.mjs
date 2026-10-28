@@ -191,7 +191,7 @@ async function capture (outDir, items, { port }) {
             await step(1, 'ficha', async () => { await page.goto(`${panel.origin}/messages/${message.id}`); await page.locator('main h1').waitFor() })
             await step(2, 'respuesta', async () => { await page.getByLabel('Respuesta', { exact: true }).fill('Confirmado: queda para esta semana.') })
             await step(3, 'respondido', async () => { await page.getByRole('button', { name: 'Responder', exact: true }).click(); await page.getByText('Confirmado: queda para esta semana.').first().waitFor() })
-            await step(4, 'cerrado', async () => { await page.getByRole('button', { name: 'Cerrar', exact: true }).click(); await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor() })
+            await step(4, 'cerrado', async () => { await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click(); await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).waitFor() })
           }
           // Whatever the browser sent about this use of the panel is what the telemetry summary of the briefs holds.
           const hide = page.waitForResponse((r) => r.url().endsWith('/api/telemetry/ui'), { timeout: 5000 }).catch(() => null)

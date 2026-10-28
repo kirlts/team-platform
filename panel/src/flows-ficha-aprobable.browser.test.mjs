@@ -346,3 +346,68 @@ describe('the waiting and failing states keep the frame of the sheet', () => {
     }
   })
 })
+
+describe('the delivery that waits for the host (exit 75), the money of the sheet and the alignment of the extracted text', () => {
+  test('the Publicación row says «En espera» in its time column with a still bar, and its detail says why and when', async () => {
+    const states = await panel.control.states()
+    const { page, context } = await session('ana', `/messages/${states.delivery_waiting_75}`)
+    try {
+      const row = page.locator('[data-work-step="deliver"]')
+      await row.waitFor()
+      assert.equal((await row.locator('[data-work-time]').innerText()).trim(), 'En espera')
+      assert.equal(await row.locator('[role="progressbar"]').count(), 0, 'no bar that advances')
+      assert.equal(await row.locator('.meter-fill').count(), 0, 'the bar is empty and still')
+      assert.equal(await page.locator('[data-work-panel]').count(), 0, 'the detail is closed until it is opened')
+      await row.locator('[data-work-toggle]').click()
+      const detail = await page.locator('[data-work-status]').innerText()
+      assert.match(detail, /Sin capacidad del anfitrión para entregar ahora/)
+      assert.match(detail, /Se reintenta en 30 s/)
+      await shot(page, 'entrega-en-espera-75')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the money of the sheet has one criterion: cents, in the figures and in the tree', async () => {
+    const states = await panel.control.states()
+    const { page, context } = await session('ana', `/messages/${states.trace_tokens_cost}`)
+    try {
+      await page.getByRole('button', { name: 'Detalles', exact: true }).click()
+      const text = await page.getByTestId('details').innerText()
+      assert.match(text, /Costo\s+US\$ 0,81\b/)
+      assert.match(text, /Salida 9\.450/)
+      assert.doesNotMatch(text, /0,8123/)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the text read from a link starts at the same edge as the text of the message, on both sizes', async () => {
+    const states = await panel.control.states()
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      const { page, context } = await session('ana', `/messages/${states.extracted_link}`, viewport)
+      try {
+        await page.locator('[data-gallery-extracted]').waitFor()
+        const read = await page.locator('[data-gallery-extracted] h3').evaluate((el) => el.getBoundingClientRect().left)
+        const body = await page.getByText('Texto extraído de un enlace.', { exact: true }).evaluate((el) => el.getBoundingClientRect().left)
+        assert.ok(Math.abs(read - body) <= 1, `${viewport.width}px: the extracted text starts at ${read}, the message at ${body}`)
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('«y N más» of the recipients stays in one line on a phone', async () => {
+    const states = await panel.control.states()
+    const { page, context } = await session('ana', `/messages/${states.many_recipients}`, { width: 390, height: 844 })
+    try {
+      const more = page.getByRole('button', { name: /destinatarios restantes/ }).first()
+      await more.waitFor()
+      assert.match(await more.innerText(), /^y \d+ más$/)
+      const lines = await more.evaluate((el) => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size })
+      assert.equal(lines, 1, 'one line of text')
+    } finally {
+      await context.close()
+    }
+  })
+})

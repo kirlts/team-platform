@@ -1,4 +1,5 @@
 import { FailedMark } from '@/components/FailedMark'
+import { useToolPhrase } from '@/lib/tool-phrase'
 import { useErrorText, useFormat, useI18n, useT, type MessageKey } from '@/i18n'
 import { TeamApiError, type SpanNode } from '@team-platform/client'
 import { useJobTrace } from '@team-platform/client/react'
@@ -7,13 +8,17 @@ const IN = 'gen_ai.usage.input_tokens'
 const OUT = 'gen_ai.usage.output_tokens'
 const COST = ['team', 'cost_usd'].join('.')
 const SUMMARY = ['team', 'tool', 'summary'].join('.')
+const ACTION = ['team', 'tool', 'action'].join('.')
+const DETAIL = ['team', 'tool', 'detail'].join('.')
 
 /** What a span is called for a person: the step it stands for. A tool or a subagent says what it did (its summary); a name the catalog does not know is read as words, never shown as the dotted identifier. */
 function useSpanLabel() {
   const { t, has } = useI18n()
+  const toolText = useToolPhrase()
   return (node: SpanNode) => {
     const summary = node.attributes[SUMMARY]
-    if ((node.name === 'execute.tool' || node.name === 'execute.subagent') && typeof summary === 'string' && summary) return summary
+    const str = (v: unknown) => (typeof v === 'string' ? v : null)
+    if ((node.name === 'execute.tool' || node.name === 'execute.subagent') && typeof summary === 'string' && summary) return toolText({ action: str(node.attributes[ACTION]), detail: str(node.attributes[DETAIL]), summary, name: node.name })
     if (has(`span.${node.name}`)) return t(`span.${node.name}` as MessageKey)
     const words = node.name.replace(/[._]+/g, ' ').trim()
     return words.charAt(0).toUpperCase() + words.slice(1)
@@ -66,13 +71,14 @@ export function SpanTree({ roots, label }: { roots: SpanNode[]; label: string })
   return (
     <ul aria-label={label} className="flex flex-col gap-0.5">
       {roots.map((node) => (
-        <Node key={node.span_id} node={node} depth={0} />
+        <Node key={node.span_id} node={node} depth={0} sheet />
       ))}
     </ul>
   )
 }
 
-function Node({ node, depth }: { node: SpanNode; depth: number }) {
+/** `sheet`: the tree of the sheet of a message writes money as the rest of the sheet does (cents; four decimals only under one cent), the one of the Cola keeps four. */
+function Node({ node, depth, sheet = false }: { node: SpanNode; depth: number; sheet?: boolean }) {
   const t = useT()
   const { decimal, usd, duration } = useFormat()
   const label = useSpanLabel()
@@ -90,13 +96,13 @@ function Node({ node, depth }: { node: SpanNode; depth: number }) {
             {t('trace.input')} {decimal(input, 0)} · {t('trace.output')} {decimal(Number(output ?? 0), 0)}
           </span>
         )}
-        {typeof cost === 'number' && <span className="tabular-nums text-muted">{usd(cost, 4)}</span>}
+        {typeof cost === 'number' && <span className="tabular-nums text-muted">{usd(cost, sheet ? undefined : 4)}</span>}
         {failed && <FailedMark />}
       </div>
       {node.children.length > 0 && (
         <ul className="flex flex-col gap-0.5">
           {node.children.map((child) => (
-            <Node key={child.span_id} node={child} depth={depth + 1} />
+            <Node key={child.span_id} node={child} depth={depth + 1} sheet={sheet} />
           ))}
         </ul>
       )}

@@ -862,6 +862,21 @@
     align-items: center;
     justify-content: flex-start;
   }
+  .nav-slot {
+    position: relative;
+  }
+  /* Touch: the target of a count is the height of its row and the width of its slot (--touch-min), an invisible frame; what is seen and where it sits do not change. */
+  @media (pointer: coarse) {
+    [data-nav-count]:has(> .nav-slot),
+    .nav-slot {
+      align-self: stretch;
+    }
+    .nav-slot > .nav-count::after {
+      position: absolute;
+      inset: 0;
+      content: '';
+    }
+  }
   .nav-slot + .nav-slot {
     margin-left: var(--sidebar-count-gap);
   }
@@ -870,7 +885,7 @@
     color: var(--color-accent-deep);
   }
   .nav-count:focus-visible {
-    box-shadow: 0 0 0 3px var(--color-hover);
+    box-shadow: 0 0 0 3px var(--color-line-strong);
   }
   @media (hover: hover) {
     .nav-item:hover:not(:has(> .nav-row.active)) {
@@ -883,8 +898,9 @@
       background-color: var(--color-hover);
       color: var(--color-accent);
     }
+    /* The halo is not the color of the lit row (the row is --color-hover): a count under the pointer shows its own ring. */
     .nav-count:hover {
-      box-shadow: 0 0 0 3px var(--color-hover);
+      box-shadow: 0 0 0 3px var(--color-line-strong);
     }
     .nav-count:hover > span {
       color: var(--color-accent-deep);

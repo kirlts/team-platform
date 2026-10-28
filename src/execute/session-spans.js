@@ -7,7 +7,7 @@
 import { context, trace } from '@opentelemetry/api'
 import { clockMs, endManualSpan, startManualSpan } from '../telemetry/api.js'
 import { estimateCostUsd } from '../telemetry/pricing.js'
-import { phraseForTool } from './stream.js'
+import { phraseForTool, toolParts } from './stream.js'
 
 const SUBAGENT_TOOLS = new Set(['Task', 'Agent'])
 /** Milliseconds during which at least one call was running (calls that overlap count once). */
@@ -35,19 +35,20 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
     const parent = event.parent_tool_use_id ? (open.get(event.parent_tool_use_id)?.ctx ?? parentContext) : parentContext
     const subagent = SUBAGENT_TOOLS.has(block.name)
     const input = block.input ?? {}
+    const parts = toolParts(block.name, input)
     const span = subagent
       ? startManualSpan('execute.subagent', {
         'gen_ai.operation.name': 'invoke_agent', 'gen_ai.agent.name': input.subagent_type ?? 'general-purpose',
-        'gen_ai.tool.call.id': block.id, 'team.tool.summary': phraseForTool(block.name, input)
+        'gen_ai.tool.call.id': block.id, 'team.tool.summary': phraseForTool(block.name, input), 'team.tool.action': parts.action, 'team.tool.detail': parts.detail
       }, parent, { startTime: clock() })
       : startManualSpan('execute.tool', {
         'gen_ai.operation.name': 'execute_tool', 'gen_ai.tool.name': block.name, 'gen_ai.tool.call.id': block.id,
-        'team.tool.summary': phraseForTool(block.name, input), 'team.in_subagent': Boolean(event.parent_tool_use_id)
+        'team.tool.summary': phraseForTool(block.name, input), 'team.tool.action': parts.action, 'team.tool.detail': parts.detail, 'team.in_subagent': Boolean(event.parent_tool_use_id)
       }, parent, { startTime: clock() })
     summary[subagent ? 'subagents' : 'tools'] += 1
     open.set(block.id ?? `anon-${open.size}`, {
       span, ctx: trace.setSpan(parent, span), subagent, startedAt: clock(),
-      name: subagent ? (input.subagent_type ?? 'general-purpose') : block.name, summary: phraseForTool(block.name, input)
+      name: subagent ? (input.subagent_type ?? 'general-purpose') : block.name, summary: phraseForTool(block.name, input), action: parts.action, detail: parts.detail
     })
   }
 
@@ -59,7 +60,7 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
     entry.span.setAttribute('team.tool.success', !failed)
     if (failed) summary.failed += 1
     const endedAt = clock()
-    rows.push({ kind: entry.subagent ? 'subagent' : 'tool', name: entry.name, summary: entry.summary, duration_ms: Math.round(endedAt - entry.startedAt), success: !failed, startedAt: entry.startedAt, endedAt })
+    rows.push({ kind: entry.subagent ? 'subagent' : 'tool', name: entry.name, summary: entry.summary, action: entry.action, detail: entry.detail, duration_ms: Math.round(endedAt - entry.startedAt), success: !failed, startedAt: entry.startedAt, endedAt })
     endManualSpan(entry.span, { endTime: endedAt, error: failed ? Object.assign(new Error(String(typeof block.content === 'string' ? block.content : 'tool error').slice(0, 200)), { code: 'tool_error' }) : null })
   }
 
@@ -77,11 +78,11 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
 
   /** Closes what is still open (the session died mid-tool) and writes the turn events on the span of the run. */
   function finish (runSpan) {
-    for (const { span, subagent, name, summary: text, startedAt } of open.values()) {
+    for (const { span, subagent, name, summary: text, action, detail, startedAt } of open.values()) {
       span.setAttribute('team.tool.success', false)
       span.setAttribute('team.tool.unfinished', true)
       const endedAt = clock()
-      rows.push({ kind: subagent ? 'subagent' : 'tool', name, summary: text, duration_ms: Math.round(endedAt - startedAt), success: false, startedAt, endedAt })
+      rows.push({ kind: subagent ? 'subagent' : 'tool', name, summary: text, action, detail, duration_ms: Math.round(endedAt - startedAt), success: false, startedAt, endedAt })
       endManualSpan(span, { endTime: endedAt })
     }
     open.clear()

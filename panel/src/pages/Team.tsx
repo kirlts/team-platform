@@ -247,7 +247,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
               <DropdownMenuItem
                 className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger"
                 aria-label={t('team.deleteOf', { name: member.name })}
-                title={t('team.deleteHint')}
+                title={t('team.deleteHint', { name: t('team.removedName') })}
                 onSelect={() => void deleteMember()}
               >
                 {t('team.delete')}

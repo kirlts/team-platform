@@ -30,6 +30,8 @@ import { changeOfWrite } from '../src/events/changes.js'
 import { batchSchema } from '../src/telemetry/ui-spec.js'
 import { recordUiBatch, uiSummary } from '../src/telemetry/ui.js'
 
+// What the real server sends with a tool call (src/execute/stream.js `toolParts`): the class and the detail, with no language.
+const toolParts = (summary) => { const [head, ...rest] = String(summary).split(': '); const action = { Lectura: 'read', 'Edición': 'edit', Orden: 'command', 'Búsqueda': 'search', Subagente: 'subagent' }[head] ?? 'other'; return { 'team.tool.action': action, 'team.tool.detail': rest.join(': ') } }
 const PORT = Number(process.env.PANEL_DEV_PORT ?? 8787)
 const STATIC = process.env.PANEL_DEV_STATIC === '1'
 /** PANEL_DEV_BASE=/team/ serves the panel and the API under that path, as the real server does with BASE_PATH (H-3721). */
@@ -1010,7 +1012,7 @@ function control(path, query) {
     const waiting = work('Entrega en espera por capacidad del anfitrión', { phase: 'deliver', elapsed_ms: 190_000, phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000)], deliver: { job_id: 'j-d75', job_status: 'queued', phase: 'deliver', attempts: 1 } }, [
       { author_id: 'u-claude', kind: 'answer', created_at: ago(20), body: 'Construido; entregando a producción.' },
     ])
-    emit(null, 'progress', { job_id: 'j-d75', percent: 60, phrase: 'En espera: entrega a producción', code: 'deliverWait', vars: {}, at: new Date().toISOString() })
+    emit(null, 'progress', { job_id: 'j-d75', percent: 60, phrase: 'En espera: entrega a producción', code: 'deliverWait', vars: { seconds: 30 }, at: new Date().toISOString() })
     out.delivery_waiting_75 = waiting.id
     // Exit 76: the host holds the delivery for a person. The review line and the reply that says why.
     const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
@@ -1031,7 +1033,7 @@ function control(path, query) {
     out.extracted_link = extracted('Texto extraído de un enlace', 'link', 'text/uri-list', 'https://github.com/example/team-platform/issues/1234', Buffer.from('https://github.com/example/team-platform/issues/1234'), 'Issue 1234: El botón Agendar no responde en el teléfono. Al tocarlo con la sesión recién abierta no pasa nada; con la segunda vez funciona. Pasos: abrir la agenda, tocar Agendar.')
     // The trace of the work with tokens and cost, in Detalles: the span of the session carries the call to the model.
     const span = (name, ms, attributes = {}, children = [], status = 'ok') => ({ trace_id: 't-states', span_id: `s-${name}-${ms}`, parent_id: null, name, kind: 'INTERNAL', status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
-    const tool = (name, summary, ms) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, 'team.tool.success': true })
+    const tool = (name, summary, ms) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, ...toolParts(summary), 'team.tool.success': true })
     const tools = [tool('Read', 'Lectura: Reservas.tsx', 800), tool('Edit', 'Edición: Reservas.tsx', 1200), tool('Bash', 'Orden: npm test', 61000)]
     const run = span('execute.machine.run', 210000, { 'gen_ai.usage.input_tokens': 184_200, 'gen_ai.usage.output_tokens': 9_450, 'team.cost_usd': 0.8123 }, tools)
     const tree = span('execute', 1_380_000, { 'team.queue_wait_ms': 920_000 }, [span('execute.machine.create', 95000), run, span('execute.machine.destroy', 8000)])
@@ -1039,7 +1041,7 @@ function control(path, query) {
       job_status: 'done', trace_id: 'b'.repeat(32), model: 'claude-haiku-5-5', cost_usd: 0.8123,
       first_reply_ms: 41000, final_reply_ms: 1_320_000, first_reply_since_message_ms: 961000, final_reply_since_message_ms: 2_240_000, total_ms: 1_380_000, queue_wait_ms: 920_000,
       phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000)],
-      slowest: tools.map((n) => ({ kind: 'tool', name: n.attributes['gen_ai.tool.name'], summary: n.attributes['team.tool.summary'], duration_ms: n.duration_ms, success: true })).sort((a, b) => b.duration_ms - a.duration_ms),
+      slowest: tools.map((n) => ({ kind: 'tool', name: n.attributes['gen_ai.tool.name'], summary: n.attributes['team.tool.summary'], action: n.attributes['team.tool.action'], detail: n.attributes['team.tool.detail'], duration_ms: n.duration_ms, success: true })).sort((a, b) => b.duration_ms - a.duration_ms),
       tree,
     }, [{ author_id: 'u-claude', kind: 'answer', created_at: ago(8), body: 'Listo: el botón dice Agendar. Ya está en producción.\n\n**Resultado**: done' }])
     out.trace_tokens_cost = traced.id
@@ -1050,6 +1052,7 @@ function control(path, query) {
     out.budget_spent = budget.id
     // The panel «Trabajo» with its stretch «Máquina» (creating the machine).
     out.work_machine = control('/_control/agent-work', query).machine
+    out.many_recipients = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Mensaje con varios destinatarios', body: 'Lo ven cuatro personas.', created_at: ago(20), assignee_ids: ['u-ana', 'u-bruno', 'u-diego', 'u-carla'], attachment_ids: [] }).id
     out.idea_guard = control('/_control/idea-guard', query).message_id
     out.handoff = control('/_control/handoff', query).message_id
     return out
@@ -1330,16 +1333,16 @@ const server = createServer(async (req, res) => {
       }
       if (!execution || timingMatch[1] !== execution.doneId) return fail(res, 404, 'El mensaje no tiene trabajo de ejecución.', 'not_found')
       const span = (name, ms, attributes = {}, children = [], status = 'ok') => ({ trace_id: 't-exec', span_id: `s-${name}-${ms}`, parent_id: null, name, kind: 'INTERNAL', status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
-      const tool = (name, summary, ms, ok = true) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, 'team.tool.success': ok }, [], ok ? 'ok' : 'error')
+      const tool = (name, summary, ms, ok = true) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, ...toolParts(summary), 'team.tool.success': ok }, [], ok ? 'ok' : 'error')
       const tools = [tool('Read', 'Lectura: Reservas.tsx', 800), tool('Edit', 'Edición: Reservas.tsx', 1200), tool('Bash', 'Orden: npm test', 94000, false), tool('Bash', 'Orden: npm test', 61000)]
-      const sub = span('execute.subagent', 30000, { 'gen_ai.agent.name': 'reviewer', 'team.tool.summary': 'Subagente: Revisar estilos' }, [tool('Grep', 'Búsqueda: Agendar', 400)])
+      const sub = span('execute.subagent', 30000, { 'gen_ai.agent.name': 'reviewer', 'team.tool.summary': 'Subagente: Revisar estilos', ...toolParts('Subagente: Revisar estilos') }, [tool('Grep', 'Búsqueda: Agendar', 400)])
       const run = span('execute.machine.run', 210000, {}, [...tools, sub])
       const tree = span('execute', 1_380_000, { 'team.queue_wait_ms': 920_000 }, [span('execute.machine.create', 95000), run, span('execute.machine.destroy', 8000)])
       return send(res, 200, {
         message_id: timingMatch[1], job_id: 'j-exec0', job_status: 'done', trace_id: 'a'.repeat(32), phase: null, attempts: 1, model: 'claude-haiku-5-5', cost_usd: 0.31, judgment: { job_id: 'j-exec0', judge_model: 'claude-haiku-5-5', worked_with: 'claude-haiku-5-5', quadrant: 'execute', axes: [{ axis: 1, name: 'Alineación estratégica', score: 0, target: 0, meets: true, kpis: 1 }, { axis: 2, name: 'Integridad del artefacto', score: 1, target: 2, meets: false, kpis: 2 }, { axis: 3, name: 'Eficiencia del proceso', score: null, target: 1, meets: null, kpis: 0 }, { axis: 4, name: 'Colaboración y transparencia', score: null, target: 0, meets: null, kpis: 0 }], kpis: [{ id: '2.1', applies: true, score: 1, quote: 'Ya carga con tus datos', claim: 'La pantalla carga con sus datos.', reasoning: 'r' }], summary: 'Adecuado para un arreglo directo.', cost_usd: 0.01 }, elapsed_ms: null,
         first_reply_ms: 41000, final_reply_ms: 1_320_000, first_reply_since_message_ms: 961000, final_reply_since_message_ms: 2_240_000, total_ms: 1_380_000, queue_wait_ms: 920_000,
         phases: [{ name: 'create', duration_ms: 95000, offset_ms: 0, status: 'unset' }, { name: 'run', duration_ms: 210000, offset_ms: 95000, status: 'unset' }, { name: 'destroy', duration_ms: 8000, offset_ms: 1_370_000, status: 'unset' }],
-        slowest: [...tools, sub].map((n) => ({ kind: n.name === 'execute.subagent' ? 'subagent' : 'tool', name: n.attributes['gen_ai.tool.name'] ?? n.attributes['gen_ai.agent.name'], summary: n.attributes['team.tool.summary'], duration_ms: n.duration_ms, success: n.attributes['team.tool.success'] ?? null })).sort((a, b) => b.duration_ms - a.duration_ms),
+        slowest: [...tools, sub].map((n) => ({ kind: n.name === 'execute.subagent' ? 'subagent' : 'tool', name: n.attributes['gen_ai.tool.name'] ?? n.attributes['gen_ai.agent.name'], summary: n.attributes['team.tool.summary'], action: n.attributes['team.tool.action'], detail: n.attributes['team.tool.detail'], duration_ms: n.duration_ms, success: n.attributes['team.tool.success'] ?? null })).sort((a, b) => b.duration_ms - a.duration_ms),
         turns: [], tree,
       })
     }
@@ -1357,8 +1360,8 @@ const server = createServer(async (req, res) => {
         cost: { n: 5, avg_usd: 1.62, total_usd: 8.1 }, tokens: { input: 900000, output: 41000, cache_read: 700000, cache_write: 30000 },
         delivery: { known: 2, delivered: 1, rate: 0.5 }, resolved: { runs: 5, investigated: 1, rate: 0.2 },
         slowest_tools: [
-          { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', duration_ms: 94000, success: false, job_id: 'j-exec0', message_id: null },
-          { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', duration_ms: 61000, success: true, job_id: 'j-exec0', message_id: null }
+          { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', action: 'command', detail: 'npm test', duration_ms: 94000, success: false, job_id: 'j-exec0', message_id: null },
+          { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', action: 'command', detail: 'npm test', duration_ms: 61000, success: true, job_id: 'j-exec0', message_id: null }
         ]
       })
     }

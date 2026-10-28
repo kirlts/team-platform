@@ -51,6 +51,8 @@ export interface Formats {
   decimal: (n: number, digits?: number) => string
   /** An amount in dollars with two decimals: «US$ 0,31». */
   usd: (n: number, digits?: number) => string
+  /** A percentage of a whole number: «25 %» in Spanish, «25%» in English. */
+  percent: (value: number) => string
   /** A duration in the one unit the whole sheet uses: «800 ms», «1,2 s», «23 min 0 s». */
   duration: (ms: number) => string
 }
@@ -63,13 +65,16 @@ const numberLocale = (language: Language) => (language === 'es-419' ? 'es' : lan
 
 export function createFormats(language: Language, words: { today: string; yesterday: string }): Formats {
   const date = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' })
-  const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hour12: false })
+  // One clock per language: 24 hours in Spanish, 12 hours with AM/PM in English, in the clock, the stamp and the full date alike.
+  const h12 = language === 'en'
+  const hour = h12 ? 'numeric' : '2-digit'
+  const time = new Intl.DateTimeFormat(language, { hour, minute: '2-digit', hour12: h12 })
   const short = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' })
   const number = new Intl.NumberFormat(numberLocale(language), { maximumFractionDigits: 1 })
   const clock = (d: Date) => time.format(d)
-  const timeSeconds = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: false })
-  const fixed = (digits: number) => new Intl.NumberFormat(numberLocale(language), { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const timeSeconds = new Intl.DateTimeFormat(language, { hour, minute: '2-digit', second: '2-digit', hour12: h12 })
+  const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: h12 })
+  const fixed = (digits: number) => new Intl.NumberFormat(numberLocale(language), { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always' })
   const decimals = new Map<number, Intl.NumberFormat>()
   const decimal = (n: number, digits = 2) => {
     if (!decimals.has(digits)) decimals.set(digits, fixed(digits))
@@ -77,7 +82,8 @@ export function createFormats(language: Language, words: { today: string; yester
   }
   return {
     decimal,
-    usd: (n, digits = 2) => `US$ ${decimal(n, digits)}`,
+    usd: (n, digits) => `${language === 'en' ? '$' : 'US$ '}${decimal(n, digits ?? (n !== 0 && Math.abs(n) < 0.01 ? 4 : 2))}`,
+    percent: (value) => (language === 'en' ? `${Math.round(value)}%` : `${Math.round(value)} %`),
     duration: (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : ms < 60000 ? `${number.format(Math.round(ms / 100) / 10)} s` : `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s`),
     longDate: (d) => date.format(d).replace(/\./g, '').replace(/ de /g, ' '),
     fullStamp: (iso) => (Number.isNaN(new Date(iso).getTime()) ? '' : full.format(new Date(iso))),

@@ -127,6 +127,19 @@ describe('page-height', () => {
   })
 })
 
+describe('sibling-alignment, declared columns', () => {
+  const row = (slots) => `<li style="display:flex;justify-content:flex-end;gap:8px;width:300px">${slots}</li>`
+  const slot = (name, w) => `<span data-count-slot="${name}" style="display:inline-block;width:${w}px;text-align:right"><a style="display:inline-block;width:20px">1</a></span>`
+  test('does not flag a row that leaves one slot empty: each column aligns by itself', async () => {
+    const html = `<ul style="list-style:none;padding:0">${row(slot('open', 40) + slot('answered', 40))}${row('<span data-count-slot="open" style="display:inline-block;width:40px"></span>' + slot('answered', 40))}</ul>`
+    assert.deepEqual((await detect('sibling-alignment', html)).findings, [])
+  })
+  test('flags a column whose marks end at different places', async () => {
+    const html = `<ul style="list-style:none;padding:0">${row(slot('open', 40))}${row(slot('open', 40)).replace('width:300px', 'width:330px')}</ul>`
+    assert.equal((await detect('sibling-alignment', html)).findings.length, 1)
+  })
+})
+
 describe('equal-weight', () => {
   const chip = (n) => Array.from({ length: n }, (_, i) => `<span style="background:#d0021b;color:#fff;padding:4px">Alert ${i}</span> `).join('')
   test('flags more than three chips with the same saturated fill', async () => {
@@ -137,6 +150,18 @@ describe('equal-weight', () => {
   test('accepts three chips and neutral fills', async () => {
     const r = await detect('equal-weight', chip(3) + Array.from({ length: 6 }, () => '<span style="background:#e8e8ee;padding:4px">grey</span>').join(''), { max: 3 })
     assert.deepEqual(r.findings, [])
+  })
+})
+
+describe('equal-weight, selected states', () => {
+  const fill = 'background:#d0021b;color:#fff;padding:4px'
+  test('does not count the chosen option of a group nor the current page: a selected state is one meaning, not an action', async () => {
+    const chosen = Array.from({ length: 4 }, (_, i) => `<button role="radio" aria-checked="true" style="${fill}">Option ${i}</button>`).join('') + `<a aria-current="page" style="${fill}">Page</a><button aria-selected="true" style="${fill}">Tab</button>`
+    assert.deepEqual((await detect('equal-weight', chosen, { max: 3 })).findings, [])
+  })
+  test('still counts the same fill when it is not a selected state', async () => {
+    const plain = Array.from({ length: 4 }, (_, i) => `<button style="${fill}">Action ${i}</button>`).join('')
+    assert.equal((await detect('equal-weight', plain, { max: 3 })).findings.length, 1)
   })
 })
 

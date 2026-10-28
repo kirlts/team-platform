@@ -99,7 +99,7 @@ export function EditableText({
   const type = cn('whitespace-pre-wrap break-words', mono && value && 'font-mono text-xs', prose && 'prose-block', displayClassName)
   // Same box when reading and editing: the negative margin offsets the padding and the border.
   // A running text takes its alignment from `.prose-block` (left, or justified when it is wide: UD-034), so the box does not force it to the left.
-  const box = cn('-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px', !prose && 'text-left')
+  const box = cn('-mx-1.5 -my-px block min-h-6 w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px', !prose && 'text-left')
 
   if (!canEdit) {
     return <span className={cn(render && value ? 'block' : cn(type, prose && 'block'), !value && 'text-faint', className)}>{value ? (render ? render(value) : value) : shown}</span>

@@ -1,6 +1,6 @@
 import { AlertTriangle, RotateCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { useT } from '@/i18n'
+import { useT, useFormat } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { useLookups } from './lookups'
 import { Meter } from './Meter'
@@ -37,6 +37,7 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
   const t = useT()
   const { memberName } = useLookups()
   const percent = Math.round(upload.progress * 100)
+  const { percent: percentOf } = useFormat()
   const addressing = [
     upload.recipientIds?.length ? `${t('compose.to')}: ${upload.recipientIds.map(memberName).filter(Boolean).join(', ')}` : '',
     upload.asMemberId ? `${t('compose.sendAs')}: ${memberName(upload.asMemberId)}` : '',
@@ -89,7 +90,7 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
           <div data-ui-stage="progress" className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2 text-sm">
               <span>{t(sending ? 'tray.state.sending' : 'tray.state.uploading')}</span>
-              {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
+              {percent > 0 && <span className="tabular-nums text-muted">{percentOf(percent)}</span>}
             </div>
             <Meter percent={percent} label={t(sending ? 'compose.sending' : 'compose.upload')} className="h-2.5" />
           </div>

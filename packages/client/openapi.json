@@ -5206,7 +5206,22 @@
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "description": "La frase de la llamada en español; un cliente con catálogo propio usa `action` y `detail`."
+                          },
+                          "action": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "La clase de la llamada (read, edit, command, search, subagent, web, plan, other); nula en filas anteriores a las clases."
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Archivo, orden o patrón de la llamada, sin idioma."
                           },
                           "duration_ms": {
                             "type": [

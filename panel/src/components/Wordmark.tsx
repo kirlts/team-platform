@@ -12,7 +12,7 @@ export function Wordmark({ project, name, className, large = false }: { project?
       <span aria-hidden className={cn('wordmark-orb orb shrink-0 rounded-full [--orb-bottom:var(--color-gel-bottom)] [--orb-top:var(--color-gel-top)]', large ? 'h-7 w-7' : 'h-4 w-4 max-[380px]:hidden')} />
       {/* One line on a phone (J3-D3-01): «TEAM» keeps its place and, only when the whole name cannot fit, the name of the instance gives way with an ellipsis. From 768 px the text wraps as before. */}
       <span className="min-w-0 break-words max-md:flex max-md:gap-[0.3em] max-md:whitespace-nowrap">
-        {project && <span className="wordmark-project max-md:min-w-0 max-md:truncate" title={project}>{project} </span>}{/* justified: on a phone the bar is one line (J3-D3-01), «TEAM» keeps its place and the whole name of the instance is the title */}
+        {project && <span className="wordmark-project max-md:min-w-0 max-md:truncate" data-ellipsis-ok="J3-D3-01" title={project}>{project} </span>}{/* justified: on a phone the bar is one line (J3-D3-01), «TEAM» keeps its place and the whole name of the instance is the title */}
         <span className="max-md:shrink-0">{name}</span>
       </span>
     </span>

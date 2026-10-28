@@ -22,4 +22,9 @@ describe('Wordmark', () => {
     const { container } = render(<Wordmark name="Team" />)
     expect((container.firstElementChild as HTMLElement).className).toContain('max-md:tracking-normal')
   })
+
+  it('declares the ellipsis for the detectors, with the id of its justification', () => {
+    const { container } = render(<Wordmark project="Desarrollo" name="Team" />)
+    expect(container.querySelector('.wordmark-project')?.getAttribute('data-ellipsis-ok')).toBe('J3-D3-01')
+  })
 })

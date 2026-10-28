@@ -24,13 +24,15 @@ export const WORK_COLUMNS = 'grid-cols-[16px_6rem_minmax(2rem,1fr)_28px_4.5rem] 
  * What it unfolds (`panel`) is drawn only while it is open and starts closed, so the box measures the same with or without it. What a stretch adds under its name
  * (`under`: the word of a failure, what the retry does) never moves the time.
  */
-export function WorkRow({ stepKey, state, label, time, percent, progressLabel, toggleLabel, panel, under, className }: {
+export function WorkRow({ stepKey, state, label, time, percent, waiting, progressLabel, toggleLabel, panel, under, className }: {
   stepKey: string
   state: StepState
   label: string
   time: string
   /** Advance of the stretch that runs (0 = it travels); the others draw their own state. */
   percent?: number
+  /** The stretch runs but is held (the host has no capacity): its bar stands still and empty, it does not advance. */
+  waiting?: boolean
   progressLabel: string
   /** The name of the control; without it the stretch has nothing to unfold. */
   toggleLabel?: string
@@ -41,7 +43,7 @@ export function WorkRow({ stepKey, state, label, time, percent, progressLabel, t
   const [open, setOpen] = useState(false)
   const panelId = useId()
   const bar =
-    state === 'running' ? <Meter thin percent={percent ?? 0} label={progressLabel} className="self-center" /> : <Meter thin decorative still danger={state === "failed"} percent={state === "pending" ? 0 : 100} label={progressLabel} className="self-center" />
+    state === 'running' && !waiting ? <Meter thin percent={percent ?? 0} label={progressLabel} className="self-center" /> : <Meter thin decorative still danger={state === "failed"} percent={state === "pending" || waiting ? 0 : 100} label={progressLabel} className="self-center" />
   return (
     <li data-work-step={stepKey} data-state={state} className={cn('grid min-h-8 items-center gap-x-2 gap-y-0.5 py-0.5', WORK_COLUMNS, className)}>
       <Mark state={state} />

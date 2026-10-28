@@ -241,7 +241,7 @@ export function MediaGallery({
         {/* One line always: the name is the part that gives way, with an ellipsis. It and the counter are announced when the medium changes. */}
         <p aria-live="polite" data-gallery-caption className="flex min-w-0 flex-1 items-baseline gap-1 whitespace-nowrap text-muted">
           <span className="shrink-0 font-semibold text-fg">{t(MEDIA_KEY[item.kind])}</span>
-          {item.name && item.kind !== 'link' && <span className="min-w-0 truncate" title={item.name}>{`· ${item.name}`}</span>} {/* justified: the footer of the viewer is one line (V5) and the whole name is its title */}
+          {item.name && item.kind !== 'link' && <span className="min-w-0 truncate" data-ellipsis-ok="V5" title={item.name}>{`· ${item.name}`}</span>} {/* justified: the footer of the viewer is one line (V5) and the whole name is its title */}
           {item.size ? <span className="shrink-0">{`· ${format.fileSize(item.size)}`}</span> : null}
           {total > 1 && <span className="ml-1 shrink-0 font-semibold tabular-nums text-fg" data-gallery-count>{t('gallery.count', { n: current + 1, total })}</span>}
         </p>
@@ -253,7 +253,7 @@ export function MediaGallery({
 
       {/* The text read from a photo, a document or a link goes under the viewer, not inside the slide: the slides keep the height of their medium. Its own short lane, so it never pushes the strip away. */}
       {item.transcriptSrc && item.kind !== 'audio' && item.kind !== 'video' && (
-        <div data-gallery-extracted className="flex max-h-36 min-h-0 flex-col">
+        <div data-gallery-extracted className="flex max-h-36 min-h-0 flex-col px-1.5">
           <Transcript key={item.id} src={item.transcriptSrc} kind={item.kind} />
         </div>
       )}

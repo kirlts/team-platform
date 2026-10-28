@@ -232,16 +232,27 @@ export const DETECTORS = {
       if (!stacked) continue
       const marks = []
       items.forEach((item, i) => {
+        // Marks that the page declares as columns (`data-count-slot`: the counts of an area in the sidebar) align per column: a row that has only one of them leaves the other slot empty, and that is not a misalignment.
+        const slots = [...item.querySelectorAll('[data-count-slot]')]
+        const slotMarks = slots.map((slot) => [slot.dataset.countSlot, trailing(slot)]).filter(([, t]) => t && t.r.width <= MARK_MAX_WIDTH_PX)
+        if (slotMarks.length) {
+          for (const [key, t] of slotMarks) if (t.r.left >= boxes[i].left + boxes[i].width * 0.6) marks.push({ item, box: boxes[i], mark: t, key })
+          return
+        }
         const t = trailing(item)
         if (!t || t.r.width > MARK_MAX_WIDTH_PX) return
         if (t.r.left < boxes[i].left + boxes[i].width * 0.6) return
-        marks.push({ item, box: boxes[i], mark: t })
+        marks.push({ item, box: boxes[i], mark: t, key: '' })
       })
       if (marks.length < 2) continue
-      const rights = marks.map((m) => m.mark.r.right)
-      const spread = Math.max(...rights) - Math.min(...rights)
-      if (spread > ALIGN_TOLERANCE_PX) {
-        out.push({ rule: 'sibling-alignment', selector: ud.sel(list), detail: `Las marcas finales de los elementos de la lista terminan a ${Math.round(spread * 10) / 10} px entre sí (borde derecho)`, measure: { spread: Math.round(spread * 10) / 10, axis: 'right' } })
+      const columns = new Map()
+      for (const m of marks) columns.set(m.key, [...(columns.get(m.key) ?? []), m.mark.r.right])
+      for (const rights of columns.values()) {
+        if (rights.length < 2) continue
+        const spread = Math.max(...rights) - Math.min(...rights)
+        if (spread > ALIGN_TOLERANCE_PX) {
+          out.push({ rule: 'sibling-alignment', selector: ud.sel(list), detail: `Las marcas finales de los elementos de la lista terminan a ${Math.round(spread * 10) / 10} px entre sí (borde derecho)`, measure: { spread: Math.round(spread * 10) / 10, axis: 'right' } })
+        }
       }
       for (const m of marks) {
         if (m.box.height > 56) continue
@@ -461,6 +472,8 @@ export const DETECTORS = {
     const groups = new Map()
     for (const el of document.body.querySelectorAll('*')) {
       if (ud.hidden(el) || el.closest('[aria-hidden=true]')) continue
+      // The fill of a selected state (the chosen option of a group, the current page) has one meaning, «selected» (--selected-bg), and marks where a person is, not an action to take: it does not compete for the first look. Measured on Configuración, dark: the current row of the sidebar and the chosen option of three groups of options share it.
+      if (el.matches('[aria-checked=true], [aria-selected=true], [aria-pressed=true], [aria-current]:not([aria-current=false]), .nav-item:has(> .nav-row.active)')) continue
       const c = ud.rgba(getComputedStyle(el).backgroundColor)
       if (c.a < 0.6) continue
       const mx = Math.max(c.r, c.g, c.b), mn = Math.min(c.r, c.g, c.b)
@@ -519,6 +532,8 @@ export const DETECTORS = {
 // ---------------------------------------------------------------------------------------------
 
 export const VIEWPORTS = { desktop: { width: 1440, height: 900 }, phone: { width: 390, height: 844 } }
+/** The pointer of each viewport: a phone is a touch screen (`pointer: coarse`, where every control measures 44 px, DISENO.md «Gestión»); the desktop has a fine one. The sizes are judged under the pointer that the viewport really has. */
+export const POINTERS = { desktop: {}, phone: { hasTouch: true, isMobile: true } }
 export const THEMES = ['light', 'dark']
 export const SCREEN_IDS = ['home', 'messages', 'message-detail', 'areas', 'area-detail', 'team', 'settings', 'connections', 'login']
 /** Screens that must fit one screen per src/fits-one-screen.browser.test.mjs (UD-017), measured there at desktop sizes. */
@@ -612,7 +627,7 @@ export async function run(options = {}) {
 
     for (const viewport of viewports) {
       for (const theme of themes) {
-        const context = await panel.browser.newContext({ viewport: VIEWPORTS[viewport], locale: 'es-CL', colorScheme: theme, reducedMotion: 'reduce' })
+        const context = await panel.browser.newContext({ viewport: VIEWPORTS[viewport], ...POINTERS[viewport], locale: 'es-CL', colorScheme: theme, reducedMotion: 'reduce' })
         await context.addInitScript((t) => { try { localStorage.setItem('team-theme', t) } catch {} }, theme)
         const page = await context.newPage()
         try {
@@ -621,7 +636,7 @@ export async function run(options = {}) {
             const route = routes[id]
             if (route === null) { if (!skipped.some((s) => s.rule === id)) skipped.push({ rule: id, reason: 'la pantalla no existe en los datos de ejemplo' }); continue }
             if (id === 'login') {
-              const anon = await panel.browser.newContext({ viewport: VIEWPORTS[viewport], locale: 'es-CL', colorScheme: theme, reducedMotion: 'reduce' })
+              const anon = await panel.browser.newContext({ viewport: VIEWPORTS[viewport], ...POINTERS[viewport], locale: 'es-CL', colorScheme: theme, reducedMotion: 'reduce' })
               await anon.addInitScript((t) => { try { localStorage.setItem('team-theme', t) } catch {} }, theme)
               const lp = await anon.newPage()
               await lp.goto(panel.origin)

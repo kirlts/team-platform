@@ -670,6 +670,8 @@ export interface ReprocessResult {
 
 export interface DeleteInputResult {
   input_id: string
+  /** True when `restore` can bring the send back (the default); false after `purge`. */
+  restorable?: boolean
   deleted: { attachments: number; jobs: number; messages: number }
   freed_bytes: number
 }

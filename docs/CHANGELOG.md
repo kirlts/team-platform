@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Historial de la sesión: cada llamada de Claude a una herramienta se guarda por trabajo (`execute_steps`, migración 0041, tope `EXECUTE_STEPS_MAX`) y se lee en `GET /messages/:id/session`. El panel «Trabajo» muestra una fila por tramo con barra delgada y un desplegable en Sesión (pasos y capturas) y en Publicación (estado). El historial queda en Detalles › Tiempos. El contrato de anfitrión no cambia.
 
+## [0.1.8] - 2026-10-28
+
+- Respuesta final de una entrega: el desenlace («En producción desde HH:MM» o «ya estaba servido») reemplaza lo que la sesión escribió sobre el estado de la entrega; ya no queda «falta que la entrega corra» junto a «en producción» (mensajes 138 y 136).
+
 ## [0.1.7] - 2026-10-28
 
 - Panel: el hilo de un mensaje ya no se desplaza en horizontal en teléfono: el primer renglón de un aviso de avance (una ruta o un enlace largo) se corta en el ancho de la tarjeta.

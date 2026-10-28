@@ -28,7 +28,7 @@ import { UndoButtons } from './UndoButtons'
  * was read. Nobody else sees the controls. There is no confirmation step; a message that is wrong is corrected, and the history above takes a change back.
  * The list opens with the count of messages and each message is a folded row (UD-257): a click opens it with everything above, another folds it.
  */
-export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDeleted?: (id: string) => void }) {
+export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDeleted?: (id: string, back?: boolean) => void }) {
   const t = useT()
   const stack = useUndo()
   const ids = input.message_ids ?? input.messages?.map((m) => m.id) ?? []

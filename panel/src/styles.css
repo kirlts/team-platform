@@ -889,6 +889,15 @@
     min-width: 24px;
     min-height: 24px;
   }
+  /* `.hit` comes after the rule of the touch screen and would take its 44 px back from a button that carries both. */
+  @media (pointer: coarse) {
+    .btn.hit {
+      min-height: var(--touch-min);
+    }
+    .btn.hit:where(.w-8, .w-10) {
+      min-width: var(--touch-min);
+    }
+  }
 
   /* Glass sphere: avatars and brand. */
   .orb {

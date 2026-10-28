@@ -72,7 +72,7 @@ function checkUnits (db, inputId, proposal, fail, { complete }) {
 export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, memberId, proposal }) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input) throw notFound('El input no existe.')
+    if (!input || input.deleted_at !== null) throw notFound('El input no existe.')
     if (input.author_id !== memberId) throw forbidden('Sólo quien envió el input puede editar su propuesta.', 'not_input_author')
     if (input.status === 'published') throw conflict('El input ya se publicó; sus mensajes se editan uno por uno.', 'already_published')
     if (input.status !== 'proposed') throw conflict(`El input está «${input.status}»; sólo se edita una propuesta lista.`, 'not_proposed')
@@ -141,7 +141,7 @@ function insertMessages ({ db, events, now }, { input, entries, via }) {
 export function publishProposal ({ db, events, now = Date.now }, { inputId, memberId, proposal }) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
+    if (!input || input.deleted_at !== null || input.author_id !== memberId) throw notFound('El input no existe.')
     if (input.status === 'published') throw conflict('El input ya se publicó.', 'already_published')
     if (input.status !== 'proposed') throw conflict(`El input está «${input.status}»; sólo se publica una propuesta lista.`, 'not_proposed')
 
@@ -165,7 +165,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
  */
 export function autoPublishProposal ({ db, events, now = Date.now }, inputId) {
   const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-  if (!input || input.status !== 'proposed') return { published: false, messageIds: [], reason: 'not_proposed' }
+  if (!input || input.deleted_at !== null || input.status !== 'proposed') return { published: false, messageIds: [], reason: 'not_proposed' }
   const saved = parseJson(get(db, 'SELECT payload_json FROM proposals WHERE input_id = ?', inputId)?.payload_json, {})
   let entries
   try {

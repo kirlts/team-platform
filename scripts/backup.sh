@@ -9,7 +9,7 @@
 # Variables:
 #   DEST         host folder where the backup is left (default ./backups)
 #   SERVICE      name of the service in the compose file (default team-platform)
-#   WITH_FILES   1 adds a tar with the attachments and the edited templates from /data
+#   WITH_FILES   1 adds a tar with the attachments, the edited templates and the master key file (secrets.key) from /data
 #   COMPOSE_FILE, COMPOSE_PROJECT_NAME: docker compose's own, if the service lives in another project
 set -eu
 
@@ -56,6 +56,7 @@ if [ "$WITH_FILES" = "1" ]; then
     cd "${DATA_DIR:-/data}"
     dirs=""
     for d in attachments templates; do [ -d "$d" ] && dirs="$dirs $d"; done
+    [ -f secrets.key ] && dirs="$dirs secrets.key"
     [ -n "$dirs" ] && tar -cf - $dirs
   ' > "$DEST/files-$STAMP.tar.tmp"
   mv "$DEST/files-$STAMP.tar.tmp" "$DEST/files-$STAMP.tar"

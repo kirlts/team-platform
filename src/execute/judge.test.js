@@ -2,7 +2,7 @@
 // every KPI once, every quote a piece of the evidence it was given, and a KPI whose evidence the job does not carry is never scored (audit of the distribution method, 2026-10-26).
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { KPIS, LEVEL_SCORES, buildJudgePrompt, judgeBlocks, judgeEvidence, runJudge, validateJudgment } from './judge.js'
+import { KPIS, LEVEL_SCORES, axisScores, buildJudgePrompt, judgeBlocks, judgeEvidence, runJudge, validateJudgment } from './judge.js'
 
 const job = (over = {}) => ({
   message: { title: 'Cambiar el rótulo', body: 'El botón dice Enviar y debe decir Guardar.' },
@@ -72,6 +72,31 @@ describe('the evidence', () => {
     assert.ok(e.text.includes('Ya dice Guardar.'))
     assert.ok(judgeEvidence(job({ firstProposal: 'Primera versión del cambio.' })).present.includes('primera_propuesta'))
     assert.equal(judgeBlocks(job({ area: null, project: null })).filter(([t]) => t.startsWith('descripcion')).every(([, text]) => text === ''), true)
+  })
+})
+
+describe('the profile of who asked (third audit, H-8)', () => {
+  it('reaches the judge as evidence a quote may come from, and is an empty block when the person wrote none', () => {
+    const author = { name: 'Ana', profile: 'Soy médica: leo resultados, no código.' }
+    assert.equal(judgeBlocks(job({ author })).find(([t]) => t === 'perfil_de_quien_pidio')[1], 'Ana\nSoy médica: leo resultados, no código.')
+    assert.match(buildJudgePrompt(job({ author })), /<perfil_de_quien_pidio>\nAna\nSoy médica/)
+    assert.ok(judgeEvidence(job({ author })).present.includes('perfil_de_quien_pidio'))
+    assert.ok(judgeEvidence(job({ author })).text.includes('leo resultados'))
+    assert.equal(judgeBlocks(job({ author: { name: 'Ana', profile: '' } })).find(([t]) => t === 'perfil_de_quien_pidio')[1], '')
+    assert.ok(!judgeEvidence(job()).present.includes('perfil_de_quien_pidio'))
+  })
+})
+
+describe('the idea of the request', () => {
+  it('reaches the judge as context when the analyzer judged it, and is an empty block when nobody did (UD-307)', () => {
+    const idea = { idea: 0.9, idea_guard: true, idea_reason: 'lo dijo como una posibilidad' }
+    const block = (input) => judgeBlocks(input).find(([title]) => title === 'idea_del_pedido')[1]
+    assert.equal(block(job({ idea })), 'idea: 0.90 de 1\nel límite de la idea aplica: sí\nrazón: lo dijo como una posibilidad')
+    assert.equal(block(job({ idea: { idea: null, idea_guard: false } })), 'idea: sin dato\nel límite de la idea aplica: no')
+    assert.equal(block(job()), '')
+    assert.equal(block(job({ idea: { understand_vs_create: 0.2 } })), '', 'an assessment from before the Guard says nothing about it')
+    assert.match(buildJudgePrompt(job({ idea })), /<idea_del_pedido>\nidea: 0\.90 de 1/)
+    assert.deepEqual(judgeEvidence(job({ idea })).present.includes('idea_del_pedido'), true)
   })
 })
 
@@ -175,5 +200,23 @@ describe('runJudge', () => {
     const ac = new AbortController(); ac.abort()
     assert.equal(await runJudge({ providers: provider(answer(evidence)), prompt, evidence, signal: ac.signal }), null)
     assert.equal(await runJudge({ providers: { text: { complete: async () => { throw new Error('sin clave') } } }, prompt, evidence }), null)
+  })
+})
+
+describe('the target of an axis', () => {
+  const scored = (scores) => Object.entries(scores).map(([id, score]) => ({ id, applies: true, score, quote: 'q', claim: 'c', reasoning: 'r' }))
+  it('is met when the mean, rounded to the nearest level, reaches it: a mean of 1.5 is exceptional', () => {
+    // Execute asks +2 of the axis 2. Two +2 and one +1 (mean 1.67) is an exceptional axis; before, only three +2 met it.
+    const axis = (kpis) => axisScores(scored(kpis), 'execute').find((a) => a.axis === 2)
+    assert.equal(axis({ '2.1': 2, '2.2': 2, '2.3': 1 }).meets, true)
+    assert.equal(axis({ "2.1": 2, "2.2": 1, "2.3": 1 }).meets, false) // 1.33 rounds to +1
+  })
+  it('a mean under 1.5 does not meet an exceptional target, and one under -0.5 does not meet the expected minimum', () => {
+    const axisOf = (kpis, quadrant, n) => axisScores(scored(kpis), quadrant).find((a) => a.axis === n)
+    assert.equal(axisOf({ '2.1': 2, '2.2': 1, '2.3': 1 }, 'execute', 2).meets, false)
+    assert.equal(axisOf({ '2.1': 2, '2.2': 1, '2.3': 1 }, 'generate', 2).meets, true)
+    assert.equal(axisOf({ '2.1': 0, '2.2': -1, '2.3': 0 }, 'generate', 2).meets, true) // -0.33 rounds to 0: expected
+    assert.equal(axisOf({ '2.1': -1, '2.2': -1, '2.3': 0 }, 'generate', 2).meets, false) // -0.67 rounds to -1
+    assert.equal(axisOf({ '2.1': 2, '2.2': 2, '2.3': 2 }, 'execute', 2).meets, true)
   })
 })

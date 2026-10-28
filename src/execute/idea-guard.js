@@ -24,12 +24,12 @@ export const ideaGuardSchema = () => ({
 export function ideaGuardPrompt ({ author, message, areaTitle, areaDescription }) {
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   return [
-    'Eres el analizador de pedidos de un equipo. Un mensaje se analizó antes de que existiera una Guardia y hace falta solo ese juicio.',
+    'Eres el analizador de pedidos de un equipo. Un mensaje se analizó antes de que existiera un límite y hace falta solo ese juicio.',
     '',
-    'La Guardia: «nada cambia de forma permanente sin el visto de una persona cuando lo pedido es explorar una idea».',
+    'El límite: «nada cambia de forma permanente sin el visto de una persona cuando lo pedido es explorar una idea».',
     'Entiende qué se está pidiendo y el espíritu del mensaje, con lo que sabes de quien lo escribe y de cómo habla de su trabajo: quien comparte una ocurrencia, una posibilidad o algo que le gustaría ver está aportando una idea aunque use el imperativo; quien describe con precisión algo que ya acordó o que falla pide un cambio decidido.',
     '',
-    'Devuelve idea_guard (true si la Guardia aplica, false si no), idea (de 0 a 1, cuánto de lo pedido es una idea por explorar frente a un pedido decidido; es contexto y no decide nada) e idea_reason (una frase con la razón).',
+    'Devuelve idea_guard (true si el límite aplica, false si no), idea (de 0 a 1, cuánto de lo pedido es una idea por explorar frente a un pedido decidido; es contexto y no decide nada) e idea_reason (una frase con la razón).',
     '',
     `<autor>\n${author?.name ?? ''}\n\n${author?.profile ?? ''}\n</autor>`,
     `<area>\n${areaTitle ?? ''}\n\n${areaDescription ?? ''}\n</area>`,

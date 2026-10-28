@@ -2,6 +2,7 @@
 // what stays within its limits, the area's larger one the rest; a person's Guard puts a person on the message next to Claude; a session of the light model that cannot close goes on
 // in the larger one, on the same branch, and the thread says so; every finished job is judged by the job judge.
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -44,8 +45,8 @@ describe('model by area and by estimates', () => {
     return { json: { idea: 0.1, idea_guard: false, idea_reason: 'razón de prueba' }, usage: { input_tokens: 1, output_tokens: 1 }, provider: 'fake', model: 'claude-haiku-5-5' }
   } }
   const getProviders = () => ({ describe: () => [], text: fakeText })
-  const startWorker = () => {
-    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, lightLimits: LIMITS } })
+  const startWorker = (repoDir = '') => {
+    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { ...(repoDir ? { repoDir, workRoot: join(env.dir, 'work') } : {}), bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, lightLimits: LIMITS } })
     const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault, getProviders }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
     worker.start()
@@ -95,6 +96,7 @@ describe('model by area and by estimates', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_CANNOT_CLOSE_ON
+    delete process.env.FAKE_EXECUTE_COMMIT
     delete process.env.FAKE_JUDGE
     estimates = { understand_vs_create: 0.2, irreversibility: 0.1, value_holder: 'model', certainty: 0.9 }
     extra = {}
@@ -123,6 +125,15 @@ describe('model by area and by estimates', () => {
     assert.deepEqual(again.json().guards.map((g) => g.id), [2, 3], 'the Guard that stays keeps its id; the new one takes the next')
     assert.equal((await patchArea({ guards: [{ text: ' ' }] })).statusCode, 422)
     assert.match(get(env.db, "SELECT detail_json FROM audit_log WHERE action = 'area.update' ORDER BY id DESC LIMIT 1").detail_json, /fieldValues|guards_json/)
+  })
+
+  it('a Guard can carry the name a template gives it (`touches_<key>`): a name keeps through a rewrite, and a text that is not a name is dropped', async () => {
+    const first = await patchArea({ guards: [{ text: 'Nada toca pagos', person: true, key: 'money' }, { text: 'Otra', key: 'Not A Name!' }] })
+    assert.equal(first.statusCode, 200, first.body)
+    assert.deepEqual(first.json().guards.map((g) => [g.id, g.key ?? null]), [[1, 'money'], [2, null]])
+    const again = await patchArea({ guards: [{ id: 1, text: 'Nada toca pagos', person: true }, { id: 2, text: 'Otra' }] })
+    assert.deepEqual(again.json().guards.map((g) => [g.id, g.key ?? null]), [[1, 'money'], [2, null]], 'rewritten without the name, the Guard keeps the one it had')
+    await patchArea({ guards: [] })
   })
 
   it('modelFor is a function of the estimates and the limits: above create or irreversibility, or below certainty, the larger one; no estimates, the larger one', () => {
@@ -237,6 +248,33 @@ describe('model by area and by estimates', () => {
     const judged = judgmentsOfMessage(env.db, id)
     assert.deepEqual(judged.map((j) => [j.job_id, j.worked_with]), [[String(first.id), 'claude-haiku-5-5'], [String(second.id), 'claude-sonnet-5-5']])
     assert.ok(judgePrompts.some((p) => p.includes('no_cerro: sí')), 'the judge is told that the light attempt did not close')
+    // Third audit, H-4: the endpoint of the times returns every attempt, the failed one of the light model included, and the judge is not calibrated so no judgement counts for a decision.
+    assert.deepEqual(timing.judgments.map((j) => [j.job_id, j.worked_with]), [[String(first.id), 'claude-haiku-5-5'], [String(second.id), 'claude-sonnet-5-5']])
+    assert.equal(timing.judgment.job_id, String(second.id), 'the field of always is still the latest one')
+    assert.deepEqual(timing.decision_judgments, [])
+  })
+
+  it('a session of the light model that ends done with nothing on its branch escalates by what the system reads, and the job keeps «closed» as a stored fact (third audit, H-5)', async () => {
+    const repo = join(env.dir, 'host-repo')
+    mkdirSync(repo, { recursive: true })
+    const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' })
+    git('init', '-q', '-b', 'main')
+    git('-c', 'user.email=t@x.org', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init')
+    startWorker(repo)
+    const id = await publish('Corregir la tilde del pie de página.')
+    await settle(id, 2)
+    const [first, second] = jobsOf(id)
+    assert.deepEqual([first.model, second.model], ['claude-haiku-5-5', 'claude-sonnet-5-5'], 'nothing declared, nothing pushed: it goes on in the larger model')
+    const escalation = JSON.parse(get(env.db, "SELECT detail_json FROM audit_log WHERE action = 'message.execute_escalate' AND entity_id = ?", id).detail_json)
+    assert.deepEqual([escalation.why, escalation.trigger], ['no_changes', 'checked'])
+    const judged = judgmentsOfMessage(env.db, id)
+    assert.deepEqual(judged.map((j) => [j.worked_with, j.closed]), [['claude-haiku-5-5', false], ['claude-sonnet-5-5', true]], 'the attempt that did not close is stored as such')
+    // The same session with a commit on its branch closes and does not escalate.
+    process.env.FAKE_EXECUTE_COMMIT = '1'
+    const other = await publish('Corregir la tilde del encabezado.')
+    await settle(other, 1)
+    assert.equal(jobsOf(other).length, 1, 'work on the branch: no escalation')
+    assert.equal(judgmentsOfMessage(env.db, other)[0]?.closed, true)
   })
 
   it('a retry of a failed session on the light model runs with the area larger model', async () => {
@@ -266,6 +304,8 @@ describe('model by area and by estimates', () => {
     assert.deepEqual(j.axes.map((a) => [a.axis, a.score, a.target, a.meets]), [[1, 0, 0, true], [2, 1, 2, false], [3, null, 1, null], [4, null, 0, null]])
     assert.equal(j.judge_model, 'claude-haiku-5-5')
     assert.equal(j.worked_with, 'claude-haiku-5-5')
+    assert.equal(j.calibrated, false, 'B3: the judge was never compared with people, so its judgement is shown «sin calibrar»')
+    assert.deepEqual(j.axes.map((a) => [a.kpis, a.defined, a.partial]), [[1, 3, true], [1, 3, true], [0, 3, true], [0, 3, true]], 'each axis says over how many of its indicators it was read')
     process.env.FAKE_JUDGE = 'off'
     const other = await publish('Otro rótulo.')
     await settle(other)
@@ -275,6 +315,7 @@ describe('model by area and by estimates', () => {
 
   it('the judge reads the anchors of the levels and the description of the area and of the project as evidence', async () => {
     startWorker()
+    env.db.prepare("UPDATE members SET profile = 'Soy médica: leo resultados, no código.' WHERE email = 'ana@x.org'").run()
     const before = judgePrompts.length
     const id = await publish('Cambiar otro rótulo.')
     await settle(id)
@@ -284,6 +325,7 @@ describe('model by area and by estimates', () => {
     const area = get(env.db, 'SELECT a.title, a.description FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ?', id)
     assert.ok(prompt.includes(`<descripcion_del_area>\n${area.title}\n${area.description}`.trim()), 'the description of the area is evidence')
     assert.match(prompt, /<descripcion_del_proyecto>\n[\s\S]*\n<\/descripcion_del_proyecto>/)
+    assert.match(prompt, /<perfil_de_quien_pidio>\nAna\nSoy médica: leo resultados, no código\.\n<\/perfil_de_quien_pidio>/, 'third audit, H-8: the judge reads who asked')
     assert.match(prompt, /<primera_propuesta>\n\(vacío\)\n<\/primera_propuesta>/, 'there is no first proposal to hand over yet')
   })
 

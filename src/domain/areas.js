@@ -60,14 +60,17 @@ const parseGuards = (text) => { try { const l = JSON.parse(text ?? '[]'); return
  * The Guards the Editor wrote, with their ids: a Guard keeps its id (a message that cites it keeps pointing at it), a new one takes the next. Each has its text, the mechanism that holds it
  * and whether it is about a person (what is irreversible, money, a conflict of interests): then a touched Guard puts a person among the assignees and Claude does not close alone.
  */
+const GUARD_KEY = /^[a-z][a-z0-9_]{0,63}$/ // a name as the templates write it in `touches_<key>`; 64 is the length of a field name in a template output
 function settleGuards (list, current) {
   const known = new Set(current.map((g) => g.id))
   let next = Math.max(0, ...current.map((g) => g.id)) + 1
   return list.map((g) => {
     const text = String(g.text ?? '').trim()
-    if (text === '') throw unprocessable('Cada Guardia lleva su texto.', 'guard_invalid')
+    if (text === '') throw unprocessable('Cada límite lleva su texto.', 'guard_invalid')
     const id = Number.isInteger(g.id) && known.has(g.id) ? g.id : next++
-    return { id, text, mechanism: String(g.mechanism ?? '').trim(), person: g.person === true }
+    // `key`: the name a template gives this Guard in its output (`touches_<key>`, read by the worker); one that is not a name is dropped, and a Guard rewritten without it keeps the one it had.
+    const key = typeof g.key === 'string' && GUARD_KEY.test(g.key) ? g.key : (g.key === undefined ? current.find((c) => c.id === id)?.key : undefined)
+    return { id, ...(key ? { key } : {}), text, mechanism: String(g.mechanism ?? '').trim(), person: g.person === true }
   })
 }
 

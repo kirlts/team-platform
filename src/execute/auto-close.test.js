@@ -111,7 +111,9 @@ describe('Claude closes the message (UD-271)', () => {
     assert.match(lastAgentReply(id), new RegExp(`En producción desde \\d\\d:\\d\\d \\S+\\.\\n\\nCerrado: ${REASON.replace('.', '\\.')}$`))
     assert.deepEqual(closeAudit(id).map((r) => r.member_id), [agentId], 'message.close by the agent member')
     assert.ok(env.db.prepare('SELECT closed_at FROM messages WHERE id = ?').get(id).closed_at > 0)
-    assert.deepEqual(JSON.parse(readFileSync(seen, 'utf8')), { outcome: 'done' }, 'TEAM_OUTPUT_JSON has no close fields')
+    const { limit_notice: notice, ...delivered } = JSON.parse(readFileSync(seen, 'utf8')) // the warning of a limit of a person (third audit, H-1) travels with the output the delivery reads
+    assert.deepEqual(delivered, { outcome: 'done' }, 'TEAM_OUTPUT_JSON has no close fields')
+    assert.deepEqual(Object.keys(notice), ['consequence', 'alternative'])
     assert.doesNotMatch(lastAgentReply(id), /close_reason|\*\*close\*\*/, 'the request is not rendered as a structured entry')
   })
 

@@ -1,5 +1,14 @@
 {
-  "Pedidos y envíos": "que cada pedido salga de la bodega completo y llegue a tiempo al cliente.",
-  "Catálogo y precios": "que lo que el sitio muestra y cobra de cada repuesto sea exacto.",
-  "Atención al cliente": "que cada cliente reciba una respuesta clara y a tiempo."
+  "Pedidos y envíos": {
+    "purpose": "que cada pedido salga de la bodega completo y llegue a tiempo al cliente.",
+    "environment": "todos los despachos salen de una sola bodega y de un transportista contratado; un pedido despachado no se recupera"
+  },
+  "Catálogo y precios": {
+    "purpose": "que lo que el sitio muestra y cobra de cada repuesto sea exacto.",
+    "environment": "el sitio publica cada cambio al instante; un precio mal cobrado se devuelve a mano"
+  },
+  "Atención al cliente": {
+    "purpose": "que cada cliente reciba una respuesta clara y a tiempo.",
+    "environment": "se atiende por correo y chat en horario de tienda; una respuesta enviada no se retira"
+  }
 }

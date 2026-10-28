@@ -471,24 +471,26 @@ export function closeMessage ({ db, events, now = Date.now }, messageId, actorId
  */
 export function setMessageAssessment ({ db, events, now = Date.now }, { messageId, actor, patch }) {
   events.transaction(() => {
-    const row = get(db, 'SELECT area_id, expectation, guards_json, estimates_json FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
+    const row = get(db, 'SELECT area_id, expectation, guards_json, guards_seen_json, estimates_json FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!row) throw notFound('El mensaje no existe.')
     const next = {}
     if (patch.expectation !== undefined) next.expectation = patch.expectation.trim()
     if (patch.guards !== undefined) {
       const known = new Set(guardsOf(db, row.area_id).map((g) => g.id))
-      if (patch.guards.some((id) => !known.has(id))) throw badRequest('Una Guardia no existe en el área del mensaje.', 'guard_invalid')
+      if (patch.guards.some((id) => !known.has(id))) throw badRequest('Un límite no existe en el área del mensaje.', 'guard_invalid')
       next.guards_json = JSON.stringify([...new Set(patch.guards)].sort((a, b) => a - b))
+      next.guards_seen_json = JSON.stringify([...known].sort((a, b) => a - b)) // a person who sets the Guards has judged them all: none of the area's is left unseen
     }
     if (patch.value_holder !== undefined) {
       const estimates = parseJson(row.estimates_json, null)
       if (!estimates) throw badRequest('El mensaje no trae estimaciones que cambiar.', 'assessment_invalid')
       next.estimates_json = JSON.stringify({ ...estimates, value_holder: patch.value_holder })
     }
+    const shown = Object.keys(next).filter((k) => k !== 'guards_seen_json' && row[k] !== next[k]) // the record of which Guards were judged is bookkeeping, not something the person edited
+    if (shown.length === 0) return
     const changed = Object.keys(next).filter((k) => row[k] !== next[k])
-    if (changed.length === 0) return
     run(db, `UPDATE messages SET ${changed.map((k) => `${k} = ?`).join(', ')}, assessed_by = ? WHERE id = ?`, ...changed.map((k) => next[k]), actor.id, messageId)
-    audit(db, { memberId: actor.id, action: 'message.assessment.update', entity: 'message', entityId: messageId, detail: { fields: changed }, now })
+    audit(db, { memberId: actor.id, action: 'message.assessment.update', entity: 'message', entityId: messageId, detail: { fields: shown }, now })
   })
   return getMessage(db, messageId)
 }

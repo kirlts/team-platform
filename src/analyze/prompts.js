@@ -100,7 +100,7 @@ export function areaBlock(area, language) {
   return [
     es ? `Área de este grupo: ${area.title}` : `Area of this group: ${area.title}`,
     String(area.description ?? '').trim(),
-    ...((area.guards ?? []).length ? ['', es ? 'Guardias del área (límites que no se cruzan; cita por id en guards_touched las que el pedido toca):' : 'Guards of the area (limits that are not crossed; cite by id in guards_touched the ones the request touches):', ...area.guards.map((g) => `- G${g.id}${g.person ? (es ? ' (de una persona)' : ' (about a person)') : ''}: ${g.text}`)] : []),
+    ...((area.guards ?? []).length ? ['', es ? 'Límites del área (no se cruzan; cita por id en guards_touched los que el pedido toca):' : 'Guards of the area (limits that are not crossed; cite by id in guards_touched the ones the request touches):', ...area.guards.map((g) => `- G${g.id}${g.person ? (es ? ' (de una persona)' : ' (about a person)') : ''}: ${g.text}`)] : []),
   ].join('\n');
 }
 

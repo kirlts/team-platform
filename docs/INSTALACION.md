@@ -276,6 +276,10 @@ node scripts/sembrar.mjs --url https://team.ejemplo.com --email <correo> --passw
 
 `--ejemplo` siembra los siete envíos de `ejemplos/` del repositorio. `--paralelo N` fija cuántos envíos corren a la vez (3 por omisión; con 1 corren uno por uno, para distinguir una falla de una competencia). `--token <cookie>` reemplaza al correo y la clave. `--borrador` deja las propuestas en revisión en vez de publicarlas. Medido el 2026-10-21 contra un servidor local con Claude Haiku 5.5 y `--paralelo 3`: los siete envíos de `ejemplos/` tardan de 4 a 8 s cada uno. Producen 14 mensajes y cuestan 0,0106 USD.
 
+## Configurar áreas y perfiles desde lo que el equipo escribió
+
+[docs/METODO-DE-REPARTO.md](METODO-DE-REPARTO.md) describe el procedimiento: extraer pedidos de los textos del equipo, validarlos con personas, proponer áreas, límites, plantillas y perfiles, y medir el reparto. `node scripts/apply-load-file.mjs load.json --db <DATA_DIR>/team.db` carga el resultado confirmado en esta instalación.
+
 ## Respaldo
 
 `scripts/backup.sh` copia la base en caliente con `VACUUM INTO` y `rename`, la comprueba con `integrity_check` y la deja en `./backups/team-<fecha UTC>.db`. Con un escritor activo tarda 123 ms (informe 03, 2026-10-20). `cp` sobre la base en uso puede dejar una copia inconsistente.
@@ -534,6 +538,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_DESTROY_TIMEOUT_MS` | Plazo de cada DESTROY (omisión: el mayor entre `EXECUTE_TIMEOUT_MS` y 300000) |
 | `EXECUTE_CONTRACT_VERSION` | Versión del contrato de anfitrión que cumple el driver (`1`, o `1.2`; cuenta la mayor). El trabajador imprime al arrancar la versión del núcleo y la declarada; si la mayor difiere, no arranca y sale con código distinto de 0. `GET /health` publica la del núcleo como `contract_version`. Vacía por omisión: no se declara y no se comprueba |
 | `EXECUTE_HOST_INSTRUCTIONS` | Ruta a un `.md` del anfitrión con sus reglas; se agrega al prompt en cada trabajo. Si falta el archivo, el trabajo falla con `host_instructions_missing` |
+| `EXECUTE_JUDGE_REFERENCE_FILE` | Opcional. Ruta a un JSON con los puntajes que personas dieron a trabajos que el juez también juzgó. Mientras el alfa de Krippendorff del juez contra ellas no llegue a 0,80 en cada eje, sus juicios se muestran «sin calibrar» y no deciden nada (ver «Calibración del juez» del contrato) |
 | `EXECUTE_GUARDS_FILE` | Opcional. Ruta a un JSON con las listas del anfitrión para los ganchos de toda sesión: órdenes de Bash que se niegan, herramientas que se quitan y lo que debe cumplirse al terminar. Vacía: ningún gancho. Un archivo ilegible o con un error de forma hace fallar el trabajo con `guards_file_invalid` y el motivo (ver «Guardias de la sesión» del contrato) |
 | `EXECUTE_MACHINE_CREATE`, `EXECUTE_MACHINE_RUN`, `EXECUTE_MACHINE_DESTROY` | Las tres órdenes de `machine` |
 | `EXECUTE_MACHINE_COLLECT` | Opcional. Copia la transcripción de la sesión antes de destruir la máquina (ver «Transcripción de la sesión») |
@@ -710,7 +715,7 @@ Al terminar, `flyctl machines list -a <app>` no debe mostrar ninguna máquina `t
 
 ### La entrega aparte
 
-Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por las reglas del anfitrión y espera el despliegue. Con la orden declarada, la sesión termina al empujar la rama `tp/<id>` y la máquina se destruye. Después, un trabajo `deliver` hace la entrega en el host del trabajador, sin IA. El autor recibe una sola respuesta final cuando la entrega termina.
+Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por las reglas del anfitrión y espera el despliegue. En ese modo un límite que levanta una persona y la espera de una idea se sostienen sólo si el archivo de guardias lista las órdenes que entregan (`commands.deliveries`, ver «Guardias de la sesión» del contrato). Sin esa lista `GET /health` queda en `degraded` mientras haya un límite de persona. Con la orden declarada, la sesión termina al empujar la rama `tp/<id>` y la máquina se destruye. Después, un trabajo `deliver` hace la entrega en el host del trabajador, sin IA. El autor recibe una sola respuesta final cuando la entrega termina.
 
 | Elemento | Contrato |
 |---|---|

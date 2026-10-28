@@ -10,7 +10,7 @@ let h
 before(async () => { h = await harness() })
 
 /** Internal vocabulary that must never reach a screen: decision and finding codes, and the names of modules and of the machinery. */
-const JARGON = String.raw`(?<![\p{L}])(?:UD-\d+|H-\d{3,}|HP-\d+|execute|deliver|job|jobs|payload|endpoint|webhook|handler|worker|sha256|spans?|traceparent|scriptedAnalyze|Guardia booleana)(?![\p{L}])`
+const JARGON = String.raw`(?<![\p{L}])(?:UD-\d+|H-\d{3,}|HP-\d+|execute|deliver|job|jobs|payload|endpoint|webhook|handler|worker|sha256|spans?|traceparent|scriptedAnalyze|Límite booleano)(?![\p{L}])`
 /** A text longer than this in one element is a paragraph, not an interface label: only a person's own text may be that long. */
 const MAX_CHARS = 120
 /** Second person and the imperatives of address: the rules `person` and `imperative` of the language guard (UD-050), as data. */

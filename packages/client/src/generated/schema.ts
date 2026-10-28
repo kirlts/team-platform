@@ -246,6 +246,14 @@ export interface paths {
                             machines?: {
                                 [key: string]: unknown;
                             };
+                            /** @description Whether the judge of the jobs was compared with people (EXECUTE_JUDGE_REFERENCE_FILE): `calibrated` is true when its Krippendorff alpha against them reaches `threshold` in every axis the reference covers; `reason` says why not. Not calibrated, its judgements are shown as «sin calibrar» and decide nothing. */
+                            judge?: {
+                                [key: string]: unknown;
+                            };
+                            /** @description What holds a limit that a person lifts and the wait of an idea: `hold` is `deliver` (the delivery job), `hook` (the delivery orders of EXECUTE_GUARDS_FILE are refused to the session) or `none`. `degraded` (the status turns degraded) when an area has a limit of a person and `hold` is `none`. */
+                            limits?: {
+                                [key: string]: unknown;
+                            };
                         };
                     };
                 };
@@ -4198,7 +4206,7 @@ export interface paths {
         get?: never;
         /**
          * Cambiar a mano la evaluación de un mensaje (UD-295)
-         * @description Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), las Guardias del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.
+         * @description Cualquier persona activa del equipo cambia lo que el analizador dijo del mensaje: lo que se espera de Claude (`expectation`, texto libre), los límites del área que toca (`guards`, ids de la lista de la propia área) y quién tiene el valor que falta (`value_holder`). Decide el modelo y la apertura de la siguiente sesión; no reasigna ni toca una sesión en curso. `assessment.by` queda con quien lo cambió. Repetir el mismo valor no cambia nada.
          */
         put: {
             parameters: {
@@ -4887,6 +4895,8 @@ export interface paths {
                             /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
+                                /** @description The name a template gives this Guard in its output: `touches_<key>`. */
+                                key?: string;
                                 text?: string;
                                 mechanism?: string;
                                 person?: boolean;
@@ -4971,6 +4981,8 @@ export interface paths {
                             /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
+                                /** @description The name a template gives this Guard in its output: `touches_<key>`. */
+                                key?: string;
                                 text?: string;
                                 mechanism?: string;
                                 person?: boolean;
@@ -5096,6 +5108,8 @@ export interface paths {
                         /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                         guards?: {
                             id?: number;
+                            /** @description The name a template gives this Guard in its output: `touches_<key>`. */
+                            key?: string;
                             text: string;
                             mechanism?: string;
                             person?: boolean;
@@ -5130,6 +5144,8 @@ export interface paths {
                             /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
+                                /** @description The name a template gives this Guard in its output: `touches_<key>`. */
+                                key?: string;
                                 text?: string;
                                 mechanism?: string;
                                 person?: boolean;
@@ -5217,6 +5233,8 @@ export interface paths {
                             /** @description The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person. */
                             guards?: {
                                 id?: number;
+                                /** @description The name a template gives this Guard in its output: `touches_<key>`. */
+                                key?: string;
                                 text?: string;
                                 mechanism?: string;
                                 person?: boolean;

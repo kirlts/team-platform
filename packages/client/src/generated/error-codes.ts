@@ -37,6 +37,7 @@ export const REQUEST_ERROR_CODES = [
   'input_empty',
   'input_missing',
   'internal',
+  'invalid_credentials',
   'invalid_date',
   'invalid_scope',
   'invalid_status',

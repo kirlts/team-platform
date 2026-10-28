@@ -3,7 +3,7 @@
 // (the session is regenerated on a privilege change, report 04 §2.2). Any active person also deletes a member for good (UD-240, UD-287).
 
 import { get, run, tx } from '../../db/index.js'
-import { badRequest, conflict, forbidden, unauthenticated } from '../../domain/errors.js'
+import { badRequest, conflict, forbidden, invalidCredentials } from '../../domain/errors.js'
 import { audit } from '../../domain/audit.js'
 import { LANGUAGES } from '../../domain/language.js'
 import { createMember, deleteMember, getMember, listMembers, readmitIdentity, updateMember } from '../../domain/members.js'
@@ -106,7 +106,7 @@ export function registerMemberRoutes (app, ctx) {
       if (!local) throw conflict('La contraseña la administra el sitio anfitrión.', 'password_managed_externally')
       const cred = get(db, 'SELECT password_hash FROM credentials WHERE member_id = ?', request.member.id)
       const { ok } = cred ? await verifyPassword(current, cred.password_hash, config.identity.argon2) : { ok: false }
-      if (!ok) throw unauthenticated('La contraseña actual no es correcta.')
+      if (!ok) throw invalidCredentials('La contraseña actual no es correcta.')
       await savePassword(request.member.id, newValue, request.member.id)
       identity.sessions.destroyForMember(request.member.id, request.member.token) // closes the other sessions
     }

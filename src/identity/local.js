@@ -2,7 +2,7 @@
 
 import { get, run } from '../db/index.js'
 import { createMember } from '../domain/members.js'
-import { forbidden, tooMany, unauthenticated } from '../domain/errors.js'
+import { forbidden, invalidCredentials, tooMany } from '../domain/errors.js'
 import { dummyVerify, hashPassword, verifyPassword } from './password.js'
 import { readSessionCookie, setSessionCookie } from './cookies.js'
 
@@ -56,18 +56,18 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
       pruneUnknown(t)
       const n = (unknownEmails.get(lookupKey)?.failures ?? 0) + 1
       unknownEmails.set(lookupKey, { failures: n, toVersion: t + backoffWaitMs(n) })
-      throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
+      throw invalidCredentials(BAD_CREDENTIALS_MESSAGE)
     }
     if (memberRow.failed_count >= caps.hardCap) {
       // NIST SP 800-63B-4 3.2.2: hard cap; it still computes the hash so it cannot be told apart by timing.
       await dummyVerify(password, params)
-      throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
+      throw invalidCredentials(BAD_CREDENTIALS_MESSAGE)
     }
     const { ok, rehash } = await verifyPassword(password, memberRow.password_hash, params)
     if (!ok) {
       const failures = memberRow.failed_count + 1
       run(db, 'UPDATE credentials SET failed_count = ?, next_attempt_at = ? WHERE member_id = ?', failures, t + backoffWaitMs(failures), memberRow.id)
-      throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
+      throw invalidCredentials(BAD_CREDENTIALS_MESSAGE)
     }
     // Only after the password verified, so the message does not reveal which emails have an account.
     if (!memberRow.active) throw forbidden('La cuenta está desactivada. Un editor puede reactivarla.', 'account_inactive')

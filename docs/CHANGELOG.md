@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-27
+
 - Panel: un área o una plantilla restaurada ya no se pinta a la vez como viva y como borrada.
 
 ## [0.1.3] - 2026-10-27

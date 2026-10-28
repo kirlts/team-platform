@@ -237,7 +237,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
         const request = payload.close_request ?? null // optional (UD-310): a delivery an Editor launched by hand, or a session that did not ask, carries none
         const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
-        const why = alreadyThere ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since, language: author?.language })
+        const why = closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since, language: author?.language })
         if (why) closing.lines.push(closeLine(why, author?.language))
         const { replyId } = addReply({ db, events, now }, {
           messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now() }), files: [...closing.files, ...(payload.documents?.files ?? [])]
@@ -484,7 +484,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
             const stronger = ranWith && ranWith === x.lightModel ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, escalated: true }).model : null
             const escalate = stronger !== null && stronger !== ranWith
             const lang = get(db, 'SELECT m.language FROM messages x JOIN members m ON m.id = x.author_id WHERE x.id = ?', messageId)?.language
-            const id = enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '' }, deliver_round: round + 1, close_since: payload.close_since ?? null, ...(escalate ? { escalated: true, escalated_from: payload.execute_job_id, escalated_from_model: ranWith, escalated_note: '' } : {}) } })
+            const id = enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '', summary: String(payload.output?.summary ?? ''), captures: payload.captures ?? [] }, deliver_round: round + 1, close_since: payload.close_since ?? null, ...(escalate ? { escalated: true, escalated_from: payload.execute_job_id, escalated_from_model: ranWith, escalated_note: '' } : {}) } })
             // UD-296: the delivery that goes back to Claude says so, with the check that fell: before, the thread showed nothing until the second delivery ended.
             if (id !== null) addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: textsOf(lang).again(failedCheck(error.output, lang)) })
             if (id !== null && escalate) {

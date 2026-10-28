@@ -600,6 +600,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         // UD-268: the screenshots are stored while the job directory exists; the closing reply attaches them when it is posted.
         let captured = { stored: [], rejected: [] }
         try { captured = await storeCaptures({ config, output: result?.structured_output, workdir: dirs.workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the captures') }
+        // A second pass after a failed delivery keeps the evidence of the first pass: the closing reply carries both, not only what the repair took.
+        if (deliverFailure?.captures?.length) captured = { ...captured, stored: [...deliverFailure.captures.filter((c) => !captured.stored.some((s) => s.sha256 === c.sha256)), ...captured.stored] }
         for (const c of captured.rejected) span.addEvent('captures.rejected', { 'team.capture_index': c.index, 'team.capture_reason': c.reason })
         if (captured.stored.length) span.setAttribute('team.captures', captured.stored.length)
         // UD-272: the documents the reason asked for, stored while the job directory exists, like the screenshots.
@@ -655,7 +657,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     // UD-269: a `needs_decision` without a valid `decision_check` reaches no person; it fails like any invalid output.
     const noCheck = decisionCheckProblem(result.structured_output)
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
-    const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-278): the people in the thread decide
+    const request = closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention closes only when the person who mentioned asked for it (the prompt says so) and the system's own checks pass (UD-278)
     // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
     const { captures: _declared, close: _close, close_reason: _closeReason, cannot_close: cannotClose, mode, approved, approved_reply: approvedReply, attachments: _attachments, review: asked, review_reason: askedReason, ...output } = result.structured_output
     // UD-280: what the person asked about the change under review. The system reads the field, never the words; without a review pending the field means nothing.
@@ -781,8 +783,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       const editedNote = edited ? [(FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']).edited] : []
       // UD-271: an outcome that needs no change (`investigated`) with nothing left to the sender may close the message here; a change closes it in the delivery.
       const handOff = HANDOFF_OUTCOMES.includes(output.outcome) || edited
-      const why = handOff || investigate || mention ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload), language: author?.language })
-      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...(handOff || investigate ? [] : [noCaptureLine(output, captured.stored.length, author?.language, rejectedCaptures)].filter(Boolean)), ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
+      const why = handOff || (investigate && !mention) || (mention && !request) ? null : closeReason(db, config, { output, request, delivered: false, answered: Boolean(mention && investigate), messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload), language: author?.language })
+      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...(handOff || (investigate && !mention) ? [] : [noCaptureLine(output, captured.stored.length, author?.language, rejectedCaptures)].filter(Boolean)), ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
       const { replyId } = handOff
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)

@@ -152,4 +152,9 @@ describe('the reply says which capture the system left out and why', () => {
     assert.equal(noCaptureLine({ touches_screen: true }, 0, 'es-419'), 'No incluye captura ni video: la sesión no dejó ninguna.')
     assert.equal(noCaptureLine({ touches_screen: true }, 1, 'es-419'), '')
   })
+  it('a reason given for the lack of evidence is said also when no screen was touched (a test in production)', () => {
+    assert.equal(noCaptureLine({ no_capture_reason: 'el túnel a producción falló' }, 0, 'es-419'), 'No incluye captura ni video: el túnel a producción falló.')
+    assert.equal(noCaptureLine({ no_capture_reason: 'x' }, 1, 'es-419'), '')
+    assert.equal(noCaptureLine({}, 0, 'es-419'), '')
+  })
 })

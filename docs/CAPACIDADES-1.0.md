@@ -183,6 +183,6 @@ Ninguna. El 2026-10-28 pasan las 46 pruebas e2e `verde` de la tabla (331 casos d
 |---|---|
 | Identidad local y delegada | Ver en el navegador las entradas `trusted-header` y `sso-redirect`. El juez vio JWT y cabecera firmada; las seis entradas tienen su e2e `verde` en `e2e/capacidades/identidad.e2e.test.js` |
 
-## Preguntas al dueño para la 1.1
+## Decisiones del dueño tomadas en la verificación
 
-Con la cuenta en inglés, las etiquetas de los campos de la ficha y los nombres de las áreas sembradas siguen en español («Nueva funcionalidad», «Retroalimentación»). Son datos de las plantillas que escribe el Editor, no interfaz, y el juez de idioma los declaró sin severidad. No bloquean 1.0. Falta decidir si el proyecto trae plantillas y áreas de ejemplo en inglés.
+Con la cuenta en inglés, las etiquetas de los campos y los nombres de las áreas sembradas se leen en el idioma en que el Editor los escribió. Son textos configurados, no interfaz: lo decidió Martín el 2026-10-28 (UD-316).

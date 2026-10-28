@@ -36,6 +36,7 @@ import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
 import { installLook } from './captures/install.mjs'
+import { attachCaptures, createStepRecorder } from './steps.js'
 import { capturesDir, capturesEnv, closingCaptures, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
@@ -491,11 +492,13 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
 
     let session = null // spans of the tools and subagents, alive while the `run` phase is
     let notices = { stop () {} } // the clock of the progress notices (UD-293), alive while the `run` phase is
+    const steps = createStepRecorder({ db, events, jobId: job.id, messageId, attempt: job.attempts, max: x.stepsMax, now, logger })
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
       budgetUsd,
       onEvent: (event) => {
         session?.onEvent(event)
+        steps.onEvent(event) // the history of the session (plan 1.0.0): the same events, written as rows; it never throws
         // UD-305: the reserve follows the real cost: a session that already spent more than it held holds what it spent (it is released when the job ends and counts as cost then).
         const spent = reader.state().spentUsd
         if (reserved.has(job.id) && spent > reserved.get(job.id)) reserved.set(job.id, spent)
@@ -570,6 +573,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
           ? await runMachine({ ...opts, createGate: creationGate, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase, track })
           : await phase('run', () => runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, ...tracedEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } }))
         reader.end()
+        steps.end()
         setPhase(null)
         const firstReply = get(db, 'SELECT MIN(created_at) AS at FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ?', messageId, memberId, startedAt)?.at
         if (firstReply) jobSpan?.addEvent('reply.start', { 'team.ms_since_job_start': msSince(firstReply), 'team.ms_since_message': Math.max(0, firstReply - message.created_at) }, firstReply)
@@ -600,6 +604,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         // UD-268: the screenshots are stored while the job directory exists; the closing reply attaches them when it is posted.
         let captured = { stored: [], rejected: [] }
         try { captured = await storeCaptures({ config, output: result?.structured_output, workdir: dirs.workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the captures') }
+        attachCaptures(db, { jobId: job.id, attempt: job.attempts, stored: captured.stored, now, events, messageId }) // the files exist now: the steps that took them can be opened
         // A second pass after a failed delivery keeps the evidence of the first pass: the closing reply carries both, not only what the repair took.
         if (deliverFailure?.captures?.length) captured = { ...captured, stored: [...deliverFailure.captures.filter((c) => !captured.stored.some((s) => s.sha256 === c.sha256)), ...captured.stored] }
         for (const c of captured.rejected) span.addEvent('captures.rejected', { 'team.capture_index': c.index, 'team.capture_reason': c.reason })

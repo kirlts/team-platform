@@ -7,6 +7,7 @@ import { forbidden, notFound } from '../../domain/errors.js'
 import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
 import { timingOfMessage } from '../../telemetry/timing.js'
+import { stepsOfMessage, ACTIONS } from '../../execute/steps.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema, replyPatchBody } from '../schemas.js'
@@ -110,6 +111,47 @@ export function registerMessageRoutes (app, ctx) {
     const timing = timingOfMessage(db, request.params.id)
     if (!timing) throw notFound('El mensaje no tiene trabajo de ejecución.')
     return { ...timing, delivers: Boolean(config.execute.deliverCommand), machine: config.execute.runner === 'machine' }
+  })
+
+  app.get('/messages/:id/session', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Historial de la sesión de un mensaje',
+      description: 'Los pasos de la sesión del agente en el orden en que ocurrieron: cada llamada a una herramienta con su hora, su `action` (clase legible: `read`, `edit`, `command`, `search`, `subagent`, `web`, `plan`, `capture`, `other`), el nombre técnico de la herramienta (`tool`) y el detalle técnico (`detail`: archivo, comando o patrón, cortado a 200 caracteres). Un paso sin `ended_at` sigue en curso mientras el trabajo corre. Un paso `capture` lleva la descripción que la sesión declaró al tomarla (`capture.alt`, conocida mientras corre) y, cuando el archivo ya está en el servidor y lo trae una respuesta del hilo, `capture.attachment`, que se abre con `GET /replies/attachments/:id`; antes es `null`. `max_steps` es el tope de pasos guardados por trabajo (`EXECUTE_STEPS_MAX`) y `capped` dice que algún trabajo lo alcanzó. Incluye los pasos de todos los trabajos `execute` del mensaje; `job_id` y `job_status` son los del último. 404 si el mensaje no existe o no tiene trabajo de ejecución. Cada paso nuevo avisa por el evento `message` con `reason: changed` y la raíz `session`.',
+      params: idParams(),
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'string' }, job_id: { type: 'string' }, job_status: { type: 'string' }, phase: { type: 'string', nullable: true },
+            max_steps: { type: 'integer' }, capped: { type: 'boolean' },
+            steps: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' }, job_id: { type: 'string' }, attempt: { type: 'integer' },
+                  at: { type: 'string', format: 'date-time' }, ended_at: { type: 'string', format: 'date-time', nullable: true },
+                  action: { type: 'string', enum: ACTIONS }, tool: { type: 'string' }, detail: { type: 'string', nullable: true }, failed: { type: 'boolean' },
+                  capture: {
+                    type: 'object', nullable: true,
+                    properties: {
+                      alt: { type: 'string' }, place: { type: 'string', nullable: true }, as: { type: 'string', nullable: true }, masked: { type: 'boolean', nullable: true }, kind: { type: 'string', nullable: true },
+                      attachment: { type: 'object', nullable: true, properties: { id: { type: 'string' }, kind: { type: 'string' }, mime: { type: 'string' }, size: { type: 'integer' }, name: { type: 'string' } } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    getMessage(db, request.params.id) // 404 when the message does not exist or is deleted
+    const history = stepsOfMessage(db, request.params.id, { max: config.execute.stepsMax })
+    if (!history) throw notFound('El mensaje no tiene trabajo de ejecución.')
+    return history
   })
 
   const replyParams = { type: 'object', required: ['id', 'replyId'], properties: { id: idIn, replyId: idIn } }

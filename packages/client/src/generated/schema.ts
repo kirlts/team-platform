@@ -2209,6 +2209,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{id}/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Historial de la sesión de un mensaje
+         * @description Los pasos de la sesión del agente en el orden en que ocurrieron: cada llamada a una herramienta con su hora, su `action` (clase legible: `read`, `edit`, `command`, `search`, `subagent`, `web`, `plan`, `capture`, `other`), el nombre técnico de la herramienta (`tool`) y el detalle técnico (`detail`: archivo, comando o patrón, cortado a 200 caracteres). Un paso sin `ended_at` sigue en curso mientras el trabajo corre. Un paso `capture` lleva la descripción que la sesión declaró al tomarla (`capture.alt`, conocida mientras corre) y, cuando el archivo ya está en el servidor y lo trae una respuesta del hilo, `capture.attachment`, que se abre con `GET /replies/attachments/:id`; antes es `null`. `max_steps` es el tope de pasos guardados por trabajo (`EXECUTE_STEPS_MAX`) y `capped` dice que algún trabajo lo alcanzó. Incluye los pasos de todos los trabajos `execute` del mensaje; `job_id` y `job_status` son los del último. 404 si el mensaje no existe o no tiene trabajo de ejecución. Cada paso nuevo avisa por el evento `message` con `reason: changed` y la raíz `session`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message_id?: string;
+                            job_id?: string;
+                            job_status?: string;
+                            phase?: string | null;
+                            max_steps?: number;
+                            capped?: boolean;
+                            steps?: {
+                                id?: string;
+                                job_id?: string;
+                                attempt?: number;
+                                /** Format: date-time */
+                                at?: string;
+                                /** Format: date-time */
+                                ended_at?: string | null;
+                                /** @enum {string} */
+                                action?: "read" | "edit" | "command" | "search" | "subagent" | "web" | "plan" | "capture" | "other";
+                                tool?: string;
+                                detail?: string | null;
+                                failed?: boolean;
+                                capture?: {
+                                    alt?: string;
+                                    place?: string | null;
+                                    as?: string | null;
+                                    masked?: boolean | null;
+                                    kind?: string | null;
+                                    attachment?: {
+                                        id?: string;
+                                        kind?: string;
+                                        mime?: string;
+                                        size?: number;
+                                        name?: string;
+                                    } | null;
+                                } | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{id}/restore": {
         parameters: {
             query?: never;

@@ -1,6 +1,8 @@
 import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { SpanTree } from '@/components/TraceTree'
+import { SessionStepList, WorkRow } from '@/components/WorkRow'
+import { workSteps } from '@/lib/work-steps'
 import { EXECUTE_MODELS, TeamApiError, type MessageTiming } from '@team-platform/client'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { useMessageTiming } from '@team-platform/client/react'
@@ -87,6 +89,7 @@ export function TimingBody({ messageId }: { messageId: string }) {
           ))}
         </ul>
       )}
+      <FinishedSession messageId={messageId} timing={d} />
       {d.slowest.length > 0 && (
         <ol aria-label={t('timing.slowest')} className="flex flex-col gap-0.5">
           {d.slowest.slice(0, SLOWEST_SHOWN).map((s, i) => (
@@ -99,6 +102,30 @@ export function TimingBody({ messageId }: { messageId: string }) {
       )}
       {d.tree && <SpanTree roots={[d.tree]} label={t('trace.tree')} />}
     </div>
+  )
+}
+
+/**
+ * The history of a session that already ended, with the same row and the same unfolding as the panel of the work (`AgentWork`): the panel goes away when the work ends, the history stays here.
+ * Closed until opened; the steps are asked only then.
+ */
+function FinishedSession({ messageId, timing }: { messageId: string; timing: MessageTiming }) {
+  const t = useT()
+  const work = workSteps(timing)
+  const session = work.steps.find((s) => s.key === 'session')
+  if (!session || (work.state !== 'done' && work.state !== 'failed')) return null
+  return (
+    <ol data-timing-session aria-label={t('work.session')} className="m-0 flex list-none flex-col p-0">
+      <WorkRow
+        stepKey="session"
+        state={session.state}
+        label={t('work.session')}
+        time={session.ms !== null ? seconds(session.ms) : ''}
+        progressLabel={t('timing.state.running')}
+        toggleLabel={t('work.history')}
+        panel={<SessionStepList messageId={messageId} live={false} />}
+      />
+    </ol>
   )
 }
 

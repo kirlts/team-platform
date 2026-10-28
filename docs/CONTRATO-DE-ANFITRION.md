@@ -74,6 +74,7 @@ Se leen en `src/config.js`. Un valor entero o decimal fuera de rango, o un valor
 | `EXECUTE_CAPACITY_WAIT_MS` | `30000` | Espera cuando una orden responde 75 o el saldo del día no alcanza. Mínimo 1000 | Medición del 2026-10-22: crear una máquina tardó 32 s |
 | `EXECUTE_INFRA_RETRY_WAIT_MS` | `30000` | Espera antes del segundo intento de un trabajo que falló por infraestructura | Medición del 2026-10-22 |
 | `EXECUTE_RUNS_RETENTION_DAYS` | `365` | Días que se conserva el historial de `execute_runs` | UD-262 |
+| `EXECUTE_STEPS_MAX` | `500` | Pasos de la sesión que se guardan por trabajo para el historial. `0` no guarda ninguno | Cortesía declarada: 60 turnos a 8 llamadas cada uno caben, y 500 filas son unos 150 KB |
 
 ### Órdenes de máquina
 
@@ -177,7 +178,7 @@ Copia `{workdir}` a la máquina, corre ahí `bash run.sh` y devuelve su salida.
 
 Dentro de la máquina `run.sh` necesita `bash`, `node` (lo usa `team`), `claude` y red hacia `EXECUTE_TEAM_URL`. Hace `cd` a `$TEAM_REPO_DIR` si el entorno de la máquina la define, y al directorio del trabajo si no. `TEAM_REPO_DIR` no puede venir de `EXECUTE_SESSION_ENV`, que rechaza claves `TEAM_*`. `bypassPermissions` no arranca como root fuera de un sandbox, así que la sesión corre con un usuario sin privilegios.
 
-Las líneas NDJSON son las de `claude -p --output-format stream-json --verbose --include-partial-messages`. El núcleo lee los eventos `system` (subtipo `init`), `assistant`, `user` y `result`.
+Las líneas NDJSON son las de `claude -p --output-format stream-json --verbose --include-partial-messages`. El núcleo lee los eventos `system` (subtipo `init`), `assistant`, `user` y `result`. Del mismo flujo sale el historial de la sesión (`GET /api/messages/:id/session`). Cada bloque `tool_use` de un evento `assistant` es un paso y su `tool_result` lo cierra. Una línea `LOOK_CAPTURE {json}` en la salida de una llamada Bash (la herramienta `look`) dice qué muestra una captura mientras corre. El contrato no cambia: no hay canal ni orden nueva, y el archivo de una captura sigue llegando sólo por COLLECT al terminar. La variable opcional `EXECUTE_STEPS_MAX` acota los pasos guardados por trabajo.
 
 ### COLLECT
 

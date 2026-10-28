@@ -3,7 +3,7 @@ import type { EventsStore } from './events.js'
 import { invalidate, invalidateRoots, type QueryClientLike } from './invalidations.js'
 import type { QueryRoot } from './keys.js'
 
-const KNOWN_ROOTS: ReadonlySet<string> = new Set<QueryRoot>(['me', 'members', 'areas', 'templates', 'messages', 'inputs', 'providers', 'connections', 'project', 'analysis-settings', 'publication', 'jobs'])
+const KNOWN_ROOTS: ReadonlySet<string> = new Set<QueryRoot>(['me', 'members', 'areas', 'templates', 'messages', 'inputs', 'providers', 'connections', 'project', 'analysis-settings', 'publication', 'jobs', 'session'])
 
 /**
  * Opens the session's single event stream and ties it to the cache: a message of somebody else makes the lists stale, and so
@@ -22,6 +22,8 @@ export function watchEvents(o: { client: TeamClient; store: EventsStore; queryCl
   const offChanged = o.store.onChanged((e) => {
     const roots = e.roots.filter((r): r is QueryRoot => KNOWN_ROOTS.has(r))
     void invalidateRoots(o.queryClient, roots, { refetchType: 'active' })
+    // The steps of a session arrive every few seconds: they make only their own list stale, never the message that is open.
+    if (e.roots.length > 0 && e.roots.every((r) => r === 'session')) return
     // The open message is read again by its id; a change without one (an area, a member, a bulk write) reads whichever is open.
     void o.queryClient.invalidateQueries({ queryKey: e.message_id ? ['message', e.message_id] : ['message'], refetchType: 'active' })
   })

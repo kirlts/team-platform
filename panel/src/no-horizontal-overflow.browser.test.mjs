@@ -97,3 +97,40 @@ describe('no horizontal overflow on a phone', () => {
     })
   }
 })
+
+// Martín, 2026-10-28: «el tema de los hilos permite desplazamiento horizontal, eso no tiene sentido». The thread of a closed message with
+// long replies, avatars, progress notices and the folded count must fit its own width at 390 px, and so must every box that holds it.
+describe('the thread does not scroll sideways', () => {
+  for (const width of [360, 390, 430]) {
+    test(`${width}px`, async () => {
+      const context = await panel.browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, locale: 'es-CL' })
+      const page = await context.newPage()
+      try {
+        await login(page, panel.origin)
+        const body = await (await page.request.get(`${panel.origin}/api/messages?limit=200`)).json()
+        const item = (body.items ?? body.messages ?? body.data ?? body).find((m) => /Hilo cerrado con avisos/.test(m.title))
+        assert.ok(item, 'the sample data lacks the thread with notices')
+        await page.goto(`${panel.origin}/messages/${item.id}`)
+        await page.getByTestId('progress-note').first().waitFor()
+        await settled(page)
+        const m = await page.evaluate(() => {
+          const out = []
+          const vw = document.documentElement.clientWidth
+          const thread = document.querySelector('[data-lane="reply-thread"]')
+          for (let el = thread; el && el !== document.documentElement; el = el.parentElement) {
+            if (el.scrollWidth > el.clientWidth + 1) out.push(`${el.tagName.toLowerCase()}${el.dataset.lane ? `[${el.dataset.lane}]` : ''} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`)
+          }
+          for (const el of thread.querySelectorAll('*')) {
+            const r = el.getBoundingClientRect()
+            if (r.width > 1 && (r.right > vw + 1 || r.left < -1)) out.push(`${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/).slice(0, 3).join('.')} left=${Math.round(r.left)} right=${Math.round(r.right)}`)
+          }
+          return { out: out.slice(0, 10), avatars: thread.querySelectorAll('[class*="rounded-full"]').length, notes: thread.querySelectorAll('[data-testid="progress-note"]').length }
+        })
+        assert.ok(m.notes >= 2 && m.avatars > 0, 'the thread shows notices and avatars')
+        assert.deepStrictEqual(m.out, [], `the thread overflows at ${width}px:\n${m.out.join('\n')}`)
+      } finally {
+        await context.close()
+      }
+    })
+  }
+})

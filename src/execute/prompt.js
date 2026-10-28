@@ -92,12 +92,12 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
       }
     : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary', 'touches_screen'], properties: { summary, captures, ...screen, ...unmet, ...closing, ...forwarding, ...review, ...escalation } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...screen, ...unmet, ...closing, ...forwarding, ...review, ...escalation } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
-    required: [...new Set([...(declared.required ?? []), 'summary', 'touches_screen'])],
+    required: [...new Set([...(declared.required ?? []), 'summary'])],
     properties: { ...(declared.properties ?? {}), summary, captures, ...screen, ...unmet, ...closing, ...forwarding, ...review, ...escalation, decision_check: decisionCheckSchema({ validation }) }
   }
 }

@@ -131,15 +131,17 @@ describe('History of the session', () => {
   for (const [size, viewport] of SIZES) {
     test(`Publicación opens its detailed state at ${size}`, async () => {
       const ids = await panel.control.agentWork()
-      const { page, context } = await open(`/messages/${ids.delivering}`, { viewport })
-      try {
-        assert.equal(await page.getByRole('status').count(), 0, 'nothing loose under the bar')
-        await page.locator('[data-work-toggle="deliver"]').click()
-        assert.equal((await page.locator('[data-work-status]').innerText()).trim(), 'Entrega: verificación')
-        assert.equal(await page.locator('[data-work-toggle="machine"]').count(), 0)
-        await shot(page, `publicacion-abierta-${size}`)
-      } finally {
-        await context.close()
+      for (const colorScheme of ['light', 'dark']) {
+        const { page, context } = await open(`/messages/${ids.delivering}`, { viewport, colorScheme })
+        try {
+          assert.equal(await page.getByRole('status').count(), 0, 'nothing loose under the bar')
+          await page.locator('[data-work-toggle="deliver"]').click()
+          assert.equal((await page.locator('[data-work-status]').innerText()).trim(), 'Entrega: verificación')
+          assert.equal(await page.locator('[data-work-toggle="machine"]').count(), 0)
+          await shot(page, `publicacion-abierta-${size}-${colorScheme}`)
+        } finally {
+          await context.close()
+        }
       }
     })
   }

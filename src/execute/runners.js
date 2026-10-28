@@ -11,6 +11,8 @@
 //               EXECUTE_MACHINE_DESTROY  placeholders {job_id} {workdir} {machine}; runs always: after success, failure,
 //                                        timeout, abort or an orderly shutdown of the worker (unless EXECUTE_KEEP_SESSION_ON_SHUTDOWN), and also when CREATE failed half way. What a sudden death
 //                                        of the worker leaves is destroyed by the sweep of src/execute/machines.js when the next worker starts
+//             The deadline of the job (EXECUTE_TIMEOUT_MS) does not cut a CREATE that is still running: it gets EXECUTE_CREATE_SETTLE_MS more to name its machine, then DESTROY receives that name.
+//             DESTROY has its own bound, EXECUTE_DESTROY_TIMEOUT_MS, not the deadline of the session.
 // The delivery (UD-263) is one more host command, EXECUTE_DELIVER_COMMAND, run by src/execute/deliver.js with the same placeholders
 // plus {message_id} and {branch}.
 // Signals go only to the process group this module started (detached child), never to a parent.
@@ -140,7 +142,7 @@ export function createCreationGate ({ waitMs, now = Date.now }) {
 export function destroyMachine ({ config, jobId, workdir, machine }) {
   const x = config.execute
   const shellEnv = { ...process.env, TEAM_JOB_ID: String(jobId), TEAM_WORKDIR: workdir }
-  return shell(fillCommand(x.machineDestroy, { job_id: String(jobId), workdir, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs })
+  return shell(fillCommand(x.machineDestroy, { job_id: String(jobId), workdir, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.destroyTimeoutMs ?? x.timeoutMs, graceMs: x.killGraceMs })
 }
 
 /**
@@ -170,13 +172,21 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
   try {
     let created
     try {
-      created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
+      // The deadline of the job does not cut CREATE: a CREATE cut half way leaves a machine that the host goes on creating and that DESTROY cannot find yet (2026-10-28: containers
+      // in state Created that nobody destroyed). CREATE gets the time that is left plus `createSettleMs` to name its machine; an abort of the worker still cuts it at once.
+      created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left() + (x.createSettleMs ?? 0), graceMs: x.killGraceMs, signal }))
     } finally { gate?.leave(created) }
     const named = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
     if (named) machine = named
     try { track?.named(handle, machine) } catch (e) { log(`could not record the name of machine ${machine}: ${e.message}`) }
     if (created.code !== 0) {
       result = { ...created, phase: 'create', machine }
+      return result
+    }
+    // CREATE ended in green but after the deadline of the job: there is no time left for a session. The machine exists and is named; DESTROY (the finally) removes it.
+    if (Date.now() - started >= x.timeoutMs) {
+      log(`the deadline of job ${jobId} expired while CREATE was running; CREATE named machine ${machine} and it is destroyed without a session`)
+      result = { ...created, timedOut: true, phase: 'create', machine }
       return result
     }
     const ran = await phase('run', () => shell(fillCommand(x.machineRun, { ...base, machine }), { env: shellEnv, onData, timeoutMs: left(), graceMs: x.killGraceMs, signal }))

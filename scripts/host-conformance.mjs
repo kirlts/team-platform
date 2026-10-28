@@ -38,12 +38,14 @@ const DOUBLE = fileURLToPath(new URL('./testing/fake-claude-canary.mjs', import.
 //   PREPARE_TIMEOUT_MS   conformance.sh of the driver, which may build an image. The existing test of the reference driver bounds the same build at 600 s (src/execute/drivers-docker-local.test.js).
 //   HOOK_TIMEOUT_MS      one order of the driver (EXECUTE_TIMEOUT_MS covers CREATE and RUN together). The test of the reference driver bounds one job at 180 s (same file); 120 s is a test bound.
 //   CASE_WAIT_MS         the most a flow waits for its jobs to end: two sessions (the second try of a session that died) plus a delivery, each within HOOK_TIMEOUT_MS.
+//   CREATE_PAST_DEADLINE_MS  how long the CREATE of the «destroy-slow-create» case takes: longer than DEADLINE_MS and shorter than EXECUTE_CREATE_SETTLE_MS (120 s), which the core grants a CREATE that is running at the deadline.
 //   DEADLINE_MS          the deadline of the «deadline» case: a test deadline, short on purpose. The double sleeps longer than it (SLEEP_PAST_DEADLINE_MS), so the session always outlives it.
 const PREPARE_TIMEOUT_MS = 600_000
 const HOOK_TIMEOUT_MS = 120_000
 const CASE_WAIT_MS = 3 * HOOK_TIMEOUT_MS + 60_000
 const DEADLINE_MS = 10_000
 const SLEEP_PAST_DEADLINE_MS = 60_000
+const CREATE_PAST_DEADLINE_MS = 15_000 // the «destroy-slow-create» case: CREATE takes this long, more than DEADLINE_MS, so the deadline expires while the machine is being created
 const KILL_GRACE_MS = 2_000 // the grace between SIGTERM and SIGKILL of a hook that overran: a test bound
 const CAPACITY_WAIT_MS = 1_000 // EXECUTE_CAPACITY_WAIT_MS at its minimum (src/config.js): the wait after a 75 is not what a case measures
 
@@ -83,6 +85,7 @@ const CASES = [
   ['deliver-repeat', 'DELIVER can run twice on the same branch with the same result'],
   ['destroy-run-fails', 'DESTROY runs, with exit 0, after a RUN whose session died'],
   ['destroy-deadline', 'DESTROY runs, with exit 0, after the deadline of the job was exceeded'],
+  ['destroy-slow-create', 'a deadline that expires while CREATE runs: CREATE ends, RUN does not start, and DESTROY receives the machine CREATE named, with exit 0'],
   ['destroy-twice', 'DESTROY of a machine that no longer exists exits 0, twice'],
   ['destroy-shutdown', 'DESTROY runs, with exit 0, when the worker shuts down in an orderly way while RUN is running (EXECUTE_KEEP_SESSION_ON_SHUTDOWN=0)'],
   ['create-75', 'a 75 from CREATE does not spend the attempt (injected)'],
@@ -98,6 +101,8 @@ function caseList () { return CASES.map(([id, text]) => `  ${id.padEnd(18)} ${te
 const WRAPPERS = {
   'create.sh': `#!/usr/bin/env bash
 JOB="$1"
+# A CREATE slower than the deadline of the job (the case «destroy-slow-create»): the driver's own order starts after this wait.
+[ -z "\${CONFORMANCE_CREATE_DELAY_S:-}" ] || sleep "$CONFORMANCE_CREATE_DELAY_S"
 if [ "\${CONFORMANCE_CREATE_75:-}" = 1 ] && [ ! -e "$CONFORMANCE_FLAGS/create-75" ]; then
   : > "$CONFORMANCE_FLAGS/create-75"
   echo "create $JOB exit=75 injected" >> "$CONFORMANCE_LOG"
@@ -301,7 +306,7 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
 
     /** One message through the real jobs, with the settings of the case. Returns everything the cases read. */
     let counter = 0
-    async function flow (name, { double = {}, execute = {}, create75 = false, deliverMode = 'pass', delivers = true, shutdownDuringRun = false }) {
+    async function flow (name, { double = {}, execute = {}, create75 = false, createDelayMs = 0, deliverMode = 'pass', delivers = true, shutdownDuringRun = false }) {
       const dir = join(base, `${String(++counter).padStart(2, '0')}-${name}`)
       mkdirSync(join(dir, 'flags'), { recursive: true })
       const files = { log: join(dir, 'log'), stream: join(dir, 'session.ndjson') }
@@ -310,7 +315,7 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
       setEnv({
         CONFORMANCE_DRIVER: driverDir, CONFORMANCE_LOG: files.log, CONFORMANCE_STREAM: files.stream, CONFORMANCE_FLAGS: join(dir, 'flags'), CONFORMANCE_DOUBLE: DOUBLE,
         CONFORMANCE_DOUBLE_ENV: Object.entries(doubleEnv).map(([k, v]) => `export ${k}=${shellQuote(v)}`).join('\n'),
-        CONFORMANCE_CREATE_75: create75 ? '1' : '', CONFORMANCE_DELIVER_MODE: deliverMode
+        CONFORMANCE_CREATE_75: create75 ? '1' : '', CONFORMANCE_CREATE_DELAY_S: createDelayMs ? String(createDelayMs / 1000) : '', CONFORMANCE_DELIVER_MODE: deliverMode
       })
       await worker?.stop()
       startWorker({ deliverCommand: delivers ? hookCommands.deliverCommand : '', ...execute })
@@ -445,6 +450,24 @@ export async function main (argv, { out = (l) => console.log(l), err = (l) => co
         expect(after, 'no DESTROY ran after the deadline')
         expect(after.exit === '0', `DESTROY after the deadline ended with ${after.exit}`)
         return start ? 'the session was cut during RUN' : 'the deadline expired before RUN started'
+      })
+    }
+
+    if (needs('destroy-slow-create')) {
+      // CREATE takes longer than the deadline (a loaded host, a slow disk): the deadline expires while the machine is being created. A CREATE cut there leaves a machine that nobody names.
+      const f = await flow('slow-create', { createDelayMs: CREATE_PAST_DEADLINE_MS, execute: { timeoutMs: DEADLINE_MS }, delivers: false })
+      await verdicts.check('destroy-slow-create', () => {
+        expect(f.execJob?.status === 'failed', `the job should end failed by its deadline and ended as: ${describeJobs(f)}`)
+        const created = f.log.find((l) => l.order === 'create' && !l.injected)
+        expect(created, 'CREATE was never logged: it was cut before it ended')
+        expect(created.exit === '0', `CREATE ended with ${created.exit}`)
+        expect(created.machine, 'CREATE printed no machine name')
+        expect(!f.log.some((l) => l.order === 'run'), 'RUN started although the deadline had already expired')
+        const after = f.log.slice(f.log.indexOf(created)).find((l) => l.order === 'destroy')
+        expect(after, 'no DESTROY ran after the deadline: the machine CREATE made is left alive')
+        expect(after.exit === '0', `DESTROY after the deadline ended with ${after.exit}`)
+        expect(after.machine === created.machine, `CREATE named «${created.machine}» and DESTROY received «${after.machine}»`)
+        return `machine ${after.machine} destroyed`
       })
     }
 

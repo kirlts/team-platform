@@ -908,7 +908,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
   }
 
   return {
-    maxRuntimeMs: x.timeoutMs + x.killGraceMs * 3, // the runner's own timeout fires first and leaves room to destroy the machine
+    maxRuntimeMs: x.timeoutMs + (x.createSettleMs ?? 0) + x.killGraceMs * 3, // the runner's own timeout fires first (a CREATE still running at the deadline gets createSettleMs more) and leaves room to destroy the machine
 
     async run (job, ctx) {
       // UD-262: the row of the run is written when the attempt ends, also when it fails, times out or is aborted.

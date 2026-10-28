@@ -134,6 +134,21 @@ describe('drivers/docker-local', { skip: requires('docker') }, () => {
     assert.equal(git('show', 'tp/77:change.txt'), 'change')
   })
 
+  it('a deadline that expires while CREATE runs: CREATE ends, no session starts, DESTROY removes the machine CREATE named and none is left (2026-10-28)', async () => {
+    const id = jobId()
+    const workdir = workdirOf(id)
+    // CREATE takes 3 s (a loaded host) and the deadline of the job is 1 s.
+    const config = loadConfig({ DATA_DIR: dir, LOG_LEVEL: 'silent' }, { execute: { ...HOOKS, machineCreate: `sleep 3; ${HOOKS.machineCreate}`, machineBin: '/job/fake-claude', timeoutMs: 1000, killGraceMs: GRACE_MS } })
+    const result = await runMachine({ config, jobId: id, workdir, args: ['-p'], prompt: 'p', env: { TEAM_BRANCH: 'tp/79', TEAM_AGENT_EMAIL: 'agente@ejemplo.org' }, onData: () => {} })
+    assert.equal(result.timedOut, true, 'the job ends by its deadline')
+    assert.equal(result.phase, 'create')
+    assert.equal(result.machine, nameOf(id), 'DESTROY received the machine CREATE named')
+    assert.equal(result.destroy.code, 0)
+    assert.ok(!exists(nameOf(id)), 'no container is left, not even one in state Created')
+    const left = execFileSync('docker', ['ps', '-a', '-q', '--filter', `label=${INSTANCE_LABEL}`, '--filter', `label=team-platform.job=${id}`], { encoding: 'utf8' }).trim()
+    assert.equal(left, '')
+  })
+
   it('the stdout of run.sh is only the NDJSON of the session', async () => {
     const id = jobId()
     const workdir = workdirOf(id)

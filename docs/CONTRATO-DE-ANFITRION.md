@@ -68,7 +68,9 @@ Se leen en `src/config.js`. Un valor entero o decimal fuera de rango, o un valor
 
 | Variable | Omisión | Qué gobierna | Origen de la omisión |
 |---|---|---|---|
-| `EXECUTE_TIMEOUT_MS` | `3600000` | Plazo de CREATE y RUN juntos. COLLECT y DESTROY tienen cada uno el suyo, del mismo valor | Cortesía declarada: acota una máquina o sesión colgada |
+| `EXECUTE_TIMEOUT_MS` | `3600000` | Plazo de CREATE y RUN juntos. COLLECT tiene el suyo, del mismo valor. Un CREATE que sigue corriendo cuando vence no se corta de inmediato: ver `EXECUTE_CREATE_SETTLE_MS` | Cortesía declarada: acota una máquina o sesión colgada |
+| `EXECUTE_CREATE_SETTLE_MS` | `120000` | Tiempo extra que tiene un CREATE que seguía corriendo cuando venció el plazo del trabajo, para terminar y nombrar su máquina. Pasado ese tiempo se corta. `0` lo corta al vencer, como antes | Cortesía declarada. Crear una máquina tardó 32 s el 2026-10-22; 120 s es casi cuatro veces eso. Aditiva (contract_version no cambia) |
+| `EXECUTE_DESTROY_TIMEOUT_MS` | el mayor entre `EXECUTE_TIMEOUT_MS` y `300000` | Plazo de cada DESTROY, el del barrido de huérfanas incluido | Cortesía declarada. Con la máquina de desarrollo a carga 35, `docker rm -f` tardó de 10 a 23 s; un plazo de sesión corto (10 s en la conformidad) cortaba DESTROY antes de que contestara. Un anfitrión con el plazo de la omisión (1 h) conserva 1 h |
 | `EXECUTE_KILL_GRACE_MS` | `10000` | Tiempo entre SIGTERM y SIGKILL al grupo de procesos que lanzó el trabajador | Cortesía declarada |
 | `EXECUTE_MAX_ATTEMPTS` | `1` | Intentos de la cola para un trabajo `execute`. Una falla de infraestructura tiene un segundo intento aunque aquí valga 1 | UD-255; segundo intento por decisión del 2026-10-23 |
 | `EXECUTE_CAPACITY_WAIT_MS` | `30000` | Espera cuando una orden responde 75 o el saldo del día no alcanza. Mínimo 1000 | Medición del 2026-10-22: crear una máquina tardó 32 s |
@@ -161,7 +163,7 @@ Deja lista una máquina para un trabajo.
 | Código 75 | Sin capacidad ahora (cuota o existencias). El trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve sin gastar intento. stderr puede llevar `##team quota machines=<N>` con las máquinas que la cuota admitió |
 | Otro código | Falla de infraestructura (`machine_create_failed`). Se reintenta una vez tras `EXECUTE_INFRA_RETRY_WAIT_MS` y el segundo fallo pasa a una persona |
 | Compuerta | Tras un 75, los CREATE siguientes del mismo trabajador reciben 75 sin correr la orden durante `EXECUTE_CAPACITY_WAIT_MS`. La compuerta se abre antes si termina una sesión |
-| Plazo | `EXECUTE_TIMEOUT_MS`, compartido con RUN |
+| Plazo | `EXECUTE_TIMEOUT_MS`, compartido con RUN. Si el plazo vence con CREATE en marcha, CREATE sigue hasta `EXECUTE_CREATE_SETTLE_MS` más: si termina con 0 el núcleo no inicia RUN, llama DESTROY con la máquina que CREATE nombró y el trabajo falla con `execute_timeout`; si no termina, se corta y DESTROY recibe el nombre por omisión `team-job-<job_id>`. Un driver con un demonio que sigue creando tras un corte (Docker) debe aceptar ese nombre en DESTROY, como hace `drivers/docker-local/destroy.sh` |
 
 ### RUN
 
@@ -203,7 +205,7 @@ Retira la máquina.
 | Código distinto de 0 | No falla el trabajo. El núcleo lo deja registrado con el motivo y la máquina sigue anotada como viva: se reintenta cuando arranca el trabajador, y `GET /health` pasa a `degraded` con `machines.failed` mientras tanto |
 | Máquinas huérfanas | El núcleo anota cada máquina en `execute_machines` antes de llamar CREATE, con `{job_id}`, `{workdir}` y el nombre por omisión `team-job-<job_id>`, y cierra la fila cuando DESTROY sale con 0. Si el trabajador muere sin aviso (SIGKILL, corte de luz), la fila queda abierta. Mientras el trabajo siga en la cola o corriendo, la máquina espera a su intento siguiente: su CREATE debe devolver la misma máquina, y entonces la fila anterior se da por tomada. Cuando el trabajo termina, falla, se cancela o se purga, el trabajador llama DESTROY de cada fila abierta, al arrancar y cuando vence un arriendo. Para esa llamada `{machine}` es el nombre que imprimió CREATE (o el de omisión si murió antes) y `{workdir}` es la ruta que el trabajo tuvo, que a esa hora ya no existe: DESTROY no puede depender de su contenido. Una máquina del anfitrión sin fila en la base (creada fuera del núcleo, o por un CREATE que no llegó a anotarse) no la barre el núcleo: es del anfitrión |
 | Vida máxima | Sigue siendo prudente que el driver declare una vida máxima a cada máquina: es el último respaldo si el anfitrión no contesta DESTROY durante días |
-| Plazo | `EXECUTE_TIMEOUT_MS` |
+| Plazo | `EXECUTE_DESTROY_TIMEOUT_MS`, no el plazo de la sesión. Al vencer: SIGTERM, y SIGKILL tras `EXECUTE_KILL_GRACE_MS`; la fila de `execute_machines` queda abierta y el barrido lo reintenta |
 
 ### DELIVER
 

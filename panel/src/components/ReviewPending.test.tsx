@@ -79,6 +79,8 @@ describe('the line «Cambio listo para revisar» (UD-275, UD-280)', () => {
       // No «Entregar», «Pedir cambios», «Descartar» nor «Responder a Claude»: the line has no control at all.
       await waitFor(() => expect(block.querySelectorAll('button, a, input, textarea').length).toBe(0))
       expect(screen.queryByTestId('review-reply')).toBeNull()
+      // The line says how it is reviewed, in words: by replying in the thread.
+      expect(screen.getByTestId('review-how').textContent).toBe('Se revisa respondiendo en el hilo')
       expect(calls).toEqual([])
     })
   }

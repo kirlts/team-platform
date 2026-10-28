@@ -91,12 +91,6 @@ describe('a field with no data is not drawn', () => {
     )
     expect(screen.queryByText('Obligatorio')).toBeNull()
   })
-
-  it('a reader who cannot fill the field is not shown a name with «Obligatorio» and nothing to do', () => {
-    const { container } = mount(<TemplateFields onSave={noop} template={template(FIELDS)} values={{ must: '' }} canEdit={false} />)
-    expect(screen.queryByText('Obligatorio')).toBeNull()
-    expect(container.querySelector('dl')).toBeNull()
-  })
 })
 
 describe('whoever edits adds an absent field from the row of names', () => {

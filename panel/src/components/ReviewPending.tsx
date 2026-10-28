@@ -34,6 +34,11 @@ export function ReviewPending({ message }: { message: MessageDetail }) {
       <p data-testid="review-reason" className="text-sm">
         {title}
       </p>
+      {!busy && pending.state !== 'failed' && (
+        <p data-testid="review-how" className="m-0 text-xs text-muted">
+          {t('review.how')}
+        </p>
+      )}
       {busy && (
         <div data-testid="review-progress" className="flex flex-col gap-1">
           <Meter percent={progress?.percent ?? 0} label={t('review.delivering')} />

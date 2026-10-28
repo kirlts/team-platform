@@ -297,6 +297,7 @@ export const en: Record<MessageKey, Message> = {
   'review.noReason': 'Change ready for review',
   'handoff.waiting': 'Decides: {names}',
   'review.failed': 'The delivery failed',
+  'review.how': 'Reviewed by replying in the thread',
   'review.delivering': 'Delivering',
   'forward.action': 'Forward',
   'forward.title': 'Forward message',

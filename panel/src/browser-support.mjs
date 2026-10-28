@@ -38,6 +38,8 @@ function controlOf(origin) {
     handoff: () => order('handoff'),
     /** A message with an audio and a video whose speech was read, and a document. Returns { message_id }. */
     extraction: () => order('extraction'),
+    /** Every state of the sheet that a judge looks at, each in its own message (`/_control/states`). Returns { <state>: message id }. */
+    states: () => order('states'),
     execution: ({ deliver = false } = {}) => order(`execution${deliver ? '?deliver=1' : ''}`),
   }
 }

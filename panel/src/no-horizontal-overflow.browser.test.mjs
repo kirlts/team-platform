@@ -134,3 +134,44 @@ describe('the thread does not scroll sideways', () => {
     })
   }
 })
+
+// The lane of the thread scrolls by itself from 768 px (`md:overflow-y-auto` of ReplyThread): on a tablet, in both orientations, the thread moves inside its lane and
+// neither the lane, nor a box that holds it, nor the page reaches past the side.
+describe('the lane of the thread on a tablet', () => {
+  for (const [width, height] of [[768, 1024], [1024, 768]]) {
+    test(`${width}x${height}`, async () => {
+      const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+      const page = await context.newPage()
+      try {
+        await login(page, panel.origin)
+        const body = await (await page.request.get(`${panel.origin}/api/messages?limit=200`)).json()
+        const item = (body.items ?? body.messages ?? body.data ?? body).find((m) => /Hilo cerrado con avisos/.test(m.title))
+        assert.ok(item, 'the sample data lacks the thread with notices')
+        await page.goto(`${panel.origin}/messages/${item.id}`)
+        await page.getByTestId('progress-note').first().waitFor()
+        await settled(page)
+        const m = await page.evaluate(() => {
+          const out = []
+          const vw = document.documentElement.clientWidth
+          const lane = document.querySelector('[data-lane="reply-thread"]')
+          for (let el = lane; el && el !== document.documentElement; el = el.parentElement) {
+            if (el.scrollWidth > el.clientWidth + 1) out.push(`${el.tagName.toLowerCase()}${el.dataset.lane ? `[${el.dataset.lane}]` : ''} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`)
+          }
+          for (const el of lane.querySelectorAll('*')) {
+            const r = el.getBoundingClientRect()
+            if (r.width > 1 && (r.right > vw + 1 || r.left < -1)) out.push(`${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/).slice(0, 3).join('.')} left=${Math.round(r.left)} right=${Math.round(r.right)}`)
+          }
+          if (document.documentElement.scrollWidth > vw) out.push(`document scrollWidth ${document.documentElement.scrollWidth} > ${vw}`)
+          const before = lane.scrollTop
+          lane.scrollTop = lane.scrollHeight
+          return { out: out.slice(0, 10), overflowY: getComputedStyle(lane).overflowY, scrolls: lane.scrollHeight > lane.clientHeight + 1, moved: lane.scrollTop > before }
+        })
+        assert.equal(m.overflowY, 'auto', 'the lane scrolls by itself')
+        if (m.scrolls) assert.ok(m.moved, 'the thread moves inside its lane')
+        assert.deepStrictEqual(m.out, [], `the lane overflows sideways at ${width}x${height}:\n${m.out.join('\n')}`)
+      } finally {
+        await context.close()
+      }
+    })
+  }
+})

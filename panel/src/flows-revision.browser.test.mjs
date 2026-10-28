@@ -40,6 +40,7 @@ describe('Review of a held change by reply (UD-280)', () => {
       await block.waitFor()
       assert.equal(await page.getByTestId('review-reason').innerText(), 'Cambio listo para revisar')
       assert.equal(await block.getByRole('button').count(), 0)
+      assert.equal(await page.getByTestId('review-how').innerText(), 'Se revisa respondiendo en el hilo')
       // The review is written, not chosen from buttons (UD-280).
       for (const name of ['Entregar', 'Pedir cambios', 'Descartar']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 0, name)
       await shot(page, 'revision-escritorio')

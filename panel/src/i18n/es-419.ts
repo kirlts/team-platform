@@ -297,6 +297,7 @@ export const es419 = {
   'review.noReason': 'Cambio listo para revisar',
   'handoff.waiting': 'Decide: {names}',
   'review.failed': 'La entrega falló',
+  'review.how': 'Se revisa respondiendo en el hilo',
   'review.delivering': 'Entregando',
   'forward.action': 'Reenviar',
   'forward.title': 'Reenviar mensaje',

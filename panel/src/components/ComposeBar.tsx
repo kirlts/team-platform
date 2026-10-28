@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { useMe, useMembers } from '@team-platform/client/react'
+import { loadDraftText, saveDraftText } from '@/lib/session'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
@@ -55,7 +56,8 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   const t = useT()
   const draft = useMediaDraft()
   const me = useMe().data
-  const [text, setText] = useState('')
+  const [text, setText] = useState(loadDraftText)
+  useEffect(() => saveDraftText(text), [text])
   /** The member chosen in «Enviar como»; empty means the member of the session (the default, UD-255). */
   const [sendAs, setSendAs] = useState('')
   const author = sendAs || me?.id || ''

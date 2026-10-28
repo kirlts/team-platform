@@ -47,6 +47,23 @@ async function sendAndReview(page, text = THREE) {
 const apart = (a, b) => a.x + a.width <= b.x + 0.5 || b.x + b.width <= a.x + 0.5 || a.y + a.height <= b.y + 0.5 || b.y + b.height <= a.y + 0.5
 
 describe('the proposal block (I1, I4, I5)', () => {
+  test('on a phone the folded rows of a proposal measure the same, each title in one line (judge of Inicio, finding 7)', async () => {
+    const { page, context } = await session('bruno', PHONE)
+    try {
+      await bar(page).fill(THREE)
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      const rows = page.getByRole('button', { name: /^Abrir el mensaje \d+:/ })
+      await rows.first().waitFor({ timeout: 30000 })
+      await settled(page)
+      const heights = []
+      for (let i = 0; i < (await rows.count()); i++) heights.push(Math.round((await rows.nth(i).boundingBox()).height * 10) / 10)
+      assert.equal(heights.length, 3)
+      assert.ok(Math.max(...heights) - Math.min(...heights) < 0.5, `the rows measure ${heights.join(', ')} px`)
+    } finally {
+      await context.close()
+    }
+  })
+
   test('on a phone the title of the analysis, its marks and «Volver a analizar» do not overlap, with or without the history (I1)', async () => {
     const { page, context } = await session('bruno', PHONE)
     try {
@@ -202,7 +219,7 @@ describe('the proposal on a phone and the bar of text at rest (I-1 to I-4, I-6)'
     }
   })
 
-  test('the actions of a published send are 44 px too, and «Borrar envío» with its arrow', async () => {
+  test('the actions of a published send are 44 px too, and both forms of «Borrar envío»', async () => {
     const { page, context } = await session('bruno', PHONE)
     try {
       await panel.control.reset()
@@ -213,7 +230,7 @@ describe('the proposal on a phone and the bar of text at rest (I-1 to I-4, I-6)'
       const drawer = page.getByTestId('send-drawer')
       await drawer.getByTestId('delete-send').waitFor({ timeout: 20000 })
       await settled(page)
-      const names = ['delete-send', 'delete-send-more']
+      const names = ['delete-send', 'delete-send-all']
       for (const id of names) {
         const b = await drawer.getByTestId(id).first().boundingBox()
         if (b) assert.ok(b.height >= 43.5 && b.width >= 43.5, `${id} is ${b.width}x${b.height}`)

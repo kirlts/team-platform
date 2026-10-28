@@ -17,7 +17,8 @@ import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { invalidateRoots, ME, type MessageQuery } from '@team-platform/client'
+import { invalidateRoots, isTeamApiError, ME, type MessageQuery } from '@team-platform/client'
+import { saveDraftText } from '@/lib/session'
 import { useEventsSnapshot, useMe, useMessages, useProject, useSends, useTeamClient } from '@team-platform/client/react'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -194,6 +195,8 @@ export function Home() {
         await invalidateRoots(queryClient, ['inputs'])
         setUploads((list) => list.filter((u) => u.key !== key))
       } catch (err) {
+        // The session ended under the page: the entry replaces the panel and the failed row goes with it, so the text goes back to the bar's storage and comes back after signing in.
+        if (isTeamApiError(err) && err.status === 401) saveDraftText(draft.text)
         const reason = errorText(err)
         setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: reason } : u)))
         // With the drawer open the failed send says so in its own pane, with Reintentar; folded, the notice carries the same way out.

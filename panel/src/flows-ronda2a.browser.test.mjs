@@ -66,11 +66,10 @@ describe('sign-in and navigation', () => {
       await page.getByLabel('Contraseña').fill('una-clave-cualquiera')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).waitFor()
-      // The error is the line under the field it names, in a line the form keeps free, so the card does not move.
+      // The error is under the card and out of its flow, so the card does not move.
       const after = await card.boundingBox()
-      const email = await page.getByLabel('Correo').boundingBox()
       const said = await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).boundingBox()
-      assert.ok(said.y >= email.y + email.height && said.y - (email.y + email.height) <= 16, `the error is ${said.y - (email.y + email.height)} px under its field`)
+      assert.ok(said.y >= after.y + after.height - 0.5 && said.y - (after.y + after.height) <= 24, `the error is ${said.y - (after.y + after.height)} px under the card`)
       assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, `the card moved ${before.height}→${after.height}`)
       await page.getByLabel('Contraseña', { exact: true }).first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
       assert.equal(await page.getByLabel('Contraseña', { exact: true }).count(), 1, 'the notice entered the field name')

@@ -66,6 +66,8 @@ export function MessageFoldRow({
   const { memberName } = useLookups()
   const n = index + 1
   const to = assigneeIds.map(memberName).filter(Boolean).join(', ')
+  // Only a row that asks something of the person may take a second line, for its mark; every other row is one line, with its title ended in an ellipsis, so the rows of a send measure the same.
+  const marked = !to || !!aside
   return (
     <li data-testid={testId} data-open={open || undefined} className={cn('list-none border-b border-line last:border-b-0', className)} {...rest}>
       {open ? (
@@ -77,11 +79,11 @@ export function MessageFoldRow({
           {children}
         </div>
       ) : (
-        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n, title })} onClick={onToggle} className="hit flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-2 text-left hover:bg-hover [@media(pointer:coarse)]:min-h-11">
+        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n, title })} onClick={onToggle} className={cn('hit flex w-full min-w-0 items-center gap-x-2 gap-y-1 px-1 py-2 text-left hover:bg-hover [@media(pointer:coarse)]:min-h-11', marked && 'flex-wrap')}>
           <ChevronRight size={16} aria-hidden className="shrink-0 text-muted" />
           <span className="w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{n}</span>
           <AreaChip areaId={areaId} className="shrink-0 text-xs" />
-          <span data-testid="fold-title" title={title} data-ellipsis-ok="UD-241" className={cn(HEADING, 'min-w-32 flex-1')}>
+          <span data-testid="fold-title" title={title} data-ellipsis-ok="UD-241" className={cn(HEADING, 'flex-1', marked ? 'min-w-32' : 'min-w-0')}>
             {title}
           </span>
           {/* Who it is for, in one line while it fits; a message without recipients says so with its mark, the one thing a row asks of the person (J2-B-17).

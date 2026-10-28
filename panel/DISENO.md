@@ -353,6 +353,8 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 - Los valores de Nombre, Correo y Rol de Configuración son texto plano porque no se editan ahí; su ayuda dice quién los cambia y dónde (UD-122).
 - En Equipo, la acción «Desactivar» comparte la fila del rol en teléfono. La lista mantiene en la página la fila cuyo perfil se abre (`reveal`).
 - En la entrada, el aviso de error va bajo la tarjeta y no reserva una fila dentro de ella. El margen bajo el botón es el del logo sobre la tarjeta. La tarjeta no lleva texto de ayuda (UD-170, enmendada el 2026-10-27). Mientras la sesión se abre, el botón dice «Entrando» y los campos dejan de recibir texto.
+- La entrada dice por qué se dibuja. Una contraseña mala dice «Correo o contraseña incorrectos» (el servidor responde 401 `invalid_credentials`; `unauthenticated` es sólo sesión vencida). Una espera dice sus segundos reales («se reintenta en N s»). Una sesión que venció con la página abierta se avisa con «La sesión venció» bajo la tarjeta y el correo queda escrito; el texto de la barra de Inicio sobrevive al viaje en `sessionStorage`. Cada cambio de pantalla vuelve a preguntar por la sesión, porque una vista dibujada con datos en memoria no hace llamadas.
+- «Borrar envío» y «Borrar envío y mensajes» se dibujan lado a lado, cada uno con su rótulo y a 44 px en táctil; el aviso dice qué pasó con los mensajes («Envío borrado; sus N mensajes se conservan»). Una fila plegada de una propuesta ocupa una línea: sólo la que lleva una marca que pide algo (sin destinatarios) puede pasar a dos.
 
 ## Gestión: Equipo, Áreas, Área, Configuración y Conexiones (ronda del 2026-10-27)
 

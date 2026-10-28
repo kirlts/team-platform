@@ -113,6 +113,8 @@ describe('Theme contract: finish variables', () => {
     test(`${scheme}: a host sheet that redefines them changes the primary button and the bar`, async () => {
       const { page, context } = await open(scheme)
       try {
+        // The bar of text is glass while it is empty (DISENO.md): the gel is there once there is something to send.
+        await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Texto para que Enviar sea la acción de la pantalla')
         const btn = 'button.btn-gel'
         const before = await style(page, btn, ['background-image', 'border-top-color', 'text-shadow'])
         assert.ok(before['background-image'].split('linear-gradient').length - 1 >= 2, `gel de fábrica sin brillo: ${before['background-image']}`)

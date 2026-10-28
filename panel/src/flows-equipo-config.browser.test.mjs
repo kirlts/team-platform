@@ -226,13 +226,13 @@ describe('Entrada', () => {
         await page.goto(origin)
         const card = page.locator('form')
         await card.waitFor()
-        const note = await card.getByRole('button', { name: 'Entrar' }).boundingBox()
-        assert.equal(await card.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note')
+        const last = await card.getByRole('button', { name: 'Entrar' }).boundingBox()
         const logo = await card.locator('h1').boundingBox()
         const box = await card.boundingBox()
         const above = logo.y - box.y
-        const below = box.y + box.height - (note.y + note.height)
+        const below = box.y + box.height - (last.y + last.height)
         assert.ok(Math.abs(below - above) <= 4, `${above} px above the logo, ${below} px below the button`)
+        assert.equal(await card.getByText('Cuentas creadas por el equipo').count(), 0, 'the entry carries no help line by default')
       } finally {
         await context.close()
       }

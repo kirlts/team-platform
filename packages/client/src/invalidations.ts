@@ -12,7 +12,7 @@ export const INVALIDATE = {
   publish: ['messages', 'areas', 'inputs'],
   /** A published send sets its messages aside (UD-258): the lists of messages and the counts of areas change with it. */
   reprocess: ['inputs', 'messages', 'areas'],
-  restoreInput: ['inputs'],
+  restoreInput: ['inputs', 'messages', 'areas'],
   deleteInput: ['inputs', 'messages', 'areas'],
   cancelInput: ['inputs'],
   // Messages and replies

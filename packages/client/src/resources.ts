@@ -272,9 +272,9 @@ export function createResources(t: Transport) {
       saveText: (inputId: string, text: string) => call<InputRecord>(routes.inputSaveText, { params: { id: inputId }, body: { text } }),
       /** Requeues the analysis; keeps the text and the extractions. Published or not, any person may; its messages go to the trash (UD-287). */
       reprocess: (inputId: string) => call<ReprocessResult>(routes.inputReprocess, { params: { id: inputId } }),
-      /** Undoes a discard: the send comes back with the proposal and the edits it had. */
+      /** Undoes a discard or a deletion: the send comes back with the proposal and the edits it had, and with the messages that went with it. */
       restore: (inputId: string) => call<{ input_id: string; status: string }>(routes.inputRestore, { params: { id: inputId } }),
-      /** Deletes for real (UD-240): attachments, jobs and proposal; with `withMessages`, the messages it published too. */
+      /** Deletes the send, reversibly (UD-253: `restore` brings it back); with `withMessages`, the messages it published go to the trash with it. */
       delete: (v: { id: string; withMessages: boolean }) =>
         call<DeleteInputResult>(routes.inputDelete, { params: { id: v.id }, search: `${CONFIRM}${v.withMessages ? '&with_messages=true' : ''}` }),
       cancel: (inputId: string) => call(routes.inputCancel, { params: { id: inputId } }),

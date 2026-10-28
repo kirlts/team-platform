@@ -54,7 +54,7 @@ describe('the messages of a send are listed folded with their count (UD-257)', (
       await send(page, FOUR)
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor({ timeout: 40000 })
       // The fourth part becomes a message; that one opens by itself, as it was just made, and is folded here like the rest.
-      await page.getByRole('button', { name: /^Partes sin mensaje/ }).click()
+      await page.getByRole('button', { name: /^Texto sin mensaje/ }).click()
       await page.getByRole('button', { name: 'Crear mensaje' }).first().click()
       await page.getByRole('button', { name: 'Enviar 4 mensajes', exact: true }).waitFor()
       await page.keyboard.press('Escape')

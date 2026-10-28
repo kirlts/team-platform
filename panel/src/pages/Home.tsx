@@ -242,6 +242,12 @@ export function Home() {
   // With a send open the page is taller than the window and its region scrolls (UD-110, which amends UD-017); at rest it fits.
   // The two lists then get a height of their own: a frame that takes its height from its content would grow with the sixty rows the lists draw to measure themselves.
   const shown = working && drawerOpen && desktop
+  // The two lists are read here, not in each one, so a server that is down is said once and not in each box (I7).
+  const [mineMessages, setMineMessages] = useState(false) // Home shows the whole team; «Para mí» is the filter (UD-273)
+  const [mineReplies, setMineReplies] = useState(false)
+  const messagesFeed = useFeed('messages', mineMessages, me?.id ?? '')
+  const repliesFeed = useFeed('replies', mineReplies, me?.id ?? '')
+  const feedsFailed = messagesFeed.isError && repliesFeed.isError
 
   return (
     <Page cols="inicio" airy scrolls={shown}>
@@ -301,8 +307,18 @@ export function Home() {
               setDiscarded({ id, restore })
               return true
             },
-            // Deleted for real: it leaves the drawer now, and the list confirms it when it catches up (UD-240).
-            onDeleted: (id) => {
+            // Deleted: it leaves the drawer now and the list confirms it when it catches up (UD-240); with Deshacer it comes back and is the send in view (UD-253).
+            onDeleted: (id, back) => {
+              if (back) {
+                setGone((set) => {
+                  const next = new Set(set)
+                  next.delete(id)
+                  return next
+                })
+                setDrawerOpen(true)
+                setSelectedId(id)
+                return
+              }
               setGone((set) => new Set(set).add(id))
               setDiscarded(null)
               setSelectedId(undefined)
@@ -314,17 +330,19 @@ export function Home() {
 
       {/* The main block of the page (UD-030): the latest messages and replies. The room takes what the page leaves and never follows the rows; the two lists sit at its
           top in two equal columns, as tall as the taller of them and no taller than the room, where they page (UD-253). On a phone one under the other (J3-A-10). */}
-      {desktop ? (
+      {feedsFailed ? (
+        <FeedsFailed first={messagesFeed} second={repliesFeed} />
+      ) : desktop ? (
         <div ref={room} data-testid="home-feeds-room" className={cn('min-h-[22rem]', shown ? 'h-[max(28rem,56dvh)] flex-none' : 'min-h-0 flex-1')}>
           <div className="grid max-h-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-x-section">
-            <Feed kind="messages" meId={me?.id ?? ''} bound={room} />
-            <Feed kind="replies" meId={me?.id ?? ''} bound={room} />
+            <Feed kind="messages" feed={messagesFeed} mine={mineMessages} onMine={setMineMessages} bound={room} />
+            <Feed kind="replies" feed={repliesFeed} mine={mineReplies} onMine={setMineReplies} bound={room} />
           </div>
         </div>
       ) : (
         <div className={cn('flex flex-col', AIRY_GAP)}>
-          <Feed kind="messages" meId={me?.id ?? ''} phone />
-          <Feed kind="replies" meId={me?.id ?? ''} phone />
+          <Feed kind="messages" feed={messagesFeed} mine={mineMessages} onMine={setMineMessages} phone />
+          <Feed kind="replies" feed={repliesFeed} mine={mineReplies} onMine={setMineReplies} phone />
         </div>
       )}
     </Page>
@@ -366,34 +384,48 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
   )
 }
 
-function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replies'; meId: string; phone?: boolean; bound?: RefObject<HTMLElement | null> }) {
-  const t = useT()
-  const [mine, setMine] = useState(false) // Home shows the whole team; «Para mí» is the filter (UD-273)
+type FeedQuery = ReturnType<typeof useFeed>
+
+/** The read of one of the two lists of Inicio. */
+function useFeed(kind: 'messages' | 'replies', mine: boolean, meId: string) {
   const query: MessageQuery = { filters: mine ? [{ prop: 'for', op: 'eq', value: ME }] : [], q: '' }
-  const feed = useMessages({ query, meId, repliesFeed: kind === 'replies', enabled: !!meId })
+  return useMessages({ query, meId, repliesFeed: kind === 'replies', enabled: !!meId })
+}
+
+/** Both lists failed to load: one block says it, with one Reintentar that asks for both. */
+function FeedsFailed({ first, second }: { first: FeedQuery; second: FeedQuery }) {
+  return (
+    <div className="glass leaf">
+      <LoadState query={{ isPending: false, isError: true, error: first.error, failureCount: first.failureCount, refetch: () => Promise.all([first.refetch(), second.refetch()]) }} />
+    </div>
+  )
+}
+
+function Feed({ kind, feed, mine, onMine, phone = false, bound }: { kind: 'messages' | 'replies'; feed: FeedQuery; mine: boolean; onMine: (mine: boolean) => void; phone?: boolean; bound?: RefObject<HTMLElement | null> }) {
+  const t = useT()
   const rows = useMemo(() => feed.data ?? [], [feed.data])
-  const messagesFeed = kind === 'messages'
+  const messagesKind = kind === 'messages'
 
   const params = new URLSearchParams()
   if (mine) params.append('f', `for:eq:${ME}`)
-  if (!messagesFeed) params.append('f', 'replies:eq:con')
+  if (!messagesKind) params.append('f', 'replies:eq:con')
 
   return (
     // A section like «Nuevo mensaje»: its title is a label above, with its filter on the right, and the frame of the rows under it. The frames take the height of the taller of the two.
     // On a phone the section stops at what is left of the screen under the header and the page margins, and the list pages inside it (J3-A-10).
-    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className={cn('flex min-h-0 min-w-0 flex-col gap-3', phone && 'max-h-[calc(100dvh-6.5rem)]')}>
+    <section aria-label={messagesKind ? t('home.latestMessages') : t('home.latestReplies')} className={cn('flex min-h-0 min-w-0 flex-col gap-3', phone && 'max-h-[calc(100dvh-6.5rem)]')}>
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <h2>
-          <Link to={`/messages?${params.toString()}`} className="hover:underline">
-            {messagesFeed ? t('home.latestMessages') : t('home.latestReplies')}
+          <Link to={`/messages?${params.toString()}`} className="relative hover:underline pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3.5">
+            {messagesKind ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>
         </h2>
         <Segmented
-          label={messagesFeed ? t('home.shownMessages') : t('home.shownReplies')}
+          label={messagesKind ? t('home.shownMessages') : t('home.shownReplies')}
           size="sm"
           quiet
           value={mine ? 'mine' : 'all'}
-          onChange={(v) => setMine(v === 'mine')}
+          onChange={(v) => onMine(v === 'mine')}
           options={[
             { value: 'mine', label: t('home.forMe') },
             { value: 'all', label: t('home.everyone') },
@@ -406,8 +438,8 @@ function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replie
         bound={bound}
         rows={rows}
         rowKey={(m) => m.id}
-        renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}
-        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="flex items-center justify-center px-4 py-10 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
+        renderRow={(m) => <MessageCard message={m} variant={messagesKind ? 'message' : 'reply'} />}
+        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="flex items-center justify-center px-4 py-10 text-center text-sm text-muted">{messagesKind ? t('home.noMessages') : t('home.noReplies')}</p>}
       />
     </section>
   )

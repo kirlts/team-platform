@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Vistas de gestión, segunda revisión: una falla de proveedor se ve con el pliegue cerrado de Proveedores, Publicación existe mientras carga y al fallar sin mover lo que tiene debajo, el nombre y el correo editables miden 24 px, las etiquetas de Equipo van junto al nombre, el plural del aviso y las cifras de telemetría llenan su fila.
+
 - Envío nuevo, cuarta ronda del juez: el motivo de un envío fallido empieza en minúscula tras los dos puntos, el aviso en inglés de un destinatario retirado no dice «To», y «Enviar como» vuelve a quien escribe tras enviar.
 
 ## [1.0.0] - 2026-10-28

@@ -25,6 +25,7 @@ import { get, run, tx } from '../db/index.js'
 import { AppError, badRequest, forbidden } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
 import { createMember, isIdentityRetired } from '../domain/members.js'
+import { pickLanguage, ssoRejectedPage, wantsHtml } from '../api/notice-page.js'
 import { cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
 
 function findMember (db, email) {
@@ -222,6 +223,19 @@ function ssoMode ({ db, config, sessions, now }) {
 
       // 2. Return: signature, nonce still valid and tied to the browser, email verified by the host.
       app.get('/auth/sso/callback', { config: { public: true }, schema: { response: { 302: { type: 'null', description: 'Sesión creada; vuelve al panel.' } } } }, async (request, reply) => {
+        try {
+          return await callback(request, reply)
+        } catch (error) {
+          // A browser gets the reason on a page with a link to the entry; a client that asks for JSON keeps the JSON error.
+          if (error instanceof AppError && error.code.startsWith('sso_') && wantsHtml(request)) {
+            return reply.code(error.status).header('cache-control', 'no-store').type('text/html; charset=utf-8')
+              .send(ssoRejectedPage(pickLanguage(request), error.code, error.message, `${config.apiPrefix}/auth/sso/start`))
+          }
+          throw error
+        }
+      })
+
+      async function callback (request, reply) {
         const { sso, sig } = request.query
         if (typeof sso !== 'string' || typeof sig !== 'string' || !safeEqual(signHex(d.secret, sso), sig)) {
           throw forbidden('La respuesta del inicio de sesión no es válida.', 'sso_invalid')
@@ -274,7 +288,7 @@ function ssoMode ({ db, config, sessions, now }) {
           reply.clearCookie(nextCookieName, { path: '/', httpOnly: true, secure: spec.options.secure, sameSite: 'lax' })
         }
         return reply.redirect(back, 302) // SSO_RETURN_PATH: the panel may live under a path (H-3721)
-      })
+      }
     }
   }
 }

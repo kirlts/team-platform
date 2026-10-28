@@ -132,6 +132,60 @@ test('sso-redirect: Ana goes to the host, comes back with the signed answer, get
   assert.equal(arrived.statusCode, 302)
   const session = arrived.cookies.find((c) => c.name === '__Host-session')
   await anaEnviaYLee(env, () => ({ cookie: `${session.name}=${session.value}` }), 'session')
-  assert.equal((await back()).statusCode, 403, 'the answer of the host was accepted twice')
+  const again = await back()
+  assert.equal(again.statusCode, 403, 'the answer of the host was accepted twice')
+  assert.match(again.headers['content-type'], /json/, 'a client with no Accept keeps the JSON error')
+  assert.equal(again.json().code, 'sso_invalid')
+  // A browser reads the reason on a page with a link to the entry.
+  const sso = Buffer.from(JSON.stringify({ nonce, email: 'ana@x.org', email_verified: true })).toString('base64url')
+  const browser = await env.app.inject({
+    url: `/api/auth/sso/callback?sso=${sso}&sig=${createHmac('sha256', SSO_SECRET).update(sso).digest('hex')}`,
+    headers: { accept: 'text/html,application/xhtml+xml', cookie: `${nonceCookie.name}=${nonceCookie.value}` }
+  })
+  assert.equal(browser.statusCode, 403)
+  assert.match(browser.headers['content-type'], /text\/html/)
+  assert.match(browser.body, /<h1>Inicio de sesión rechazado<\/h1>/)
+  assert.match(browser.body, /<a href="\/api\/auth\/sso\/start">Ir a la entrada<\/a>/)
+  assert.doesNotMatch(browser.body, /sso_invalid/)
   await env.close()
+})
+
+/** Follows redirects of a browser navigation up to a limit; a loop fails the test. */
+async function navegar (env, url, headers, limite = 5) {
+  const visited = []
+  let current = url
+  for (let i = 0; i <= limite; i++) {
+    visited.push(current)
+    const res = await env.app.inject({ url: current, headers: { accept: 'text/html', ...headers }, remoteAddress: '203.0.113.7' })
+    if (res.statusCode < 300 || res.statusCode >= 400) return { res, visited }
+    current = res.headers.location
+  }
+  assert.fail(`redirect loop: ${visited.join(' -> ')}`)
+}
+
+test('trusted-header: a page from an untrusted address or with no header ends on a page, never in a redirect loop', async () => {
+  const env = await makeEnv({ config: { panelDist: panelDir(), identity: { provider: 'trusted-header', delegated: { mode: 'trusted-header' } } } })
+  await addMember(env, { email: 'ana@x.org', name: 'Ana' })
+  for (const headers of [{ 'tailscale-user-login': 'ana@x.org' }, {}]) {
+    for (const start of ['/', '/messages']) {
+      const { res, visited } = await navegar(env, start, headers)
+      assert.equal(res.statusCode, 401, visited.join(' -> '))
+      assert.match(res.headers['content-type'], /text\/html/)
+      assert.match(res.body, /<h1>Sin acceso<\/h1>/)
+      assert.match(res.body, /cabecera del anfitrión/)
+    }
+  }
+  const english = await navegar(env, '/', { 'accept-language': 'en-US,en;q=0.9' })
+  assert.match(english.res.body, /<h1>No access<\/h1>/)
+  // The API keeps answering JSON.
+  const api = await env.app.inject({ url: '/api/me', remoteAddress: '203.0.113.7' })
+  assert.equal(api.statusCode, 401)
+  assert.equal(api.json().login_url, '/session/login')
+  // A host that declares its entry still gets the redirect there.
+  await env.close()
+  const declared = await makeEnv({ config: { panelDist: panelDir(), identity: { provider: 'trusted-header', hostLoginUrl: 'https://anfitrion.example/entrar', delegated: { mode: 'trusted-header' } } } })
+  const page = await declared.app.inject({ url: '/', headers: { accept: 'text/html' }, remoteAddress: '203.0.113.7' })
+  assert.equal(page.statusCode, 302)
+  assert.match(page.headers.location, /^https:\/\/anfitrion\.example\/entrar\?next=/)
+  await declared.close()
 })

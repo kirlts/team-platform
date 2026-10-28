@@ -23,6 +23,7 @@ import { installCompression } from './compression.js'
 import { mountedIndex } from './mount.js'
 import { cookieSpec } from '../identity/cookies.js'
 import { hostEntryUrl, identitySources } from '../config.js'
+import { noAccessPage, pickLanguage } from './notice-page.js'
 import { registerIdentity } from '../identity/index.js'
 import { isRoleGoverned } from '../identity/delegated.js'
 import { loadBlocklist } from '../identity/password.js'
@@ -224,6 +225,11 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
         let found = null
         try { found = await identity.provider.identify(request) } catch { /* an invalid credential counts as none */ }
         if (!found) {
+          // The entry is this very installation (the default `/session/login` in a mode with no entry of its own): redirecting would loop.
+          if (hostEntry.startsWith('/') && !hostEntry.startsWith('//') && routePath === hostEntry.split('?')[0]) {
+            return reply.code(401).header('cache-control', 'no-store')
+              .type('text/html; charset=utf-8').send(noAccessPage(pickLanguage(request), { trustedHeader: identitySources(config.identity).includes('trusted-header') }))
+          }
           const sep = hostEntry.includes('?') ? '&' : '?'
           return reply.header('cache-control', 'no-store').redirect(`${hostEntry}${sep}next=${encodeURIComponent(request.raw.url)}`, 302)
         }

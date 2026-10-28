@@ -88,3 +88,41 @@ describe('the end of the session (E1, I2)', () => {
     }
   })
 })
+
+describe('what the entry keeps across an ended session belongs to the person it was of', () => {
+  it('a draft comes back only to its member, survives another person signing in and goes with the sign-out of its author', async () => {
+    const { loadDraftText, saveDraftText, clearDrafts } = await import('./session')
+    sessionStorage.clear()
+    saveDraftText('texto de Bruno', 'bruno')
+    expect(loadDraftText('carla')).toBe('')
+    saveDraftText('texto de Carla', 'carla')
+    expect(loadDraftText('bruno')).toBe('texto de Bruno')
+    clearDrafts('carla')
+    expect(loadDraftText('carla')).toBe('')
+    expect(loadDraftText('bruno')).toBe('texto de Bruno')
+    expect(loadDraftText(undefined)).toBe('')
+  })
+
+  it('a change that was on its way is told once, to its own person, with the files that were lost', async () => {
+    const { noteStatus, watchSession: watch, settleEndedSession, takeLostAction, noteLostFiles } = await import('./session')
+    sessionStorage.clear()
+    const state = { open: true, asked: [] as string[] }
+    vi.stubGlobal('fetch', serverWith(state))
+    const queryClient = await openSession()
+    const stop = watch(queryClient)
+    try {
+      state.open = false
+      noteLostFiles(2)
+      noteStatus('/inputs', 401, 'POST')
+      await vi.waitFor(() => expect(queryClient.getQueryState(queryKeys.me())?.status).toBe('error'))
+      settleEndedSession()
+      expect(takeLostAction('ana')).toEqual({ files: 2 })
+      expect(takeLostAction('ana')).toBeNull() // read once
+      noteStatus('/inputs', 401, 'POST')
+      settleEndedSession()
+      expect(takeLostAction('otra')).toBeNull() // another person does not read it
+    } finally {
+      stop()
+    }
+  })
+})

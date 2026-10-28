@@ -73,7 +73,7 @@ describe('E3: the local entry says the cause', () => {
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByTestId('compose-text').waitFor()
       assert.equal(await page.getByTestId('compose-text').inputValue(), text, 'E3: the text of the bar was lost')
-      assert.equal(await page.getByText('La sesión venció').count(), 0)
+      assert.equal(await page.getByText('La sesión venció', { exact: true }).count(), 0)
     } finally { await context.close() }
   })
 

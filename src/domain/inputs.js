@@ -429,12 +429,15 @@ function softDeleteInput ({ db, queue, events, now }, input, actor, withMessages
   // A send in flight has no job any more: it is left cancelled, and restoring it decides what it becomes.
   if (['queued', 'extracting', 'analyzing'].includes(input.status)) transitionInput(db, input.id, 'cancelled', { now })
   const jobs = get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE input_id = ?', input.id).n
-  const live = all(db, 'SELECT id FROM messages WHERE input_id = ? AND deleted_at IS NULL', input.id).length
+  const liveIds = all(db, 'SELECT id FROM messages WHERE input_id = ? AND deleted_at IS NULL', input.id).map((r) => String(r.id))
+  const live = liveIds.length
   run(db, 'UPDATE messages SET unlinked_input_id = input_id, input_id = NULL, deleted_at = CASE WHEN ? AND deleted_at IS NULL THEN ? ELSE deleted_at END WHERE input_id = ?', withMessages ? 1 : 0, t, input.id)
   run(db, 'UPDATE inputs SET deleted_at = ?, deleted_status = ? WHERE id = ?', t, input.status, input.id)
   audit(db, { memberId: actor.id, action: 'input.delete', entity: 'input', entityId: input.id, detail: { reversible: true, jobs, cancelled_jobs: cancelled.length, messages: withMessages ? live : 0, with_messages: withMessages, author_id: input.author_id }, now })
   // The author learns it without a job.
   events.publish({ kind: 'done', memberId: input.author_id, data: { input_id: input.id, status: 'deleted' } })
+  // Whoever had those messages in the bell stops being offered them (the write's own `changed` event says nothing of which ones).
+  if (withMessages && live > 0) events.publish({ kind: 'message', data: { reason: 'changed', roots: ['messages', 'areas', 'inputs'], gone: liveIds } })
   return { input_id: input.id, deleted: { attachments: 0, jobs, messages: withMessages ? live : 0 }, hashes: [], restorable: true }
 }
 

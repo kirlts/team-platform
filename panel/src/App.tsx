@@ -13,9 +13,9 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { TeamApiError } from '@team-platform/client'
 import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/client/react'
 import { ROUTER_BASENAME } from '@/lib/base'
-import { NoticeProvider } from '@/lib/notices'
+import { NoticeProvider, useNotices } from '@/lib/notices'
 import { NoticeHost } from '@/components/NoticeHost'
-import { checkSession, saveDraftText } from '@/lib/session'
+import { checkSession, clearDrafts, takeLostAction } from '@/lib/session'
 import { useSidebarHidden } from '@/lib/sidebar'
 import { useDesktop } from '@/lib/useDesktop'
 import { Areas } from '@/pages/Areas'
@@ -27,6 +27,18 @@ import { Messages } from '@/pages/Messages'
 import { NotFound } from '@/pages/NotFound'
 import { Settings } from '@/pages/Settings'
 import { Team } from '@/pages/Team'
+
+/** After signing in again: a change that was on its way when the session ended did not complete, and the panel says it (once, and only to the person it was of). */
+function LostAction({ memberId }: { memberId: string | undefined }) {
+  const t = useT()
+  const notices = useNotices()
+  useEffect(() => {
+    if (!memberId) return
+    const lost = takeLostAction(memberId)
+    if (lost) notices.show({ tone: 'danger', text: lost.files > 0 ? t('session.sendLost', { n: lost.files }) : t('session.actionLost') })
+  }, [memberId]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
+}
 
 function Shell() {
   const t = useT()
@@ -57,7 +69,7 @@ function Shell() {
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
       try {
         localStorage.removeItem('team-active-input')
-        saveDraftText('')
+        clearDrafts(me?.id)
       } catch {
         // Without storage there is nothing to delete.
       }
@@ -79,6 +91,7 @@ function Shell() {
       <div className="relative z-10 flex h-dvh flex-col">
         <Header projectName={project?.name ?? me?.project_name} panelHidden={hidden} onOpenNav={() => (desktop ? setHidden(false) : setNavOpen(true))} />
         <NoticeHost />
+        <LostAction memberId={me?.id} />
         <div className="flex min-h-0 flex-1">
           {desktop && !hidden && (
             <aside data-lane="sidebar" data-testid="sidebar" className="glass scroll-thin w-64 shrink-0 overflow-y-auto border-0 border-r !shadow-none">

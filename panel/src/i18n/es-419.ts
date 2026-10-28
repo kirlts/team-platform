@@ -722,6 +722,8 @@ export const es419 = {
   'error.validation': 'Datos inválidos',
   'error.description_required': 'Falta la descripción',
   'error.file_encoding': 'El archivo no está en texto UTF-8',
+  'session.actionLost': 'La última acción no se completó: la sesión venció',
+  'session.sendLost': { one: 'Envío no completado: sesión vencida, {n} adjunto perdido', other: 'Envío no completado: sesión vencida, {n} adjuntos perdidos' },
   'login.sessionEnded': 'La sesión venció',
   'login.wait': 'Demasiados intentos; se reintenta en {n} s',
   'login.entering': 'Entrando',

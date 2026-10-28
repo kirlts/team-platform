@@ -56,8 +56,8 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   const t = useT()
   const draft = useMediaDraft()
   const me = useMe().data
-  const [text, setText] = useState(loadDraftText)
-  useEffect(() => saveDraftText(text), [text])
+  const [text, setText] = useState(() => loadDraftText(me?.id))
+  useEffect(() => saveDraftText(text, me?.id), [text, me?.id])
   /** The member chosen in «Enviar como»; empty means the member of the session (the default, UD-255). */
   const [sendAs, setSendAs] = useState('')
   const author = sendAs || me?.id || ''

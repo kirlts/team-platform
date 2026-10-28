@@ -424,6 +424,8 @@ export interface DoneEvent {
 export interface ChangedEvent {
   roots: string[]
   message_id?: string
+  /** Messages that left the lists (borrados): the bell stops offering them. */
+  gone?: string[]
 }
 
 export interface NewMessageEvent {

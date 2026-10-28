@@ -16,7 +16,7 @@ export const client = createTeamClient({
     const counted = path === '/telemetry/ui' ? noop : telemetry.request(method, path)
     return (result) => {
       counted(result)
-      noteStatus(path, result.status)
+      noteStatus(path, result.status, method)
     }
   },
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Atmosphere } from '@/components/Atmosphere'
 import { Wordmark } from '@/components/Wordmark'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { useErrorText, useT } from '@/i18n'
 import { isTeamApiError } from '@team-platform/client'
 import { useLogin } from '@team-platform/client/react'
-import { clearEndedSession, readEndedSession } from '@/lib/session'
+import { readEndedSession, settleEndedSession } from '@/lib/session'
 import { cn } from '@/lib/utils'
 
 type Field = 'email' | 'password'
@@ -22,6 +22,16 @@ export function Login() {
   /** The reason each field is marked with, shown under that field. The server does not say which of the pair it refused, so the reason goes under the last one. */
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [pending, setPending] = useState(false)
+  /** A wait is not a reason about the fields: it counts down on its own line and marks nothing. `until` is when it ends (ms); without it the server gave no count and `text` stays. */
+  const [wait, setWait] = useState<{ until: number | null; text: string } | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!wait?.until) return
+    setNow(Date.now())
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [wait?.until])
+  const left = wait?.until ? Math.ceil((wait.until - now) / 1000) : null
 
   const submit = async () => {
     if (pending) return
@@ -34,13 +44,18 @@ export function Login() {
     }
     setPending(true)
     setErrors({})
+    setWait(null)
     try {
       await login.mutateAsync({ email: email.trim(), password })
-      clearEndedSession()
+      settleEndedSession()
     } catch (err) {
-      // A wait says its seconds: the server's own count, which grows with each failure and is not «minutes».
-      const wait = isTeamApiError(err) && err.code === 'too_many_requests' ? err.details.retryAfterSeconds : undefined
-      setErrors({ email: '', password: typeof wait === 'number' ? t('login.wait', { n: wait }) : errorText(err) })
+      if (isTeamApiError(err) && err.code === 'too_many_requests') {
+        // A wait says its seconds, the server's own count (it grows with each failure and is not «minutes»), and goes down each second until it is gone.
+        const seconds = err.details.retryAfterSeconds
+        setWait({ until: typeof seconds === 'number' ? Date.now() + seconds * 1000 : null, text: errorText(err) })
+      } else {
+        setErrors({ email: '', password: errorText(err) })
+      }
     } finally {
       setPending(false)
     }
@@ -49,6 +64,7 @@ export function Login() {
   const fieldClass = (field: Field) => cn('[@media(pointer:coarse)]:h-11', errors[field] !== undefined && '!border-danger')
 
   const reasons = [errors.email, errors.password].filter((r): r is string => !!r)
+  const waiting = wait && (left === null || left > 0)
   return (
     <main data-screen="login" className="relative flex min-h-dvh items-center justify-center px-5">
       <Atmosphere />
@@ -83,9 +99,14 @@ export function Login() {
       </form>
       {/* Under the card and out of its flow: a reason of one line or of two never moves the card (DISENO.md, entrada). */}
       <div className="absolute inset-x-0 top-full mt-3 flex flex-col gap-1 px-1">
-        {ended && reasons.length === 0 && (
+        {ended && reasons.length === 0 && !waiting && (
           <p role="status" data-testid="login-session-ended" className="text-sm text-fg">
             {t('login.sessionEnded')}
+          </p>
+        )}
+        {waiting && (
+          <p role="alert" data-testid="login-wait" className="text-sm text-danger">
+            {left === null ? wait.text : t('login.wait', { n: left })}
           </p>
         )}
         {errors.email && (

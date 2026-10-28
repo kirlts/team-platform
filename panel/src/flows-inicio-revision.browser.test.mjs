@@ -235,6 +235,14 @@ describe('the proposal on a phone and the bar of text at rest (I-1 to I-4, I-6)'
         const b = await drawer.getByTestId(id).first().boundingBox()
         if (b) assert.ok(b.height >= 43.5 && b.width >= 43.5, `${id} is ${b.width}x${b.height}`)
       }
+      // The one that takes more messages is the quieter and stands apart from the other (judge of the entry, finding H6).
+      const one = await drawer.getByTestId('delete-send').boundingBox()
+      const all = await drawer.getByTestId('delete-send-all').boundingBox()
+      const sideBySide = Math.abs(one.y - all.y) < 4
+      const apartBy = sideBySide ? all.x - (one.x + one.width) : all.y - (one.y + one.height)
+      assert.ok(apartBy >= (sideBySide ? 16 : 6), `the two forms of deleting are ${apartBy} px apart`)
+      const colorOf = (id) => drawer.getByTestId(id).evaluate((el) => getComputedStyle(el).color)
+      assert.notEqual(await colorOf('delete-send'), await colorOf('delete-send-all'), 'both forms of deleting weigh the same')
       const reprocess = await drawer.getByRole('button', { name: 'Reprocesar' }).boundingBox()
       assert.ok(reprocess.height >= 43.5, `Reprocesar is ${reprocess.height} px high`)
     } finally {

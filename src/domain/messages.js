@@ -560,6 +560,7 @@ export function deleteMessage ({ db, events, now = Date.now }, { messageId, acto
     assertMessageOwner(db, row, actor)
     run(db, 'UPDATE messages SET deleted_at = ? WHERE id = ?', now(), messageId)
     audit(db, { memberId: actor.id, action: 'message.delete', entity: 'message', entityId: messageId, now })
+    events.publish({ kind: 'message', data: { reason: 'changed', roots: ['messages', 'areas', 'inputs'], message_id: String(messageId), gone: [String(messageId)] } })
   })
 }
 
@@ -603,6 +604,7 @@ export function deleteMessages ({ db, events, now = Date.now }, { ids, actor }) 
       run(db, 'UPDATE messages SET deleted_at = ? WHERE id = ?', at, id)
       audit(db, { memberId: actor.id, action: 'message.delete', entity: 'message', entityId: id, detail: { bulk: unique.length }, now })
     }
+    events.publish({ kind: 'message', data: { reason: 'changed', roots: ['messages', 'areas', 'inputs'], gone: unique.map(String) } })
     return unique.map(String)
   })
 }

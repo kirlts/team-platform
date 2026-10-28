@@ -722,6 +722,8 @@ export const en: Record<MessageKey, Message> = {
   'error.validation': 'Invalid data',
   'error.description_required': 'The description is missing',
   'error.file_encoding': 'The file is not UTF-8 text',
+  'session.actionLost': 'The last action did not complete: the session expired',
+  'session.sendLost': { one: 'Send not completed: session expired, {n} attachment lost', other: 'Send not completed: session expired, {n} attachments lost' },
   'login.sessionEnded': 'The session expired',
   'login.wait': 'Too many attempts; retry in {n} s',
   'login.entering': 'Signing in',

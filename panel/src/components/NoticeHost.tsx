@@ -69,14 +69,14 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
           {(notice.link || notice.action) && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold">
               {notice.link && (
-                <Link to={notice.link.to} onClick={dismiss} className="inline-flex min-h-6 items-center text-accent hover:underline pointer-coarse:min-h-11">
+                <Link to={notice.link.to} onClick={dismiss} className="inline-flex min-h-6 items-center text-accent hover:underline pointer-coarse:-my-2 pointer-coarse:min-h-11">
                   {notice.link.label}
                 </Link>
               )}
               {notice.action && (
                 <button
                   type="button"
-                  className="inline-flex min-h-6 items-center text-accent hover:underline pointer-coarse:min-h-11"
+                  className="inline-flex min-h-6 items-center text-accent hover:underline pointer-coarse:-my-2 pointer-coarse:min-h-11"
                   onClick={() => {
                     const run = notice.action!.run
                     dismiss()

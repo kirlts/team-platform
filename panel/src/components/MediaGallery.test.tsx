@@ -213,6 +213,7 @@ describe('gallery helpers', () => {
     expect(caption.className).not.toContain('flex-wrap')
     const name = screen.getByText(/una-captura-de-pantalla/)
     expect(name.className).toContain('truncate')
+    expect(name.getAttribute('data-ellipsis-ok')).toBe('V5')
     expect(name.getAttribute('title')).toContain('nombre-larguisimo')
     expect(caption.querySelector('[data-gallery-count]')?.className).toContain('shrink-0')
   })

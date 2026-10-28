@@ -107,7 +107,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
                   <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={link}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
-                    <span className="min-w-0 truncate leading-tight" /* justified: the area name gives way to its counts, one line and the whole name in its title (UD-315, Martín 2026-10-28) */ title={a.title}>{a.title}</span>
+                    <span className="min-w-0 truncate leading-tight" data-ellipsis-ok="UD-315" /* justified: the area name gives way to its counts, one line and the whole name in its title (UD-315, Martín 2026-10-28) */ title={a.title}>{a.title}</span>
                   </NavLink>
                   {/* The counts' column is the same one as every row's: a name wraps the same before and after they arrive. */}
                   <span data-nav-count className={countCol}>

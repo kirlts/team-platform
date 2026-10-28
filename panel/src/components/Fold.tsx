@@ -11,9 +11,9 @@ export function Fold({ title, note, action, defaultOpen = false, children, class
   const id = useId()
   return (
     <section id={anchor} className={cn('glass leaf flex min-h-0 shrink-0 flex-col scroll-mt-4', className)}>
-      <div className={cn('flex items-center gap-3 rounded-[inherit] pr-3', action && 'flex-wrap py-2')}>
+      <div className={cn('flex items-center gap-3 rounded-[inherit]', action && 'flex-wrap py-2 pr-3')}>
         <h2 className={cn('m-0 min-w-0 flex-1', action && 'basis-40')}>
-          <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className={cn('flex min-h-10 w-full items-center gap-2 px-5 text-left hover:bg-hover pointer-coarse:min-h-11', open ? 'rounded-tl-[inherit]' : 'rounded-l-[inherit]')}>
+          <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className={cn('flex min-h-10 w-full items-center gap-2 px-5 text-left hover:bg-hover pointer-coarse:min-h-11', action ? (open ? 'rounded-tl-[inherit]' : 'rounded-l-[inherit]') : open ? 'rounded-t-[inherit]' : 'rounded-[inherit]')}>
             <ChevronRight size={16} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
             <span>{title}</span>
             {note !== undefined && note !== null && note !== false && <span className="text-sm font-normal normal-case tracking-normal text-muted tabular-nums">{note}</span>}

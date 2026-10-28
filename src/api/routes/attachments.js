@@ -82,33 +82,33 @@ export function registerAttachmentRoutes (app, ctx) {
     return sendFile(att, request, reply)
   })
 
-  // The text the pipeline extracted from an audio or a video (its transcript), for the gallery. Same access as the file.
+  // The text the pipeline extracted from an attachment, for the gallery: the transcript of an audio or a video, the description of a photo, the text of a document or of a link. Same access as the file.
   app.get('/attachments/:id/transcript', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'La transcripción de un audio o un video adjunto',
-      description: 'El texto que el análisis extrajo del adjunto, con la marca `mm:ss` de cada segmento. 404 si el adjunto no existe, no es audio ni video, o todavía no se extrajo texto.',
+      summary: 'El texto extraído de un adjunto',
+      description: 'El texto que el análisis extrajo del adjunto: la transcripción de un audio o un video (con la marca `mm:ss` de cada segmento), la descripción de una imagen, el texto de un documento o de un enlace. 404 si el adjunto no existe o todavía no se extrajo texto.',
       params: idParams(),
       response: { 200: { type: 'object', properties: { text: { type: 'string' } } } }
     }
   }, async (request) => {
     const att = get(db, 'SELECT id, kind, extracted_text FROM attachments WHERE id = ?', request.params.id)
-    if (!att || !['audio', 'video'].includes(att.kind) || !att.extracted_text || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no tiene transcripción.')
+    if (!att || !att.extracted_text || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no tiene texto extraído.')
     return { text: att.extracted_text }
   })
 
-  // The transcript of the audio or video of a reply (UD-279). Same access as the file.
+  // The text read from an attachment of a reply (UD-279: the speech of an audio or a video). Same access as the file.
   app.get('/replies/attachments/:id/transcript', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'La transcripción de un audio o un video adjunto a una respuesta',
-      description: 'El texto que se leyó del adjunto de una respuesta (UD-279). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.',
+      summary: 'El texto extraído de un adjunto de una respuesta',
+      description: 'El texto que se leyó del adjunto de una respuesta (UD-279). 404 si el adjunto no existe o todavía no se leyó.',
       params: idParams(),
       response: { 200: { type: 'object', properties: { text: { type: 'string' } } } }
     }
   }, async (request) => {
     const att = get(db, 'SELECT id, kind, extracted_text FROM reply_attachments WHERE id = ?', request.params.id)
-    if (!att || !['audio', 'video'].includes(att.kind) || !att.extracted_text || !canReadReplyAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no tiene transcripción.')
+    if (!att || !att.extracted_text || !canReadReplyAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no tiene texto extraído.')
     return { text: att.extracted_text }
   })
 

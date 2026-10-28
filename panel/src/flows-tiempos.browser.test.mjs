@@ -30,7 +30,7 @@ async function session(path) {
 }
 
 describe('Timing of a message (UD-262)', () => {
-  test('the block is folded, opens with the figures, the slowest tools and the cascade', async () => {
+  test('the block is folded, opens with the figures and the cascade, which holds the slowest tools', async () => {
     const { done_id: doneId } = await panel.control.execution()
     const { page, context } = await session(`/messages/${doneId}`)
     try {
@@ -47,9 +47,8 @@ describe('Timing of a message (UD-262)', () => {
       assert.equal(await figure('Total').innerText(), '23 min 0 s')
       assert.equal(await figure('Tiempo de espera').innerText(), '15 min 20 s')
       assert.deepEqual(await block.locator('[data-timing-phase]').evaluateAll((els) => els.map((e) => e.getAttribute('data-timing-phase'))), ['create', 'run', 'destroy'])
-      const slow = block.locator('[data-timing-slow]')
-      assert.match(await slow.first().innerText(), /Orden: npm test\s+1 min 34 s/, 'the slowest tool goes first')
-      assert.ok((await slow.count()) <= 5)
+      assert.equal(await block.locator('[data-timing-slow]').count(), 0, 'with the cascade, the slowest tools are in it and not listed twice')
+      assert.match(await block.locator('[data-span]', { hasText: 'Orden: npm test' }).first().innerText(), /Orden: npm test\s+1 min 34 s/)
       assert.ok(await block.locator('[data-span="execute.machine.run"]').count(), 'the cascade reuses the span rows')
       assert.ok(await block.locator('[data-span="execute.subagent"]').count())
     } finally {

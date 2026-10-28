@@ -292,7 +292,7 @@ function seedMessage(m, rs = []) {
   return msg
 }
 
-seedMessage({ assessment: { expectation: 'Cambiar el color del botón y mostrar el antes y el después.', guards: [1], estimates: { understand_vs_create: 0.15, irreversibility: 0.1, value_holder: 'model', certainty: 0.9, reason: 'Es un ajuste de estilo con la causa dicha.' }, by: null }, area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
+seedMessage({ assessment: { expectation: 'Cambiar el color del botón y mostrar el antes y el después.', guards: [1], estimates: { understand_vs_create: 0.15, irreversibility: 0.1, value_holder: 'model', certainty: 0.9, reason: 'Es un ajuste de estilo con la causa dicha.', idea: 0.1, idea_guard: false, idea_reason: 'Describe algo que falla, no una posibilidad.' }, by: null }, area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
 seedMessage({ assessment: { expectation: 'Investigar el formato del archivo y proponer cómo exportarlo; después, implementarlo.', guards: [], estimates: { understand_vs_create: 0.6, irreversibility: 0.2, value_holder: 'model', certainty: 0.7, reason: 'Hay que diseñar el formato.' }, by: null }, area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
   { author_id: 'u-ana', kind: 'clarification', body: '¿El formato es CSV o una hoja de cálculo? Cambia el esfuerzo.', created_at: ago(120) },
   { author_id: 'u-diego', kind: 'answer', body: 'CSV alcanza.', created_at: ago(90) },
@@ -952,10 +952,107 @@ function control(path, query) {
     const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
     const msg = seedMessage({ area_id: 'a-feature', author_id: 'u-carla', title: 'Subir fotos clínicas a la ficha', body: 'Quiero subir fotos del paciente desde el teléfono a su ficha.', created_at: ago(60), assignee_ids: ['u-ana'], attachment_ids: [] }, [
       { author_id: 'u-claude', kind: 'clarification', created_at: ago(8), attachment_ids: [shot('0:02', 'Paso 1 · Abrir la ficha', 210), shot('0:05', 'Paso 2 · Apretar Tomar fotografía', 160)],
-        body: 'La ficha del paciente ahora permite tomar una fotografía y guardarla en su historial. Cambia lo que ve la recepción.\n\nRiesgo: la foto queda con datos de una persona. Mirar el paso 2 antes de entregar.\n\nCambio listo para revisar: toca datos de personas. Todavía no llega a producción. Cómo queda, en «Propuesta».\n\n**Resultado**: needs_decision' }
+        body: 'La ficha del paciente ahora permite tomar una fotografía y guardarla en su historial. Cambia lo que ve la recepción.\n\nRiesgo: la foto queda con datos de una persona. Mirar el paso 2 antes de entregar.\n\nCambio listo para revisar: toca datos de personas. Todavía no llega a producción. Cómo queda, en «Propuesta».' }
     ])
-    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Toca datos de personas', job_id: 'j-rev0', agent_id: 'u-claude', delivering_job_id: null })
+    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Toca datos de personas', job_id: 'j-rev0', agent_id: 'u-claude', delivering_job_id: null, state: 'held' })
     return { message_id: msg.id }
+  }
+  if (path === '/_control/idea-guard') {
+    // UD-307: the Guard of the idea applies. Claude built and showed the idea, nothing is delivered, the thread says «Lista para ver» and the message waits for a person with its review held.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
+    const msg = seedMessage({
+      assessment: { expectation: 'Mostrar cómo se vería un resumen semanal por área; la decisión de publicarlo es de una persona.', guards: [], estimates: { understand_vs_create: 0.7, irreversibility: 0.3, value_holder: 'person', certainty: 0.6, reason: 'Es una posibilidad sin fecha ni acuerdo.', idea: 0.9, idea_guard: true, idea_reason: 'Quien escribe comparte una posibilidad para ver, no un cambio acordado.' }, by: null },
+      area_id: 'a-idea', author_id: 'u-carla', title: 'Un resumen semanal por área en Inicio', body: 'Sería bueno ver un resumen de lo cerrado y lo abierto por área cada lunes, arriba de las listas.', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [],
+    }, [
+      { author_id: 'u-claude', kind: 'clarification', created_at: ago(9), attachment_ids: [shot('0:03', 'Resumen en Inicio', 260), shot('0:08', 'Resumen por área', 190)],
+        body: 'Lista para ver. No está en producción: respóndeme en este hilo qué quieres que haga con esto.\n\nInicio ahora muestra una franja con lo cerrado y lo abierto de cada área. Se ve en «Propuesta».' },
+    ])
+    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Idea para ver', job_id: 'j-idea0', agent_id: 'u-claude', delivering_job_id: null, state: 'held' })
+    return { message_id: msg.id }
+  }
+  if (path === '/_control/handoff') {
+    // UD-269: Claude could not decide. The reply is the question with its recommendation, the agent left the assignees and the person who decides in the area holds the message.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const msg = seedMessage({
+      assessment: { expectation: 'Exportar los mensajes cerrados del mes; falta saber dónde se entrega el archivo.', guards: [], estimates: { understand_vs_create: 0.4, irreversibility: 0.5, value_holder: 'person', certainty: 0.5, reason: 'Falta un criterio del negocio.', idea: 0.1, idea_guard: false, idea_reason: 'Pide un cambio decidido.' }, by: null },
+      area_id: 'a-feature', author_id: 'u-diego', title: 'Entregar el resumen mensual al cliente', body: 'El cliente quiere recibir cada mes el resumen de lo cerrado.', created_at: ago(70), assignee_ids: ['u-ana'], attachment_ids: [],
+    }, [
+      { author_id: 'u-claude', kind: 'clarification', created_at: ago(12),
+        body: 'Necesito una decisión: ¿el resumen llega por correo o se descarga desde la plataforma?\n\nRecomendación: por correo, el primer día de cada mes.\n\nSi la respuesta es otra: el cliente tendría que entrar a la plataforma para verlo.' },
+    ])
+    return { message_id: msg.id }
+  }
+  if (path === '/_control/extraction') {
+    // UD-071: the text read from what the message carries: the speech of an audio and of a video, and the text of a document, shown with each medium.
+    const voice = seedAttachment('audio', 'audio/wav', 'nota-con-texto.wav', silentWav(8))
+    attachments.get(voice).transcript = 'Primero, el botón Enviar no se distingue en el tema oscuro. Segundo, la lista tarda en abrir cuando hay muchos mensajes.'
+    const video = seedAttachment('video', 'video/webm', 'recorrido-con-voz.webm', readFileSync(new URL('./dev-fixtures/sample.webm', import.meta.url)))
+    attachments.get(video).transcript = SPOKEN_SAMPLE
+    const pdf = seedAttachment('document', 'application/pdf', 'informe-del-cliente.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'))
+    attachments.get(pdf).transcript = 'Informe del cliente. Resumen: la lista de pacientes tarda en abrir con más de mil filas. Pedido: que abra en menos de dos segundos.'
+    const msg = seedMessage({ area_id: 'a-error', author_id: 'u-bruno', title: 'Nota de voz, video y un informe', body: 'Lo dije hablando y dejé la grabación y el informe del cliente.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [voice, video, pdf] })
+    return { message_id: msg.id }
+  }
+  if (path === '/_control/states') {
+    // The states that a judge looks at in the sheet of a message, each one in its own message (docs/CAPACIDADES-1.0.md). `node scripts/juicios.mjs preparar --items message-detail` calls it and captures every message.
+    // Returns { <state>: message id }. The states of the Guard of the idea, the handoff and the held review come from their own orders.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const phase = (name, duration_ms, status = 'unset') => ({ name, duration_ms, offset_ms: null, status })
+    const timing = (message_id, over) => ({ message_id, machine: true, delivers: true, job_id: `j-work-${message_id}`, job_status: 'running', trace_id: null, phase: null, attempts: 1, elapsed_ms: null, first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null, total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null, ...over })
+    const work = (title, over, rs = [], more = {}) => {
+      const msg = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title, body: `${title}: mensaje que trabaja Claude.`, created_at: ago(40), assignee_ids: ['u-claude'], attachment_ids: [], ...more }, rs)
+      workTimings.set(msg.id, timing(msg.id, over))
+      return msg
+    }
+    const out = {}
+    // Exit 75: the host has no capacity to deliver now. The delivery waits and tries again; the sheet says it in the panel «Trabajo» (the session is done, the delivery is waiting).
+    const waiting = work('Entrega en espera por capacidad del anfitrión', { phase: 'deliver', elapsed_ms: 190_000, phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000)], deliver: { job_id: 'j-d75', job_status: 'queued', phase: 'deliver', attempts: 1 } }, [
+      { author_id: 'u-claude', kind: 'answer', created_at: ago(20), body: 'Construido; entregando a producción.' },
+    ])
+    emit(null, 'progress', { job_id: 'j-d75', percent: 60, phrase: 'En espera: entrega a producción', code: 'deliverWait', vars: {}, at: new Date().toISOString() })
+    out.delivery_waiting_75 = waiting.id
+    // Exit 76: the host holds the delivery for a person. The review line and the reply that says why.
+    const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
+    const held = seedMessage({ area_id: 'a-feature', author_id: 'u-carla', title: 'Entrega retenida para una persona', body: 'Cambiar el texto de los recordatorios de pago.', created_at: ago(55), assignee_ids: ['u-ana'], attachment_ids: [] }, [
+      { author_id: 'u-claude', kind: 'clarification', created_at: ago(14), attachment_ids: [shot('0:04', 'Recordatorio nuevo', 30)],
+        body: 'Cambié el texto de los recordatorios de pago. La orden de entrega del anfitrión no lo publica sola: pidió que una persona lo revise antes.\n\nMotivo: toca mensajes que llegan a los pacientes.\n\nCambio listo para revisar. Todavía no llega a producción. Cómo queda, en «Propuesta».' },
+    ])
+    reviews.set(held.id, { branch: `tp/${held.id}`, held_reason: 'Toca mensajes que llegan a los pacientes', job_id: 'j-h76', agent_id: 'u-claude', delivering_job_id: null, state: 'held' })
+    out.delivery_held_76 = held.id
+    // The text read from a document, an image and a link, each in its own message.
+    const extracted = (title, kind, mime, name, data, text) => {
+      const att = seedAttachment(kind, mime, name, data)
+      attachments.get(att).transcript = text
+      return seedMessage({ area_id: 'a-error', author_id: 'u-bruno', title, body: `${title}.`, created_at: ago(30), assignee_ids: ['u-ana'], attachment_ids: [att] }).id
+    }
+    out.extracted_document = extracted('Texto extraído de un documento', 'document', 'application/pdf', 'informe-del-cliente.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'), 'Informe del cliente. Resumen: la lista de pacientes tarda en abrir con más de mil filas. Pedido: que abra en menos de dos segundos.')
+    out.extracted_image = extracted('Texto extraído de una imagen', 'image', 'image/svg+xml', 'agenda-con-error.svg', svgCapture('Agenda', 20), 'Captura de la agenda de reservas. Se lee el aviso «No se pudo guardar la cita» en rojo, bajo el botón Agendar, y la fecha 14 de noviembre.')
+    out.extracted_link = extracted('Texto extraído de un enlace', 'link', 'text/uri-list', 'https://github.com/example/team-platform/issues/1234', Buffer.from('https://github.com/example/team-platform/issues/1234'), 'Issue 1234: El botón Agendar no responde en el teléfono. Al tocarlo con la sesión recién abierta no pasa nada; con la segunda vez funciona. Pasos: abrir la agenda, tocar Agendar.')
+    // The trace of the work with tokens and cost, in Detalles: the span of the session carries the call to the model.
+    const span = (name, ms, attributes = {}, children = [], status = 'ok') => ({ trace_id: 't-states', span_id: `s-${name}-${ms}`, parent_id: null, name, kind: 'INTERNAL', status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
+    const tool = (name, summary, ms) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, 'team.tool.success': true })
+    const tools = [tool('Read', 'Lectura: Reservas.tsx', 800), tool('Edit', 'Edición: Reservas.tsx', 1200), tool('Bash', 'Orden: npm test', 61000)]
+    const run = span('execute.machine.run', 210000, { 'gen_ai.usage.input_tokens': 184_200, 'gen_ai.usage.output_tokens': 9_450, 'team.cost_usd': 0.8123 }, tools)
+    const tree = span('execute', 1_380_000, { 'team.queue_wait_ms': 920_000 }, [span('execute.machine.create', 95000), run, span('execute.machine.destroy', 8000)])
+    const traced = work('Traza del trabajo con tokens y costo', {
+      job_status: 'done', trace_id: 'b'.repeat(32), model: 'claude-haiku-5-5', cost_usd: 0.8123,
+      first_reply_ms: 41000, final_reply_ms: 1_320_000, first_reply_since_message_ms: 961000, final_reply_since_message_ms: 2_240_000, total_ms: 1_380_000, queue_wait_ms: 920_000,
+      phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000)],
+      slowest: tools.map((n) => ({ kind: 'tool', name: n.attributes['gen_ai.tool.name'], summary: n.attributes['team.tool.summary'], duration_ms: n.duration_ms, success: true })).sort((a, b) => b.duration_ms - a.duration_ms),
+      tree,
+    }, [{ author_id: 'u-claude', kind: 'answer', created_at: ago(8), body: 'Listo: el botón dice Agendar. Ya está en producción.\n\n**Resultado**: done' }])
+    out.trace_tokens_cost = traced.id
+    // The daily budget is spent: the agent says it once in the thread and the job waits for the next day.
+    const budget = work('Presupuesto diario agotado', { job_status: 'queued' }, [
+      { author_id: 'u-claude', kind: 'answer', created_at: ago(3), body: 'En espera: se alcanzó el tope de gasto de hoy. Sigue mañana a las 00:00.' },
+    ])
+    out.budget_spent = budget.id
+    // The panel «Trabajo» with its stretch «Máquina» (creating the machine).
+    out.work_machine = control('/_control/agent-work', query).machine
+    out.idea_guard = control('/_control/idea-guard', query).message_id
+    out.handoff = control('/_control/handoff', query).message_id
+    return out
   }
   if (path === '/_control/reset') {
     reviews.clear()

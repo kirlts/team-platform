@@ -245,11 +245,11 @@ describe('sending and closing (J5-flow-reply-close)', () => {
     }
   })
 
-  test('on a phone the field is one tap from the first screen: «Responder» in the top row takes the focus to it', async () => {
+  test('on a phone the field is one tap from the first screen: «Respuesta» in the top row takes the focus to it', async () => {
     const { page, context } = await session('bruno', PHONE, { mobile: true })
     try {
       await openMessage(page, 'Revisar la lectura')
-      const jump = page.getByRole('link', { name: 'Responder', exact: true })
+      const jump = page.getByRole('link', { name: 'Respuesta', exact: true })
       const box = await jump.boundingBox()
       assert.ok(box.y + box.height <= PHONE.height, 'the link is in the first screen')
       assert.equal(await page.getByRole('textbox', { name: 'Respuesta' }).evaluate((el) => el.getBoundingClientRect().top > window.innerHeight), true, 'the field is below the first screen')

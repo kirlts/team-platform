@@ -1,8 +1,7 @@
 import { useId, useState } from 'react'
 import { ChevronRight } from '@/components/icons'
 import { NativeSelect } from '@/components/NativeSelect'
-import { seconds } from '@/components/Timing'
-import { useErrorText, useT, type MessageKey } from '@/i18n'
+import { useErrorText, useFormat, useT, type MessageKey } from '@/i18n'
 import { PHASE_KEYS, type RunPhase } from '@team-platform/client'
 import { useExecuteRunsSummary } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
@@ -51,6 +50,7 @@ export function ExecutionRuns() {
 
 function RunsBody() {
   const t = useT()
+  const { duration, usd } = useFormat()
   const errorText = useErrorText()
   const [days, setDays] = useState<number>(30)
   const summary = useExecuteRunsSummary(days)
@@ -59,8 +59,8 @@ function RunsBody() {
     ? [
         [t('runs.count'), String(d.runs)],
         [t('runs.failed'), String(d.failed)],
-        [t('runs.costAvg'), d.cost.avg_usd === null ? '—' : `US$ ${d.cost.avg_usd.toFixed(2)}`],
-        [t('runs.costTotal'), `US$ ${d.cost.total_usd.toFixed(2)}`],
+        [t('runs.costAvg'), d.cost.avg_usd === null ? '—' : usd(d.cost.avg_usd)],
+        [t('runs.costTotal'), usd(d.cost.total_usd)],
         [t('runs.delivery'), percent(d.delivery.rate)],
         [t('runs.resolved'), percent(d.resolved.rate)],
       ]
@@ -104,9 +104,9 @@ function RunsBody() {
               {PHASE_KEYS.filter((k) => d.phases[k].n > 0).map((k) => (
                 <tr key={k} data-runs-phase={k} className="border-t border-line">
                   <td className="h-12 pr-4">{t(LABELS[k])}</td>
-                  <td className="h-12 pr-4 text-right">{seconds(d.phases[k].avg ?? 0)}</td>
-                  <td className="h-12 pr-4 text-right">{seconds(d.phases[k].p50 ?? 0)}</td>
-                  <td className="h-12 text-right">{seconds(d.phases[k].p95 ?? 0)}</td>
+                  <td className="h-12 pr-4 text-right">{duration(d.phases[k].avg ?? 0)}</td>
+                  <td className="h-12 pr-4 text-right">{duration(d.phases[k].p50 ?? 0)}</td>
+                  <td className="h-12 text-right">{duration(d.phases[k].p95 ?? 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -116,7 +116,7 @@ function RunsBody() {
               {d.slowest_tools.slice(0, SLOWEST_SHOWN).map((s, i) => (
                 <li key={i} data-runs-slow className="flex flex-wrap items-baseline gap-x-3">
                   <span className={s.success === false ? 'text-danger' : ''}>{s.summary ?? s.name}</span>
-                  <span className="tabular-nums text-muted">{seconds(s.duration_ms)}</span>
+                  <span className="tabular-nums text-muted">{duration(s.duration_ms)}</span>
                 </li>
               ))}
             </ol>

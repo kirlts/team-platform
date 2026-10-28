@@ -213,7 +213,7 @@ export interface Assessment {
   expectation: string
   /** Ids of the Guards of the area that the message touches. */
   guards: number[]
-  estimates: { understand_vs_create: number; irreversibility: number; value_holder: 'person' | 'model'; certainty: number; reason: string } | null
+  estimates: { understand_vs_create: number; irreversibility: number; value_holder: 'person' | 'model'; certainty: number; reason: string; /** UD-307: how much of the request is an idea to explore, 0 to 1; null before it existed. */ idea?: number | null; /** UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */ idea_guard?: boolean; idea_reason?: string } | null
   /** The person who changed it by hand; null while it is the analyzer's. */
   by: string | null
 }

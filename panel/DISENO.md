@@ -176,7 +176,7 @@ Lo mide `src/flows-tarjetas-vistazo.browser.test.mjs` (alto igual por lista, ext
 
 ## Lo generado por IA
 
-UD-026. Todo contenido que genera el modelo vive en una superficie propia y se reconoce a simple vista en cualquier tamaño de pantalla: la propuesta del análisis (`AnalysisPanel`) y, en el detalle de un mensaje que nació de un análisis, una marca de origen discreta junto a la fecha.
+UD-026. Todo contenido que genera el modelo vive en una superficie propia y se reconoce a simple vista en cualquier tamaño de pantalla: la propuesta del análisis (`AnalysisPanel`). El detalle de un mensaje no lleva marca de origen (UD-309).
 
 | Elemento | Valor |
 |---|---|
@@ -253,7 +253,7 @@ UD-050. El texto de la interfaz es el de un programa de gestión: sustantivo cor
 - Una plantilla se edita como formulario (campos con casilla «Obligatorio» e instrucciones al modelo en su propia sección); el archivo con su cabecera YAML se construye al guardar y no se muestra (J1-A-32).
 - El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado se dice con su forma y su palabra (ver «Estados y avisos»).
 - Los anchos de columna siguen el contenido: la lista de mensajes ocupa 60 rem y deja el resto al fondo.
-- Trabajo de un agente (`AgentWork`, B7): en la ficha de un mensaje que atiende un agente, mientras espera, corre o falla, un panel de vidrio con una fila por tramo (Máquina, Sesión, Publicación: el mismo nombre que el botón «Reintentar publicación»).
+- Trabajo de un agente (`AgentWork`, B7): en la ficha de un mensaje que atiende un agente, mientras espera, corre o falla, un panel de vidrio con una fila por tramo (Máquina, Sesión, Publicación: el mismo nombre que el botón «Reintentar publicación»). La Sesión dura lo que la fase «Sesión» de Detalles › Tiempos: copiar la transcripción y destruir la máquina cierran el tramo para su estado y no suman a su tiempo.
   - Cada tramo es una sola fila de cinco columnas fijas: marca (16 px), nombre (6 rem), barra delgada en línea (el resto), control para desplegar (28 px; 44 px con puntero táctil) y tiempo al borde derecho (4,5 rem). Bajo la fila no hay barra de ancho completo ni línea de estado suelta.
   - Los desplegables están cerrados por omisión: el panel mide lo mismo con o sin historial y no crece si nadie los abre. Máquina no tiene desplegable.
   - Sesión despliega el historial de pasos (`SessionStepList`). Cada fila es una llamada a una herramienta, en orden: hora (`HH:MM:SS`), acción en lenguaje corriente («Leyó un archivo», «Editó un archivo», «Corrió un comando», «Buscó en el código», «Tomó una captura») y, en tinta apagada, el nombre técnico de la herramienta y su detalle (archivo, comando o patrón, en la pila monoespaciada porque se copia).
@@ -267,6 +267,11 @@ UD-050. El texto de la interfaz es el de un programa de gestión: sustantivo cor
   - En teléfono, donde el hilo queda bajo la primera pantalla, el mismo botón «Reintentar» está también en el panel. Sin color nuevo: acento al terminar o correr, peligro al fallar, tenue si espera.
   - Terminado el trabajo el panel desaparece y el historial queda en Detalles › Tiempos: la fila «Sesión» con el mismo desplegable (`FinishedSession`: el mismo `WorkRow` y la misma lista), cerrada por omisión.
 - El medidor (`Meter`) trae su alto (`h-2.5`, el del análisis y el envío): el relleno y el destello miden el 100 % de él, y sin alto la barra es una línea de 2 px. Un uso que necesite otro alto lo reemplaza con su clase. La variante delgada (`thin`, `h-1.5`) es la de `AgentWork`: mide 6 px con el borde y 4 px de relleno. Conserva el pozo (`--shadow-well`), el borde `edge` y el acento del relleno. Baja el alto para que la barra viva en la línea del nombre y el tiempo. El destello (`sheen`) es sólo del relleno de un trabajo que corre. El relleno de uno terminado (`still`) no se mueve; el de uno que falló (`danger`) toma el color de peligro. `prefers-reduced-motion` apaga el destello y el viaje de la barra sin avance.
+- Ficha del mensaje, revisión (UD-275, UD-280, UD-307): la línea «Cambio listo para revisar» es sólo estado y no lleva control, ni en la revisión ni en la Guardia de la idea. La revisión se escribe (o se habla) en el campo de respuesta que la ficha ya tiene, mencionando al agente; la ficha no ofrece «Entregar», «Descartar» ni «Responder a <agente>» como botones. Con una entrega en curso la línea muestra su avance.
+- Ficha del mensaje, cifras (UD-295): toda cifra usa la coma decimal del idioma (`useFormat().decimal`, `usd`, `duration`; «es-419» escribe sus números con la configuración de «es») y toda estimación dice su escala («0,15 de 1»). Las duraciones usan una sola unidad en toda la ficha («23 min 0 s»). Un indicador del juicio lleva su nombre y su signo («Fiabilidad funcional +1») y la escala se dice una vez sobre la lista. Un nombre interno de traza se lee como el paso que representa («Crear máquina», «Sesión»). Una falla se dice con la cruz y la palabra «Falló» (`FailedMark`), nunca sólo con color.
+- Ficha del mensaje, respuesta propia (UD-279): cada archivo se dibuja una vez, con su descarga y su «Quitar» al lado; la fila de herramientas es una sola («Adjuntar», «Grabar audio», «Mención») y usa los mismos nombres que el formulario de respuesta.
+- Ficha del mensaje, toques y carril: todo control de la ficha mide 44 px de alto bajo 768 px o con puntero grueso (`max-md:` y `pointer-coarse:`), y nunca menos de 24 px. El carril del hilo, mientras tenga más filas debajo, desvanece su última fila (`data-more`), como un campo que desplaza desvanece su primera línea. Cargando y error conservan el marco de la ficha (regreso y dos columnas).
+- Reenviar: la ventana se abre sin quejarse; al enviar sin miembro o sin motivo, cada campo dice lo que falta bajo sí, y Cancelar y Reenviar comparten una fila.
 
 ## Estados y avisos
 

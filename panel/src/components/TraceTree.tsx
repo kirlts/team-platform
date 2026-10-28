@@ -1,17 +1,29 @@
-import { useErrorText, useT } from '@/i18n'
+import { FailedMark } from '@/components/FailedMark'
+import { useErrorText, useFormat, useI18n, useT, type MessageKey } from '@/i18n'
 import { TeamApiError, type SpanNode } from '@team-platform/client'
 import { useJobTrace } from '@team-platform/client/react'
 
 const IN = 'gen_ai.usage.input_tokens'
 const OUT = 'gen_ai.usage.output_tokens'
 const COST = ['team', 'cost_usd'].join('.')
+const SUMMARY = ['team', 'tool', 'summary'].join('.')
 
-const duration = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${Math.round(ms / 100) / 10} s`)
-const usd = (n: number) => `US$ ${n.toFixed(4)}`
+/** What a span is called for a person: the step it stands for. A tool or a subagent says what it did (its summary); a name the catalog does not know is read as words, never shown as the dotted identifier. */
+function useSpanLabel() {
+  const { t, has } = useI18n()
+  return (node: SpanNode) => {
+    const summary = node.attributes[SUMMARY]
+    if ((node.name === 'execute.tool' || node.name === 'execute.subagent') && typeof summary === 'string' && summary) return summary
+    if (has(`span.${node.name}`)) return t(`span.${node.name}` as MessageKey)
+    const words = node.name.replace(/[._]+/g, ' ').trim()
+    return words.charAt(0).toUpperCase() + words.slice(1)
+  }
+}
 
 /** Span tree of one job (GET /jobs/:id/trace): duration on every span, tokens and cost on the provider calls. */
 export function TraceTree({ jobId }: { jobId: string }) {
   const t = useT()
+  const { decimal, usd } = useFormat()
   const errorText = useErrorText()
   const trace = useJobTrace(jobId, true)
   if (trace.isPending) return <p className="text-sm text-muted">…</p>
@@ -26,9 +38,9 @@ export function TraceTree({ jobId }: { jobId: string }) {
   const { totals } = trace.data
   const figures: [string, string][] = [
     [t('trace.calls'), String(totals.llm_calls)],
-    [t('trace.input'), totals.input_tokens.toLocaleString()],
-    [t('trace.output'), totals.output_tokens.toLocaleString()],
-    [t('trace.cost'), totals.cost_usd === null ? '—' : usd(totals.cost_usd)],
+    [t('trace.input'), decimal(totals.input_tokens, 0)],
+    [t('trace.output'), decimal(totals.output_tokens, 0)],
+    [t('trace.cost'), totals.cost_usd === null ? '—' : usd(totals.cost_usd, 4)],
   ]
   return (
     <div data-trace className="flex flex-col gap-2 rounded-lg bg-hover/50 px-4 py-3 text-sm">
@@ -62,6 +74,8 @@ export function SpanTree({ roots, label }: { roots: SpanNode[]; label: string })
 
 function Node({ node, depth }: { node: SpanNode; depth: number }) {
   const t = useT()
+  const { decimal, usd, duration } = useFormat()
+  const label = useSpanLabel()
   const input = node.attributes[IN]
   const output = node.attributes[OUT]
   const cost = node.attributes[COST]
@@ -69,15 +83,15 @@ function Node({ node, depth }: { node: SpanNode; depth: number }) {
   return (
     <li>
       <div data-span={node.name} style={{ paddingLeft: depth * 16 }} className="flex flex-wrap items-baseline gap-x-3">
-        <span className={failed ? 'font-medium text-danger' : ''}>{node.name}</span>
+        <span className={failed ? 'font-medium text-danger' : ''}>{label(node)}</span>
         <span className="tabular-nums text-muted">{duration(node.duration_ms)}</span>
         {typeof input === 'number' && (
           <span className="tabular-nums text-muted">
-            {t('trace.input')} {input.toLocaleString()} · {t('trace.output')} {Number(output ?? 0).toLocaleString()}
+            {t('trace.input')} {decimal(input, 0)} · {t('trace.output')} {decimal(Number(output ?? 0), 0)}
           </span>
         )}
-        {typeof cost === 'number' && <span className="tabular-nums text-muted">{usd(cost)}</span>}
-        {failed && <span className="text-danger">{t('queue.status.failed')}</span>}
+        {typeof cost === 'number' && <span className="tabular-nums text-muted">{usd(cost, 4)}</span>}
+        {failed && <FailedMark />}
       </div>
       {node.children.length > 0 && (
         <ul className="flex flex-col gap-0.5">

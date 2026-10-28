@@ -1,3 +1,4 @@
+// The second block of a screen that is waiting keeps its bars and does not say «Cargando» again.
 // J3-D3-03: the waiting rows of a list keep the place of its rows, with the height of the same row (`--spacing-card-row`), not a figure of their own.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -18,6 +19,12 @@ const draw = (tall: boolean) =>
   )
 
 describe('LoadState', () => {
+  it('says «Cargando» once, in the first block; the quiet one is only bars and is hidden from assistive technology', () => {
+    render(<I18nProvider language="es-419"><LoadState query={waiting} /><LoadState query={waiting} rows={2} quiet /></I18nProvider>)
+    expect(screen.getAllByText('Cargando')).toHaveLength(1)
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+  })
+
   it('a tall waiting row takes the height token of a row of Mensajes, and a plain one keeps its own', () => {
     draw(true)
     const rows = screen.getAllByTestId('load-row')

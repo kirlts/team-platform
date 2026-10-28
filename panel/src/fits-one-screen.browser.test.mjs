@@ -141,6 +141,12 @@ function measureInPage({ lanes, withBreak, scrolls }) {
   const mainOver = main ? main.scrollHeight - main.clientHeight : 0
   // Nothing is cut or laid over anything else (UD-017, kept by UD-110). Cut: a box that hides its overflow while its content is larger than it.
   // A thumbnail crops its image on purpose (no text in it) and a folded text fades out with a mask that says so; both are exempt, a cut text is not. Overlapped: two blocks of the page frame (the children of the view's first element) whose boxes cross; the bar to write, which grows over the page on purpose, is the one exemption.
+  // The viewer of a gallery is as tall as the slide in view: a taller slide of the row is out of sight to the side, not cut, so its height is that of the slides that cross the viewer.
+  const contentHeight = (el) => {
+    if (!el.hasAttribute('data-gallery-viewer')) return el.scrollHeight
+    const v = el.getBoundingClientRect()
+    return Math.max(0, ...[...el.children].filter((c) => { const r = c.getBoundingClientRect(); return r.right > v.left + 1 && r.left < v.right - 1 }).map((c) => c.offsetHeight))
+  }
   const cut = [...document.querySelectorAll('main *')]
     .filter((el) => {
       // `[class*=sr-only]` also takes the responsive form (`sm:sr-only`), text that is hidden from the eye on purpose from one width on.
@@ -149,7 +155,7 @@ function measureInPage({ lanes, withBreak, scrolls }) {
       const hides = ['hidden', 'clip'].includes(st.overflowY) || ['hidden', 'clip'].includes(st.overflowX)
       const r = rect(el)
       const fades = (st.maskImage ?? 'none') !== 'none' || (st.webkitMaskImage ?? 'none') !== 'none'
-      return hides && !fades && el.innerText?.trim() && r.width > 0 && r.height > 0 && st.textOverflow !== 'ellipsis' && ((['hidden', 'clip'].includes(st.overflowY) && el.scrollHeight > el.clientHeight + 1) || (['hidden', 'clip'].includes(st.overflowX) && el.scrollWidth > el.clientWidth + 1))
+      return hides && !fades && el.innerText?.trim() && r.width > 0 && r.height > 0 && st.textOverflow !== 'ellipsis' && ((['hidden', 'clip'].includes(st.overflowY) && contentHeight(el) > el.clientHeight + 1) || (['hidden', 'clip'].includes(st.overflowX) && el.scrollWidth > el.clientWidth + 1))
     })
     .map(label)
   const frame = main?.firstElementChild

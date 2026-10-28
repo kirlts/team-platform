@@ -641,7 +641,7 @@ describe('states, keyboard and rows', () => {
       await page.goto(`${origin}/messages/zzz`)
       await page.getByText('El mensaje no existe').waitFor()
       assert.equal(await page.getByRole('alert').getByText('El mensaje no existe').isVisible(), true)
-      await page.getByRole('link', { name: 'Volver a mensajes' }).click()
+      await page.getByRole('link', { name: 'Mensajes', exact: true }).first().click()
       await page.getByRole('heading', { name: 'Mensajes', level: 1 }).waitFor()
     } finally {
       await context.close()

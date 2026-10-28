@@ -6,9 +6,9 @@ import { useJobProgress } from '@team-platform/client/react'
 import { Meter } from './Meter'
 
 /**
- * «Cambio listo para revisar» (UD-275, amended by UD-280): one line of state while a change waits for a person. It has no actions: the review is done by
- * answering in the thread, by text or voice, mentioning Claude («Entregar», descartar, pedir cambios or ask a question are all words of the reply, and the model
- * says which one it was). While a delivery that was approved this way runs, the line shows its progress.
+ * «Cambio listo para revisar» (UD-275, amended by UD-280): one line of state while a change waits for a person, and nothing to press. The review is not a set of buttons
+ * or a control of this line: it is a reply in the thread, written or spoken in the reply field that the sheet already has, mentioning the agent («Entregar», descartar, pedir cambios or ask a question are all words of the reply, and the
+ * model says which one it was). While a delivery that was approved this way runs, the line shows its progress.
  */
 export function ReviewPending({ message }: { message: MessageDetail }) {
   const t = useT()
@@ -34,6 +34,11 @@ export function ReviewPending({ message }: { message: MessageDetail }) {
       <p data-testid="review-reason" className="text-sm">
         {title}
       </p>
+      {!busy && pending.state !== 'failed' && (
+        <p data-testid="review-how" className="m-0 text-xs text-muted">
+          {t('review.how')}
+        </p>
+      )}
       {busy && (
         <div data-testid="review-progress" className="flex flex-col gap-1">
           <Meter percent={progress?.percent ?? 0} label={t('review.delivering')} />

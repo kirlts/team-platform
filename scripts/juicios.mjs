@@ -61,6 +61,23 @@ const short = (text, max) => (text.length <= max ? text : `${text.slice(0, max -
 
 // ---- Captures: one pass of a headless browser through the example server
 
+/** What the sheet shows to see a state, once it is open: the part of Detalles that holds it, or the part of the sheet that is out of the first screen. */
+const openDetails = async (page) => { await page.getByRole('button', { name: 'Detalles', exact: true }).click(); await page.getByTestId('details').waitFor(); await page.getByTestId('details').scrollIntoViewIfNeeded() }
+const reveal = (testId) => async (page) => { await page.getByTestId(testId).first().waitFor({ timeout: 10000 }); await page.getByTestId(testId).first().scrollIntoViewIfNeeded() }
+const revealExtracted = async (page) => { const text = page.locator('[data-gallery-extracted] [data-gallery-transcript]').first(); await text.waitFor({ timeout: 10000 }); await text.scrollIntoViewIfNeeded() }
+const STATE_VIEWS = {
+  extracted_document: revealExtracted,
+  extracted_image: revealExtracted,
+  extracted_link: revealExtracted,
+  delivery_waiting_75: reveal('agent-work'),
+  delivery_held_76: reveal('review-pending'),
+  trace_tokens_cost: openDetails,
+  work_machine: reveal('agent-work'),
+  budget_spent: async (page) => { await page.getByText('Sigue mañana a las').first().scrollIntoViewIfNeeded() },
+  idea_guard: reveal('review-pending'),
+  handoff: reveal('handoff-waiting')
+}
+
 async function capture (outDir, items, { port }) {
   const { startPanel, login, settled } = await import(path.join(PANEL, 'src/browser-support.mjs'))
   const dir = path.join(outDir, 'capturas')
@@ -76,6 +93,8 @@ async function capture (outDir, items, { port }) {
     const msgs = await (await pp.request.get(`${panel.origin}/api/messages`)).json()
     const list = Array.isArray(msgs) ? msgs : msgs.items
     const message = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
+    // The sheet is captured once per state that a judge has to see, each in its own message (`/_control/states` of the example server).
+    const states = items.some((i) => i.id === 'message-detail') ? await panel.control.states() : {}
     const areasBody = await (await pp.request.get(`${panel.origin}/api/areas`)).json()
     const areas = Array.isArray(areasBody) ? areasBody : (areasBody.items ?? [])
     await probe.close()
@@ -90,10 +109,11 @@ async function capture (outDir, items, { port }) {
         let signedIn = false
         try {
           for (const item of screens) {
-            const shot = async (suffix, url) => {
+            const shot = async (suffix, url, prepare) => {
               await page.goto(url)
               await page.locator('main h1, main').first().waitFor({ timeout: 15000 }).catch(() => {})
               await page.waitForLoadState('networkidle').catch(() => {})
+              await prepare?.(page)
               await settled(page)
               const name = `${item.id}${suffix}-${vpName}-${theme}.png`
               await page.screenshot({ path: path.join(dir, name) })
@@ -113,7 +133,10 @@ async function capture (outDir, items, { port }) {
               continue
             }
             if (!signedIn) { await login(page, panel.origin); signedIn = true }
-            if (item.route === 'message') await shot('', `${panel.origin}/messages/${message.id}`)
+            if (item.route === 'message') {
+              await shot('', `${panel.origin}/messages/${message.id}`)
+              for (const [state, stateId] of Object.entries(states)) await shot(`-${state.replaceAll('_', '-')}`, `${panel.origin}/messages/${stateId}`, STATE_VIEWS[state])
+            }
             else {
               await shot('', `${panel.origin}${item.route}`)
               if (item.extraRoute === 'area' && areas[0]) await shot('-detalle', `${panel.origin}/areas/${(areas.find((a) => a.id === 'a-error') ?? areas[0]).id}`)

@@ -166,7 +166,8 @@ export function EditableText({
             'cursor-text hover:border-line-strong hover:bg-raised focus-visible:border-accent',
             type,
             // An empty field that can be filled looks like a place to fill: dashed edge (J1-A-23).
-            !value && 'border-dashed !border-line-strong text-faint',
+            // On a phone the place to fill is as tall as a touch target (44 px, DISENO.md).
+            !value && 'border-dashed !border-line-strong text-faint max-md:flex max-md:min-h-11 max-md:items-center',
           )}
         >
           {/* An empty placeholder keeps the line's height: the dashed box is the whole sign that it can be filled. */}

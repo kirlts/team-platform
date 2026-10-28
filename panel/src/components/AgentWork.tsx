@@ -1,8 +1,7 @@
 import { useLookups } from '@/components/lookups'
 import { RetryButton } from '@/components/RetryExecute'
-import { seconds } from '@/components/Timing'
 import { SessionStepList, WorkRow } from '@/components/WorkRow'
-import { useT, type MessageKey } from '@/i18n'
+import { useFormat, useT, type MessageKey } from '@/i18n'
 import { workSteps, type StepKey } from '@/lib/work-steps'
 import type { MessageDetail } from '@team-platform/client'
 import { useJobProgress, useMessageTiming, useRetryExecute } from '@team-platform/client/react'
@@ -26,6 +25,8 @@ export function AgentWork({ message }: { message: MessageDetail }) {
 
 function Work({ message }: { message: MessageDetail }) {
   const t = useT()
+  const { duration } = useFormat()
+  const { duration } = useFormat()
   const timing = useMessageTiming(message.id)
   const retryRun = useRetryExecute(message.id)
   const d = timing.data
@@ -44,7 +45,7 @@ function Work({ message }: { message: MessageDetail }) {
       <ol className="m-0 flex list-none flex-col p-0">
         {work.steps.map((s, i) => {
           const running = s.state === 'running' && work.state === 'running'
-          const time = s.ms !== null && s.state !== 'pending' ? seconds(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])
+          const time = s.ms !== null && s.state !== 'pending' ? duration(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])
           const unfolds = s.key === 'session' ? s.state !== 'pending' : s.key === 'deliver' ? (s.state === 'running' || s.state === 'failed') && deliverText !== '' : false
           return (
             <WorkRow

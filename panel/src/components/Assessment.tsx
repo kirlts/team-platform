@@ -4,7 +4,7 @@ import { useAreas, useMe, useSetAssessment } from '@team-platform/client/react'
 import { EditableText } from '@/components/EditableText'
 import { Fold } from '@/components/Fold'
 import { NativeSelect, ON_PAGE_FIELD } from '@/components/NativeSelect'
-import { useT, type MessageKey } from '@/i18n'
+import { useFormat, useT, type MessageKey } from '@/i18n'
 import { parseTemplateFields, RETIRED_FIELDS, retiredValues } from '@/lib/template'
 
 const DIMENSIONS = [
@@ -26,6 +26,7 @@ export function hasAssessment(message: MessageDetail, guards: Guard[], template?
 
 export function Assessment({ message, template, bare = false }: { message: MessageDetail; template?: Template; /** Without its own fold: «Detalles» holds it (UD-309). */ bare?: boolean }) {
   const t = useT()
+  const { decimal } = useFormat()
   const me = useMe().data
   const set = useSetAssessment()
   const areas = useAreas().data ?? []
@@ -61,7 +62,7 @@ export function Assessment({ message, template, bare = false }: { message: Messa
             <label className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-56">
               <span className="rotulo">{t('assessment.holder')}</span>
               {canEdit ? (
-                <NativeSelect className={ON_PAGE_FIELD} value={a.estimates.value_holder} onChange={(e) => set.mutate({ id: message.id, value_holder: e.target.value as 'person' | 'model' })} aria-label={t('assessment.holder')} data-testid="value-holder">
+                <NativeSelect className={`${ON_PAGE_FIELD} max-md:h-11`} value={a.estimates.value_holder} onChange={(e) => set.mutate({ id: message.id, value_holder: e.target.value as 'person' | 'model' })} aria-label={t('assessment.holder')} data-testid="value-holder">
                   <option value="person">{t('assessment.holder.person')}</option>
                   <option value="model">{t('assessment.holder.model')}</option>
                 </NativeSelect>
@@ -69,15 +70,29 @@ export function Assessment({ message, template, bare = false }: { message: Messa
                 <span className="font-semibold">{t(`assessment.holder.${a.estimates.value_holder}` as MessageKey)}</span>
               )}
             </label>
+            {/* Every estimate says its scale: from 0 to 1, with the decimal mark of the language (UD-295). */}
             <dl className="flex flex-wrap gap-x-6 gap-y-1" data-testid="estimates">
               {DIMENSIONS.map(([key, label]) => (
                 <div key={key} className="flex items-baseline gap-1.5">
                   <dt className="text-muted">{t(label)}</dt>
-                  <dd className="m-0 tabular-nums">{a.estimates ? a.estimates[key].toFixed(2) : ''}</dd>
+                  <dd className="m-0 tabular-nums">{a.estimates ? t('assessment.scale', { value: decimal(a.estimates[key]), max: 1 }) : ''}</dd>
                 </div>
               ))}
+              {typeof a.estimates.idea === 'number' && (
+                <div className="flex items-baseline gap-1.5">
+                  <dt className="text-muted">{t('assessment.idea')}</dt>
+                  <dd data-testid="idea-estimate" className="m-0 tabular-nums">{t('assessment.scale', { value: decimal(a.estimates.idea), max: 1 })}</dd>
+                </div>
+              )}
+              {typeof a.estimates.idea_guard === 'boolean' && (
+                <div className="flex items-baseline gap-1.5">
+                  <dt className="text-muted">{t('assessment.ideaGuard')}</dt>
+                  <dd data-testid="idea-guard" data-applies={String(a.estimates.idea_guard)} className="m-0 font-medium">{t(a.estimates.idea_guard ? 'assessment.ideaGuard.applies' : 'assessment.ideaGuard.doesNot')}</dd>
+                </div>
+              )}
             </dl>
             {a.estimates.reason && <p className="m-0 break-words text-muted">{a.estimates.reason}</p>}
+            {a.estimates.idea_guard === true && a.estimates.idea_reason && <p data-testid="idea-reason" className="m-0 break-words text-muted">{a.estimates.idea_reason}</p>}
           </div>
         )}
         {retired.length > 0 && (
@@ -96,11 +111,11 @@ export function Assessment({ message, template, bare = false }: { message: Messa
   )
 }
 
-/** The content of a fold drawn in the open, under its name, inside the one fold that holds it. */
+/** The content of a fold drawn in the open, under its name, inside the one fold that holds it. The name of the part is a heading; the small caps below it label what the part holds, so the two levels do not read as one. */
 export function Bare({ title, children }: { title: string; className?: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2 border-t border-line pt-3 first:border-t-0 first:pt-0">
-      <h3 className="rotulo">{title}</h3>
+      <h3 className="m-0 text-sm font-semibold text-fg">{title}</h3>
       {children}
     </section>
   )

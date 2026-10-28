@@ -7066,8 +7066,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * La transcripción de un audio o un video adjunto
-         * @description El texto que el análisis extrajo del adjunto, con la marca `mm:ss` de cada segmento. 404 si el adjunto no existe, no es audio ni video, o todavía no se extrajo texto.
+         * El texto extraído de un adjunto
+         * @description El texto que el análisis extrajo del adjunto: la transcripción de un audio o un video (con la marca `mm:ss` de cada segmento), la descripción de una imagen, el texto de un documento o de un enlace. 404 si el adjunto no existe o todavía no se extrajo texto.
          */
         get: {
             parameters: {
@@ -7123,8 +7123,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * La transcripción de un audio o un video adjunto a una respuesta
-         * @description El texto que se leyó del adjunto de una respuesta (UD-279). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.
+         * El texto extraído de un adjunto de una respuesta
+         * @description El texto que se leyó del adjunto de una respuesta (UD-279). 404 si el adjunto no existe o todavía no se leyó.
          */
         get: {
             parameters: {

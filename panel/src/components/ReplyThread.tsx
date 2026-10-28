@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronDown, Trash2 } from '@/components/icons'
+import { useNotices } from '@/lib/notices'
 import { Button } from '@/components/ui/button'
-import { useFormat, useT } from '@/i18n'
+import { useErrorText, useFormat, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 import type { MessageDetail, ProgressNote, Reply } from '@team-platform/client'
 import { useDeleteReply, useEditReply, useMe, useRestoreReply } from '@team-platform/client/react'
@@ -43,6 +44,8 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const del = useDeleteReply(message.id)
   const restore = useRestoreReply()
   const edit = useEditReply(message.id)
+  const notices = useNotices()
+  const errorText = useErrorText()
   const canReply = canReplyTo(message, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
   /** The names of the members the reply mentions (a list of ids chosen in the form): their tokens are drawn highlighted. */
   const mentionNames = (r: Reply) => (r.mentions ?? []).map((id) => memberName(id)).filter(Boolean)
@@ -94,6 +97,23 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   // What the person just did at the foot of the page (send, close) is brought into the window with its controls: on a phone the
   // form would otherwise end flush with the edge and «Cerrar» would fall below it (J5-flow-reply-close).
   const foot = useRef<HTMLDivElement>(null)
+  // The lane of the thread scrolls by itself from 768 px: while there is more below the last row it shows, the row fades instead of ending cut (the same way a field that scrolls fades its first line).
+  const lane = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const el = lane.current
+    if (!el) return
+    const measure = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 2)
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(el)
+    for (const child of Array.from(el.children)) observer?.observe(child)
+    return () => {
+      el.removeEventListener('scroll', measure)
+      observer?.disconnect()
+    }
+  }, [rows.length])
   const [sentAt, setSentAt] = useState<number | null>(null)
   useEffect(() => {
     if (sentAt !== null && message.replies.length > sentAt) {
@@ -118,7 +138,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>
       ) : (
-        <div data-lane="reply-thread" className="scroll-thin min-h-0 md:flex-initial md:overflow-y-auto md:pr-1">
+        <div ref={lane} data-lane="reply-thread" data-more={more || undefined} className="scroll-thin min-h-0 md:flex-initial md:overflow-y-auto md:pr-1">
           <ol className="thread relative flex flex-col gap-3">
             <span aria-hidden className="thread-line absolute bottom-4 left-4 top-4 w-px -translate-x-1/2 bg-line-strong" />
             {rows.map((x, i) => {
@@ -164,7 +184,9 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
               if (x.kind === 'removed') {
                 return (
                   <li key={key} className="relative flex gap-3">
-                    <span aria-hidden className="relative z-10 h-8 w-8 shrink-0 rounded-full bg-bg ring-4 ring-bg" />
+                    <span aria-hidden className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg text-muted ring-4 ring-bg">
+                      <Trash2 size={14} />
+                    </span>
                     <article role="status" className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg bg-hover px-3 py-2">
                       <span className="min-w-0 break-words text-sm text-muted">{t('replies.deletedRow', { name: memberName(x.reply.author_id) })}</span>
                       <Button size="sm" variant="secondary" onClick={() => void undo.undo()}>
@@ -227,7 +249,12 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                     ) : (
                       r.body && <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
                     )}
-                    <ReplyMedia items={r.attachments ?? []} tools={canEdit(r) && message.status !== 'closed' ? <ReplyTools message={message} reply={r} /> : undefined} />
+                    <ReplyMedia
+                      items={r.attachments ?? []}
+                      tools={canEdit(r) && message.status !== 'closed' ? <ReplyTools message={message} reply={r} /> : undefined}
+                      onRemove={canEdit(r) && message.status !== 'closed' ? (file) => edit.mutate({ replyId: r.id, remove_attachment_ids: [file.id] }, { onError: (err) => notices.show({ text: errorText(err) }) }) : undefined}
+                      removing={edit.isPending}
+                    />
                   </article>
                 </li>
               )

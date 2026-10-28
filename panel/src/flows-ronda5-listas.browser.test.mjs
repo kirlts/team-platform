@@ -79,7 +79,7 @@ describe('Inicio, Mensajes and Áreas lists (round 5)', () => {
       const counts = await page.locator('nav [data-nav-count] a.nav-count').evaluateAll((els) => els.map((el) => ({ name: el.getAttribute('aria-label'), title: el.getAttribute('title') })))
       assert.ok(counts.length >= 3)
       for (const c of counts) {
-        assert.match(c.name, /: \d+ abiertos? en el equipo$/)
+        assert.match(c.name, /: \d+ (abiertos?|respondidos?) en el equipo$/)
         assert.equal(c.title, c.name, 'the tooltip says the same as the accessible name')
       }
       // The two scopes differ in the sample data: the team has more open messages than the ones that are for me.

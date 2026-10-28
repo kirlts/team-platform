@@ -185,4 +185,4 @@ Ninguna. El 2026-10-28 pasan las 46 pruebas e2e `verde` de la tabla (331 casos d
 
 ## Decisiones del dueño tomadas en la verificación
 
-Con la cuenta en inglés, las etiquetas de los campos y los nombres de las áreas sembradas se leen en el idioma en que el Editor los escribió. Son textos configurados, no interfaz: lo decidió Martín el 2026-10-28 (UD-316).
+Las etiquetas de los campos y los nombres de las áreas sembradas se leen en el idioma en que el Editor los escribió, también con la cuenta en inglés. Son textos configurados, no interfaz: lo decidió Martín el 2026-10-28 (UD-316).

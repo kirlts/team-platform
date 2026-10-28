@@ -69,7 +69,7 @@ export function createFormats(language: Language, words: { today: string; yester
   const clock = (d: Date) => time.format(d)
   const timeSeconds = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
   const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: false })
-  const fixed = (digits: number) => new Intl.NumberFormat(numberLocale(language), { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const fixed = (digits: number) => new Intl.NumberFormat(numberLocale(language), { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always' })
   const decimals = new Map<number, Intl.NumberFormat>()
   const decimal = (n: number, digits = 2) => {
     if (!decimals.has(digits)) decimals.set(digits, fixed(digits))
@@ -77,7 +77,7 @@ export function createFormats(language: Language, words: { today: string; yester
   }
   return {
     decimal,
-    usd: (n, digits = 2) => `US$ ${decimal(n, digits)}`,
+    usd: (n, digits) => `US$ ${decimal(n, digits ?? (n !== 0 && Math.abs(n) < 0.01 ? 4 : 2))}`,
     duration: (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : ms < 60000 ? `${number.format(Math.round(ms / 100) / 10)} s` : `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s`),
     longDate: (d) => date.format(d).replace(/\./g, '').replace(/ de /g, ' '),
     fullStamp: (iso) => (Number.isNaN(new Date(iso).getTime()) ? '' : full.format(new Date(iso))),

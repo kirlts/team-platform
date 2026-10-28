@@ -74,6 +74,12 @@ export class EventsStore {
   }
 
   changed(e: ChangedEvent) {
+    // A deleted message is no news any more: the bell drops its notices (opening one led to «El mensaje no existe»).
+    if (e.gone?.length) {
+      const gone = new Set(e.gone)
+      const notices = this.snap.notices.filter((n) => !gone.has(n.message_id))
+      if (notices.length !== this.snap.notices.length) this.set({ notices, unread: Math.min(this.snap.unread, notices.length) })
+    }
     for (const fn of this.changedListeners) fn(e)
   }
 
@@ -146,7 +152,7 @@ export class EventsStore {
     if (!data || typeof data !== 'object') return
     const d = data as Record<string, unknown>
     if (d.reason === 'changed') {
-      this.changed({ roots: Array.isArray(d.roots) ? d.roots.filter((r): r is string => typeof r === 'string') : [], message_id: str(d.message_id) })
+      this.changed({ roots: Array.isArray(d.roots) ? d.roots.filter((r): r is string => typeof r === 'string') : [], message_id: str(d.message_id), ...(Array.isArray(d.gone) ? { gone: d.gone.map(String) } : {}) })
     } else if (kind === 'done' || d.done === true) {
       if (typeof d.job_id === 'string') this.done({ job_id: d.job_id, input_id: str(d.input_id), input_status: str(d.input_status), message_id: str(d.message_id), done: true })
     } else if (kind === 'progress' || typeof d.percent === 'number') {

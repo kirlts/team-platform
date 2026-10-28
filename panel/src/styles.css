@@ -151,6 +151,8 @@
   /* A text field and an option of a menu: a host that rounds its fields more than its rows, or nests the options in the menu's curve, sets these. */
   --radius-field: var(--radius-md);
   --radius-option: var(--radius-sm);
+  /* The corner of every button: a pill by default; a host with square corners sets it to 0. */
+  --radius-control: 9999px;
 
   /* Shadows: colored and multi-layered. */
   --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.9), 0 1px 2px oklch(0.4 0.1 255 / 0.18), 0 10px 28px -12px oklch(0.4 0.14 255 / 0.32);
@@ -277,7 +279,7 @@
   --wordmark-transform: uppercase;
   --wordmark-font: var(--font-display);
   /* Shapes: the sheet corner of boxes, and the left bar that marks the open row of the navigation and the model's surfaces. */
-  --leaf-radius: 3px 10px 3px 10px;
+  --leaf-radius: var(--radius-sm) calc(var(--radius-lg) * 1.25) var(--radius-sm) calc(var(--radius-lg) * 1.25);
   --nav-bar-width: 4px;
   --nav-active-ink: inherit;
   --ai-edge-width: 3px;
@@ -636,7 +638,7 @@
     background: linear-gradient(var(--area-soft), var(--area-soft)) 0 0 / calc((1 - var(--area-chip-fill)) * 100%) 100% no-repeat, var(--area-main);
     color: color-mix(in srgb, var(--area-main-text) calc(var(--area-chip-fill) * 100%), var(--area-soft-text));
     border: var(--area-chip-edge-width) solid var(--area-edge);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     padding: 1px 0.5rem;
     font-size: 0.8rem;
     /* Semibold, not bold: with the state beside it in the detail, the chip keeps its color and its name but not the heaviest weight of the line (J4-detail-02, UD-045). */
@@ -652,7 +654,7 @@
     min-width: 0;
     max-width: 14rem;
     border: 1px solid var(--color-line);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     padding: 1px 0.5rem;
     font-size: 0.8rem;
     font-weight: 500;
@@ -704,7 +706,7 @@
     flex-shrink: 0;
     align-items: center;
     white-space: nowrap;
-    border-radius: 9999px;
+    border-radius: var(--radius-control);
     font-weight: 600;
     transition:
       background-color 140ms ease-out,

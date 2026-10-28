@@ -65,14 +65,25 @@ echo 'THEME_CSS=/data/tema.css' >> .env
 docker compose up -d --wait
 ```
 
-`--color-accent` tiñe los acentos (enlaces, foco, subrayado de la pestaña activa), pero no el botón principal, que toma su relleno de `--color-gel-top` y `--color-gel-bottom`. Para que «Enviar» y las demás acciones principales sigan el acento, la hoja redefine las dos, en claro y en oscuro:
+Cada grupo de variables tiñe unas piezas:
+
+| Grupo | Piezas |
+|---|---|
+| Acento: `--color-accent*` | Enlaces, foco, subrayado de la pestaña activa |
+| Botón principal: `--color-gel-*` | «Enviar» y las demás acciones principales, y por omisión los avatares y la esfera de la marca (`--orb-*` los separa) |
+| Elegido: `--color-selected` | Relleno de la fila y de la opción elegidas |
+| Cielo y vidrio: `--color-sky-*`, `--color-glass*`, `--color-bg`, `--color-fg` | Fondo, paneles y texto |
+| Forma: `--radius-sm/md/lg`, `--radius-control` | Esquinas de cajas, etiquetas de área y botones (`--radius-control` vale `9999px`, la píldora) |
+
+Con sólo `--color-accent` el botón principal, los avatares y la fila elegida siguen azules. Para un anfitrión verde y de esquinas rectas, en claro y en oscuro:
 
 ```css
-:root[data-theme="light"] { --color-accent: #0a7d55; --color-gel-top: #2fa97f; --color-gel-bottom: #0a7d55; --color-gel-fg: #ffffff; }
-:root[data-theme="dark"]  { --color-accent: #3ddc97; --color-gel-top: #6be8b5; --color-gel-bottom: #3ddc97; --color-gel-fg: #04251a; }
+:root { --radius-sm: 0px; --radius-md: 0px; --radius-lg: 0px; --radius-control: 0px; }
+:root[data-theme="light"] { --color-accent: #0a7d55; --color-selected: #d3efe3; --color-gel-top: #2fa97f; --color-gel-bottom: #0a7d55; --color-gel-fg: #ffffff; }
+:root[data-theme="dark"]  { --color-accent: #3ddc97; --color-selected: #14382b; --color-gel-top: #6be8b5; --color-gel-bottom: #3ddc97; --color-gel-fg: #04251a; }
 ```
 
-Las variables que acepta están en `docs/MASTER-SPEC.md` §7.8, «Contrato del tema». Un sitio que quiere sus propias vistas, y no sólo sus colores, usa el paquete `packages/client` contra la API.
+La lista completa está en `docs/MASTER-SPEC.md` §7.8, «Contrato del tema». Un sitio que quiere sus propias vistas, y no sólo sus colores, usa el paquete `packages/client` contra la API.
 
 Prueba:
 

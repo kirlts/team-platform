@@ -9,6 +9,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseSync } from 'rolldown/utils'
 import { describe, expect, it } from 'vitest'
+import { createFormats } from './i18n/core'
 import { en } from './i18n/en'
 import { es419 } from './i18n/es-419'
 
@@ -110,6 +111,33 @@ describe('catalogues (UD-018)', () => {
     for (const [key, value] of [...Object.entries(es419), ...Object.entries(en)]) {
       expect(typeof value === 'string' ? value : value.one + value.other, key).not.toBe('')
     }
+  })
+})
+
+describe('the English catalogue reads as English', () => {
+  const texts = Object.entries(en).flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : [[key, value.one], [key, value.other]]) as [string, string][])
+
+  it('never carries the Spanish guillemets (English quotes are “ ”)', () => {
+    expect(texts.filter(([, text]) => /[«»]/.test(text)).map(([key]) => key)).toEqual([])
+  })
+
+  it('names the object of a send «submission»: «send» is only the verb', () => {
+    expect(texts.filter(([, text]) => /(\{n\} |no |fold )sends?\b/i.test(text)).map(([key]) => key)).toEqual([])
+    expect(texts.filter(([, text]) => /\b(delete|discard|duplicate|open|choose) (the )?send\b/i.test(text)).map(([key]) => key)).toEqual([])
+  })
+
+  it('writes figures and times the English way', () => {
+    const f = createFormats('en', { today: 'today', yesterday: 'yesterday' })
+    expect(f.percent(25)).toBe('25%')
+    expect(f.usd(1.62)).toBe('$1.62')
+    expect(f.decimal(1234.5, 1)).toBe('1,234.5')
+    const d = new Date(2026, 9, 28, 13, 22)
+    expect(f.clock(d)).toMatch(/^1:22\s?PM$/)
+    expect(f.fullStamp(d.toISOString())).toMatch(/1:22\s?PM/)
+    const es = createFormats('es-419', { today: 'hoy', yesterday: 'ayer' })
+    expect(es.percent(25)).toBe('25 %')
+    expect(es.usd(1.62)).toBe('US$ 1,62')
+    expect(es.clock(d)).toBe('13:22')
   })
 })
 

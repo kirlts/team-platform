@@ -63,8 +63,9 @@ Todos están en `@theme` de `src/styles.css`, en OKLCH. El tema oscuro redefine 
 
 | Token o clase | Valor | Uso |
 |---|---|---|
-| `--radius-sm/md/lg` | 3, 6 y 8 px | Contenedores y campos |
-| `.leaf` | `3px 10px 3px 10px` | Paneles grandes y diálogos, la forma de pestaña de la maqueta |
+| `--radius-sm/md/lg` | 3, 6 y 8 px | Contenedores, campos y etiqueta de área (`--radius-md`) |
+| `--radius-control` | `9999px` | Esquina de todo `.btn`: la píldora. Un anfitrión de esquinas rectas la pone en `0px` junto con los tres radios |
+| `.leaf` (`--leaf-radius`) | `var(--radius-sm) calc(var(--radius-lg) * 1.25)` en diagonal, es decir `3px 10px 3px 10px` | Paneles grandes y diálogos, la forma de pestaña de la maqueta. Deriva de los radios: con los tres en `0` la caja es recta |
 | `--shadow-glass` | luz interior de 1 px y dos sombras azuladas | Paneles |
 | `--shadow-pop` | igual, con mayor desplazamiento | Menús y diálogos |
 | `--shadow-gel` | brillo superior, sombra interior inferior y halo azul | Botón primario |
@@ -235,7 +236,7 @@ UD-022. Todo bloque de texto de más de dos líneas (cuerpo de mensaje y de resp
 
 ## Idioma
 
-UD-018. La interfaz sale de dos catálogos, `src/i18n/es-419.ts` (por omisión) y `src/i18n/en.ts`, con las mismas claves; cada texto, nombre accesible, marcador, plural y fecha (`Intl` con el idioma de la cuenta) viene de ahí. Un solo control en Configuración, «Idioma» o «Language», cambia todo al instante. Los errores de la API llegan con `code` y se traducen con `error.<code>`; sin traducción se muestra el mensaje del servidor. `src/i18n.test.ts` falla si un catálogo tiene una clave que el otro no, si el código nombra una clave que no existe o si hay un texto visible escrito fuera de los catálogos.
+UD-018. La interfaz sale de dos catálogos, `src/i18n/es-419.ts` (por omisión) y `src/i18n/en.ts`, con las mismas claves; cada texto, nombre accesible, marcador, plural y fecha (`Intl` con el idioma de la cuenta) viene de ahí. Un solo control en Configuración, «Idioma» o «Language», cambia todo al instante. Los errores de la API llegan con `code` y se traducen con `error.<code>`; sin traducción se muestra el mensaje del servidor. En inglés el reloj es de 12 horas con AM/PM y las comillas son “ ”; en español, 24 horas y « ». El envío se dice «submission» en inglés (el verbo es «Send»), y las cifras salen de `useFormat()` (`percent`, `usd`, `decimal`). `src/i18n.test.ts` falla si un catálogo tiene una clave que el otro no, si el código nombra una clave que no existe o si hay un texto visible escrito fuera de los catálogos.
 
 ## Voz de instrumento
 
@@ -353,8 +354,8 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 - Los valores de Nombre, Correo y Rol de Configuración son texto plano porque no se editan ahí; su ayuda dice quién los cambia y dónde (UD-122).
 - En Equipo, la acción «Desactivar» comparte la fila del rol en teléfono. La lista mantiene en la página la fila cuyo perfil se abre (`reveal`).
 - En la entrada, el aviso de error va bajo la tarjeta y no reserva una fila dentro de ella. El margen bajo el botón es el del logo sobre la tarjeta. La tarjeta no lleva texto de ayuda (UD-170, enmendada el 2026-10-27). Mientras la sesión se abre, el botón dice «Entrando» y los campos dejan de recibir texto.
-- La entrada dice por qué se dibuja. Una contraseña mala dice «Correo o contraseña incorrectos» (el servidor responde 401 `invalid_credentials`; `unauthenticated` es sólo sesión vencida). Una espera dice sus segundos reales («se reintenta en N s»). Una sesión que venció con la página abierta se avisa con «La sesión venció» bajo la tarjeta y el correo queda escrito; el texto de la barra de Inicio sobrevive al viaje en `sessionStorage`. Cada cambio de pantalla vuelve a preguntar por la sesión, porque una vista dibujada con datos en memoria no hace llamadas.
-- «Borrar envío» y «Borrar envío y mensajes» se dibujan lado a lado, cada uno con su rótulo y a 44 px en táctil; el aviso dice qué pasó con los mensajes («Envío borrado; sus N mensajes se conservan»). Una fila plegada de una propuesta ocupa una línea: sólo la que lleva una marca que pide algo (sin destinatarios) puede pasar a dos.
+- La entrada dice por qué se dibuja. Una contraseña mala dice «Correo o contraseña incorrectos» (el servidor responde 401 `invalid_credentials`; `unauthenticated` es sólo sesión vencida). Una espera dice sus segundos reales («se reintenta en N s»). Una sesión que venció con la página abierta se avisa con «La sesión venció» bajo la tarjeta y el correo queda escrito; el texto de la barra de Inicio sobrevive al viaje en `sessionStorage`, guardado con el id de su autor: otra persona que entra en la misma pestaña encuentra la barra vacía. Una acción que iba en camino (un envío, un cambio) se dice como no completada al volver («La última acción no se completó: la sesión venció»; con adjuntos, cuántos se perdieron); no se reintenta sola, porque repetir un cambio sin que la persona lo vea no es seguro. Una espera cuenta hacia atrás cada segundo, se va al llegar a 0 y no marca los campos. Cada cambio de pantalla vuelve a preguntar por la sesión, porque una vista dibujada con datos en memoria no hace llamadas.
+- «Borrar envío» y «Borrar envío y mensajes» se dibujan separados por 24 px (apilados en teléfono), cada uno con su rótulo y a 44 px en táctil; la que borra más es la más apagada; el aviso dice qué pasó con los mensajes («Envío borrado; sus N mensajes se conservan»). Una fila plegada de una propuesta ocupa una línea: sólo la que lleva una marca que pide algo (sin destinatarios) puede pasar a dos.
 
 ## Gestión: Equipo, Áreas, Área, Configuración y Conexiones (ronda del 2026-10-27)
 

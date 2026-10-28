@@ -121,7 +121,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
               onFocus={() => prefetch(message.id, message.area_id)}
               className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
             >
-              {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}
+              {reply && <span className="sr-only">{t('card.replyTo', { title: message.title })} </span>}
               {reply ? plainText(reply.body) : message.title}
             </Link>
           )}

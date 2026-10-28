@@ -179,11 +179,12 @@ describe('areas: list and view layout (H-2900 to H-2906)', () => {
       const link = page.getByRole('link', { name: `Abrir ${PHONE_LONG}` })
       await link.waitFor()
       const gap = await link.evaluate((a) => {
-        const tail = a.querySelector('span')
         const svg = a.querySelector('svg').getBoundingClientRect()
+        // The last box of text before the chevron: the name is a few runs (the head, the body of the last word, its last letter).
         const range = document.createRange()
-        range.selectNodeContents(tail.firstChild)
-        const word = range.getBoundingClientRect()
+        range.selectNodeContents(a)
+        range.setEndBefore(a.querySelector('svg'))
+        const word = [...range.getClientRects()].filter((r) => r.width > 0).at(-1)
         return { gap: svg.left - word.right, w: svg.width, sameLine: Math.abs((svg.top + svg.bottom) / 2 - (word.top + word.bottom) / 2) <= 8 }
       })
       assert.ok(gap.w >= 14 && gap.gap >= 0 && gap.gap <= 8 && gap.sameLine, JSON.stringify(gap))

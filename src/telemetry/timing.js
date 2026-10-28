@@ -17,6 +17,8 @@ function toolRow(n) {
     kind: n.name === 'execute.subagent' ? 'subagent' : 'tool',
     name: n.attributes['gen_ai.tool.name'] ?? n.attributes['gen_ai.agent.name'] ?? n.name,
     summary: n.attributes['team.tool.summary'] ?? null,
+    action: n.attributes['team.tool.action'] ?? null,
+    detail: n.attributes['team.tool.detail'] ?? null,
     duration_ms: round(n.duration_ms),
     success: n.attributes['team.tool.success'] ?? null
   }

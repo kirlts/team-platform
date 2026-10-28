@@ -25,12 +25,12 @@ let answer: () => unknown
 mockApi(async (path: string) => { calls.push(path); return answer() })
 afterEach(() => { cleanup(); calls.length = 0 })
 
-function wrap() {
+function wrap(language: 'es-419' | 'en' = 'es-419') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
       <WithTeamClient>
-      <I18nProvider language="es-419">
+      <I18nProvider language={language}>
         <ExecutionRuns />
       </I18nProvider>
     </WithTeamClient>
@@ -52,6 +52,18 @@ describe('ExecutionRuns', () => {
     expect([...document.querySelectorAll('[data-runs-phase]')].map((e) => e.getAttribute('data-runs-phase'))).toEqual(['queue_wait_ms', 'total_ms', 'tools_ms'])
     expect(document.querySelector('[data-runs-phase="total_ms"]')?.textContent).toContain('19 min 40 s')
     expect(document.querySelector('[data-runs-slow]')?.textContent).toContain('1 min 34 s')
+  })
+
+  it('in English the slowest tools, percentages and dollars have no Spanish', async () => {
+    answer = () => ({ ...summary, slowest_tools: [
+      { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', action: 'command', detail: 'npm test', duration_ms: 94000, success: false },
+      { kind: 'tool', name: 'Read', summary: 'Lectura: a.ts', duration_ms: 20, success: true },
+    ] })
+    wrap('en')
+    fireEvent.click(screen.getByRole('button', { name: 'Executions' }))
+    expect(await screen.findByText('$1.50')).toBeTruthy()
+    expect(document.querySelector('[data-runs-figure="Delivery"]')?.textContent).toBe('50%')
+    expect([...document.querySelectorAll('[data-runs-slow]')].map((e) => e.firstElementChild?.textContent)).toEqual(['Command: npm test', 'Read: a.ts'])
   })
 
   it('"Todo" asks without a start date; no runs says so', async () => {

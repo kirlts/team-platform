@@ -1,6 +1,19 @@
 # Trabajo en curso
 
-> Documento de traspaso. Quien retome (otra sesión, otro modelo, otra cuenta) lo lee antes de actuar y lo mantiene al día en cada cambio de estado. Sin llaves ni datos privados. Última actualización: 2026-10-21 hacia las 13:00 (hora de Chile). Si la cuota de una cuenta se agota, otra sesión retoma desde «Trabajo en vuelo» sin contexto previo. Si la cuota de una cuenta se agota, otra sesión retoma desde la sección «Trabajo en vuelo» sin contexto previo.
+> Documento de traspaso. Quien retome (otra sesión, otro modelo, otra cuenta) lo lee antes de actuar y lo mantiene al día en cada cambio de estado. Sin llaves ni datos privados. Última actualización: 2026-10-28, versión 1.0.0. Si la cuota de una cuenta se agota, otra sesión retoma desde «Trabajo en vuelo» sin contexto previo. Si la cuota de una cuenta se agota, otra sesión retoma desde la sección «Trabajo en vuelo» sin contexto previo.
+
+## Estado al 2026-10-28, versión 1.0.0
+
+| Qué | Estado |
+|---|---|
+| Versión | 1.0.0, publicada con `scripts/publish-main.sh`; etiqueta `v1.0.0` |
+| Capacidades | 36 filas en `docs/CAPACIDADES-1.0.md`: 32 completas y 4 sin pantalla, cada una con su prueba e2e en verde y, si tiene pantalla, veredicto APROBADA de un juez independiente (`docs/JUICIOS.md`) |
+| Capacidades nuevas de la 1.0 | Conteos por estado en el menú lateral; historial de la sesión de Claude en el recuadro «Trabajo» (tabla `execute_steps`, migración 0042, `GET /api/messages/:id/session`) |
+| Ramas cerradas | `wt-inicio-d3`, `wt-ficha-d3`, `wt-ficha-ud280` y `wt-ficha-ud280-nav`, fusionadas en `desarrollo` |
+| Segundo anfitrión | Un VPS ARM con `drivers/docker-local` y el canario en verde (40,6 s, 0,002 USD). Su compose lleva tres archivos y `COMPOSE_FILE` se resuelve desde el directorio actual: se actualiza con `-f` explícitos y `--project-directory` |
+| Instalación y respaldo | `e2e/capacidades/instalacion-servidor-limpio.e2e.test.js` y `respaldo-y-restauracion.e2e.test.js` (servidor limpio en `docker:dind`) |
+| Defectos abiertos en `docs/HALLAZGOS.md` | 0. H-3868 es un límite del visor de PDF de Firefox |
+| Decisiones del dueño de hoy | UD-315 (nombre de área del lateral) y UD-316 (áreas y plantillas en el idioma del Editor) |
 
 ## Estado de `main`
 

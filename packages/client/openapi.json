@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "team-platform API",
-    "version": "0.1.8",
+    "version": "1.0.0",
     "description": "The only door of the system: the panel and any other client use this same contract. Ids travel as text; every list is { items, page, limit, total } capped at 100; every destructive operation requires ?confirm=true."
   },
   "components": {

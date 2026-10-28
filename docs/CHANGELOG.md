@@ -7,10 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Cierre con evidencia de pantalla: el servidor decide si una entrega toca una pantalla con los archivos que el anfitrión informa (`##team changed <ruta>`) y las rutas de interfaz que declara (`EXECUTE_SCREEN_PATHS`, vacía por omisión, aditivo); sin captura el mensaje no cierra y se pide la captura de producción en una segunda pasada, una sola vez (mensaje 136).
-
 ## [1.0.0] - 2026-10-28
 
+- Cierre con evidencia de pantalla: el servidor decide si una entrega toca una pantalla con los archivos que el anfitrión informa (`##team changed <ruta>`) y las rutas de interfaz que declara (`EXECUTE_SCREEN_PATHS`, vacía por omisión, aditivo); sin captura el mensaje no cierra y se pide la captura de producción en una segunda pasada, una sola vez (mensaje 136).
 - Conteos por estado en el menú lateral: cada área muestra sus abiertos (triángulo) y sus respondidos (reloj), cada uno sólo si es mayor que cero y con enlace a Mensajes filtrado por esa área y ese estado. Los dos conteos van en columnas fijas y alineadas; el nombre del área cede ante un conteo presente, en una línea con puntos suspensivos (UD-315).
 - Ficha del mensaje: la revisión de un cambio retenido se hace respondiendo en el hilo, sin botones (UD-280), y la línea lo dice. Una entrega que espera capacidad del anfitrión (código 75) dice «En espera» en su fila y, en el desplegable, la causa y cuándo se reintenta. Texto extraído alineado, cifras de dinero con un solo criterio y «y N más» en una línea.
 - Entrada: una contraseña equivocada responde 401 `invalid_credentials` y la entrada lo dice; los intentos de más dicen la espera real y la cuentan hacia atrás; una sesión vencida lleva a la entrada en el acto, con el correo y el borrador de la persona (sólo de esa persona) y el aviso de la acción que no se completó.

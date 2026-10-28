@@ -575,7 +575,6 @@ describe('deliver job', () => {
       assert.equal((await waitJob(jobId)).status, 'done')
       assert.equal(existsSync(log), false, 'nothing was verified or deployed again')
       const last = replies(messageId).at(-1)
-      assert.match(last, /En producción desde \d\d:\d\d \S+\./)
       assert.match(last, /En producción: el cambio ya estaba servido \(llegó por otro camino\)/)
       assert.doesNotMatch(last, /En producción desde/, 'the time of this reply is not the time the change arrived')
       assert.equal(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'closed', 'a branch that was already in production is delivered and checked: it closes like any delivery')

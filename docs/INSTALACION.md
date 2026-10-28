@@ -541,6 +541,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_CAPTURES_OPEN_ZONE` | Única zona declarada con la que se adjunta una captura sin datos ocultos (omisión `ninguna`) |
 | `EXECUTE_CAPTURES_UNMASKED` | `allowed` o `1`: una captura con `masked: false` se adjunta sea cual sea la zona (omisión `denied`; UD-270) |
 | `EXECUTE_AUTO_CLOSE` | `on` (omisión) o `off` (también `1` y `0`). Con `on`, Claude puede cerrar el mensaje tras su respuesta final cuando se cumplen las condiciones de UD-271 (entrega con código 0 o resultado sin cambio, nada que pedirle al emisor, el «Después» de un «Antes», nadie respondió en el hilo); con `off` no cierra nunca |
+| `EXECUTE_SCREEN_PATHS` | vacío (omisión) o prefijos de ruta separados por coma, p. ej. `panel/src/,design-system/src/`. Una entrega cuyas líneas `##team changed <ruta>` caen bajo uno de ellos toca una pantalla, diga lo que diga la sesión: sin captura el mensaje no cierra y se pide la captura en una segunda pasada, una sola vez |
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
 | `EXECUTE_STEPS_MAX` | Pasos de la sesión que se guardan por trabajo para su historial (omisión 500; 0 no guarda ninguno) |
 | `EXECUTE_DELIVER_COMMAND` | Opcional. Orden de shell que entrega la rama a producción después de `execute`, sin IA (ver «La entrega aparte») |

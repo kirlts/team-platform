@@ -583,6 +583,34 @@ describe('deliver job', () => {
       assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE message_id = ? AND kind = 'deliver'").get(messageId).n, 1)
     })
 
+    it('message 136: a delivery that touches a screen (by the files the host reports) and has no capture does not close and asks for the capture in a second pass, once', async () => {
+      const messageId = await published('Una perilla nueva en una pantalla.')
+      startWorker({ screenPaths: ['panel/src/'], deliverCheckCommand: `${withBranch(host('screen', true))} && echo "##team changed panel/src/App.tsx" && echo "##team changed docs/x.md"`, deliverCommand: 'exit 3' })
+      const jobId = await hand(messageId)
+      assert.equal((await waitJob(jobId)).status, 'done')
+      const all = replies(messageId)
+      const delivered = all.find((r) => /ya estaba servido/.test(r))
+      assert.ok(delivered, all.join(' | '))
+      assert.ok(all.some((r) => /toca una pantalla y todavía no hay captura de producción/.test(r)))
+      assert.doesNotMatch(delivered, /Cerrado:/, 'the session did not declare touches_screen and the server decided it from the files')
+      const asked = jobsOf(messageId, 'execute').map((j) => JSON.parse(j.payload_json)).filter((p) => p.deliver_failure?.evidence === true)
+      assert.equal(asked.length, 1, 'one second pass asked for the capture')
+      assert.deepEqual(asked[0].deliver_failure.files, ['panel/src/App.tsx', 'docs/x.md'])
+    })
+
+    it('a delivery whose files are not under the interface paths closes as always, and with no declared paths nothing changes', async () => {
+      const first = await published('Un cambio de documentos.')
+      startWorker({ screenPaths: ['panel/src/'], deliverCheckCommand: `${withBranch(host('docs', true))} && echo "##team changed docs/x.md"`, deliverCommand: 'exit 3' })
+      assert.equal((await waitJob(await hand(first))).status, 'done')
+      assert.match(replies(first).find((r) => /ya estaba servido/.test(r)), /Cerrado: /)
+      assert.equal(jobsOf(first, 'execute').map((j) => JSON.parse(j.payload_json)).filter((p) => p.deliver_failure?.evidence === true).length, 0)
+      await worker.stop()
+      const second = await published('Sin rutas declaradas.')
+      startWorker({ deliverCheckCommand: `${withBranch(host('norutas', true))} && echo "##team changed panel/src/App.tsx"`, deliverCommand: 'exit 3' })
+      assert.equal((await waitJob(await hand(second))).status, 'done')
+      assert.match(replies(second).find((r) => /ya estaba servido/.test(r)), /Cerrado: /)
+    })
+
     it('a branch that is not in production is delivered as always', async () => {
       const messageId = await published('Una rama que todavía no salió.')
       const log = path('ran')

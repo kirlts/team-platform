@@ -44,7 +44,7 @@ import { step } from '../domain/progress-phrases.js'
 import { endManualSpan, startManualSpan, withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
 import { closeLine, closeReason, firstReplyAnchor } from './auto-close.js'
-import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
+import { beforeOfMessage, capturesDir, changedFilesOf, closingCaptures, deliveryCaptureLines, describeRejected, noCaptureLine, storeCaptures, touchesScreenPaths } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
 import { dailyBudget } from './budget.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
@@ -78,6 +78,7 @@ const TEXTS = {
     verification: (branch, reason, budget) => `No quedó en producción: no pasó la verificación${reason ? ` (${reason})` : ''}.${budget ? ' Se alcanzó el tope de gasto de hoy y Claude no sigue.' : ''} Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     again: (reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. Claude lo corrige y vuelve a entregar.`,
     alreadyThere: 'En producción: el cambio ya estaba servido (llegó por otro camino) y no hizo falta entregarlo de nuevo.',
+    evidenceAsked: 'El cambio toca una pantalla y todavía no hay captura de producción: Claude la toma ahora y el mensaje se cierra con ella.',
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     stuck: (branch) => `La entrega espera un arreglo del sistema: el anfitrión respondió «ahora no» una y otra vez con el mismo motivo. Lo hecho queda en la rama ${branch}; se vuelve a lanzar sola con la próxima versión.`,
@@ -93,6 +94,7 @@ const TEXTS = {
     verification: (branch, reason, budget) => `It did not reach production: it did not pass verification${reason ? ` (${reason})` : ''}.${budget ? ' Today\'s spending cap was reached and Claude does not continue.' : ''} The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     again: (reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. Claude is fixing it and will deliver again.`,
     alreadyThere: 'In production: the change was already served (it arrived another way) and did not need to be delivered again.',
+    evidenceAsked: 'The change touches a screen and there is no production capture yet: Claude takes it now and the message closes with it.',
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     stuck: (branch) => `The delivery waits for a fix of the system: the host answered «not now» again and again with the same reason. The work is saved on the branch ${branch}; it launches again by itself with the next version.`,
@@ -209,7 +211,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const command = fillCommand(x.deliverCheckCommand, { job_id: String(job.id), message_id: String(messageId), branch })
       const env = { ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch }
       const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, timeoutMs: CHECK_TIMEOUT_MS, graceMs: x.killGraceMs, signal: ctx.signal })
-      return r.code === 0 && !r.timedOut ? (referenceOf(r.stdout) ?? 'desarrollo') : null
+      return r.code === 0 && !r.timedOut ? { ref: referenceOf(r.stdout) ?? 'desarrollo', files: changedFilesOf(r.stdout) } : null
     } catch (error) {
       logger?.warn({ err: error }, 'the check of the branch in production failed; the delivery runs')
       return null
@@ -231,8 +233,11 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
 
+    /** Whether the evidence of a screen was already asked for this message: a second pass with `deliver_failure.evidence`. */
+    const evidenceAsked = (id) => Boolean(get(db, "SELECT 1 AS ok FROM jobs WHERE kind = 'execute' AND message_id = ? AND json_extract(payload_json, '$.deliver_failure.evidence') = 1 LIMIT 1", id))
+
     /** The closing of a delivery that reached production, by the command or because the branch was already there (UD-296): the one closing reply and the end of the progress. */
-    const closeDelivered = ({ ref, after, ms, alreadyThere = false }) => {
+    const closeDelivered = ({ ref, after, ms, alreadyThere = false, files = [] }) => {
       return () => {
         // Inside the transaction that closes the job: the one closing reply, then the end of the progress.
         // From production when the command took it; the capture of the session (taken from the branch) only when there was no «before» place.
@@ -240,18 +245,32 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const stored = fromProduction.length ? fromProduction : (after?.hadBefore ? [] : (payload.captures ?? []).filter((c) => c.kind !== 'video'))
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
         for (const reason of after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
-        const missing = noCaptureLine(payload.output, closing.files.length > 0 ? 1 : 0, author?.language, [...(payload.captures_rejected ?? []), ...(after?.rejected ?? [])]) // UD-298
+        // The server decides whether the delivered change touches a screen, from the files the host reported and the interface paths it declared (EXECUTE_SCREEN_PATHS);
+        // what the session declared in `touches_screen` is no longer the only gate (message 136: the field was left out and a new control closed with no capture).
+        const screen = touchesScreenPaths(files, x.screenPaths)
+        const output = screen && payload.output?.touches_screen !== true ? { ...payload.output, touches_screen: true } : payload.output
+        const missing = noCaptureLine(output, closing.files.length > 0 ? 1 : 0, author?.language, [...(payload.captures_rejected ?? []), ...(after?.rejected ?? [])]) // UD-298
         if (missing) closing.lines.push(missing)
         closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
         // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
         const request = payload.close_request ?? null // optional (UD-310): a delivery an Editor launched by hand, or a session that did not ask, carries none
         const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
-        const why = closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since, language: author?.language })
+        const why = closeReason(db, config, { output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since, language: author?.language })
         if (why) closing.lines.push(closeLine(why, author?.language))
         const { replyId } = addReply({ db, events, now }, {
           messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now(), alreadyThere }), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         if (why) closeMessage({ db, events, now }, messageId, agent.id)
+        // A change that touches a screen and reached production with no capture does not close: the evidence is asked once, in a second pass that takes it from production
+        // (the pass hands over to the delivery again, which finds the branch already served and closes with the capture). Never a second time: then a person reads it.
+        const saidWhy = typeof output?.no_capture_reason === 'string' && output.no_capture_reason.trim() !== ''
+        if (!why && screen && stored.length === 0 && !saidWhy && !evidenceAsked(messageId)) {
+          const asked = enqueueExecute(db, {
+            messageId, memberId: agent.id, now, exceptDeliverJobId: job.id,
+            extra: { deliver_failure: { evidence: true, files: files.slice(0, 20), output: '', summary: String(payload.output?.summary ?? ''), captures: payload.captures ?? [] }, deliver_round: (payload.round ?? 0) + 1, close_since: since }
+          })
+          if (asked !== null) addReply({ db, events, now }, { messageId, authorId: agent.id, kind: 'answer', body: textsOf(author?.language).evidenceAsked })
+        }
         // UD-314: the change is in production but the session said part of what was asked could not be done: this reply carries «Reintentar» for the session that said it.
         if (payload.execute_job_id && sessionUnfulfilled(payload.output)) markFailure(replyId, { id: payload.execute_job_id }, { code: UNFULFILLED })
         const finalAt = now()
@@ -287,7 +306,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     if (landed) {
       const ms = 0
       try { runSql(db, 'UPDATE jobs SET marks_json = ? WHERE id = ?', JSON.stringify({ delivery_ms: ms, delivered: 1 }), job.id) } catch { /* the mark is a courtesy */ }
-      return closeDelivered({ ref: landed, after: null, ms, alreadyThere: true })
+      return closeDelivered({ ref: landed.ref, after: null, ms, alreadyThere: true, files: landed.files })
     }
 
     // UD-313: a Guard about a person that the message touches is a wall: it is not crossed without a person lifting it. The platform holds the delivery here, before the host's command runs,
@@ -408,7 +427,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       failure.retryable = environment && firstTry
       throw failure
     }
-    return closeDelivered({ ref: referenceOf(result.stdout), after: result.after, ms })
+    return closeDelivered({ ref: referenceOf(result.stdout), after: result.after, ms, files: changedFilesOf(result.stdout) })
   }
 
   /**

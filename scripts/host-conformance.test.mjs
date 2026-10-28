@@ -11,7 +11,7 @@ import { requires } from '../src/testing/requires.js'
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const SCRIPT = join(ROOT, 'scripts', 'host-conformance.mjs')
-const CASES = ['orders', 'version', 'sequence', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'destroy-run-fails', 'destroy-deadline', 'destroy-twice', 'destroy-shutdown', 'create-75', 'deliver-75', 'deliver-76']
+const CASES = ['orders', 'version', 'sequence', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'destroy-run-fails', 'destroy-deadline', 'destroy-slow-create', 'destroy-twice', 'destroy-shutdown', 'create-75', 'deliver-75', 'deliver-76']
 
 /** Runs the script and resolves with { code, out, err }. Asynchronous so that nothing else in this process waits for it. */
 function conformance (args, env = {}) {
@@ -87,7 +87,7 @@ describe('scripts/host-conformance.mjs', () => {
     assert.match(r.out, /^FAIL sequence: .*destroy ended with 1/m)
     assert.match(r.out, /^FAIL destroy-twice: .*ended with 1 and 1/m)
     for (const id of ['orders', 'ndjson', 'transcript', 'deliver', 'deliver-repeat', 'create-75', 'deliver-75', 'deliver-76']) assert.equal(verdict(r.out, id), 'ok', `${id} should pass:\n${r.out}`)
-    assert.match(r.out, /contract_version: 1 NOT met: 5 of 14 cases failed \(sequence, destroy-twice, destroy-run-fails, destroy-deadline, destroy-shutdown\)/)
+    assert.match(r.out, /contract_version: 1 NOT met: 6 of 15 cases failed \(sequence, destroy-twice, destroy-run-fails, destroy-deadline, destroy-slow-create, destroy-shutdown\)/)
   })
 
   it('a case leaves nothing behind: the job that a shutdown returned to the queue does not run inside the next case (it made «deliver-76» count a DELIVER of another message)', async () => {
@@ -120,7 +120,7 @@ describe('scripts/host-conformance.mjs', () => {
     for (const run of [r, second]) {
       assert.equal(run.code, 0, run.out + run.err)
       for (const id of CASES) assert.equal(verdict(run.out, id), 'ok', `${id}:\n${run.out}`)
-      assert.match(run.out, /^contract_version: 1 met \(14 cases passed/m)
+      assert.match(run.out, /^contract_version: 1 met \(15 cases passed/m)
     }
     const leftover = execFileSync('docker', ['ps', '-a', '--filter', 'label=team-platform.driver=docker-local', '--filter', `label=team-platform.instance=${instance}`, '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter(Boolean)
     assert.deepEqual(leftover, [], 'no machine of the run is left')

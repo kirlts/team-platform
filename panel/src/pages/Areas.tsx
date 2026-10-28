@@ -177,7 +177,7 @@ function Figure({ status, n }: { status: 'open' | 'answered'; n: number }) {
   const t = useT()
   const word = t(COUNT_WORD[status], { n }).replace(/^\S+\s*/, '')
   return (
-    <span data-status={status} data-weight="quiet" data-plain data-zero={n === 0 || undefined} data-testid="state-mark" className="inline-flex min-h-6 items-center justify-end gap-1.5 whitespace-nowrap rounded-full px-2 text-sm font-semibold">
+    <span data-status={status} data-weight="quiet" data-plain data-zero={n === 0 || undefined} data-testid="state-mark" className="inline-flex min-h-6 items-center justify-end gap-1.5 whitespace-nowrap rounded-full px-2 text-sm font-semibold max-sm:gap-1 max-sm:px-1 max-sm:text-xs">
       <StateIcon status={status} size={16} />
       <span className="tabular-nums">{n}</span>
       <span className="sm:sr-only"> {word}</span>
@@ -232,7 +232,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
         </span>
       </Link>
       {/* The counts of every area are drawn, zero included (UD-211): the column is never blank. A count above zero leads to Mensajes filtered by the area and that state. */}
-      <span className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 sm:contents">
+      <span className="col-span-3 flex flex-wrap items-center justify-between gap-x-1 gap-y-0.5 sm:contents">
         {(['open', 'answered'] as const).map((status) =>
           counts[status] > 0 ? (
             <Link key={status} to={areaMessagesPath(area.id, status)} aria-label={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} title={t('areas.countOf', { title: area.title, count: label({ [status]: counts[status] }) })} className="justify-self-end rounded-full hover:bg-hover pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">
@@ -244,12 +244,12 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
             </span>
           ),
         )}
-        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11">
+        <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="inline-flex min-h-6 items-center gap-1 justify-self-end rounded-full px-2 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11 max-sm:px-1 max-sm:text-xs">
           <span className="tabular-nums">{templateCount}</span>
           <span className="sm:sr-only"> {t('areas.templateCount', { n: templateCount }).replace(/^\S+\s*/, '')}</span>
         </Link>
       </span>
-      <div className="col-start-2 col-span-2 min-w-0 sm:col-auto">
+      <div className="col-span-3 min-w-0 sm:col-auto">
         <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-sm text-muted pointer-coarse:min-h-11" />
       </div>
       <Button size="sm" variant="ghost" className="max-sm:col-start-3 max-sm:row-start-1 justify-self-end text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" data-repeat-ok="per-area" onClick={() => void remove()}>

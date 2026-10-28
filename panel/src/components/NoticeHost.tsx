@@ -50,7 +50,7 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
   }, [dismiss])
 
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center lg:inset-x-0 lg:bottom-auto lg:top-1.5">
+    <div data-notice-host className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center lg:inset-x-0 lg:bottom-auto lg:top-1.5">
       <div
         role={danger ? 'alert' : 'status'}
         aria-live={danger ? 'assertive' : 'polite'}

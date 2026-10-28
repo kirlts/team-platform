@@ -4,7 +4,7 @@
 // `PANEL_FLOWS_BULK_PORT=… node --test src/flows-borrado-multiple.browser.test.mjs` against dev-server.mjs serving panel/dist.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openTemplates, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -125,6 +125,7 @@ describe('mark several and delete them at once (UD-253)', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       const region = page.getByRole('region', { name: 'Plantillas' })
       // Depending on the window the templates share the page or are paged: the marks stay while the person pages.
       const checks = region.getByTestId('row-check')

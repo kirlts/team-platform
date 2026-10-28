@@ -9,11 +9,12 @@ export const DropdownMenuRadioGroup = Primitive.RadioGroup
 export const DropdownMenuGroup = Primitive.Group
 export const DropdownMenuSub = Primitive.Sub
 
-export function DropdownMenuContent({ className, sideOffset = 4, ...props }: ComponentProps<typeof Primitive.Content>) {
+export function DropdownMenuContent({ className, sideOffset = 4, collisionPadding = 8, ...props }: ComponentProps<typeof Primitive.Content>) {
   return (
     <Primitive.Portal>
       <Primitive.Content
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         className={cn(
           'pop z-50 min-w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg p-1 text-sm text-fg',
           className,
@@ -71,7 +72,7 @@ export function DropdownMenuSubTrigger({ className, children, ...props }: Compon
   return (
     <Primitive.SubTrigger className={cn(item, 'data-[state=open]:bg-accent-soft', className)} {...props}>
       {children}
-      <ChevronRight size={14} aria-hidden className="ml-auto shrink-0 text-muted" />
+      <ChevronRight size={14} aria-hidden className="ml-auto shrink-0 text-muted [.sub-value+&]:ml-0" />
     </Primitive.SubTrigger>
   )
 }

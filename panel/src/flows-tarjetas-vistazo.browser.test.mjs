@@ -39,7 +39,7 @@ async function open(page, path) {
   await page.goto(`${origin}${path}`)
   await page.locator('main h1').first().waitFor()
   await page.locator('main article h3').first().waitFor()
-  // The view of an area opens with «Plantillas» unfolded (UD-252), which leaves room for one row at 1440x900: folded, the list has its rows to compare.
+  // The view of an area is born with «Plantillas» folded, so the list has its rows to compare; a view that arrives open is folded here.
   const templates = page.getByRole('button', { name: /^Plantillas/, expanded: true })
   if (await templates.count()) await templates.click()
   // The lists draw sixty rows to measure what fits, and only then the page that fits (UD-017).
@@ -106,7 +106,8 @@ describe('rows of one height (UD-241)', () => {
       try {
         await open(page, path)
         const list = await rows(page)
-        assert.ok(list.length >= 3, `${list.length} rows drawn`)
+        // The view of an area keeps the place of the strip of marked rows under its list (DISENO.md «Tarjeta de lista»): at 1440x900 that leaves two rows.
+        assert.ok(list.length >= (path.startsWith('/areas') ? 2 : 3), `${list.length} rows drawn`)
         // Inicio has two lists in columns of different widths: the rows are compared within each list (by their left edge).
         const byList = new Map()
         for (const r of list) byList.set(Math.round(r.heading.left), [...(byList.get(Math.round(r.heading.left)) ?? []), r])

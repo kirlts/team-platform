@@ -83,7 +83,8 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
   const valueOptions = (prop: FilterProp): { value: string; label: string }[] => {
     switch (prop) {
       case 'for':
-        return [{ value: ME, label: t('filter.me') }, ...members.map((m) => ({ value: m.id, label: m.name }))]
+        // «Yo» is the person of the session: listing them again by name would offer one selection twice, with the same figure.
+        return [{ value: ME, label: t('filter.me') }, ...members.filter((m) => m.id !== me?.id).map((m) => ({ value: m.id, label: m.name }))]
       case 'involved':
         return [{ value: ME, label: t('filter.me') }]
       case 'area':
@@ -97,7 +98,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
     }
   }
 
-  const labelOf = (f: Filter) => valueOptions(f.prop).find((o) => o.value === f.value)?.label ?? f.value
+  const labelOf = (f: Filter) => (f.prop === 'for' && f.value === me?.id ? t('filter.me') : valueOptions(f.prop).find((o) => o.value === f.value)?.label ?? f.value)
 
   const used = new Set(query.filters.map((f) => f.prop))
 
@@ -139,10 +140,10 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                 <DropdownMenuSub key={p}>
                   <DropdownMenuSubTrigger aria-label={on ? `${t(PROP_KEY[p])}: ${labelOf(on)}` : t(PROP_KEY[p])}>
                     {t(PROP_KEY[p])}
-                    {on && <span className="ml-auto pl-4 text-muted">{labelOf(on)}</span>}
+                    {on && <span className="sub-value ml-auto pl-4 text-muted">{labelOf(on)}</span>}
                   </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
-                    <DropdownMenuRadioGroup value={on?.value ?? ''} onValueChange={(v) => onChange({ ...query, filters: upsertFilter(query.filters, { prop: p, op: on?.op ?? 'eq', value: v }) })}>
+                  <DropdownMenuSubContent className="max-h-72 overflow-y-auto max-md:max-h-64">
+                    <DropdownMenuRadioGroup value={on?.value === me?.id ? ME : on?.value ?? ''} onValueChange={(v) => onChange({ ...query, filters: upsertFilter(query.filters, { prop: p, op: on?.op ?? 'eq', value: v }) })}>
                       {valueOptions(p).map((o) => (
                         <DropdownMenuRadioItem key={o.value} value={o.value}>
                           {count ? <Counted label={o.label} n={count(o.value)} /> : o.label}
@@ -191,7 +192,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
                   <DropdownMenuRadioGroup
-                    value={f.value}
+                    value={f.prop === 'for' && f.value === me?.id ? ME : f.value}
                     onValueChange={(v) => onChange({ ...query, filters: upsertFilter(query.filters, { ...f, value: v }) })}
                   >
                     {valueOptions(f.prop).map((o) => (

@@ -32,6 +32,8 @@ const RECIPIENTS_SHOWN = 2
 /** The heading: one line ended with an ellipsis as well (UD-241, amended 2026-10-21), so the extract, the state and every datum below fall at the same y in every row. The whole text is the tooltip and the detail. */
 export const HEADING = 'min-w-0 truncate text-sm font-semibold leading-snug' // justified: UD-241 amends UD-016 for the heading of a row of a list; on a phone too (Martín, 2026-10-24)
 
+const CUT = 'block min-w-0 truncate' // justified: UD-241 amends UD-016 for the heading of a row of a list (the line that cuts is this span, see the heading)
+
 /** The extract: one line ended with an ellipsis, the one text the interface cuts, so every row measures the same. The whole text is the tooltip and the detail. */
 const EXTRACT = 'min-w-0 truncate text-xs text-muted' // justified: UD-241 amends UD-016 for the extract of a row of a list; on a phone too (Martín, 2026-10-24)
 
@@ -111,18 +113,19 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div className={cn('grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 py-3 pr-4 @2xl:grid-cols-[minmax(0,1fr)_14rem_2.5rem]', selection ? 'pl-10' : 'pl-4')}>
       {/* The text block has one height in every row (`--spacing-card-text`): two lines of heading and the extract. A one-line heading leaves its air under the extract, between the groups and not inside the paragraph. */}
       <div data-testid="card-text" className="col-start-1 row-start-1 flex min-h-card-text min-w-0 flex-col gap-y-1">
-        <h3 title={reply ? plainText(reply.body) : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, (closed || gone) && 'font-medium text-muted')}>
+        {/* The heading is not the box that cuts (the inner span is): a box that clips would also clip the pseudo-element of the link that covers the row, and the target to open a message would be the 21 px of the title instead of the row. */}
+        <h3 title={reply ? plainText(reply.body) : message.title} className={cn('min-w-0 text-sm font-semibold leading-snug', (closed || gone) && 'font-medium text-muted')}>
           {gone ? (
-            message.title
+            <span data-ellipsis-ok="UD-241" className={CUT}>{message.title}</span>
           ) : (
             <Link
               to={`/messages/${message.id}`}
               onPointerEnter={() => prefetch(message.id, message.area_id)}
               onFocus={() => prefetch(message.id, message.area_id)}
-              className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
+              className="block outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
             >
               {reply && <span className="sr-only">{t('card.replyTo', { title: message.title })} </span>}
-              {reply ? plainText(reply.body) : message.title}
+              <span data-ellipsis-ok="UD-241" className={CUT}>{reply ? plainText(reply.body) : message.title}</span>
             </Link>
           )}
         </h3>

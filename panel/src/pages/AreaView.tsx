@@ -112,8 +112,8 @@ function AreaViewBody({ area }: { area: Area }) {
 
   return (
     <Page cols={12}>
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3">
+      <header className="flex items-start justify-between gap-x-6 gap-y-2 md:flex-wrap md:items-center">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 max-md:flex-1">
           <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline pointer-coarse:min-h-11">
             <ChevronLeft size={16} aria-hidden />
             {t('areas.back')}
@@ -124,7 +124,7 @@ function AreaViewBody({ area }: { area: Area }) {
             <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center" />
           </h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <UndoButtons stack={undoStack} compact />
           {me?.role === 'editor' && <MoreMenu items={[{ key: 'delete', label: t('areas.deleteArea'), icon: <Trash2 size={16} aria-hidden />, danger: true, testId: 'area-delete', onSelect: () => void remove() }]} />}
         </div>

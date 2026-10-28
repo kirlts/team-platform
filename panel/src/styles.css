@@ -1093,3 +1093,11 @@
     border-radius: 0;
   }
 }
+
+/* On a phone the strip of marked rows floats at the foot of the window and so does a notice: with rows marked the notice rises over the strip, so the
+   strip keeps its buttons within reach for the 8 s of the notice. Outside the layers, so it wins over the utility of the notice (`bottom-4`). */
+@media (max-width: 767px) {
+  body:has([data-selection-float]) [data-notice-host] {
+    bottom: 5rem;
+  }
+}

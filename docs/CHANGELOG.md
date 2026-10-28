@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Cierre con evidencia: una entrega que ya estaba en producción cierra el mensaje; la segunda pasada recibe el resumen y las capturas de la primera; una mención cierra si quien la escribió lo pidió; un motivo escrito de por qué no hay captura (`no_capture_reason`) cierra igual; el prompt pide resultado, captura, video y cierre.
+
 ## [0.1.4] - 2026-10-27
 
 - Panel: un área o una plantilla restaurada ya no se pinta a la vez como viva y como borrada.

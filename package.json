@@ -1,6 +1,6 @@
 {
   "name": "team-platform",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Bandeja de entrada para equipos pequeños: un input se descompone en mensajes categorizados y asignados.",
   "private": true,
   "type": "module",

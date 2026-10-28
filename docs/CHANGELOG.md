@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-28
+
 - Panel: el inicio de sesión ya no muestra la nota «Cuentas creadas por el equipo» (se quita la clave `login.noAccount`).
 
 ## [0.1.5] - 2026-10-28

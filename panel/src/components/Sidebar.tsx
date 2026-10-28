@@ -107,7 +107,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
                   <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={link}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
-                    <span className="min-w-0 break-words leading-tight">{a.title}</span>
+                    <span className="min-w-0 truncate leading-tight" /* justified: the area name gives way to its counts, one line and the whole name in its title (UD-315, Martín 2026-10-28) */ title={a.title}>{a.title}</span>
                   </NavLink>
                   {/* The counts' column is the same one as every row's: a name wraps the same before and after they arrive. */}
                   <span data-nav-count className={countCol}>
@@ -162,7 +162,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
 /**
  * The open and the answered messages of an area, each one leading to Mensajes filtered by that area and that state (UD-028, UD-041). A state with
  * none draws nothing and the closed ones have no mark (Martín, 2026-10-28). The column of the row is the same one as every row's and grows to the
- * width of its marks (`auto`): a count never changes the height of its row, and a name that does not fit beside both wraps whole before the marks move (UD-016).
+ * width of its marks (`auto`) and never shrinks: a count never changes the height of its row, and the name, in one line, is what gives way with an ellipsis (UD-315).
  */
 const PENDING = ['open', 'answered'] as const
 

@@ -82,6 +82,8 @@ const rows = (page) =>
         navRight: navBox.right,
         nameRight: nameBox.right,
         lines: Math.round(nameBox.height / lh),
+        title: name.getAttribute('title'),
+        cut: name.scrollWidth > name.clientWidth,
         marks: [...wrap.querySelectorAll('a.nav-count')].map((a) => {
           const r = a.getBoundingClientRect()
           return { status: a.getAttribute('data-count-status'), text: a.textContent.trim(), href: a.getAttribute('href'), label: a.getAttribute('aria-label'), title: a.getAttribute('title'), left: r.left, right: r.right, centerY: r.top + r.height / 2, hasShape: !!a.querySelector('svg'), word: /abiert|respond/i.test(a.textContent) }
@@ -129,7 +131,7 @@ for (const [name, viewport] of VIEWPORTS) {
       }
     })
 
-    test('a count arriving changes no row height of a name that fits, the marks end at one right edge and the long name neither pushes them out nor splits the row', async () => {
+    test('a count arriving changes no row height, the marks end at one right edge and the long name neither pushes them out nor splits the row', async () => {
       const bare = await session(viewport, { withCounts: false })
       let before
       try {
@@ -140,8 +142,8 @@ for (const [name, viewport] of VIEWPORTS) {
       const { page, context } = await session(viewport)
       try {
         const after = await rows(page)
-        // The rows whose name fits beside the marks (all but the long one): a count arriving changes neither their height nor how their name wraps.
-        for (const b of before.filter((r) => r.name !== LONG && !r.name.startsWith('Accesibilidad'))) {
+        // Every row, the long name included: a count arriving changes neither the height of the row nor the lines of its name (UD-315).
+        for (const b of before) {
           const a = after.find((r) => r.name === b.name)
           assert.ok(Math.abs(a.height - b.height) <= TOLERANCE, `${b.name}: ${b.height} px before, ${a.height} px after`)
           assert.equal(a.lines, b.lines, `${b.name} wraps the same before and after`)
@@ -156,15 +158,15 @@ for (const [name, viewport] of VIEWPORTS) {
           }
           assert.ok(r.nameRight <= r.marks[0].left + TOLERANCE, `${r.name}: its name (right ${r.nameRight}) runs under the first mark (left ${r.marks[0].left})`)
         }
-        // The name wraps whole: no ellipsis (UD-016), and it is the name that gives way, never the marks.
+        // The name is what gives way, never the marks (UD-315).
         const largo = after.find((r) => r.name === LONG)
-        assert.ok(largo.lines >= 2, `the long name takes ${largo.lines} lines`)
+        assert.equal(largo.lines, 1, `the long name takes ${largo.lines} lines`)
+        assert.equal(largo.title, LONG, 'the whole name is its tooltip')
+        assert.ok(largo.cut, 'the long name is cut with an ellipsis')
         assert.equal(largo.marks.length, 2)
         assert.ok(largo.right <= largo.navRight + TOLERANCE)
         const short = after.find((r) => r.name === 'Producto')
         assert.equal(short.lines, 1)
-        const clipped = await page.evaluate(() => [...document.querySelectorAll('[data-lane="areas-nav"] a span')].some((el) => getComputedStyle(el).textOverflow === 'ellipsis'))
-        assert.equal(clipped, false)
         const overflow = await page.evaluate(() => document.scrollingElement.scrollWidth - document.documentElement.clientWidth)
         assert.ok(overflow <= 0, `the page scrolls ${overflow} px sideways`)
       } finally {

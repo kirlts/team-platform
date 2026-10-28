@@ -18,7 +18,7 @@ import { FormDialog } from './FormDialog'
  */
 const rowBox = 'nav-item grid min-h-11 grid-cols-[minmax(0,1fr)_minmax(var(--sidebar-count-col),auto)] items-center rounded-md border border-transparent md:min-h-9'
 const link = 'nav-row grid min-h-[inherit] grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 self-stretch py-1 pl-2.5 pr-1 text-sm font-medium text-fg'
-const countCol = 'flex items-center justify-end pr-2.5'
+const countCol = 'flex items-center justify-end gap-0.5 pr-2.5'
 
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
@@ -159,21 +159,28 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
   )
 }
 
-/** The open messages of an area, leading to Mensajes filtered by that area and by open (UD-028, UD-041). */
+/**
+ * The open and the answered messages of an area, each one leading to Mensajes filtered by that area and that state (UD-028, UD-041). A state with
+ * none draws nothing and the closed ones have no mark (Martín, 2026-10-28). The column of the row is the same one as every row's and grows to the
+ * width of its marks (`auto`): a count never changes the height of its row, and a name that does not fit beside both wraps whole before the marks move (UD-016).
+ */
+const PENDING = ['open', 'answered'] as const
+
 function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; title: string; summary: MessageSummary | undefined; onNavigate?: () => void }) {
   const t = useT()
   const label = useCountsLabel()
   const counts = areaCounts(summary, areaId)
-  // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
-  const scope = t('areas.countOf', { title, count: label({ open: counts.open }) })
   return (
     <>
-      {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
-      {counts.open > 0 && (
-        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={scope} title={scope} className="nav-count">
-          <StateMark status="open" n={counts.open} showWord={false} plain />
-        </Link>
-      )}
+      {PENDING.filter((status) => counts[status] > 0).map((status) => {
+        // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
+        const scope = t('areas.countOf', { title, count: label({ [status]: counts[status] }) })
+        return (
+          <Link key={status} to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
+            <StateMark status={status} n={counts[status]} showWord={false} plain className="px-0.5" />
+          </Link>
+        )
+      })}
     </>
   )
 }

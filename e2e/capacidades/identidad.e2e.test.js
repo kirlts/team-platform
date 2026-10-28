@@ -144,9 +144,30 @@ test('sso-redirect: Ana goes to the host, comes back with the signed answer, get
   })
   assert.equal(browser.statusCode, 403)
   assert.match(browser.headers['content-type'], /text\/html/)
-  assert.match(browser.body, /<h1>Inicio de sesión rechazado<\/h1>/)
-  assert.match(browser.body, /<a href="\/api\/auth\/sso\/start">Ir a la entrada<\/a>/)
-  assert.doesNotMatch(browser.body, /sso_invalid/)
+  assert.match(browser.body, /<h2[^>]*>Inicio de sesión rechazado<\/h2>/)
+  assert.match(browser.body, /<a class="btn btn-gel[^"]*hit" href="\/api\/auth\/sso\/start">Reintentar<\/a>/)
+  assert.match(browser.body, /notice-theme\.js/)
+  assert.doesNotMatch(browser.body, /sso_invalid|navegador|respuesta del inicio/)
+  // The same answer sent again while the session is alive goes on to the panel, with no error.
+  const alive = await env.app.inject({
+    url: `/api/auth/sso/callback?sso=${sso}&sig=${createHmac('sha256', SSO_SECRET).update(sso).digest('hex')}`,
+    headers: { accept: 'text/html', cookie: `${session.name}=${session.value}` }
+  })
+  assert.equal(alive.statusCode, 302)
+  assert.equal(alive.headers.location, '/')
+  // An email the host did not verify is the host's to fix: the page says who and offers no link back into the same error.
+  const start2 = await env.app.inject({ url: '/api/auth/sso/start' })
+  const nonce2 = JSON.parse(Buffer.from(new URL(start2.headers.location).searchParams.get('sso'), 'base64url').toString()).nonce
+  const nonceCookie2 = start2.cookies.find((c) => c.name === '__Host-sso')
+  const unverified = Buffer.from(JSON.stringify({ nonce: nonce2, email: 'ana@x.org', email_verified: false })).toString('base64url')
+  const notVerified = await env.app.inject({
+    url: `/api/auth/sso/callback?sso=${unverified}&sig=${createHmac('sha256', SSO_SECRET).update(unverified).digest('hex')}`,
+    headers: { accept: 'text/html', cookie: `${nonceCookie2.name}=${nonceCookie2.value}` }
+  })
+  assert.equal(notVerified.statusCode, 403)
+  assert.match(notVerified.body, /<h2[^>]*>Correo sin verificar<\/h2>/)
+  assert.match(notVerified.body, /Lo corrige quien administra el sitio del equipo/)
+  assert.doesNotMatch(notVerified.body, /<a /)
   await env.close()
 })
 
@@ -171,18 +192,31 @@ test('trusted-header: a page from an untrusted address or with no header ends on
       const { res, visited } = await navegar(env, start, headers)
       assert.equal(res.statusCode, 401, visited.join(' -> '))
       assert.match(res.headers['content-type'], /text\/html/)
-      assert.match(res.body, /<h1>Sin acceso<\/h1>/)
-      assert.match(res.body, /cabecera del anfitrión/)
+      assert.match(res.body, /<h2[^>]*>Sin acceso<\/h2>/)
+      assert.match(res.body, /La entrada a esta instalación es por el sitio del equipo/)
+      assert.doesNotMatch(res.body, /cabecera|TRUSTED_PROXIES|dirección no confiable/)
+      // The exit with no host site is «Reintentar»: the destination asked for, which asks again and ends on the same page.
+      assert.match(res.body, new RegExp(`<a class="btn btn-gel[^"]*hit" href="${start}">Reintentar</a>`))
+      const again = await navegar(env, start, headers)
+      assert.equal(again.res.statusCode, 401)
     }
   }
   const english = await navegar(env, '/', { 'accept-language': 'en-US,en;q=0.9' })
-  assert.match(english.res.body, /<h1>No access<\/h1>/)
+  assert.match(english.res.body, /<h2[^>]*>No access<\/h2>/)
+  assert.match(english.res.body, />Retry<\/a>/)
+  assert.match((await env.app.inject({ url: '/notice-theme.js' })).body, /team-theme/)
   // The API keeps answering JSON.
   const api = await env.app.inject({ url: '/api/me', remoteAddress: '203.0.113.7' })
   assert.equal(api.statusCode, 401)
   assert.equal(api.json().login_url, '/session/login')
-  // A host that declares its entry still gets the redirect there.
   await env.close()
+  // With the host's site declared the exit is a link to it, never a loop.
+  const withSite = await makeEnv({ config: { panelDist: panelDir(), identity: { provider: 'trusted-header', hostSiteUrl: 'https://anfitrion.example', delegated: { mode: 'trusted-header' } } } })
+  const site = await navegar(withSite, '/messages', {})
+  assert.equal(site.res.statusCode, 401)
+  assert.match(site.res.body, /<a class="btn btn-gel[^"]*hit" href="https:\/\/anfitrion\.example">Ir al sitio del equipo<\/a>/)
+  await withSite.close()
+  // A host that declares its entry still gets the redirect there.
   const declared = await makeEnv({ config: { panelDist: panelDir(), identity: { provider: 'trusted-header', hostLoginUrl: 'https://anfitrion.example/entrar', delegated: { mode: 'trusted-header' } } } })
   const page = await declared.app.inject({ url: '/', headers: { accept: 'text/html' }, remoteAddress: '203.0.113.7' })
   assert.equal(page.statusCode, 302)

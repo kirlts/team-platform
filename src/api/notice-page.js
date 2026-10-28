@@ -1,27 +1,38 @@
-// A small server-rendered page for the two places where a browser must read a reason and cannot be sent to the panel:
-// the host's entry address is this very installation (no redirect, so no loop), and a rejected sign-in answer.
-// Voice of instrument (panel/DISENO.md): short noun title, one line, no final period, no second person.
+// A small server-rendered page for the places where a browser must read a reason and cannot be sent to the panel:
+// the host's entry address is this very installation (no redirect, so no loop) and a rejected sign-in answer.
+// It wears the panel's skin: the compiled stylesheet of the panel (sky, glass, Source Sans 3, wordmark, gel button), the host's
+// THEME_CSS after it, and light or dark by the saved choice or the system (`notice-theme.js`, served by the API module).
+// Voice of instrument (panel/DISENO.md): short noun title, one line of cause, one exit, no final period, no second person.
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 const TEXTS = {
   es: {
     noAccess: 'Sin acceso',
-    trustedHeader: 'Falta la cabecera del anfitrión o llega de una dirección no confiable',
-    hostSession: 'Falta una sesión válida del anfitrión',
+    noAccessLine: 'La entrada a esta instalación es por el sitio del equipo',
+    toSite: 'Ir al sitio del equipo',
+    retry: 'Reintentar',
     ssoTitle: 'Inicio de sesión rechazado',
-    ssoInvalid: 'La respuesta del anfitrión no es válida o ya se usó',
-    ssoUnverified: 'El anfitrión no verificó el correo',
-    entry: 'Ir a la entrada'
+    ssoInvalid: 'La respuesta del sitio del equipo no es válida o ya se usó',
+    unverifiedTitle: 'Correo sin verificar',
+    ssoUnverified: 'El sitio del equipo no verificó el correo',
+    ssoUnverifiedWho: 'Lo corrige quien administra el sitio del equipo'
   },
   en: {
     noAccess: 'No access',
-    trustedHeader: 'Host header missing or sent from an untrusted address',
-    hostSession: 'A valid host session is missing',
+    noAccessLine: 'This installation is entered through the team site',
+    toSite: 'Go to the team site',
+    retry: 'Retry',
     ssoTitle: 'Sign-in rejected',
-    ssoInvalid: 'The host response is not valid or was already used',
-    ssoUnverified: 'The host did not verify the email',
-    entry: 'Go to sign-in'
+    ssoInvalid: 'The response of the team site is not valid or was already used',
+    unverifiedTitle: 'Email not verified',
+    ssoUnverified: 'The team site did not verify the email',
+    ssoUnverifiedWho: 'Whoever administers the team site fixes it'
   }
 }
+
+/** Reads the browser's theme choice (the panel's own key) or the system's, before the page paints. */
+export const THEME_SCRIPT = `try{var p=localStorage.getItem('team-theme');var d=p==='dark'||((p!=='light')&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}\n`
 
 /** `en` when the browser prefers English, `es` otherwise (the default language of the product). */
 export function pickLanguage (request) {
@@ -40,24 +51,52 @@ export function wantsHtml (request) {
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
-function page (lang, title, line, link) {
-  const t = TEXTS[lang]
-  const anchor = link ? `<p><a href="${escapeHtml(link)}">${escapeHtml(t.entry)}</a></p>` : ''
+/** The stylesheet of the compiled panel, found in its index.html; empty when there is no build (the page then has no skin, only structure). */
+function panelStylesheet (config) {
+  try {
+    const html = readFileSync(path.join(config.panelDist, 'index.html'), 'utf8')
+    const href = /<link[^>]+rel="stylesheet"[^>]+href="\.?\/?assets\/([^"]+\.css)"/.exec(html)
+    return href ? `${config.basePath}assets/${href[1]}` : ''
+  } catch { return '' }
+}
+
+const BUTTON = 'btn btn-gel h-12 px-6 gap-2 text-sm justify-center hit'
+const WORDMARK = '<span class="wordmark flex min-w-0 items-center leading-tight text-fg gap-3 text-lg"><span aria-hidden="true" class="wordmark-logo shrink-0 wordmark-logo-large"></span>' +
+  '<span aria-hidden="true" class="wordmark-orb orb shrink-0 rounded-full [--orb-bottom:var(--color-gel-bottom)] [--orb-top:var(--color-gel-top)] h-7 w-7"></span><span class="min-w-0 break-words">Team</span></span>'
+
+function page (config, lang, title, lines, action) {
+  const css = panelStylesheet(config)
+  const links = (css ? `<link rel="stylesheet" href="${escapeHtml(css)}">` : '') + (config.themeCss ? `<link rel="stylesheet" href="${escapeHtml(config.basePath)}theme.css">` : '')
+  const button = action ? `<a class="${BUTTON}" href="${escapeHtml(action.href)}">${escapeHtml(action.label)}</a>` : ''
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeHtml(title)}</title>` +
-    '<style>body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;font:14px/1.5 system-ui,sans-serif;background:Canvas;color:CanvasText}' +
-    'main{max-width:28rem;padding:1.25rem}h1{font-size:1.125rem;margin:0 0 .5rem}p{margin:.25rem 0}a{color:LinkText}</style></head>' +
-    `<body><main role="alert"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(line)}</p>${anchor}</main></body></html>`
+    `<script src="${escapeHtml(config.basePath)}notice-theme.js"></script>${links}</head>` +
+    '<body><main data-screen="notice" role="alert" class="relative flex min-h-dvh items-center justify-center px-5"><div class="relative z-10 w-full max-w-sm">' +
+    `<section class="glass-strong leaf relative flex w-full flex-col gap-6 p-7"><h1>${WORDMARK}</h1><div class="flex flex-col gap-2"><h2 class="text-lg font-semibold">${escapeHtml(title)}</h2>` +
+    `${lines.map((l) => `<p>${escapeHtml(l)}</p>`).join('')}</div>${button}</section></div></main></body></html>`
 }
 
-/** The host's entry is this installation and the mode has no entry of its own. */
-export function noAccessPage (lang, { trustedHeader }) {
-  const t = TEXTS[lang]
-  return page(lang, t.noAccess, trustedHeader ? t.trustedHeader : t.hostSession, null)
+/** `next` of the request when it is a path of this site; the base path otherwise. */
+function nextPath (request, config) {
+  const next = request.query?.next
+  return typeof next === 'string' && /^\/(?![/\\])[^\r\n]*$/.test(next) ? next : config.basePath
 }
 
-/** A rejected sign-in answer: the reason in one line and a link to the entry. */
-export function ssoRejectedPage (lang, code, message, entryUrl) {
+/**
+ * The host's entry is this installation and the mode has no entry of its own. The exit is the host's site when `HOST_SITE_URL` is
+ * declared, and «Reintentar» (the destination asked for, which asks again) otherwise.
+ */
+export function noAccessPage (config, request) {
+  const lang = pickLanguage(request)
   const t = TEXTS[lang]
-  const line = lang === 'en' || !message ? (code === 'sso_unverified' ? t.ssoUnverified : t.ssoInvalid) : message.replace(/\.$/, '')
-  return page(lang, t.ssoTitle, line, entryUrl)
+  const site = config.identity.hostSiteUrl
+  const action = site ? { href: site, label: t.toSite } : { href: nextPath(request, config), label: t.retry }
+  return page(config, lang, t.noAccess, [t.noAccessLine], action)
+}
+
+/** A rejected sign-in answer. A missing email verification is the host's to fix, so the page names who and offers no way back into the same error. */
+export function ssoRejectedPage (config, request, code, startUrl) {
+  const lang = pickLanguage(request)
+  const t = TEXTS[lang]
+  if (code === 'sso_unverified') return page(config, lang, t.unverifiedTitle, [t.ssoUnverified, t.ssoUnverifiedWho], null)
+  return page(config, lang, t.ssoTitle, [t.ssoInvalid], { href: startUrl, label: t.retry })
 }

@@ -162,9 +162,10 @@ test('sso-redirect with a host that is another server: the person goes to the ho
   assert.equal(body.email, 'ana@x.org')
   assert.equal(body.source, 'session')
 
-  // 6. The same answer a second time is refused, with or without the browser's session.
+  // 6. The same answer a second time is refused without the browser's session; with it alive the person goes on to the panel.
   const replay = await person.go(callback)
-  assert.equal(replay.status, 403)
+  assert.equal(replay.status, 302)
+  assert.equal(replay.headers.get('location'), '/')
 
   assert.deepEqual(host.seen.filter((line) => line !== 'GET /favicon.ico'), ['GET /sso', 'POST /entrar', 'POST /entrar', 'GET /sso'])
 })

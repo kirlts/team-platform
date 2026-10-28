@@ -422,6 +422,7 @@ Si el anfitrión ya tiene sesión, Team Platform acepta su identidad en lugar de
 | `IDENTITY_PROVISION` | `closed` | `host` da de alta al primer ingreso a un correo desconocido, con el nombre y el rol que declara el anfitrión |
 | `COOKIE_DOMAIN`, `COOKIE_NAME` | vacía, `team_session` | Cookie de sesión compartida con el anfitrión |
 | `HOST_LOGIN_URL` | `/session/login` | Adónde va una sesión ausente o vencida cuando el anfitrión gobierna la identidad (UD-308) |
+| `HOST_SITE_URL` | vacía | Dirección del sitio del anfitrión. La página «Sin acceso» (la entrada del anfitrión es la propia instalación) la ofrece como salida; vacía, ofrece «Reintentar» |
 | `LOGOUT_URL` | vacía | Salida propia del anfitrión |
 
 El miembro agente no tiene contraseña. La sesión se identifica con las cabeceras `X-Team-User`, `X-Team-Ts` y `X-Team-Sig`. La firma es un HMAC-SHA256 ligado al método y la ruta, hecho con el secreto propio del agente. La API muestra ese secreto una sola vez, al crear al agente o reemplazarlo. `bin/team` firma con `TEAM_AGENT_EMAIL` y `TEAM_AGENT_SECRET`.

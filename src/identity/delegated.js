@@ -25,7 +25,7 @@ import { get, run, tx } from '../db/index.js'
 import { AppError, badRequest, forbidden } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
 import { createMember, isIdentityRetired } from '../domain/members.js'
-import { pickLanguage, ssoRejectedPage, wantsHtml } from '../api/notice-page.js'
+import { ssoRejectedPage, wantsHtml } from '../api/notice-page.js'
 import { cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
 
 function findMember (db, email) {
@@ -226,14 +226,34 @@ function ssoMode ({ db, config, sessions, now }) {
         try {
           return await callback(request, reply)
         } catch (error) {
-          // A browser gets the reason on a page with a link to the entry; a client that asks for JSON keeps the JSON error.
-          if (error instanceof AppError && error.code.startsWith('sso_') && wantsHtml(request)) {
+          if (!(error instanceof AppError) || !error.code.startsWith('sso_')) throw error
+          // A person who already has a live session and brings an answer the host really signed (sent twice, or Back after returning) goes on to the page, with no error.
+          const live = sessions.lookup(readSessionCookie(request, config))
+          const { sso, sig } = request.query ?? {}
+          if (live && error.code === 'sso_invalid' && typeof sso === 'string' && typeof sig === 'string' && safeEqual(signHex(d.secret, sso), sig)) return reply.redirect(returnTarget(request, reply), 302)
+          // A browser gets the reason on a page; a client that asks for JSON keeps the JSON error.
+          if (wantsHtml(request)) {
+            request.log.info({ code: error.code, reason: error.message }, 'sso: the answer of the host was rejected')
             return reply.code(error.status).header('cache-control', 'no-store').type('text/html; charset=utf-8')
-              .send(ssoRejectedPage(pickLanguage(request), error.code, error.message, `${config.apiPrefix}/auth/sso/start`))
+              .send(ssoRejectedPage(config, request, error.code, `${config.apiPrefix}/auth/sso/start`))
           }
           throw error
         }
       })
+
+      /** Where the person goes after the return: the page she asked for (`next` cookie, consumed) or SSO_RETURN_PATH. */
+      function returnTarget (request, reply) {
+        let back = config.ssoReturnPath
+        const rawNext = request.cookies?.[nextCookieName]
+        if (rawNext) {
+          let decoded = null
+          try { decoded = decodeURIComponent(rawNext) } catch { /* a garbled cookie is ignored */ }
+          const wanted = safeNext(decoded)
+          if (wanted) back = wanted
+          reply.clearCookie(nextCookieName, { path: '/', httpOnly: true, secure: spec.options.secure, sameSite: 'lax' })
+        }
+        return back
+      }
 
       async function callback (request, reply) {
         const { sso, sig } = request.query
@@ -278,16 +298,7 @@ function ssoMode ({ db, config, sessions, now }) {
         const previous = readSessionCookie(request, config)
         if (previous) sessions.destroy(previous)
         setSessionCookie(reply, config, sessions.create(memberRow.id).token)
-        let back = config.ssoReturnPath
-        const rawNext = request.cookies?.[nextCookieName]
-        if (rawNext) {
-          let decoded = null
-          try { decoded = decodeURIComponent(rawNext) } catch { /* a garbled cookie is ignored */ }
-          const wanted = safeNext(decoded)
-          if (wanted) back = wanted
-          reply.clearCookie(nextCookieName, { path: '/', httpOnly: true, secure: spec.options.secure, sameSite: 'lax' })
-        }
-        return reply.redirect(back, 302) // SSO_RETURN_PATH: the panel may live under a path (H-3721)
+        return reply.redirect(returnTarget(request, reply), 302) // SSO_RETURN_PATH: the panel may live under a path (H-3721)
       }
     }
   }

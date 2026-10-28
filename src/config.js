@@ -345,7 +345,9 @@ export function loadConfig (env = process.env, overrides = {}) {
       // The host's own sign-out: POST /auth/logout answers it so the panel goes there after closing its own session.
       logoutUrl: textValue(env, 'LOGOUT_URL', ''),
       // The host's own sign-in page (UD-308): where a missing, expired or invalid session goes when the host governs identity.
-      hostLoginUrl: textValue(env, 'HOST_LOGIN_URL', '/session/login')
+      hostLoginUrl: textValue(env, 'HOST_LOGIN_URL', '/session/login'),
+      // The host's site (address a person is sent to from the page «Sin acceso»); empty: the page offers «Reintentar».
+      hostSiteUrl: textValue(env, 'HOST_SITE_URL', '')
     },
 
     // ---- Unattended Claude Code session for agent members (UD-254, UD-255, MS §7.5 «Ejecución»)
@@ -543,6 +545,9 @@ function validateConfig (config) {
   }
   if (config.identity.cookieDomain && /^__Host-/i.test(config.identity.cookieName)) {
     throw new Error('COOKIE_NAME cannot start with __Host- when COOKIE_DOMAIN is set: the prefix forbids Domain.')
+  }
+  if (config.identity.hostSiteUrl && !/^https?:\/\//i.test(config.identity.hostSiteUrl)) {
+    throw new Error(`HOST_SITE_URL: «${config.identity.hostSiteUrl}» is not an absolute http(s) URL.`)
   }
   if (config.identity.logoutUrl) {
     try { new URL(config.identity.logoutUrl) } catch { throw new Error(`LOGOUT_URL: «${config.identity.logoutUrl}» is not an absolute URL.`) }

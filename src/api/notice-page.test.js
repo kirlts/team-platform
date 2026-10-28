@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { noAccessPage, pickLanguage, ssoRejectedPage, wantsHtml } from './notice-page.js'
+import { noAccessPage, pickLanguage, ssoRejectedPage, THEME_SCRIPT, wantsHtml } from './notice-page.js'
+
+const config = (hostSiteUrl = '') => ({ basePath: '/', panelDist: '/nonexistent', themeCss: '', identity: { hostSiteUrl } })
+const request = (extra = {}) => ({ headers: {}, query: {}, ...extra })
 
 test('wantsHtml: a navigation asks for HTML first; JSON or no Accept keeps the JSON answer', () => {
   assert.equal(wantsHtml({ headers: { accept: 'text/html,application/xhtml+xml,*/*;q=0.8' } }), true)
@@ -15,13 +18,27 @@ test('pickLanguage: English only when the browser prefers it', () => {
   assert.equal(pickLanguage({ headers: {} }), 'es')
 })
 
-test('pages: one line without final period, the message is escaped and the link is the entry', () => {
-  const trusted = noAccessPage('es', { trustedHeader: true })
-  assert.match(trusted, /Falta la cabecera del anfitrión o llega de una dirección no confiable<\/p>/)
-  assert.doesNotMatch(trusted, /<a /)
-  assert.match(noAccessPage('en', { trustedHeader: false }), /A valid host session is missing<\/p>/)
-  const rejected = ssoRejectedPage('es', 'sso_invalid', 'Venció <b>.', '/api/auth/sso/start')
-  assert.match(rejected, /<p>Venció &lt;b&gt;<\/p>/)
-  assert.match(rejected, /<a href="\/api\/auth\/sso\/start">Ir a la entrada<\/a>/)
-  assert.match(ssoRejectedPage('en', 'sso_unverified', 'x', '/e'), /did not verify the email/)
+test('no access: one cause and one exit, with the retry going to the destination asked for', () => {
+  const retry = noAccessPage(config(), request({ query: { next: '/messages' } }))
+  assert.match(retry, /<a class="btn btn-gel[^"]*" href="\/messages">Reintentar<\/a>/)
+  assert.match(retry, /La entrada a esta instalación es por el sitio del equipo<\/p>/)
+  assert.doesNotMatch(retry, /cabecera/)
+  const unsafe = noAccessPage(config(), request({ query: { next: '//evil.example' } }))
+  assert.match(unsafe, /href="\/">Reintentar/)
+  const site = noAccessPage(config('https://ejemplo.cl'), request({ headers: { 'accept-language': 'en' } }))
+  assert.match(site, /href="https:\/\/ejemplo\.cl">Go to the team site<\/a>/)
+})
+
+test('sso rejected: a retry for an invalid answer, and no link for an email the host did not verify', () => {
+  const invalid = ssoRejectedPage(config(), request(), 'sso_invalid', '/api/auth/sso/start')
+  assert.match(invalid, /href="\/api\/auth\/sso\/start">Reintentar<\/a>/)
+  const unverified = ssoRejectedPage(config(), request(), 'sso_unverified', '/api/auth/sso/start')
+  assert.doesNotMatch(unverified, /<a /)
+  assert.match(unverified, /Lo corrige quien administra el sitio del equipo/)
+  assert.match(ssoRejectedPage(config(), request({ headers: { 'accept-language': 'en' } }), 'sso_unverified', '/e'), /Whoever administers the team site fixes it/)
+})
+
+test('theme script: reads the panel key and the system preference', () => {
+  assert.match(THEME_SCRIPT, /team-theme/)
+  assert.match(THEME_SCRIPT, /prefers-color-scheme: dark/)
 })

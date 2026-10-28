@@ -23,7 +23,7 @@ import { installCompression } from './compression.js'
 import { mountedIndex } from './mount.js'
 import { cookieSpec } from '../identity/cookies.js'
 import { hostEntryUrl, identitySources } from '../config.js'
-import { noAccessPage, pickLanguage } from './notice-page.js'
+import { noAccessPage, THEME_SCRIPT } from './notice-page.js'
 import { registerIdentity } from '../identity/index.js'
 import { isRoleGoverned } from '../identity/delegated.js'
 import { loadBlocklist } from '../identity/password.js'
@@ -213,6 +213,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   }
   const apiPrefixPath = config.apiPrefix
   const hostEntry = identitySources(config.identity).includes('sso-redirect') ? null : hostEntryUrl(config.identity) // UD-308
+  // The theme script of the server's own pages (notice-page.js): script-src is 'self', so it cannot be inline.
+  app.get(`${basePath}notice-theme.js`, { config: { public: true }, schema: { hide: true } }, async (request, reply) => reply.header('cache-control', 'no-cache').type('text/javascript; charset=utf-8').send(THEME_SCRIPT))
   app.setNotFoundHandler(async (request, reply) => {
     const routePath = request.raw.url.split('?')[0]
     const isApi = routePath === apiPrefixPath || routePath.startsWith(`${apiPrefixPath}/`)
@@ -227,8 +229,9 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
         if (!found) {
           // The entry is this very installation (the default `/session/login` in a mode with no entry of its own): redirecting would loop.
           if (hostEntry.startsWith('/') && !hostEntry.startsWith('//') && routePath === hostEntry.split('?')[0]) {
-            return reply.code(401).header('cache-control', 'no-store')
-              .type('text/html; charset=utf-8').send(noAccessPage(pickLanguage(request), { trustedHeader: identitySources(config.identity).includes('trusted-header') }))
+            const trustedName = config.identity.delegated.trustedHeaderName
+            request.log.warn({ address: request.ip, header: trustedName in request.headers ? 'present' : 'absent' }, 'identity: a page reached the host entry address with no host identity (header absent, or its address is outside TRUSTED_PROXIES)')
+            return reply.code(401).header('cache-control', 'no-store').type('text/html; charset=utf-8').send(noAccessPage(config, request))
           }
           const sep = hostEntry.includes('?') ? '&' : '?'
           return reply.header('cache-control', 'no-store').redirect(`${hostEntry}${sep}next=${encodeURIComponent(request.raw.url)}`, 302)

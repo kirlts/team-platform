@@ -424,7 +424,10 @@ export function cancelInput ({ db, queue, events, now = Date.now }, inputId, mem
 /** The reversible deletion of a send (see `deleteInput`). Inside a transaction. */
 function softDeleteInput ({ db, queue, events, now }, input, actor, withMessages) {
   if (input.deleted_at !== null) throw notFound('El input no existe.')
-  const t = now()
+  // Restore tells the messages this deletion trashed from the ones already in the trash by `deleted_at = input.deleted_at`, so the stamp must differ from
+  // every message stamp the send already has: two deletions in the same millisecond would otherwise be taken for one (flaky 2026-10-28).
+  const lastTrashed = get(db, 'SELECT MAX(deleted_at) AS t FROM messages WHERE input_id = ?', input.id).t
+  const t = Math.max(now(), (lastTrashed ?? -1) + 1)
   const cancelled = cancelJobsOf({ queue, events }, input.id)
   // A send in flight has no job any more: it is left cancelled, and restoring it decides what it becomes.
   if (['queued', 'extracting', 'analyzing'].includes(input.status)) transitionInput(db, input.id, 'cancelled', { now })

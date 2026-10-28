@@ -13,14 +13,16 @@ describe('the deadline of the job during CREATE and DESTROY', () => {
   before(() => { dir = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'deadline-create-')) })
   after(() => { rmSync(dir, { recursive: true, force: true }) })
 
-  /** The hooks of a host whose machine appears `createS` seconds after CREATE starts; DESTROY takes `destroyS` seconds and removes it if it is there. */
+  /** The hooks of a host whose machine appears `createS` seconds after CREATE starts and whose CREATE reports it `NAME_LAG_S` later (a real CREATE prints the name once the
+   * machine exists; ending in the same instant as the detached "daemon" made DESTROY race the file's creation, 2026-10-28); DESTROY takes `destroyS` seconds and removes it if it is there. */
+  const NAME_LAG_S = 0.3
   function host (name, { createS, destroyS = 0, execute = {} }) {
     const root = join(dir, name); mkdirSync(join(root, 'machines'), { recursive: true }); mkdirSync(join(root, 'w'), { recursive: true })
     const log = join(root, 'log')
     const config = loadConfig({ DATA_DIR: root, LOG_LEVEL: 'silent' }, {
       execute: {
         runner: 'machine', timeoutMs: 500, killGraceMs: 200, createSettleMs: 5000,
-        machineCreate: `setsid sh -c 'sleep ${createS}; : > ${root}/machines/vm-{job_id}' </dev/null >/dev/null 2>&1 & echo "create" >> ${log}; sleep ${createS}; echo vm-{job_id}`,
+        machineCreate: `setsid sh -c 'sleep ${createS}; : > ${root}/machines/vm-{job_id}' </dev/null >/dev/null 2>&1 & echo "create" >> ${log}; sleep ${createS + NAME_LAG_S}; echo vm-{job_id}`,
         machineRun: `echo run >> ${log}; sleep 30`,
         machineDestroy: `echo "destroy {machine}" >> ${log}; sleep ${destroyS}; rm -f ${root}/machines/$(echo {machine}); echo "destroyed" >> ${log}`,
         ...execute

@@ -26,7 +26,7 @@ function RequiredToggle({ required, onChange }: { required: boolean; onChange: (
   return (
     <label className="flex shrink-0 cursor-pointer items-center gap-2">
       <Checkbox checked={required} onCheckedChange={(on) => onChange(on === true)} />
-      <Badge tone={required ? 'accent' : 'outline'}>{t('templates.required')}</Badge>
+      <Badge tone={required ? 'accent' : 'outline'} className={required ? 'border border-transparent' : undefined}>{t('templates.required')}</Badge>
     </label>
   )
 }

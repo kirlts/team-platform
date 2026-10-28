@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { AlertTriangle } from '@/components/icons'
 import { ConnectionStatusMark } from '@/components/ConnectionStatusMark'
 import { LoadState } from '@/components/LoadState'
 import { NativeSelect } from '@/components/NativeSelect'
@@ -20,8 +21,21 @@ import { useCheckSlot, useConnections, useProviders, useRememberedModels, useSav
  */
 export function ProviderSettings() {
   const t = useT()
+  // The folded row carries what fails: a provider that is down, or a read that did not arrive, is seen without opening it.
+  const connections = useConnections()
+  const failing = (connections.data?.items ?? []).filter((c) => c.status === 'failing')
+  const note =
+    connections.isError ? (
+      <span data-providers-alert className="inline-flex items-center gap-1.5 text-sm font-semibold normal-case tracking-normal text-danger">
+        <AlertTriangle size={16} aria-hidden /> {t('common.loadFailedShort')}
+      </span>
+    ) : failing.length > 0 ? (
+      <span data-providers-alert className="inline-flex flex-wrap items-center gap-x-1.5 text-sm font-semibold normal-case tracking-normal text-danger">
+        <AlertTriangle size={16} aria-hidden /> {failing.map((c) => c.label).join(', ')} · {t('providers.status.failing')}
+      </span>
+    ) : null
   return (
-    <SettingsBox fold data-providers title={t('settings.providers')}>
+    <SettingsBox fold note={note} data-providers title={t('settings.providers')}>
       <ProviderBody />
     </SettingsBox>
   )

@@ -157,7 +157,7 @@ export function deliveredBody ({ output, language, lines = [], at = Date.now(), 
 }
 
 // A sentence of the session that says the delivery is still to come (it wrote the summary before the delivery ran). Here the delivery already ended in production, so the sentence is false by construction.
-const PENDING_DELIVERY = /\b(falta|faltan|queda pendiente|pendiente de)\b[^.!?\n]*\b(entrega|entregar|publicar|publicación|despliegue|desplegar)\b|\b(todavía|aún) no\b[^.!?\n]*\b(entreg\w+|publicad\w+|desplegad\w+|en producción)\b|\bnot (yet )?(delivered|published|deployed|in production)\b|\b(delivery|deployment|publication) (is )?(still )?(missing|pending)\b/i
+const PENDING_DELIVERY = /\b(falta|faltan|queda pendiente|pendiente de)\b[^.!?\n]*\b(entrega|entregar|publicar|publicación|despliegue|desplegar)\b|\b(todavía|aún) no\b[^.!?\n]*\b(entreg\w+|publicad\w+|desplegad\w+|en producción)\b|\bnot (yet )?(delivered|published|deployed|in production)\b|\b(delivery|deployment|publication) (is )?(still )?(missing|pending)\b|\bsi la (entrega|publicación) (vuelve a )?fall\w+|\bif the delivery (fails|fails again)\b/i
 export function withoutPendingDelivery (summary) {
   const text = String(summary ?? '')
   return text.split('\n\n').map((paragraph) => paragraph.split(/(?<=[.!?])\s+/).filter((sentence) => !PENDING_DELIVERY.test(sentence)).join(' ').trim()).filter(Boolean).join('\n\n')

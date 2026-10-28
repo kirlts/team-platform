@@ -48,7 +48,7 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
   }
   // UD-298: whether the change alters what a person sees on a screen, and why there is no capture when there is none. The system reads the boolean; the reason is the sentence it writes in the reply.
   const screen = {
-    touches_screen: { type: 'boolean', description: 'true when the change alters what a person sees on a screen (an interface, a text of a screen, an email or message someone reads). Then the output carries at least one screenshot or the walkthrough video in `captures`.' },
+    touches_screen: { type: 'boolean', description: 'Always declare it (message 136: a new control on a screen closed with no screenshot because the field was left out). true when the change alters what a person sees on a screen (an interface, a text of a screen, an email or message someone reads). Then the output carries at least one screenshot or the walkthrough video in `captures`.' },
     no_capture_reason: { type: 'string', description: 'With `touches_screen` true and no capture or video: one short sentence with why you could not record (the browser did not open, the view needs data that does not exist). The system writes it in the closing reply. Omit when `captures` is not empty.' }
   }
   // UD-271: the session asks to close the message; the system closes only when its own checks pass too (auto-close.js). Both are optional. Without EXECUTE_AUTO_CLOSE the grammar does not offer them, but the validation still accepts them: an output that carries them is not a malformed output.
@@ -92,12 +92,12 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
       }
     : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...screen, ...unmet, ...closing, ...forwarding, ...review, ...escalation } }
+    return { type: 'object', additionalProperties: false, required: ['summary', 'touches_screen'], properties: { summary, captures, ...screen, ...unmet, ...closing, ...forwarding, ...review, ...escalation } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
-    required: [...new Set([...(declared.required ?? []), 'summary'])],
+    required: [...new Set([...(declared.required ?? []), 'summary', 'touches_screen'])],
     properties: { ...(declared.properties ?? {}), summary, captures, ...screen, ...unmet, ...closing, ...forwarding, ...review, ...escalation, decision_check: decisionCheckSchema({ validation }) }
   }
 }

@@ -50,6 +50,8 @@ describe('what the session may promise, how it addresses people, and what a fail
     assert.equal(finalSchema(null).properties.unfulfilled.type, 'boolean')
     assert.equal(finalSchema(null, { validation: true }).properties.unfulfilled.type, 'boolean')
     assert.ok(!finalSchema(null).required.includes('unfulfilled'), 'optional: an output without it stays valid')
+    assert.ok(finalSchema(null).required.includes('touches_screen'), 'message 136: a session that leaves out whether the change draws a screen skipped the evidence gate')
+    assert.ok(finalSchema({ type: 'object', additionalProperties: false, required: ['outcome'], properties: { outcome: { type: 'string' } } }).required.includes('touches_screen'))
     assert.match(buildExecuteParts(input(1)).stable, /Unfulfilled work[\s\S]*`unfulfilled` to true[\s\S]*«Reintentar»/)
   })
   it('the pass after a failed check says that the test may be somebody else\'s and has to be fixed at the root', () => {

@@ -971,6 +971,12 @@ describe('pieces of the delivery', () => {
     const body138 = deliveredBody({ output: { outcome: 'done', summary: m138 }, language: 'es-419', at, alreadyThere: true })
     assert.equal(body138, 'La rama quedó empujada y sin conflictos.\n\nNo cambia nada en pantalla. La prueba pasa (6 de 6). En producción: el cambio ya estaba servido (llegó por otro camino) y no hizo falta entregarlo de nuevo.')
     assert.doesNotMatch(deliveredBody({ output: { outcome: 'done', summary: m138 }, language: 'es-419', at }), /Falta que la entrega/)
+    // Message 136: «Todavía no está en producción» plus «En producción desde» plus «ya estaba en producción» in one reply. One version of the facts.
+    const m136 = 'La rama quedó al día y empujada.\n\nTodavía no está en producción: eso lo hace la entrega. La prueba de punta a punta pasa. Si la entrega vuelve a fallar, avísame y reviso su salida.'
+    const body136 = deliveredBody({ output: { outcome: 'done', summary: m136 }, language: 'es-419', at, alreadyThere: true })
+    assert.doesNotMatch(body136, /Todavía no está en producción|Si la entrega vuelve a fallar/)
+    assert.match(body136, /La prueba de punta a punta pasa\. En producción: el cambio ya estaba servido/)
+    assert.doesNotMatch(body136, /En producción desde/)
     assert.equal(deliveredBody({ output: { outcome: 'done', summary: 'Sin conflictos en la entrega anterior. Listo.' }, language: 'es-419', at }), `Sin conflictos en la entrega anterior. Listo. En producción desde ${clockTime(at)}.`)
   })
 

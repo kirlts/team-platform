@@ -115,30 +115,26 @@ export function MediaGallery({
     if (Math.abs(el.scrollLeft - current * el.clientWidth) > 1) el.scrollTo({ left: current * el.clientWidth, behavior: 'auto' })
   }, [current])
 
-  // A swipe moves the track: the slide that is more than half in view is the current one.
+  // A swipe moves the track: the slide that is more than half in view, by the width of the track, is the current one. It is not read from the visible area of a slide
+  // (an observer of intersection): the viewer is as tall as the slide in view, so a taller slide next to it is cut by the frame and never reaches the share it asks for.
   useEffect(() => {
     const el = track.current
-    if (!el || total < 2 || typeof IntersectionObserver === 'undefined') return
-    const seen = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.intersectionRatio < 0.6) continue
-          const at = Number((entry.target as HTMLElement).dataset.index)
-          if (heading.current !== null) {
-            if (at === heading.current) heading.current = null
-            continue
-          }
-          setOwn((prev) => {
-            if (prev === at) return prev
-            onIndexChange?.(at)
-            return at
-          })
-        }
-      },
-      { root: el, threshold: 0.6 },
-    )
-    el.querySelectorAll('[data-index]').forEach((slide) => seen.observe(slide))
-    return () => seen.disconnect()
+    if (!el || total < 2) return
+    const onScroll = () => {
+      if (el.clientWidth === 0) return
+      const at = Math.min(total - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)))
+      if (heading.current !== null) {
+        if (at === heading.current) heading.current = null
+        return
+      }
+      setOwn((prev) => {
+        if (prev === at) return prev
+        onIndexChange?.(at)
+        return at
+      })
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
   }, [total, onIndexChange])
 
   // A touch or a wheel on the track takes the movement back from the program.

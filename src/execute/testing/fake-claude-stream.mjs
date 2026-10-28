@@ -142,6 +142,7 @@ process.stdin.on('end', async () => {
     await pause(20); result('tu-edit', 'tu-sub')
     result('tu-sub', null)
     await pause(5)
+    if (process.env.FAKE_EXECUTE_SLEEP_MS) await pause(Number(process.env.FAKE_EXECUTE_SLEEP_MS)) // a session that is still working after its last call
     out({ type: 'result', subtype: 'success', is_error: false, session_id: sid, duration_ms: 61000, num_turns: 4, total_cost_usd: 0.5, usage: usage(10), modelUsage: { 'claude-sonnet-5-5': {} }, result: '', structured_output: { outcome: 'done', summary: 'Listo.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}) } })
   }
 })

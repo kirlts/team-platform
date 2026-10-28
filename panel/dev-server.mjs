@@ -780,6 +780,35 @@ let olderJobs = []
 let execution = null
 /** The timing of the messages `/_control/agent-work` seeds, by message id (B7). */
 const workTimings = new Map()
+/** The history of the session (GET /messages/:id/session) of the messages `/_control/agent-work` and `/_control/execution` seed, by message id. */
+const workSessions = new Map()
+/**
+ * `count` steps of a session in the order they happened, seven seconds apart and ending now: reads, searches, edits and commands, one command that fails, a plan, and two screenshots
+ * (one whose file is not in the thread yet, one whose file is). With `running` the last step has not returned.
+ */
+function demoSteps(count, { running = false } = {}) {
+  const kinds = [
+    ['read', 'Read', '/repo/src/components/Reservas.tsx'], ['search', 'Grep', 'Reservar'], ['read', 'Read', '/repo/src/i18n/es-419.ts'], ['edit', 'Edit', '/repo/src/components/Reservas.tsx'],
+    ['command', 'Bash', 'npm test -- --run src/components/Reservas.test.tsx'], ['plan', 'TodoWrite', null], ['command', 'Bash', 'git diff --stat'], ['subagent', 'Task', 'Revisar estilos'], ['web', 'WebFetch', 'https://developer.mozilla.org/es/docs/Web/CSS/grid'],
+  ]
+  const shot = seedAttachment('image', 'image/svg+xml', 'Después - Agenda del día.svg', svgCapture('Agenda del día', 20))
+  const out = []
+  const start = Date.now() - count * 7000
+  for (let i = 0; i < count; i++) {
+    const [action, tool, detail] = kinds[i % kinds.length]
+    const at = new Date(start + i * 7000).toISOString()
+    const last = i === count - 1
+    out.push({ id: `st-${i + 1}`, job_id: 'j-work', attempt: 1, at, ended_at: running && last ? null : new Date(start + i * 7000 + 3000).toISOString(), action, tool, detail, failed: i === 4, capture: null })
+  }
+  const capture = (i, alt, attachment) => {
+    if (!out[i]) return
+    out[i] = { ...out[i], action: 'capture', tool: 'Bash', detail: 'look /agenda --shot', capture: { alt, place: '/agenda', as: 'recepción', masked: true, kind: 'image', attachment } }
+  }
+  if (count > 6) capture(6, 'Agenda del día con el botón nuevo', null)
+  if (count > 8) capture(8, 'Agenda del día, vista semanal', { id: shot, kind: 'image', mime: 'image/svg+xml', size: 1200, name: 'Después - Agenda del día.svg' })
+  return out
+}
+const sessionOf = (messageId, steps, job_status, phase) => ({ message_id: messageId, job_id: `j-work-${messageId}`, job_status, phase, max_steps: 500, capped: false, steps })
 /** UD-275: the reviews held for a person, by message id: `{ branch, held_reason, job_id, agent_id, delivering_job_id }`. */
 const reviews = new Map()
 const purgedJobs = new Set()
@@ -889,6 +918,7 @@ function control(path, query) {
     const done = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Cambiar el texto del botón de reservas', body: 'El botón dice Reservar y debe decir Agendar.', created_at: ago(50), assignee_ids: ['u-claude'], attachment_ids: [] })
     const live = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Ajustar el espacio de la tabla de pacientes', body: 'Las filas quedan pegadas.', created_at: ago(5), assignee_ids: ['u-claude'], attachment_ids: [] })
     execution = { doneId: done.id, liveId: live.id, deliver: query.get('deliver') === '1' }
+    workSessions.set(done.id, sessionOf(done.id, demoSteps(Number(query.get('steps') ?? 24)), 'done', null))
     return { done_id: done.id, live_id: live.id }
   }
   if (path === '/_control/agent-work') {
@@ -902,10 +932,16 @@ function control(path, query) {
       workTimings.set(msg.id, timing(msg.id, over))
       return msg.id
     }
+    const stepsCount = Number(query.get('steps') ?? 10)
+    const delivering = make('Trabajo entregando', { job_status: 'running', phase: 'deliverVerify', phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000)], deliver: { job_id: 'j-work-deliver2', job_status: 'running', phase: 'deliverVerify', attempts: 1 } })
+    const sessionId = make('Trabajo en la sesión', { phase: 'run', elapsed_ms: 212_000, phases: [phase('create', 95_000)] })
+    workSessions.set(sessionId, sessionOf(sessionId, demoSteps(stepsCount, { running: true }), 'running', 'run'))
+    workSessions.set(delivering, sessionOf(delivering, demoSteps(12), 'running', 'deliverVerify'))
     return {
+      delivering,
       queued: make('Trabajo en cola', { job_status: 'queued' }),
       machine: make('Trabajo creando la máquina', { phase: 'create', elapsed_ms: 38_000 }),
-      session: make('Trabajo en la sesión', { phase: 'run', elapsed_ms: 212_000, phases: [phase('create', 95_000)] }),
+      session: sessionId,
       failed_session: make('Trabajo con la sesión fallida', { job_status: 'failed', phases: [phase('create', 95_000), phase('run', 300_000, 'error')] }, failure('work')),
       failed_delivery: make('Trabajo con la entrega fallida', { job_status: 'done', phases: [phase('create', 95_000), phase('run', 210_000), phase('destroy', 8_000), phase('deliver', 42_000, 'error')], deliver: { job_id: 'j-work-deliver', job_status: 'failed', phase: null, attempts: 1 } }, failure('publish')),
     }
@@ -925,6 +961,7 @@ function control(path, query) {
     reviews.clear()
     execution = null
     workTimings.clear()
+    workSessions.clear()
     executeJobs.clear()
     for (const t of jobs.values()) clearTimeout(t)
     jobs.clear()
@@ -1169,6 +1206,11 @@ const server = createServer(async (req, res) => {
       for (const j of gone) purgedJobs.add(j.id)
       record(me, 'jobs.purge', 'job', null, { state, purged: gone.length })
       return send(res, 200, { purged: gone.length })
+    }
+    const sessionMatch = /^\/messages\/([^/]+)\/session$/.exec(path)
+    if (sessionMatch && method === 'GET') {
+      const history = workSessions.get(sessionMatch[1])
+      return history ? send(res, 200, history) : fail(res, 404, 'El mensaje no tiene trabajo de ejecución.', 'not_found')
     }
     const timingMatch = /^\/messages\/([^/]+)\/timing$/.exec(path)
     if (timingMatch && method === 'GET') {

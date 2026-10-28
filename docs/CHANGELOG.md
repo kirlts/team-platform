@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Historial de la sesión: cada llamada de Claude a una herramienta se guarda por trabajo (`execute_steps`, migración 0041, tope `EXECUTE_STEPS_MAX`) y se lee en `GET /messages/:id/session`. El panel «Trabajo» muestra una fila por tramo con barra delgada y un desplegable en Sesión (pasos y capturas) y en Publicación (estado). El historial queda en Detalles › Tiempos. El contrato de anfitrión no cambia.
+
 ## [0.1.7] - 2026-10-28
 
 - Panel: el hilo de un mensaje ya no se desplaza en horizontal en teléfono: el primer renglón de un aviso de avance (una ruta o un enlace largo) se corta en el ancho de la tarjeta.

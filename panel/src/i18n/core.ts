@@ -39,6 +39,8 @@ export interface Formats {
   longDate: (d: Date) => string
   /** «14:30». */
   clock: (d: Date) => string
+  /** «14:30:07»: for what happens seconds apart. */
+  clockSeconds: (d: Date) => string
   /** «hoy 14:30», «ayer 09:05» or «20 oct 14:30»; the words come from the catalog through `words`. */
   stamp: (iso: string, now?: Date) => string
   /** Full date and time for a tooltip: «20 de octubre de 2026, 14:30». */
@@ -53,11 +55,13 @@ export function createFormats(language: Language, words: { today: string; yester
   const short = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' })
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 1 })
   const clock = (d: Date) => time.format(d)
+  const timeSeconds = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
   const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: false })
   return {
     longDate: (d) => date.format(d).replace(/\./g, '').replace(/ de /g, ' '),
     fullStamp: (iso) => (Number.isNaN(new Date(iso).getTime()) ? '' : full.format(new Date(iso))),
     clock,
+    clockSeconds: (d) => timeSeconds.format(d),
     stamp: (iso, now = new Date()) => {
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return ''

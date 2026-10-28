@@ -966,6 +966,16 @@
     transition: width var(--meter-duration) ease-out;
   }
 
+  /* A finished stretch: the fill stays and the glint is gone (the glint is only for work that runs). One that failed takes the color of danger. */
+  .meter-still .meter-fill {
+    background: var(--meter-fill);
+    animation: none;
+  }
+
+  .meter-danger .meter-fill {
+    background: var(--color-danger);
+  }
+
   /* Work that has not reported a step yet (J1-B-06): a glint that travels, never a percentage that is not there. */
   .meter-indeterminate {
     position: relative;

@@ -87,7 +87,8 @@ function Account() {
 
   return (
     <SettingsBox title={t('settings.account')}>
-      <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+      {/* A column does not yield below its widest control: a wider face or a larger letter widens the column instead of pushing the button out of its box. */}
+      <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-[repeat(2,minmax(min-content,1fr))]">
         <Row label={t('settings.name')}>
           <span>{me?.name}</span>
         </Row>

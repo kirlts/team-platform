@@ -733,7 +733,7 @@ Contrato del tema (`THEME_CSS`, H-3721). La hoja del anfitrión se carga despué
 | Botón gel e IA (el botón principal se tiñe con `--color-gel-top` y `--color-gel-bottom`, no con `--color-accent`; `--color-gel-fg` es su letra) | `--color-gel-top`, `--color-gel-bottom`, `--color-gel-fg`, `--color-ai-bg`, `--color-ai-edge`, `--color-ai-fg`, `--color-aqua`, `--color-lime`, `--color-lilac` |
 | Sombras | `--shadow-glass`, `--shadow-pop`, `--shadow-gel`, `--shadow-well` |
 | Tipografía | `--font-sans`, `--font-display`, `--font-mono` |
-| Radio | `--radius-sm`, `--radius-md`, `--radius-lg` |
+| Radio | `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-control` (esquina de todo botón, `9999px` por omisión; los tres primeros gobiernan también la etiqueta de área y las cajas `.leaf`) |
 | Acabado del botón primario | `--btn-gloss`, `--btn-border`, `--btn-text-shadow` |
 | Acabado del avatar y la marca | `--orb-gloss`, `--orb-glow`, `--orb-ink`, `--orb-text-shadow`, `--orb-shadow` |
 | Acabado de la barra superior | `--chrome-border`, `--chrome-shadow` |
@@ -763,7 +763,8 @@ Acabado de los controles (H-3732). Las variables de las cinco filas nuevas se de
 | `--h1-size`, `--h1-weight` | Tamaño y peso del título de pantalla | `clamp(1.3rem, 1.1rem + 0.9vw, 1.65rem)` y `700` |
 | `--h2-size`, `--h2-weight`, `--h2-tracking`, `--h2-transform`, `--h2-ink` | Título de caja (`h2`) | `0.8rem`, `700`, `0.08em`, `uppercase`, `inherit` |
 | `--wordmark-size`, `--wordmark-weight`, `--wordmark-tracking`, `--wordmark-transform`, `--wordmark-font` | Marca de la barra y de la entrada | `var(--text-sm)`, `600`, `0.1em`, `uppercase`, `var(--font-display)` |
-| `--leaf-radius` | Esquina de las cajas (`.leaf`, `.area-box`, `.ai-surface`) | `3px 10px 3px 10px` |
+| `--leaf-radius` | Esquina de las cajas (`.leaf`, `.area-box`, `.ai-surface`). Deriva de `--radius-sm` y `--radius-lg`: con los radios en `0` la caja es recta | `var(--radius-sm) calc(var(--radius-lg) * 1.25) var(--radius-sm) calc(var(--radius-lg) * 1.25)`, es decir `3px 10px 3px 10px` |
+| `--radius-control` | Esquina de todo botón (`.btn`); se suma a los tres radios para un anfitrión de esquinas rectas | `9999px` |
 | `--radius-field`, `--radius-option` | Esquina de un campo y de una opción de menú | `var(--radius-md)` y `var(--radius-sm)` |
 | `--nav-bar-width`, `--nav-active-ink` | Barra al costado y tinta de la fila abierta de la navegación | `4px` y `inherit` |
 | `--ai-edge-width` | Ancho del borde izquierdo de las superficies del modelo y del análisis | `3px` |
@@ -787,7 +788,7 @@ Acabado de los controles (H-3732). Las variables de las cinco filas nuevas se de
 | `--pulse-ring`, `--pulse-duration`, `--meter-duration` | Aro que da un contador al cambiar y cuánto dura; cuánto tarda la barra de progreso en llegar a su ancho nuevo. `--duration-hover` (UD-130) gobierna también los cambios de color del selector, sus pestañas y la caja de nuevo mensaje | `var(--color-accent)`, `700ms`, `500ms` |
 | `--wordmark-logo`, `--wordmark-logo-display`, `--wordmark-logo-width`, `--wordmark-logo-height`, `--wordmark-logo-large-width`, `--wordmark-logo-large-height`, `--wordmark-logo-space`, `--wordmark-orb-display`, `--wordmark-project-display` | Logo del anfitrión en la marca de la barra y de la entrada: la imagen (`url()` con ruta desde la raíz, porque una variable se resuelve contra la hoja del panel), su caja, el espacio a su derecha, y si la esfera y el nombre del proyecto se siguen dibujando | sin logo: `none`, `none`, `0px`…, `inline-block` y `inline` |
 
-La prueba `panel/src/theme-edges.browser.test.mjs` (en `test:flows`) comprueba que un anfitrión que apaga esos bordes no deja ningún borde visible de color en ninguna pantalla, a 1440x900 y 390x844 y en los dos temas. La prueba `panel/src/theme.browser.test.mjs` (registrada en `test:flows`) comprueba, en los dos temas, que cada variable existe con su valor por omisión y que una hoja del anfitrión que las redefine cambia el botón, el avatar, la barra, el selector, su pista y el borde de la tarjeta.
+La prueba `panel/src/theme-edges.browser.test.mjs` (en `test:flows`) comprueba que un anfitrión que apaga esos bordes no deja ningún borde visible de color en ninguna pantalla, a 1440x900 y 390x844 y en los dos temas. La prueba `panel/src/theme.browser.test.mjs` (registrada en `test:flows`) comprueba, en los dos temas, que cada variable existe con su valor por omisión y que una hoja del anfitrión que las redefine cambia el botón, el avatar, la barra, el selector, su pista y el borde de la tarjeta. La misma prueba comprueba que una hoja con los radios en `0` deja rectos los botones, la etiqueta de área y las cajas, y que el panel sigue el tema del sistema (`prefers-color-scheme`) mientras la preferencia es «Sistema». La prueba `panel/src/wide-font.browser.test.mjs` carga una tipografía ancha del sistema (DejaVu Sans) y la letra al 120 % y comprueba que en Configuración, Áreas y Equipo, a 1440x900 y 390x844, no hay cajas solapadas ni contenido fuera de su caja.
 
 Una tipografía del anfitrión entra con su `@font-face` en la misma hoja y con un origen que admita `font-src 'self'`, es decir, servida bajo el mismo sitio.
 

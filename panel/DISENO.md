@@ -63,8 +63,9 @@ Todos están en `@theme` de `src/styles.css`, en OKLCH. El tema oscuro redefine 
 
 | Token o clase | Valor | Uso |
 |---|---|---|
-| `--radius-sm/md/lg` | 3, 6 y 8 px | Contenedores y campos |
-| `.leaf` | `3px 10px 3px 10px` | Paneles grandes y diálogos, la forma de pestaña de la maqueta |
+| `--radius-sm/md/lg` | 3, 6 y 8 px | Contenedores, campos y etiqueta de área (`--radius-md`) |
+| `--radius-control` | `9999px` | Esquina de todo `.btn`: la píldora. Un anfitrión de esquinas rectas la pone en `0px` junto con los tres radios |
+| `.leaf` (`--leaf-radius`) | `var(--radius-sm) calc(var(--radius-lg) * 1.25)` en diagonal, es decir `3px 10px 3px 10px` | Paneles grandes y diálogos, la forma de pestaña de la maqueta. Deriva de los radios: con los tres en `0` la caja es recta |
 | `--shadow-glass` | luz interior de 1 px y dos sombras azuladas | Paneles |
 | `--shadow-pop` | igual, con mayor desplazamiento | Menús y diálogos |
 | `--shadow-gel` | brillo superior, sombra interior inferior y halo azul | Botón primario |

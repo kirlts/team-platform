@@ -57,7 +57,7 @@ type AreaItem = { kind: 'live' | 'deleted'; area: Area }
  * The columns of the list, from 640 px: color, name, the two counts and the templates (numbers on the right), description, and the row's action.
  * The header of labels and every row use the same ones, so each figure sits under its label. On a phone each row stacks.
  */
-const GRID = 'sm:grid-cols-[1.5rem_minmax(8rem,12rem)_5rem_6.5rem_5.5rem_minmax(0,1fr)_6rem]'
+const GRID = 'sm:grid-cols-[1.5rem_minmax(8rem,12rem)_5rem_6.5rem_5.5rem_minmax(0,1fr)_minmax(6rem,max-content)]'
 
 const COUNT_WORD: Record<'open' | 'answered', MessageKey> = { open: 'state.open', answered: 'state.answered' }
 
@@ -200,7 +200,8 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
   const counts = areaCounts(summary, area.id)
   const templateCount = (useTemplates(area.id).data ?? []).filter((x) => !x.deleted_at).length
   const cut = area.title.lastIndexOf(' ') + 1
-  const [head, tail] = [area.title.slice(0, cut), area.title.slice(cut)]
+  const [head, tail] = [area.title.slice(0, cut), Array.from(area.title.slice(cut))]
+  const [rest, last] = [tail.slice(0, -1).join(''), tail.slice(-1).join('')]
 
   const change = (next: string) => {
     const prev = area.description
@@ -225,9 +226,11 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
       <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="py-1 text-sm font-semibold hover:text-accent-deep hover:underline pointer-coarse:py-[11px]">
         {head}
+        {/* The chevron is glued to the last letter; the rest of the word breaks only when it is wider than the column, so a wide face or a large letter never pushes the name out of its box (UD-016: nothing is cut). */}
+        <span className="[overflow-wrap:anywhere]">{rest}</span>
         <span className="whitespace-nowrap">
-          {tail}
-          <ChevronRight size={16} aria-hidden className="ml-1 inline-block shrink-0 align-[-0.2em] text-muted" />
+          {last}
+          <ChevronRight size={16} aria-hidden className="-mr-1 ml-1 inline-block shrink-0 align-[-0.2em] text-muted" />
         </span>
       </Link>
       {/* The counts of every area are drawn, zero included (UD-211): the column is never blank. A count above zero leads to Mensajes filtered by the area and that state. */}

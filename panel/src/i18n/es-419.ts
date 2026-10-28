@@ -1228,6 +1228,7 @@ export const es419 = {
   'work.history': 'Historial',
   'work.status': 'Estado',
   'work.steps.none': 'Sin pasos',
+  'work.steps.count': { one: '{n} paso', other: '{n} pasos' },
   'work.steps.capped': 'Tope de {n} pasos',
   'work.step.read': 'Leyó un archivo',
   'work.step.edit': 'Editó un archivo',

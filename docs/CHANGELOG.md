@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Panel: el historial de la sesión dice cuántos pasos tiene, desvanece el borde con más pasos y parte las rutas entre segmentos.
+
 - Historial de la sesión: cada llamada de Claude a una herramienta se guarda por trabajo (`execute_steps`, migración 0042, tope `EXECUTE_STEPS_MAX`) y se lee en `GET /messages/:id/session`. El panel «Trabajo» muestra una fila por tramo con barra delgada y un desplegable en Sesión (pasos y capturas) y en Publicación (estado). El historial queda en Detalles › Tiempos. El contrato de anfitrión no cambia.
 
 ## [0.1.8] - 2026-10-28

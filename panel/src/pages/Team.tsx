@@ -23,7 +23,7 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
 /** Identity, profile extract, actions. A name, an address or an extract that does not fit takes another line: nothing in a row is cut (UD-016, «Grilla» rule 5; UD-241 only amends the cards of the message lists). */
-const COLUMNS = 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_7.5rem]'
+const COLUMNS = 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(7.5rem,max-content)]'
 
 /** Members with their responsibilities and domains. Each one edits their own; any person adds, and changes name, email and role of the others; the Editor also writes the profile of an agent. */
 export function Team() {

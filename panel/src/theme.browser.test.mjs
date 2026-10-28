@@ -189,3 +189,107 @@ describe('Theme contract: finish variables', () => {
     })
   }
 })
+
+/** What a host with square corners sets in :root: the three radii and the one of the controls. */
+const SQUARE = `:root{--radius-sm:0px;--radius-md:0px;--radius-lg:0px;--radius-control:0px}`
+
+const corners = (page, selector) =>
+  page.locator(selector).first().evaluate((el) => {
+    const s = getComputedStyle(el)
+    return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius]
+  })
+
+describe('Theme contract: radii', () => {
+  test('without a sheet the buttons are pills, the area label is 6 px and the boxes keep their leaf corner', async () => {
+    const { page, context } = await open('light', '/messages')
+    try {
+      await page.locator('main .area-chip').first().waitFor()
+      assert.deepEqual(await corners(page, '.btn'), ['9999px', '9999px', '9999px', '9999px'])
+      assert.deepEqual(await corners(page, 'main .area-chip'), ['6px', '6px', '6px', '6px'])
+      await page.goto(`${origin}/settings`)
+      await page.locator('section.leaf').first().waitFor()
+      assert.deepEqual(await corners(page, 'section.leaf'), ['3px', '10px', '3px', '10px'])
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('a sheet with the radii at 0 squares the buttons, the area label and the boxes', async () => {
+    const { page, context } = await open('light', '/messages')
+    try {
+      await page.locator('main .area-chip').first().waitFor()
+      await page.addStyleTag({ content: SQUARE })
+      await settled(page)
+      assert.deepEqual(await corners(page, '.btn'), ['0px', '0px', '0px', '0px'])
+      assert.deepEqual(await corners(page, 'main .area-chip'), ['0px', '0px', '0px', '0px'])
+      await page.goto(`${origin}/settings`)
+      await page.locator('section.leaf').first().waitFor()
+      await page.addStyleTag({ content: SQUARE })
+      await settled(page)
+      assert.deepEqual(await corners(page, 'section.leaf'), ['0px', '0px', '0px', '0px'])
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the radius of the controls is its own variable: the three radii alone leave the buttons as pills', async () => {
+    const { page, context } = await open('light', '/messages')
+    try {
+      await page.addStyleTag({ content: `:root{--radius-sm:0px;--radius-md:0px;--radius-lg:0px}` })
+      await settled(page)
+      assert.deepEqual(await corners(page, '.btn'), ['9999px', '9999px', '9999px', '9999px'])
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('Theme contract: the theme of the system', () => {
+  /** Opens with the theme on «sistema» and the browser in `scheme`; the stored choice is written by the page as the settings do. */
+  async function onSystem(scheme) {
+    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL', colorScheme: scheme })
+    await context.addInitScript(() => {
+      try {
+        localStorage.setItem('team-theme', 'system')
+      } catch {
+        // Without storage the default is «sistema» anyway.
+      }
+    })
+    const page = await context.newPage()
+    await login(page, origin, 'ana')
+    await page.locator('main#main h1').first().waitFor()
+    await settled(page)
+    return { page, context }
+  }
+  const paint = (page) => page.evaluate(() => ({ theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, ink: getComputedStyle(document.body).color }))
+
+  for (const [from, to] of [['light', 'dark'], ['dark', 'light']]) {
+    test(`on «sistema» the panel starts ${from} and turns ${to} when the preference of the system changes, with no reload`, async () => {
+      const { page, context } = await onSystem(from)
+      try {
+        const first = await paint(page)
+        assert.equal(first.theme, from)
+        await page.emulateMedia({ colorScheme: to })
+        await settled(page)
+        const second = await paint(page)
+        assert.equal(second.theme, to)
+        assert.notEqual(second.bg, first.bg)
+        assert.notEqual(second.ink, first.ink)
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  test('a fixed choice ignores the preference of the system', async () => {
+    const { page, context } = await onSystem('light')
+    try {
+      await page.evaluate(() => localStorage.setItem('team-theme', 'light'))
+      await page.emulateMedia({ colorScheme: 'dark' })
+      await settled(page)
+      assert.equal((await paint(page)).theme, 'light')
+    } finally {
+      await context.close()
+    }
+  })
+})

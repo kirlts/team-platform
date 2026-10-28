@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Tema del anfitrión: `--radius-control` (omisión `9999px`) gobierna la esquina de todo botón; la etiqueta de área toma `--radius-md` y `--leaf-radius` deriva de `--radius-sm` y `--radius-lg`, con los mismos valores por omisión. README «Poner piel» dice qué grupo de variables tiñe qué. Con una tipografía ancha o la letra al 120 % nada se solapa ni sale de su caja en Configuración, Áreas y Equipo. Pruebas nuevas: radios en 0, tema del sistema (`emulateMedia`) y `wide-font.browser.test.mjs`.
+
 - Panel: el historial de la sesión dice cuántos pasos tiene, desvanece el borde con más pasos y parte las rutas entre segmentos.
 
 - Historial de la sesión: cada llamada de Claude a una herramienta se guarda por trabajo (`execute_steps`, migración 0042, tope `EXECUTE_STEPS_MAX`) y se lee en `GET /messages/:id/session`. El panel «Trabajo» muestra una fila por tramo con barra delgada y un desplegable en Sesión (pasos y capturas) y en Publicación (estado). El historial queda en Detalles › Tiempos. El contrato de anfitrión no cambia.

@@ -112,7 +112,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
             placeholder={t('filter.search')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className={cn('well h-10 w-full rounded-field pl-10 pr-3 text-sm placeholder:text-faint focus-visible:border-accent', ON_PAGE_FIELD)}
+            className={cn('well h-10 max-md:h-11 w-full rounded-field pl-10 pr-3 text-sm placeholder:text-faint focus-visible:border-accent', ON_PAGE_FIELD)}
           />
         </div>
         {/* The button wears what is applied: its edge and its count. Each filter of the menu opens its values, with a check on the one that is on and the way to take it off (J2-A-13, J3-A-16). */}

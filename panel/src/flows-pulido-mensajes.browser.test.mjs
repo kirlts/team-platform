@@ -111,21 +111,25 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
               const range = document.createRange()
               range.setStart(n, m.index)
               range.setEnd(n, m.index + m[0].length)
-              words.push({ word: m[0], lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size })
+              words.push({ word: m[0], lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size, top: Math.round(range.getClientRects()[0].top) })
             }
           }
           // The touch area of a control: the 44 px square around its center answers to it, which the box alone does not say.
-          const targets = [...document.querySelectorAll('[data-testid="bell"], [data-testid="state-button"]')].map((el) => {
+          const targets = [...document.querySelectorAll('[data-testid="bell"], [data-testid="state-button"], [data-testid="brand-link"]')].map((el) => {
             const r = el.getBoundingClientRect()
             const cx = r.x + r.width / 2
             const cy = r.y + r.height / 2
             const corners = [[-21, -21], [21, -21], [-21, 21], [21, 21]].map(([dx, dy]) => el.contains(document.elementFromPoint(cx + dx, cy + dy)))
             return { name: el.getAttribute('aria-label'), corners }
           })
-          return { words, targets }
+          // J3-D3-01: the name of the instance is not cut (no ellipsis) while the whole brand fits in one line.
+          const project = mark.querySelector('.wordmark-project')
+          return { words, targets, cut: project ? project.scrollWidth > project.clientWidth : false }
         })
         for (const w of bar.words) assert.equal(w.lines, 1, `«${w.word}» breaks inside the word at ${width} px`)
         assert.ok(bar.words.length >= 2)
+        assert.equal(new Set(bar.words.map((w) => w.top)).size, 1, `the brand is on more than one line at ${width} px: ${JSON.stringify(bar.words)}`)
+        assert.equal(bar.cut, false, `the name of the instance is cut with an ellipsis at ${width} px`)
         for (const t of bar.targets) assert.ok(t.corners.every(Boolean), `«${t.name}» does not answer to a 44 px square at ${width} px`)
       } finally {
         await context.close()
@@ -254,6 +258,76 @@ describe('Messages zone: rows and sheets do not clip, squeeze or float (Team Pla
       await field.fill(Array.from({ length: 6 }, (_, i) => `Línea ${i + 1}`).join('\n'))
       await settled(page)
       assert.ok((await field.boundingBox()).height > before + 20, 'the reply field grows with six lines')
+    } finally {
+      await context.close()
+    }
+  })
+
+  for (const [viewport, high] of [[PHONE, 44], [DESKTOP, 40]]) {
+    test(`the search field of Mensajes is ${high} px tall at ${viewport.width} px (J3-D3-02)`, async () => {
+      const { page, context } = await session(viewport)
+      try {
+        await page.goto(`${origin}/messages`)
+        const box = await page.getByRole('searchbox').first().boundingBox()
+        assert.ok(Math.round(box.height) === high, `the search field is ${box.height} px tall`)
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  test('the pulse of the bar follows the round shape of the marks, and the target of the brand is 44 px (J3-D3-04, J3-D3-06)', async () => {
+    const { page, context } = await session(PHONE)
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.getByTestId('status-bar').waitFor()
+      const radius = await page.getByTestId('status-bar').evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
+      assert.notEqual(radius, '0px', 'the element that pulses has square corners')
+      const brand = await page.getByTestId('brand-link').evaluate((el) => parseFloat(getComputedStyle(el, '::after').height))
+      assert.ok(brand >= 44, `the touch area of the brand is ${brand} px high`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('on a phone the target of the folded recipients is not covered by the actions of its row (J3-D3-05)', async () => {
+    const { page, context } = await session(PHONE)
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.locator('article [data-testid="card-foot"] button[aria-label^="Ver los"]').first().waitFor()
+      await settled(page)
+      const hits = await page.locator('article [data-testid="card-foot"] button[aria-label^="Ver los"]').evaluateAll((els) =>
+        els.map((el) => {
+          const r = el.getBoundingClientRect()
+          const cx = r.x + r.width / 2
+          const corners = [[-21, -21], [21, -21], [-21, 21], [21, 21]].map(([dx, dy]) => el.contains(document.elementFromPoint(cx + dx, r.y + r.height / 2 + dy)))
+          return corners.every(Boolean)
+        }),
+      )
+      assert.ok(hits.length > 0 && hits.every(Boolean), `a 44 px square around the control is covered: ${JSON.stringify(hits)}`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the waiting rows of Mensajes are as tall as the rows that arrive (J3-D3-03)', async () => {
+    // A touch phone: a coarse pointer gives the actions of the foot their 44 px, which is the height of the row on a real phone.
+    const context = await panel.browser.newContext({ viewport: PHONE, isMobile: true, hasTouch: true, locale: 'es-CL', colorScheme: 'light' })
+    const page = await context.newPage()
+    await login(page, origin, 'ana')
+    try {
+      // The list is held on the wire until the waiting rows are measured: an event, not a wait.
+      let release
+      const held = new Promise((resolve) => { release = resolve })
+      await page.route('**/api/messages**', async (route) => { await held; await route.continue() })
+      await page.goto(`${origin}/messages`, { waitUntil: 'commit' })
+      await page.getByTestId('load-row').first().waitFor()
+      const waiting = await page.getByTestId('load-row').first().evaluate((el) => el.getBoundingClientRect().height)
+      release()
+      await page.locator('article').first().waitFor()
+      // The waiting row cannot know about thumbnails or replies, so it keeps the height of the shortest row.
+      const real = await page.locator('article').evaluateAll((els) => Math.min(...els.map((el) => el.getBoundingClientRect().height)))
+      assert.ok(Math.abs(waiting - real) <= 6, `a waiting row is ${waiting} px and a row of the list ${real} px`)
     } finally {
       await context.close()
     }

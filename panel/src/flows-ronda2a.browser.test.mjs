@@ -81,8 +81,7 @@ describe('sign-in and navigation', () => {
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').filter({ hasText: 'Falta la contraseña' }).waitFor()
       assert.equal(await page.getByLabel('Contraseña').getAttribute('aria-invalid'), 'true')
-      const note = await page.getByText('Cuentas creadas por el equipo').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-      assert.ok(note >= 15, `the text below measures ${note} px`)
+      assert.equal(await page.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note under the button')
     } finally {
       await context.close()
     }

@@ -750,7 +750,7 @@ describe('states, keyboard and rows', () => {
       await page.getByLabel('Contraseña').fill('corta')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').first().waitFor()
-      await page.getByText('Cuentas creadas por el equipo').waitFor()
+      assert.equal(await page.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note under the button')
     } finally {
       await context.close()
     }

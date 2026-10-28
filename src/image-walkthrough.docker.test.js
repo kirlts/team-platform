@@ -18,6 +18,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, test } from 'node:test'
+import { requires } from './testing/requires.js'
 import { fileURLToPath } from 'node:url'
 import { makeAudio, makeDocx, makeImage, makePdf, makeVideo } from './extract/test/helpers.js'
 
@@ -33,7 +34,7 @@ after(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('layer 5: the main flow of the panel on the image, with an attachment of every kind', { skip: image ? false : 'TEAM_PLATFORM_IMAGE is not set (npm run test:image)', timeout: 180_000 }, async () => {
+test('layer 5: the main flow of the panel on the image, with an attachment of every kind', { skip: image ? requires('docker', 'chromium') : 'TEAM_PLATFORM_IMAGE is not set (npm run test:image)', timeout: 180_000 }, async () => {
   docker('run', '-d', '--name', name, '-p', '127.0.0.1::3000',
     '-e', 'ADMIN_EMAIL=ana@walkthrough.test', '-e', `ADMIN_PASSWORD=${PASSWORD}`, '-e', 'PROJECT_NAME=Recorrido',
     '-e', 'PROVIDERS_MODULE=./testing/walkthrough-providers-module.js', image)

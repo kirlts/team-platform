@@ -170,10 +170,10 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                         <time dateTime={x.note.created_at} className="tabular-nums">
                           {format.stamp(x.note.created_at)}
                         </time>
-                        <span className="font-medium tabular-nums text-fg">{lines[0]}</span>
+                        <span className="min-w-0 break-words font-medium tabular-nums text-fg [overflow-wrap:anywhere]">{lines[0]}</span>
                       </div>
                       {lines.slice(1).map((line, n) => (
-                        <span key={n} className="break-words">
+                        <span key={n} className="break-words [overflow-wrap:anywhere]">
                           {line}
                         </span>
                       ))}

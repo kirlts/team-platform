@@ -61,7 +61,7 @@ export function Templates({ area }: { area: Area }) {
   const rows = useMemo<TemplateItem[]>(() => {
     const items: TemplateItem[] = live.map((template) => ({ kind: 'template', template }))
     if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', template: removed.template })
-    if (showDeleted) for (const template of deleted.data ?? []) if (!(showRemoved && removed.template.id === template.id)) items.push({ kind: 'deleted', template })
+    if (showDeleted) for (const template of deleted.data ?? []) if (!(showRemoved && removed.template.id === template.id) && !live.some((x) => x.id === template.id)) items.push({ kind: 'deleted', template })
     return items
   }, [live, removed, showRemoved, showDeleted, deleted.data])
 

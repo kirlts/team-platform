@@ -47,6 +47,12 @@ export function deliversBranchInstead (db, reply, job) {
   return message?.edited_at == null || green.finished_at == null || message.edited_at <= green.finished_at
 }
 
+/** `replies.failed_code` of the reply of a session that finished without doing what was asked (UD-314): the structured output says `unfulfilled` or `outcome` `blocked`. Not an `INFRA` cause: no event relaunches it, a person does. */
+export const UNFULFILLED = 'unfulfilled'
+
+/** Whether the structured output declares the work unfulfilled by something outside it. A `needs_decision` or `not_mine` is a person's, not a retry. */
+export const sessionUnfulfilled = (output) => (output?.outcome === 'blocked' || output?.unfulfilled === true) && output?.outcome !== 'needs_decision' && output?.outcome !== 'not_mine'
+
 // What each database knows of the day's cap: the routes register it with the configuration (`watchBudget`); without it the cap is not read.
 const budgets = new WeakMap()
 const deliverables = new WeakMap()
@@ -67,7 +73,9 @@ const NOT_ORIGIN = ['message_id', 'member_id', 'requested_by', 'budget_notice', 
 export function retryBlock (db, reply) {
   if (!reply || reply.failed_job_id === null || reply.failed_job_id === undefined || reply.deleted_at !== null) return { code: 'not_a_failure', message: 'Esa respuesta no avisa de un trabajo fallido.' }
   const job = get(db, "SELECT id, kind, status, payload_json FROM jobs WHERE id = ? AND kind IN ('execute', 'deliver')", reply.failed_job_id)
-  if (!job || job.status !== 'failed') return { code: 'not_a_failure', message: 'Ese trabajo no está fallido.' }
+  // UD-314: a session that ended without doing what was asked (`unfulfilled`, or `blocked`) is a job that ended `done`; its notice is retried by the same rule as a failure.
+  const unfulfilled = reply.failed_code === UNFULFILLED
+  if (!job || job.status !== (unfulfilled ? 'done' : 'failed') || (unfulfilled && job.kind !== 'execute')) return { code: 'not_a_failure', message: unfulfilled ? 'Ese trabajo no quedó sin cumplir.' : 'Ese trabajo no está fallido.' }
   // UD-289: a failed delivery is retried by the same rule, with the delivery command and no model. So is a failed `execute` of the environment after a finished work.
   const deliver = job.kind === 'deliver' || deliversBranchInstead(db, reply, job)
   const memberId = parseJson(job.payload_json, {}).member_id

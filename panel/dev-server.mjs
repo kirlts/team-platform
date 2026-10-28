@@ -336,6 +336,15 @@ if (process.env.PANEL_DEV_OVERFLOW === '1') {
   ])
 }
 
+// A closed thread with avatars, progress notices (one with an unbroken first line) and enough replies to fold: the case of a phone with a thread
+// that scrolled sideways. Only with PANEL_DEV_OVERFLOW=1.
+if (process.env.PANEL_DEV_OVERFLOW === '1') {
+  const many = Array.from({ length: 12 }, (_, i) => ({ author_id: i % 2 ? 'u-ana' : 'u-diego', kind: 'answer', body: `Respuesta ${i + 1}. ${'Texto largo '.repeat(20)} ${'https://example.com/' + 'ruta-sin-cortes-'.repeat(8)}`, created_at: ago(300 - i) }))
+  const note = (n, body) => ({ id: `pn-${n}`, message_id: String(lastMessageNumber + 1), job_id: 'j-pn', author_id: 'u-ana', body, minutes: null, created_at: ago(310 - n) })
+  const msg = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Hilo cerrado con avisos de avance', body: 'Hilo con respuestas largas, avatares y avisos.', created_at: ago(320), closed_at: ago(1), assignee_ids: ['u-ana'], attachment_ids: [] }, many)
+  msg.progress_notes = [note(1, 'Claude empezó a trabajar'), note(2, 'Revisando ' + '/home/usuario/proyecto/sin/cortes/'.repeat(6) + '\nSegunda línea ' + 'x'.repeat(120))]
+}
+
 // Messages that show every kind of gallery, only with PANEL_DEV_MEDIA=1 so the other tests keep the data they count on.
 // Everything here is development sample data, like the rest of the file.
 if (process.env.PANEL_DEV_MEDIA === '1') {

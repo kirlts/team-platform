@@ -219,19 +219,20 @@ describe('Configuración', () => {
 
 describe('Entrada', () => {
   for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
-    test(`the note has the same margin below as the logo has above, ${name}`, async () => {
+    test(`the button has the same margin below as the logo has above, ${name}`, async () => {
       const context = await panel.browser.newContext({ viewport, locale: 'es-CL' })
       const page = await context.newPage()
       try {
         await page.goto(origin)
         const card = page.locator('form')
         await card.waitFor()
-        const note = await card.getByText('Cuentas creadas por el equipo').boundingBox()
+        const note = await card.getByRole('button', { name: 'Entrar' }).boundingBox()
+        assert.equal(await card.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note')
         const logo = await card.locator('h1').boundingBox()
         const box = await card.boundingBox()
         const above = logo.y - box.y
         const below = box.y + box.height - (note.y + note.height)
-        assert.ok(Math.abs(below - above) <= 4, `${above} px above the logo, ${below} px below the note`)
+        assert.ok(Math.abs(below - above) <= 4, `${above} px above the logo, ${below} px below the button`)
       } finally {
         await context.close()
       }

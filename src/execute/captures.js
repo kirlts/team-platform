@@ -186,7 +186,8 @@ export function noCaptureLine (output, storedCount, language, rejected = []) {
     const list = rejected.map((x) => `«${x.alt || x.path || r.which(x.index + 1)}» (${r[x.reason] ?? r.other})`).join('; ')
     return output?.touches_screen === true && storedCount === 0 ? t.reason(r.sentence(rejected.length, list)) : r.extra(rejected.length, list)
   }
-  if (output?.touches_screen !== true || storedCount > 0) return ''
-  const given = typeof output.no_capture_reason === 'string' ? output.no_capture_reason.replace(/\s+/g, ' ').trim().replace(/[.\s]+$/, '').slice(0, 300) : ''
+  if (storedCount > 0) return ''
+  const given = typeof output?.no_capture_reason === 'string' ? output.no_capture_reason.replace(/\s+/g, ' ').trim().replace(/[.\s]+$/, '').slice(0, 300) : ''
+  if (output?.touches_screen !== true && !given) return '' // a reason given for the lack of evidence is always said, also when no screen was touched (a test in production, a measurement)
   return t.reason(given || t.none)
 }

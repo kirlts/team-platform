@@ -1,6 +1,6 @@
 // The `main` lock of .githooks/pre-push, on toy repositories with a local remote (plan 2026, piece C2).
-// The hook accepts the mark of the publication door (RELEASE_PUBLISHES_MAIN) and, until its retirement, the inherited
-// one (DEPLOY_PUBLISHES_MAIN). Everything else about `main` is unchanged: desarrollo or an ancestor, fast-forward, never deleted.
+// The hook accepts only the mark of the publication door (RELEASE_PUBLISHES_MAIN); the inherited one (DEPLOY_PUBLISHES_MAIN)
+// was retired (piece C5) and is rejected. Everything else about `main` is unchanged: desarrollo or an ancestor, fast-forward, never deleted.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -53,13 +53,19 @@ test('the mark of the publication door lets a desarrollo sha through', () => {
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/main']).split('\t')[0], A)
 })
 
-test('the old mark of the first host is still accepted, and main advances by fast-forward', () => {
+test('the retired mark of the first host is rejected, even for a desarrollo sha', () => {
   const r = push(`${B}:refs/heads/main`, { DEPLOY_PUBLISHES_MAIN: B })
+  assert.notEqual(r.status, 0)
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/main']).split('\t')[0], A)
+})
+
+test('main advances by fast-forward with the mark of the publication door', () => {
+  const r = push(`${B}:refs/heads/main`, { RELEASE_PUBLISHES_MAIN: B })
   assert.equal(r.status, 0, r.stderr)
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/main']).split('\t')[0], B)
 })
 
-test('a sha that is not desarrollo nor its ancestor is rejected, with either mark', () => {
+test('a sha that is not desarrollo nor its ancestor is rejected, with any mark', () => {
   for (const env of [{ RELEASE_PUBLISHES_MAIN: C }, { DEPLOY_PUBLISHES_MAIN: C }]) {
     const r = push(`${C}:refs/heads/main`, env)
     assert.notEqual(r.status, 0, JSON.stringify(env))

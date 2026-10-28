@@ -88,6 +88,26 @@ describe('Reintentar under the notice of a failed session (UD-282)', () => {
   })
 })
 
+describe('Reintentar under the answer of a session that could not do what was asked (UD-314)', () => {
+  const blocked = (retryable: boolean) =>
+    ({
+      id: 'm1', area_id: 'a1', author_id: '2', title: 't', body: 'b', status: 'open', created_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z', assignee_ids: ['1'], attachments: [], reply_count: 1,
+      replies: [{ id: 'r9', message_id: 'm1', author_id: '3', body: 'No pude hacer la prueba en producción: la cuenta no tiene permiso.', kind: 'clarification', created_at: '2026-10-27T12:05:00Z', retryable, retry_action: retryable ? 'work' : null }],
+    }) as unknown as MessageDetail
+  it('an answer that is not a failure notice carries the button and posts to the same route', async () => {
+    posted.length = 0
+    render(<Mount><ReplyThread message={blocked(true)} /></Mount>)
+    await screen.findByText(/No pude hacer la prueba/)
+    fireEvent.click(await screen.findByTestId('retry-execute'))
+    await waitFor(() => expect(posted).toEqual(['/messages/m1/replies/r9/retry']))
+  })
+  it('the same answer without `retryable` draws no button', async () => {
+    render(<Mount><ReplyThread message={blocked(false)} /></Mount>)
+    await screen.findByText(/No pude hacer la prueba/)
+    expect(screen.queryByTestId('retry-execute')).toBeNull()
+  })
+})
+
 describe('a reply carries no label of its type (UD-289)', () => {
   const asked = (kind: string) =>
     ({

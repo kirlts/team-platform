@@ -719,7 +719,6 @@ export const es419 = {
   'error.validation': 'Datos inválidos',
   'error.description_required': 'Falta la descripción',
   'error.file_encoding': 'El archivo no está en texto UTF-8',
-  'login.noAccount': 'Cuentas creadas por el equipo',
   'messages.noMatch': 'Sin resultados para «{q}»',
   'messages.noMatchFilters': 'Sin resultados con estos filtros',
   'messages.clearSearch': 'Mostrar todos',

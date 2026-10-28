@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { after, before, beforeEach, describe, it } from 'node:test'
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test'
 import { loadConfig } from '../config.js'
 import { createPipeline } from '../domain/pipeline.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
@@ -262,5 +262,67 @@ describe('retry of a failed session (UD-282)', () => {
     const n2 = await seedWorkDone(edited, { failures: [['deliver', 'deliver_env'], ['execute', 'system']], edited: true })
     assert.equal((await api('POST', `/api/messages/${edited}/replies/${n2}/retry`, anaCookie)).statusCode, 202)
     assert.deepEqual(kinds(edited), ['execute'], 'the text changed after the work: the branch no longer answers it')
+  })
+  describe('a session that ended without doing what was asked (UD-314)', () => {
+    // The file's earlier jobs spend the default daily cap (10 USD at 0.5 each); these cases are about the declared result, not the cap.
+    let cap
+    beforeEach(() => { cap = env.config.execute.dailyBudgetUsd; env.config.execute.dailyBudgetUsd = 1000 })
+    afterEach(() => { env.config.execute.dailyBudgetUsd = cap })
+    const lastAgentReply = (id) => env.db.prepare('SELECT id, failed_job_id, failed_code FROM replies WHERE message_id = ? AND author_id = ? ORDER BY id DESC LIMIT 1').get(id, agentId)
+
+    it('`unfulfilled` true on a finished session: its reply is retryable, the message stays open, and the click enqueues one new session', async () => {
+      await worker?.stop()
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ unfulfilled: true })
+      startWorker()
+      const id = await publishedMessage()
+      await mention(id, editor, '@Claude prueba esto en producción')
+      await settle(id)
+      const [first] = jobsOf(id)
+      assert.equal(first.status, 'done', 'the session ended well: it is not a failure of the system')
+      const notice = lastAgentReply(id)
+      assert.deepEqual({ job: notice.failed_job_id, code: notice.failed_code }, { job: first.id, code: 'unfulfilled' })
+      const seen = (await detail(id, anaCookie))
+      assert.notEqual(seen.status, 'closed', 'half-done work is never closed')
+      const reply = seen.replies.find((r) => Number(r.id) === notice.id)
+      assert.deepEqual({ retryable: reply.retryable, action: reply.retry_action }, { retryable: true, action: 'work' })
+      const res = await api('POST', `/api/messages/${id}/replies/${notice.id}/retry`, anaCookie)
+      assert.equal(res.statusCode, 202, res.body)
+      await settle(id, 2)
+      assert.equal(jobsOf(id).length, 2)
+      const again = await api('POST', `/api/messages/${id}/replies/${notice.id}/retry`, anaCookie)
+      assert.equal(again.statusCode, 409, 'a second click enqueues nothing')
+      assert.equal(jobsOf(id).length, 2)
+      const row = env.db.prepare("SELECT detail_json FROM audit_log WHERE action = 'message.execute_retry' ORDER BY id DESC LIMIT 1").get()
+      assert.equal(JSON.parse(row.detail_json).failed_job_id, first.id)
+    })
+
+    it('`outcome` `blocked` handed to a person is retryable too, and the retry puts the agent back among the assignees', async () => {
+      await worker?.stop()
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'blocked' })
+      startWorker()
+      const id = await publishedMessage()
+      await mention(id, editor, '@Claude prueba esto en producción')
+      await settle(id)
+      const notice = lastAgentReply(id)
+      assert.equal(notice.failed_code, 'unfulfilled')
+      assert.equal((await detail(id, anaCookie)).replies.find((r) => Number(r.id) === notice.id).retryable, true)
+      process.env.FAKE_EXECUTE_EXTRA = ''
+      const res = await api('POST', `/api/messages/${id}/replies/${notice.id}/retry`, anaCookie)
+      assert.equal(res.statusCode, 202, res.body)
+      assert.ok(env.db.prepare('SELECT 1 FROM message_assignees WHERE message_id = ? AND member_id = ?').get(id, agentId))
+    })
+
+    it('a finished session that declares nothing, `needs_decision` or `not_mine` offers no retry', async () => {
+      await worker?.stop()
+      startWorker()
+      const id = await publishedMessage()
+      await mention(id, editor, '@Claude arregla esto')
+      await settle(id)
+      const plain = lastAgentReply(id)
+      assert.equal(plain.failed_job_id, null)
+      const forced = await api('POST', `/api/messages/${id}/replies/${plain.id}/retry`, anaCookie)
+      assert.equal(forced.statusCode, 409)
+      assert.equal(forced.json().code, 'not_a_failure')
+    })
   })
 })

@@ -158,7 +158,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
 
       {/* The last line: who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
       {/* Below 28rem of row (a phone) the actions take a line of their own under who it is for: side by side they left the names a column a word wide (three lines for one name). */}
-      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-col items-stretch gap-x-3 gap-y-1 @md:grid @md:grid-cols-[minmax(0,1fr)_auto] @md:items-start @2xl:contents">
+      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-col items-stretch gap-x-3 gap-y-2 @md:grid @md:grid-cols-[minmax(0,1fr)_auto] @md:items-start @md:gap-y-1 @2xl:contents">
         <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[1lh] @2xl:content-normal" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {gone && (

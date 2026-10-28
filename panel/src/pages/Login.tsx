@@ -84,7 +84,6 @@ export function Login() {
         <Button type="submit" variant="primary" size="lg" className="justify-center" disabled={pending}>
           {t('login.enter')}
         </Button>
-        <p className="text-sm text-muted">{t('login.noAccount')}</p>
       </form>
     </main>
   )

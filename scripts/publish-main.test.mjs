@@ -32,6 +32,7 @@ function makeToy(name) {
   cpSync(join(root, 'scripts/publish-main.sh'), join(repo, 'scripts/publish-main.sh'))
   cpSync(join(root, 'scripts/battery-record.mjs'), join(repo, 'scripts/battery-record.mjs'))
   cpSync(join(root, 'scripts/main-solo-desde-desarrollo.sh'), join(repo, 'scripts/main-solo-desde-desarrollo.sh'))
+  cpSync(join(root, 'scripts/battery-image.sh'), join(repo, 'scripts/battery-image.sh'))
   cpSync(join(root, '.githooks/pre-push'), join(repo, '.githooks/pre-push'))
   const release = (version) => {
     writeFileSync(join(repo, 'package.json'), JSON.stringify({ name: 'toy', version }))
@@ -91,6 +92,40 @@ test('a publication runs the checks on the sha of desarrollo in its own worktree
   assert.deepEqual(note.record.commands.map((c) => c.name), ['complete', 'conformance'])
   assert.deepEqual(note.record.skipped.map((c) => c.name), ['panel', 'client'])
   assert.match(r.stdout, /record\s+ok/)
+  assert.deepEqual(note.record.commands.map((c) => c.where), [undefined, 'host'], 'the conformance runs on the publishing machine and the record says so')
+})
+
+// The default battery runs in the pinned image. A `docker` double stands for the daemon: it answers `info`, says the image exists and, for `run`, prints what the
+// inner script prints and the summary of a run with one test skipped by the environment. What the door must do: call the image with the plain command, keep the
+// command in the record as the plain one, and record the Node, the image digest and the skipped test the output reports.
+test('without an override the battery runs in the image and the record carries what the image reported', () => {
+  const t = makeToy('image')
+  t.release('0.2.0')
+  const sha = t.commit('second'); t.git('push', '-q', 'origin', 'desarrollo')
+  const bin = join(t.dir, 'bin'); mkdirSync(bin)
+  const calls = join(t.dir, 'docker-calls.txt')
+  const digest = `sha256:${'7'.repeat(64)}`
+  writeFileSync(join(bin, 'docker'), `#!/bin/sh
+echo "$*" >> '${calls}'
+case "$1" in
+  info) exit 0 ;;
+  image) exit 0 ;;
+  run) echo "battery-image: node v24.22.1"; echo "battery-image: image ${digest}"; echo "battery-image: tree $(git -C '${t.repo}' rev-parse '${sha}^{tree}')"
+       echo "﹣ a test that needs a daemon (0.1ms) # requires docker: not reachable"; echo "ℹ tests 5"; echo "ℹ pass 4"; echo "ℹ fail 0"; echo "ℹ skipped 1"; exit 0 ;;
+esac
+exit 1
+`, { mode: 0o755 })
+  const r = t.publish([], { PATH: `${bin}:${process.env.PATH}`, PUBLISH_TEST_CMD: '', PUBLISH_CONFORMANCE_CMD: 'echo conformance' })
+  assert.equal(r.status, 0, r.stdout + r.stderr)
+  const ran = readFileSync(calls, 'utf8').split('\n').filter((l) => l.startsWith('run '))
+  assert.equal(ran.length, 1, 'one container for the battery; panel and client did not change')
+  assert.match(ran[0], /--memory 8g --cpus 6 .*BATTERY_CMD=npm run test:completa /)
+  const note = readNote(null, join(t.dir, 'remote.git'), sha)
+  assert.equal(note.status, 'found', r.stdout + r.stderr)
+  assert.equal(note.record.node, 'v24.22.1')
+  assert.equal(note.record.image, digest)
+  assert.deepEqual(note.record.commands.map((c) => [c.name, c.cmd, c.where]), [['complete', 'npm run test:completa', 'image'], ['conformance', 'echo conformance', 'host']])
+  assert.deepEqual(note.record.skipped_tests, [{ order: 'complete', test: 'a test that needs a daemon', reason: 'requires docker: not reachable' }])
 })
 
 test('--dry-run does everything except tag and push', () => {
@@ -212,6 +247,14 @@ test('the door does not publish without the mark: the hook of the toy rejects a 
   t.release('0.2.0'); const sha = t.commit('second'); t.git('push', '-q', 'origin', 'desarrollo')
   const r = sh(t.repo, 'git', ['push', 'origin', `${sha}:refs/heads/main`])
   assert.notEqual(r.status, 0)
+})
+
+test('the retired deploy mark does not publish: the hook of the toy rejects it, with the sha of desarrollo', () => {
+  const t = makeToy('retired-mark')
+  t.release('0.2.0'); const sha = t.commit('second'); t.git('push', '-q', 'origin', 'desarrollo')
+  const r = sh(t.repo, 'git', ['push', 'origin', `${sha}:refs/heads/main`], { DEPLOY_PUBLISHES_MAIN: sha })
+  assert.notEqual(r.status, 0)
+  assert.equal(t.remoteRef('refs/heads/main'), t.first, 'main stays where it was')
 })
 
 test('--dry-run does not stop at the first failing step: it runs the rest and still exits 1', () => {

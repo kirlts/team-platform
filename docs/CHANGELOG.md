@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Cierre con evidencia de pantalla: el servidor decide si una entrega toca una pantalla con los archivos que el anfitrión informa (`##team changed <ruta>`) y las rutas de interfaz que declara (`EXECUTE_SCREEN_PATHS`, vacía por omisión, aditivo); sin captura el mensaje no cierra y se pide la captura de producción en una segunda pasada, una sola vez (mensaje 136).
+
 ## [0.1.8] - 2026-10-28
 
 - Respuesta final de una entrega: el desenlace («En producción desde HH:MM» o «ya estaba servido») reemplaza lo que la sesión escribió sobre el estado de la entrega; ya no queda «falta que la entrega corra» junto a «en producción» (mensajes 138 y 136).

@@ -191,3 +191,16 @@ export function noCaptureLine (output, storedCount, language, rejected = []) {
   if (output?.touches_screen !== true && !given) return '' // a reason given for the lack of evidence is always said, also when no screen was touched (a test in production, a measurement)
   return t.reason(given || t.none)
 }
+
+const CHANGED_LINE = '##team changed '
+/** The files a host command says it delivered: `##team changed <path>` lines (at most 500). The platform has no git: the host that has the repository says which files changed. */
+export function changedFilesOf (stdout) {
+  const files = []
+  for (const line of String(stdout ?? '').split('\n')) {
+    const t = line.trim()
+    if (t.startsWith(CHANGED_LINE) && files.length < 500) files.push(t.slice(CHANGED_LINE.length).trim())
+  }
+  return files.filter(Boolean)
+}
+/** Whether a changed file is under one of the host's interface paths (prefixes). With no declared paths nothing is decided here. */
+export const touchesScreenPaths = (files, prefixes) => prefixes.length > 0 && files.some((f) => prefixes.some((p) => f.startsWith(p)))

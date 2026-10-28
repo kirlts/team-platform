@@ -405,6 +405,9 @@ export function loadConfig (env = process.env, overrides = {}) {
         unmasked: ['allowed', '1'].includes(choiceVar(env, 'EXECUTE_CAPTURES_UNMASKED', ['denied', 'allowed', '1', '0'], 'denied'))
       },
       // UD-271: Claude may close the message after its final reply when the system's own checks pass too (src/execute/auto-close.js). On by default («por defecto», Martín 2026-10-24); `off` or `0` never closes.
+      // The host's interface paths (prefixes of repository paths, comma separated; empty by default = the system does not decide on its own). A delivery whose changed files
+      // (`##team changed <path>` lines of the host's commands) start with one of them touches a screen, whatever the session declared.
+      screenPaths: String(env.EXECUTE_SCREEN_PATHS ?? '').split(/[,\s]+/).map((v) => v.trim()).filter(Boolean),
       autoClose: ['on', '1'].includes(choiceVar(env, 'EXECUTE_AUTO_CLOSE', ['on', 'off', '1', '0'], 'on')),
       sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
       // UD-295: what a direct fix on the area's own light model adds. The host's minimal rules (a file, instead of EXECUTE_HOST_INSTRUCTIONS), the limits of the

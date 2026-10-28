@@ -105,6 +105,7 @@ Su comportamiento está en «Las cinco órdenes».
 | `EXECUTE_CAPTURES_OPEN_ZONE` | `ninguna` | Única zona de la salida con la que se adjunta una captura sin datos ocultos | UD-268 |
 | `EXECUTE_CAPTURES_UNMASKED` | `denied` | `allowed` o `1` acepta capturas con datos de personas, sea cual sea la zona. `denied` y `0` mantienen la regla de la zona | UD-270 |
 | `EXECUTE_AUTO_CLOSE` | `on` | `off` o `0` impide que el sistema cierre solo un mensaje terminado | UD-271, UD-310 |
+| `EXECUTE_SCREEN_PATHS` | vacío | Rutas de interfaz del anfitrión (prefijos, separados por coma). Vacío: el sistema no decide por su cuenta | UD-298 |
 
 ### Instrucciones y entorno de la sesión
 
@@ -316,6 +317,7 @@ Son líneas completas. El núcleo las lee y no las cuenta como salida ni como re
 | `##team quota machines=<N>` | CREATE con código 75, stderr | El núcleo registra cuántas máquinas admitió la cuota |
 | `##team capture <json>` | DELIVER con código 0, stdout | Un «después» tomado de producción, con la forma `{ path, alt, masked, place, as }` y la imagen en `$TEAM_WORKDIR/captures` |
 | `##team capture-failed <motivo>` | DELIVER con código 0, stdout | La respuesta final dice en una línea que no se tomó el «después» |
+| `##team changed <ruta>` | CHECK o DELIVER con código 0, stdout (una línea por archivo, hasta 500) | Los archivos que la entrega llevó a producción; con `EXECUTE_SCREEN_PATHS` el sistema decide si toca una pantalla |
 
 Un 75 repetido de DELIVER con la misma salida deja de ser una espera. El límite es `ceil(64 min / EXECUTE_CAPACITY_WAIT_MS)` respuestas seguidas, porque 64 minutos es lo más que duró un turno legítimo del anfitrión (medición del 2026-10-26). Pasado el límite, el trabajo falla como `deliver_env` con el motivo `stuck`.
 

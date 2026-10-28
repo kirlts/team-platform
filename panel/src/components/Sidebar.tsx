@@ -107,7 +107,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
                   <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={link}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
-                    <span className="min-w-0 break-words leading-tight">{a.title}</span>
+                    <span className="min-w-0 truncate leading-tight" /* justified: the area name gives way to its counts, one line and the whole name in its title (UD-315, Martín 2026-10-28) */ title={a.title}>{a.title}</span>
                   </NavLink>
                   {/* The counts' column is the same one as every row's: a name wraps the same before and after they arrive. */}
                   <span data-nav-count className={countCol}>
@@ -159,21 +159,34 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
   )
 }
 
-/** The open messages of an area, leading to Mensajes filtered by that area and by open (UD-028, UD-041). */
+/**
+ * The open and the answered messages of an area, each one leading to Mensajes filtered by that area and that state (UD-028, UD-041). A state with
+ * none draws nothing and the closed ones have no mark (Martín, 2026-10-28). Each state has a slot of fixed width (`--sidebar-count-slot`), open first, anchored to
+ * the right edge: the column of the row never shrinks and: a count never changes the height of its row, and the name, in one line, is what gives way with an ellipsis (UD-315).
+ */
+const PENDING = ['open', 'answered'] as const
+
 function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; title: string; summary: MessageSummary | undefined; onNavigate?: () => void }) {
   const t = useT()
   const label = useCountsLabel()
   const counts = areaCounts(summary, areaId)
-  // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
-  const scope = t('areas.countOf', { title, count: label({ open: counts.open }) })
   return (
     <>
-      {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
-      {counts.open > 0 && (
-        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={scope} title={scope} className="nav-count">
-          <StateMark status="open" n={counts.open} showWord={false} plain />
-        </Link>
-      )}
+      {/* Both slots are drawn whenever the area has any count, so the triangles share one column and the clocks another in every row; a slot with no count stays empty. */}
+      {(counts.open > 0 || counts.answered > 0) &&
+        PENDING.map((status) => {
+          // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
+          const scope = t('areas.countOf', { title, count: label({ [status]: counts[status] }) })
+          return (
+            <span key={status} data-count-slot={status} className="nav-slot">
+              {counts[status] > 0 && (
+                <Link to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
+                  <StateMark status={status} n={counts[status]} showWord={false} plain className="gap-0.5 border-0 px-0" />
+                </Link>
+              )}
+            </span>
+          )
+        })}
     </>
   )
 }

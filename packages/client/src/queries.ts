@@ -43,6 +43,7 @@ export function createQueries(client: TeamClient) {
         return Object.fromEntries(JOB_STATES.map((state, i) => [state, totals[i]])) as Record<JobState, number>
       },
     }),
+    sessionSteps: (messageId: string) => ({ queryKey: queryKeys.sessionSteps(messageId), queryFn: () => client.messages.session(messageId) }),
     messageTiming: (messageId: string) => ({ queryKey: queryKeys.messageTiming(messageId), queryFn: () => client.messages.timing(messageId) }),
     runningExecutions: () => ({ queryKey: queryKeys.runningExecutions(), queryFn: () => client.jobs.runningExecutions() }),
     executeRunsSummary: (days: number) => ({ queryKey: queryKeys.executeRunsSummary(days), queryFn: () => client.ops.executeRunsSummary(days) }),

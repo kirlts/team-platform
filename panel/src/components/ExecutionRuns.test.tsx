@@ -44,7 +44,7 @@ describe('ExecutionRuns', () => {
     wrap()
     expect(calls).toEqual([])
     fireEvent.click(screen.getByRole('button', { name: 'Ejecuciones' }))
-    expect(await screen.findByText('US$ 1.50')).toBeTruthy()
+    expect(await screen.findByText('US$ 1,50')).toBeTruthy()
     expect(calls[0]).toMatch(/^\/ops\/execute-runs\/summary\?since=\d{4}-\d{2}-\d{2}$/)
     expect(document.querySelector('[data-runs-figure="Entrega"]')?.textContent).toBe('50 %')
     expect(document.querySelector('[data-runs-figure="Resueltas"]')?.textContent).toBe('25 %')

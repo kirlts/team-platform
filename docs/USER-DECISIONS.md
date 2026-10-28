@@ -1661,3 +1661,13 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Reutilizar sólo `outcome: blocked`: no cubre una sesión que entregó un cambio y no pudo comprobarlo, que termina `done` y se entrega.
 **Consecuencias:** `src/execute/prompt.js` (campo e instrucciones), `handler.js`, `deliver.js`, `retry.js` (`UNFULFILLED`, `sessionUnfulfilled`), `auto-close.js`. Sin migración: `failed_code` es texto libre. Pruebas: `src/execute/retry.test.js`, `deliver.test.js`, `auto-close.test.js`, `prompt.test.js`, `panel/src/components/RetryExecute.test.tsx` y `panel/src/flows-reintento-visible.browser.test.mjs`. Enmienda UD-282 (3).
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-315] El nombre de un área del lateral cede ante sus conteos, en una línea con puntos suspensivos
+**Fecha:** 2026-10-28
+**Contexto:** Martín, 2026-10-28, al pedir los conteos por estado en el menú lateral de Áreas, textual: «sería súper útil que en el menú lateral por área se pueda ver, obviamente sólo si es que hay, un indicador igual al de la barra de notificaciones de arriba por mensaje según su estado. Un indicador minimalista: si el área de Producto tiene cinco mensajes abiertos, que se muestre el ícono de advertencia con el número 5, y lo mismo para los otros indicadores. Para los mensajes ya cerrados quizás no es necesario el indicador». Sobre la fila: «La fila no cambia de alto ni se parte cuando llega un conteo, y el nombre del área se acorta antes que los conteos». UD-016 prohíbe cortar texto con puntos suspensivos.
+**Decisión:** Cada área del lateral muestra el conteo de abiertos y el de respondidos, cada uno sólo si es mayor que cero, y los cerrados no llevan indicador. Los conteos no se encogen. El nombre del área ocupa una línea y, si no cabe junto a los conteos, termina con puntos suspensivos; el nombre entero está en su `title`. UD-016 queda enmendada sólo para el nombre de un área en el lateral. Cualquier otro texto sigue sin cortarse.
+**Alternativas descartadas:**
+- Envolver el nombre en varias líneas (UD-016): la fila cambiaría de alto al llegar un conteo, lo que el dueño excluyó.
+- Reservar siempre el ancho de dos conteos: parte «Nueva funcionalidad» en 256 px aun sin conteos.
+**Consecuencias:** `panel/src/components/Sidebar.tsx` (el nombre lleva `truncate` con su comentario `justified:` para `no-truncation.test.ts`), `panel/DISENO.md` («Panel izquierdo»), `panel/src/sidebar-counts.browser.test.mjs`, `docs/CAPACIDADES-1.0.md`.
+**Condiciones de reversión:** Las fija Martín.

@@ -213,7 +213,7 @@ export interface Assessment {
   expectation: string
   /** Ids of the Guards of the area that the message touches. */
   guards: number[]
-  estimates: { understand_vs_create: number; irreversibility: number; value_holder: 'person' | 'model'; certainty: number; reason: string } | null
+  estimates: { understand_vs_create: number; irreversibility: number; value_holder: 'person' | 'model'; certainty: number; reason: string; /** UD-307: how much of the request is an idea to explore, 0 to 1; null before it existed. */ idea?: number | null; /** UD-307: the Guard of the idea applies: nothing is published without the approval of a person. */ idea_guard?: boolean; idea_reason?: string } | null
   /** The person who changed it by hand; null while it is the analyzer's. */
   by: string | null
 }
@@ -510,6 +510,47 @@ export interface MessageTiming {
   /** The technical part of the output of the agent and the reference of its delivery (UD-276); the reply carries only the summary. */
   detail?: { entries: { label: string; value: string }[]; delivery_ref: string | null } | null
   tree: SpanNode | null
+}
+
+/** The class of a step of the session, as the server names it. */
+export type SessionAction = 'read' | 'edit' | 'command' | 'search' | 'subagent' | 'web' | 'plan' | 'capture' | 'other'
+
+/** One call of the session to a tool (GET /messages/:id/session). */
+export interface SessionStep {
+  id: string
+  job_id: string
+  attempt: number
+  at: string
+  /** Absent until the call returns: the step in progress while the job runs. */
+  ended_at: string | null
+  action: SessionAction
+  /** The technical name of the tool. */
+  tool: string
+  /** File, command or pattern, cut to 200 characters. */
+  detail: string | null
+  failed: boolean
+  /** A screenshot the session took: its description is known while it runs, its file when the closing reply carries it (`attachment`). */
+  capture: {
+    alt: string
+    place: string | null
+    as: string | null
+    masked: boolean | null
+    kind: string | null
+    attachment: { id: string; kind: string; mime: string; size: number; name: string } | null
+  } | null
+}
+
+/** The history of the session of a message: the steps of all its `execute` jobs; `job_id` and `job_status` are the latest job's. */
+export interface SessionHistory {
+  message_id: string
+  job_id: string
+  job_status: string
+  phase: string | null
+  /** EXECUTE_STEPS_MAX: steps kept per job. */
+  max_steps: number
+  /** Some job reached the cap: what follows its last step is not kept. */
+  capped: boolean
+  steps: SessionStep[]
 }
 
 export const PHASE_KEYS = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'total_ms', 'create_ms', 'run_ms', 'destroy_ms', 'tools_ms', 'judge_ms', 'delivery_ms', 'wait_ms'] as const

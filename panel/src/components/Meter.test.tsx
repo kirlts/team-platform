@@ -31,4 +31,18 @@ describe('Meter', () => {
     expect(own).toContain('h-1')
     expect(own).not.toContain('h-2.5')
   })
+
+  // DISENO.md, «Trabajo de un agente»: the bar of a row is thin; one that ended is still (no glint) and one that failed is danger; a decorative bar is not a progress bar.
+  it('the thin bar is 6 px, a bar of a stretch that ended is still and decorative, and a failed one takes danger', () => {
+    render(<><Meter thin percent={30} label="Corre" /><Meter thin decorative still percent={100} label="Terminó" /><Meter thin decorative still danger percent={100} label="Falló" /></>)
+    const running = screen.getByRole('progressbar', { name: 'Corre' })
+    expect(running.className).toContain('h-1.5')
+    expect(running.className).not.toContain('h-2.5')
+    expect(running.className).not.toContain('meter-still')
+    expect(screen.queryByRole('progressbar', { name: 'Terminó' })).toBeNull()
+    const [done, failed] = [...document.querySelectorAll('[aria-hidden].meter')] as HTMLElement[]
+    expect(done!.className).toContain('meter-still')
+    expect(done!.className).not.toContain('meter-danger')
+    expect(failed!.className).toContain('meter-danger')
+  })
 })

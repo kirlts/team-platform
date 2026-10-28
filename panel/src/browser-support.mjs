@@ -27,11 +27,19 @@ function controlOf(origin) {
     /** One step of every waiting analysis; with `inputId`, only that send, and with `finish` all the way to its proposal. */
     step: ({ inputId, finish = false } = {}) => order(`step?${new URLSearchParams({ ...(inputId ? { input_id: inputId } : {}), ...(finish ? { finish: '1' } : {}) })}`),
     reset: () => order('reset'),
-    /** One message per state of the work of an agent in the sheet (B7). Returns { queued, machine, session, failed_session, failed_delivery }, the ids. */
-    agentWork: () => order('agent-work'),
+    /** One message per state of the work of an agent in the sheet (B7). Returns { queued, machine, session, delivering, failed_session, failed_delivery }, the ids; `steps` is how many calls the history of `session` has. */
+    agentWork: ({ steps } = {}) => order(`agent-work${steps ? `?steps=${steps}` : ''}`),
     /** An agent member with a worked message (its timing) and one running now (UD-262). Returns { done_id, live_id }. With `deliver`, the one running now is in its delivery (UD-263). */
     /** UD-275: a message whose delivery is held for review. Returns { message_id }. */
     review: () => order('review'),
+    /** UD-307: the Guard of the idea applies: «Lista para ver», the review held for a person. Returns { message_id }. */
+    ideaGuard: () => order('idea-guard'),
+    /** UD-269: Claude passed the message to the person who decides, with its question. Returns { message_id }. */
+    handoff: () => order('handoff'),
+    /** A message with an audio and a video whose speech was read, and a document. Returns { message_id }. */
+    extraction: () => order('extraction'),
+    /** Every state of the sheet that a judge looks at, each in its own message (`/_control/states`). Returns { <state>: message id }. */
+    states: () => order('states'),
     execution: ({ deliver = false } = {}) => order(`execution${deliver ? '?deliver=1' : ''}`),
   }
 }

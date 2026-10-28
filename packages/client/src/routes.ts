@@ -49,6 +49,7 @@ export const routes = {
   messageReopen: route('post', '/api/messages/{id}/reopen'),
   messageAssessment: route('put', '/api/messages/{id}/assessment'),
   messageTiming: route('get', '/api/messages/{id}/timing'),
+  messageSession: route('get', '/api/messages/{id}/session'),
   messageExecute: route('post', '/api/messages/{id}/execute'),
   messageDeliver: route('post', '/api/messages/{id}/deliver'),
   messageDiscardDelivery: route('post', '/api/messages/{id}/discard-delivery'),

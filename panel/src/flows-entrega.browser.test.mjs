@@ -51,7 +51,8 @@ describe('Delivery of a message (UD-263)', () => {
       await block.getByRole('button', { name: 'Detalles' }).click()
       const running = block.locator('[data-timing-running]')
       await running.waitFor()
-      assert.match(await running.innerText(), /^Entrega: despliegue · 20 s$/)
+      assert.equal((await running.locator('span').first().innerText()).trim(), 'Entrega: despliegue')
+      assert.equal((await running.locator('span').last().innerText()).trim(), '20 s')
     } finally {
       await context.close()
     }

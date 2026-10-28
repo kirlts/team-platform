@@ -385,6 +385,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       machineRun: textValue(env, 'EXECUTE_MACHINE_RUN', ''), // shell command; {job_id}, {workdir}, {machine}; its stdout is the NDJSON stream
       machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', ''), // shell command; {job_id}, {workdir}, {machine}; runs always
       machineCollect: textValue(env, 'EXECUTE_MACHINE_COLLECT', ''), // optional shell command; {machine}, {job_id}; last stdout line = where it left the session transcript (UD-262)
+      stepsMax: intVar(env, 'EXECUTE_STEPS_MAX', 500, { min: 0 }), // declared courtesy: steps of a session kept per job for its history; 60 turns (EXECUTE_MAX_TURNS) at up to 8 calls each fit, and 500 rows of about 300 bytes are 150 KB. 0 keeps none
       runsRetentionDays: intVar(env, 'EXECUTE_RUNS_RETENTION_DAYS', 365, { min: 1 }), // UD-262: the history of runs outlives the 7 days of the spans; a year lets a change be compared with the previous ones
       // UD-263: the delivery is a separate job without AI. Empty command = no separate delivery: `execute` publishes its final reply as before.
       deliverCommand: textValue(env, 'EXECUTE_DELIVER_COMMAND', ''), // shell command; {message_id}, {job_id}, {branch}, {workdir}; exit 0 = in production (last stdout line = reference), 75 = not now, other = failed

@@ -39,9 +39,3 @@ export function splitMentions(text: string, names: string[]): { text: string; me
   // With one capturing group, `split` puts the matches at the odd positions.
   return text.split(pattern).map((t, i) => ({ text: t, mention: i % 2 === 1 })).filter((p) => p.text !== '')
 }
-
-/** The event «Pedir cambios» sends so the reply form leaves the agent mentioned already (UD-277): the form is another component, and the event carries only the member's id. */
-export const MENTION_REQUEST = 'team:mention-request'
-export function requestMention(memberId: string): void {
-  window.dispatchEvent(new CustomEvent(MENTION_REQUEST, { detail: { memberId } }))
-}

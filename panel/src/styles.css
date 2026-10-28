@@ -108,6 +108,9 @@
   --color-selected: oklch(0.89 0.07 245);
   /* Navigation rows (UD-130): the reserved width of the count column, counted from the row's right edge, and the time of the hover and focus change. */
   --sidebar-count-col: 2.75rem;
+  /* The count slots of an area row (open, then answered): icon, 2 px and two digits (rem is 15 px here); 0.5 rem between the two (the owner, 2026-10-28). */
+  --sidebar-count-slot: 2.125rem;
+  --sidebar-count-gap: 0.5rem;
   --duration-hover: 100ms;
   --color-aqua: oklch(0.78 0.13 205);
   --color-lime: oklch(0.88 0.19 125);
@@ -737,6 +740,12 @@
     mask-image: linear-gradient(to bottom, transparent 0, black 14px);
   }
 
+  /* The lane of the thread says there is more below its last visible row: that row fades instead of being cut. */
+  [data-lane='reply-thread'][data-more='true'] {
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+    mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+  }
+
   .btn-gel:hover:not(:disabled) {
     --gel-t: var(--color-gel-hover-top, var(--color-gel-top));
     --gel-b: var(--color-gel-hover-bottom, var(--color-gel-bottom));
@@ -843,6 +852,16 @@
   .nav-count {
     display: inline-flex;
     border-radius: var(--radius-md);
+  }
+  /* A slot is as wide as its state's mark of two digits and the mark sits at its left edge, 2 px from its number; a third digit makes that row wider. */
+  .nav-slot {
+    display: flex;
+    min-width: var(--sidebar-count-slot);
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .nav-slot + .nav-slot {
+    margin-left: var(--sidebar-count-gap);
   }
   .nav-count:focus-visible,
   .nav-count:focus-visible > span {
@@ -973,6 +992,16 @@
       var(--meter-fill);
     animation: sheen 2.4s linear infinite;
     transition: width var(--meter-duration) ease-out;
+  }
+
+  /* A finished stretch: the fill stays and the glint is gone (the glint is only for work that runs). One that failed takes the color of danger. */
+  .meter-still .meter-fill {
+    background: var(--meter-fill);
+    animation: none;
+  }
+
+  .meter-danger .meter-fill {
+    background: var(--color-danger);
   }
 
   /* Work that has not reported a step yet (J1-B-06): a glint that travels, never a percentage that is not there. */

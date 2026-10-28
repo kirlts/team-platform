@@ -185,6 +185,20 @@ export function useMessageTiming(messageId: string) {
   })
 }
 
+/**
+ * The steps of the session of the agent on a message (GET /messages/:id/session), in order. The stream tells the screen at each change (`session` root); while the job
+ * runs the query also asks again, so a stream that dropped does not leave the list behind. `enabled` false does not ask: the list is read when it is opened.
+ */
+export function useSessionSteps(messageId: string, enabled = true) {
+  const q = useTeamQueries()
+  return useQuery({
+    ...q.sessionSteps(messageId),
+    enabled,
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.job_status === 'running' ? IN_FLIGHT_REFETCH_MS : false),
+  })
+}
+
 /** Figures of the execute runs of the last `days` days (0 = all of them). Asked only while the section is open. */
 export function useExecuteRunsSummary(days: number) {
   const q = useTeamQueries()

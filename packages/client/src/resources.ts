@@ -34,6 +34,7 @@ import type {
   MessagePatch,
   MessageSummary,
   MessageTiming,
+  SessionHistory,
   NewConnection,
   NewInput,
   NewMember,
@@ -205,6 +206,8 @@ export function createResources(t: Transport) {
       restoreMany: (ids: readonly string[]) => call<{ ids: string[] }>(routes.messageRestoreMany, { body: { ids } }),
       /** Where the time of the execution of a message went. A 404 means it has no execution. */
       timing: (id: string) => call<MessageTiming>(routes.messageTiming, { params: { id } }),
+      /** The steps of the session of the agent, in order (UD-262 history). A 404 means the message has no execution. */
+      session: (id: string) => call<SessionHistory>(routes.messageSession, { params: { id } }),
       /** Queues the `execute` job of a message (any person, UD-287). */
       execute: (id: string) => call<Record<string, unknown>>(routes.messageExecute, { params: { id } }),
       /** Forwards the message to a member with the reason (UD-272): the same message, one more assignee and a notice in the thread; with an agent, its `execute` job. */
@@ -371,7 +374,7 @@ export function createResources(t: Transport) {
       reset: (scope: ResetScope) => call<ResetResult>(routes.opsReset, { search: CONFIRM, body: { scope } }),
     },
     attachments: {
-      /** The text the server extracted from an audio or a video (`GET /attachments/:id/transcript`). */
+      /** The text the server extracted from an attachment: speech, description of a photo, text of a document or a link (`GET /attachments/:id/transcript`). */
       transcript: (id: string) => call<{ text?: string }>(routes.attachmentTranscript, { params: { id } }),
     },
   }

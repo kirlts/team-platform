@@ -16,7 +16,7 @@ export const INVALIDATE = {
   deleteInput: ['inputs', 'messages', 'areas'],
   cancelInput: ['inputs'],
   // Messages and replies
-  reply: ['message', 'messages', 'areas'],
+  reply: ['message', 'messages', 'areas', 'session'],
   /** After an edit of a published message; the detail itself is written with the answer (`mergeSavedMessage`). */
   patchMessage: ['messages', 'areas', 'inputs'],
   addAttachments: ['messages', 'inputs'],

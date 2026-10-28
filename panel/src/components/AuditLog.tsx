@@ -111,7 +111,7 @@ function AuditBody() {
           <ul aria-label={t('audit.list')} className="flex flex-col">
             {rows.map((e) => (
               <li key={e.id} data-audit-row={e.action} className={`grid min-h-12 shrink-0 grid-cols-2 items-center gap-x-4 gap-y-0.5 border-b border-line py-2 text-sm last:border-b-0 ${COLUMNS}`}>
-                <span className="min-w-0 break-words font-medium">{e.member_name ?? t('audit.system')}</span>
+                <span className="min-w-0 break-words font-medium">{e.member_id ? (memberName(e.member_id) || e.member_name) : (e.member_name ?? t('audit.system'))}</span>
                 <span className="tabular-nums text-muted">{format.stamp(e.at)}</span>
                 <span className="min-w-0 break-words leading-5">{actionOf(e)}</span>
                 <span className="col-span-2 min-w-0 break-words text-muted md:col-span-1">

@@ -2163,7 +2163,12 @@ export interface paths {
                                 /** @enum {string} */
                                 kind?: "tool" | "subagent";
                                 name?: string;
+                                /** @description La frase de la llamada en español; un cliente con catálogo propio usa `action` y `detail`. */
                                 summary?: string | null;
+                                /** @description La clase de la llamada (read, edit, command, search, subagent, web, plan, other); nula en filas anteriores a las clases. */
+                                action?: string | null;
+                                /** @description Archivo, orden o patrón de la llamada, sin idioma. */
+                                detail?: string | null;
                                 duration_ms?: number | null;
                                 success?: boolean | null;
                             }[];

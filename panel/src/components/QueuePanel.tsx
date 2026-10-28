@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { LoadState } from '@/components/LoadState'
+import { useLookups } from '@/components/lookups'
 import { DeleteSend } from '@/components/DeleteSend'
 import { ExecutionRuns } from '@/components/ExecutionRuns'
 import { RotateCw } from '@/components/icons'
@@ -147,6 +148,7 @@ function JobCounts() {
 
 function QueueRow({ input }: { input: QueueInput }) {
   const t = useT()
+  const { memberName } = useLookups()
   const format = useFormat()
   const errorText = useErrorText()
   const notices = useNotices()
@@ -167,7 +169,7 @@ function QueueRow({ input }: { input: QueueInput }) {
   return (
     <li data-queue-row={input.id} className="flex flex-col gap-1.5 border-b border-line py-2 last:border-b-0">
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_5rem_minmax(0,2.2fr)] md:items-center">
-        <span className="min-w-0 break-words font-medium">{input.author_name ?? '—'}</span>
+        <span className="min-w-0 break-words font-medium">{input.author_id ? memberName(input.author_id) || (input.author_name ?? '—') : (input.author_name ?? '—')}</span>
         <span data-queue-state>{t(`queue.status.${input.status}` as MessageKey)}</span>
         <span className="tabular-nums text-muted">{format.stamp(input.created_at)}</span>
         <span className="tabular-nums text-muted">{seconds === null ? t('queue.none') : t('queue.secondsValue', { n: Math.round(seconds * 10) / 10 })}</span>

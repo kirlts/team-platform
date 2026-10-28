@@ -19,7 +19,7 @@ import { createWorker } from '../worker.js'
 import { runTeam } from '../../scripts/team.mjs'
 import { listExecuteRuns, pruneExecuteRuns } from '../telemetry/execute-runs.js'
 import { createExecuteHandler, dailyBudget, localDay, otelSessionEnv, stderrTail } from './handler.js'
-import { phraseForTool } from './stream.js'
+import { phraseForTool, toolParts } from './stream.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 let PORT = 0 // ephemeral, set after listen: a fixed port made a second run of the same file cancel itself with EADDRINUSE (2026-10-26)
@@ -276,6 +276,10 @@ describe('execute job', () => {
       assert.equal(tools[0].attributes['team.tool.success'], true)
       assert.equal(tools[1].attributes['team.tool.success'], false)
       assert.equal(tools[1].status, 'error')
+      // The class and the detail travel without a language, so the panel writes the phrase in the language of the account; the slowest list of the timing carries them too.
+      assert.deepEqual(tools.map((t) => t.attributes['team.tool.action']), ['read', 'command'])
+      assert.ok(tools.every((t) => typeof t.attributes['team.tool.detail'] === 'string'))
+      assert.ok(timing.slowest.filter((r) => r.kind === 'tool').every((r) => r.action && typeof r.detail === 'string'), JSON.stringify(timing.slowest))
       // The span lasts from the line that opens the tool to the line that closes it, as the worker reads them: on a stalled worker both arrive together and last ~0 ms. No test can bound that from below or compare two tools; only that it is measured.
       assert.ok(tools.every((t) => Number.isFinite(t.duration_ms) && t.duration_ms >= 0), 'every tool span has a duration')
       const [sub] = child(run, 'execute.subagent')
@@ -933,6 +937,16 @@ describe('execute job', () => {
     assert.equal(phraseForTool('Edit', { file_path: '/a/b/c.ts' }), 'Edición: c.ts')
     assert.equal(phraseForTool('Agent', { description: 'Revisar estilos' }), 'Subagente: Revisar estilos')
     assert.equal(phraseForTool('Grep', { pattern: 'foo' }), 'Búsqueda: foo')
+  })
+
+  it('a tool call has a class and a detail with no language (the panel writes the phrase)', () => {
+    assert.deepEqual(toolParts('Read', { file_path: '/a/b/Reservas.tsx' }), { action: 'read', detail: 'Reservas.tsx' })
+    assert.deepEqual(toolParts('Write', { file_path: '/a/b/c.ts' }), { action: 'edit', detail: 'c.ts' })
+    assert.deepEqual(toolParts('Bash', { command: 'npm test', description: 'Run tests' }), { action: 'command', detail: 'Run tests' })
+    assert.deepEqual(toolParts('Glob', { pattern: '*.ts' }), { action: 'search', detail: '*.ts' })
+    assert.deepEqual(toolParts('WebFetch', {}), { action: 'web', detail: '' })
+    assert.deepEqual(toolParts('TodoWrite', {}), { action: 'plan', detail: '' })
+    assert.deepEqual(toolParts('mcp__x__y', {}), { action: 'other', detail: 'mcp__x__y' })
   })
 })
 

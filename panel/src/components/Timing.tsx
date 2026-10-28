@@ -2,6 +2,7 @@ import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { SpanTree } from '@/components/TraceTree'
 import { SessionStepList, WorkRow } from '@/components/WorkRow'
+import { useToolPhrase } from '@/lib/tool-phrase'
 import { workSteps } from '@/lib/work-steps'
 import { EXECUTE_MODELS, TeamApiError, type MessageTiming } from '@team-platform/client'
 import { FailedMark } from '@/components/FailedMark'
@@ -42,6 +43,7 @@ export function hasTiming(d: MessageTiming | undefined): boolean {
 
 export function TimingBody({ messageId }: { messageId: string }) {
   const t = useT()
+  const toolText = useToolPhrase()
   const { duration, usd } = useFormat()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
@@ -97,7 +99,7 @@ export function TimingBody({ messageId }: { messageId: string }) {
         <ol aria-label={t('timing.slowest')} className="flex flex-col gap-0.5">
           {d.slowest.slice(0, SLOWEST_SHOWN).map((s, i) => (
             <li key={i} data-timing-slow className="flex flex-wrap items-baseline gap-x-3">
-              <span className={s.success === false ? 'text-danger' : ''}>{s.summary ?? s.name}</span>
+              <span className={s.success === false ? 'text-danger' : ''}>{toolText(s)}</span>
               <span className="tabular-nums text-muted">{duration(s.duration_ms)}</span>
               {s.success === false && <FailedMark />}
             </li>

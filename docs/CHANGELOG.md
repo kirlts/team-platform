@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Respaldo: `WITH_FILES=1 scripts/backup.sh` incluye `secrets.key` en el `tar`, y la restauración de `docs/INSTALACION.md` termina con `docker compose up -d --wait`, de modo que sirve también con el volumen destruido. Dos pruebas nuevas, `e2e/capacidades/instalacion-servidor-limpio.e2e.test.js` y `respaldo-y-restauracion.e2e.test.js`, instalan, respaldan y restauran en un servidor limpio (`docker:dind`).
+
 ## [0.1.7] - 2026-10-28
 
 - Panel: el hilo de un mensaje ya no se desplaza en horizontal en teléfono: el primer renglón de un aviso de avance (una ruta o un enlace largo) se corta en el ancho de la tarjeta.

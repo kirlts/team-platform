@@ -74,6 +74,8 @@ export function installHelpers() {
       if (n.hasAttribute('hidden') || n.getAttribute('aria-hidden') === 'true') return true
       if (n.classList.contains('sr-only') || n.tagName === 'SCRIPT' || n.tagName === 'STYLE') return true
       if (parseFloat(cs.opacity) === 0) return true
+      // Text hidden on purpose with the 1 px clipped box of `sr-only`, in any of its forms (`sm:sr-only` applies it only from 640 px: the computed style tells whether it applies now).
+      if (cs.position === 'absolute' && cs.overflow === 'hidden' && parseFloat(cs.width) <= 1 && parseFloat(cs.height) <= 1) return true
     }
     return false
   }
@@ -576,7 +578,8 @@ export async function run(options = {}) {
   for (const t of themes) if (!THEMES.includes(t)) throw new Error(`tema desconocido: ${t}`)
 
   const scale = readTypeScale()
-  const voice = await loadVoicePatterns(options.voicePatterns ?? arg('voice-patterns'), options.voiceLang ?? arg('voice-lang') ?? 'es')
+  const voiceLang = options.voiceLang ?? arg('voice-lang') ?? 'es'
+  const voice = await loadVoicePatterns(options.voicePatterns ?? arg('voice-patterns'), voiceLang)
   const skipped = []
   if (voice.reason) skipped.push({ rule: 'voice', reason: voice.reason })
 
@@ -589,6 +592,11 @@ export async function run(options = {}) {
     const probe = await panel.browser.newContext()
     const ppage = await probe.newPage()
     await login(ppage, panel.origin)
+    // The language is the account's, not the browser's: the pass judges the panel in the language it was asked for.
+    if (voiceLang === 'en') {
+      const res = await ppage.request.patch(`${panel.origin}/api/members/me`, { data: { language: 'en' }, headers: { 'X-Team-Request': 'panel' } })
+      if (!res.ok()) throw new Error(`no se pudo fijar el idioma de la cuenta en inglés: ${res.status()}`)
+    }
     const body = await (await ppage.request.get(`${panel.origin}/api/messages`)).json()
     const items = Array.isArray(body) ? body : body.items
     const rich = items.find((m) => m.title.startsWith('Revisar la lectura')) ?? items[0]

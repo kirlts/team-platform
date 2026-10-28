@@ -1,4 +1,17 @@
+import type { MessageKey } from '@/i18n'
 import { TeamApiError, type Cause, type Check, type Connection, type ConnectionKind, type ProviderSlot, CAUSES } from '@team-platform/client'
+
+/** Connections whose label the server sends in its own language: the panel names them from its catalog by their stable `name`. Brand names (Anthropic, DeepSeek...) are the same in every language and come as sent. */
+const CATALOG_NAMES: Record<string, 'providers.name.groq-speech' | 'providers.name.openai-compatible'> = {
+  'groq-speech': 'providers.name.groq-speech',
+  'openai-compatible': 'providers.name.openai-compatible',
+}
+
+/** The name of a connection in the account's language. A custom connection keeps the label its owner wrote. */
+export function connectionLabel(t: (key: MessageKey) => string, c: { name: string; label: string; custom?: boolean }): string {
+  const key = c.custom ? undefined : CATALOG_NAMES[c.name]
+  return key ? t(key) : c.label
+}
 
 /** The functions in the order the screen lists them. */
 export const SLOTS: readonly ProviderSlot[] = ['text', 'vision', 'speech']

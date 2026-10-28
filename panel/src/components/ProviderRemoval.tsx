@@ -4,7 +4,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
-import { compatible, usedByOf } from '@/lib/provider-ui'
+import { compatible, connectionLabel, usedByOf } from '@/lib/provider-ui'
 import type { Connection, ProviderSlot } from '@team-platform/client'
 import { useConnections, useDeleteConnection, useRetireKey, useSaveProvider } from '@team-platform/client/react'
 
@@ -114,7 +114,7 @@ function SwitchRow({ slot, leaving, onSwitched }: { slot: ProviderSlot; leaving:
           <NativeSelect value={provider} onChange={(e) => choose(e.target.value)} aria-label={`${t('providers.switchTo')}: ${slotName}`}>
             {options.map((c) => (
               <option key={c.name} value={c.name}>
-                {c.label}
+                {connectionLabel(t, c)}
               </option>
             ))}
           </NativeSelect>

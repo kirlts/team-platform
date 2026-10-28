@@ -65,6 +65,13 @@ echo 'THEME_CSS=/data/tema.css' >> .env
 docker compose up -d --wait
 ```
 
+`--color-accent` tiñe los acentos (enlaces, foco, subrayado de la pestaña activa), pero no el botón principal, que toma su relleno de `--color-gel-top` y `--color-gel-bottom`. Para que «Enviar» y las demás acciones principales sigan el acento, la hoja redefine las dos, en claro y en oscuro:
+
+```css
+:root[data-theme="light"] { --color-accent: #0a7d55; --color-gel-top: #2fa97f; --color-gel-bottom: #0a7d55; --color-gel-fg: #ffffff; }
+:root[data-theme="dark"]  { --color-accent: #3ddc97; --color-gel-top: #6be8b5; --color-gel-bottom: #3ddc97; --color-gel-fg: #04251a; }
+```
+
 Las variables que acepta están en `docs/MASTER-SPEC.md` §7.8, «Contrato del tema». Un sitio que quiere sus propias vistas, y no sólo sus colores, usa el paquete `packages/client` contra la API.
 
 Prueba:

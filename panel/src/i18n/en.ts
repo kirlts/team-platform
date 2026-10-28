@@ -533,6 +533,8 @@ export const en: Record<MessageKey, Message> = {
   'providers.failedKept': '{cause} · The previous setting is kept',
   'providers.noKeyFor': 'No key',
   'providers.endsIn': 'Ends in {last4}',
+  'providers.name.groq-speech': 'Groq (transcription)',
+  'providers.name.openai-compatible': 'OpenAI-compatible',
   'providers.status.no_key': 'No key',
   'providers.status.configured': 'Configured',
   'providers.status.failing': 'Failing',

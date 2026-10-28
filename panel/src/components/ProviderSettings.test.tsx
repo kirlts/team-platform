@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { translate } from '@/i18n/core'
+import { en } from '@/i18n/en'
 import { es419 } from '@/i18n/es-419'
 import { TeamApiError, type Cause, type Connection, type ProviderSlot } from '@team-platform/client'
 import { ProviderSettings } from './ProviderSettings'
@@ -122,12 +123,12 @@ mockApi(async (path: string, options: { method?: string; body?: Record<string, u
 })
 
 let client: QueryClient
-function mount() {
+function mount(language: 'es-419' | 'en' = 'es-419') {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
       <WithTeamClient>
-      <I18nProvider language="es-419">
+      <I18nProvider language={language}>
         <ProviderSettings />
       </I18nProvider>
     </WithTeamClient>
@@ -153,6 +154,25 @@ async function ready() {
   fireEvent.click(screen.getByRole('button', { name: L('settings.providers') }))
   await screen.findByRole('group', { name: 'Anthropic' })
 }
+
+describe('names of the connections the server labels in Spanish', () => {
+  it('come from the catalogue of the account language, whatever label the server sends', async () => {
+    seed()
+    server.conns.find((c) => c.name === 'groq-speech')!.label = 'Groq (transcripción)'
+    server.conns.push({ name: 'openai-compatible', label: 'Compatible con OpenAI', kind: 'openai-compatible', custom: false, base_url: null, source: 'environment', last4: '0000', last: null })
+    server.conns.push({ name: 'mine', label: 'Groq (transcripción)', kind: 'openai-compatible', custom: true, base_url: 'https://mine.example.invalid/v1', source: 'stored', last4: '1234', last: null })
+    mount('en')
+    fireEvent.click(screen.getByRole('button', { name: translate(en, 'en', 'settings.providers') }))
+    await screen.findByRole('group', { name: 'Anthropic' })
+    expect(row('groq-speech').getByRole('heading', { level: 4 }).textContent).toBe('Groq (transcription)')
+    expect(row('openai-compatible').getByRole('heading', { level: 4 }).textContent).toBe('OpenAI-compatible')
+    // A custom connection keeps the name its owner wrote.
+    expect(row('mine').getByRole('heading', { level: 4 }).textContent).toBe('Groq (transcripción)')
+    // The selector of the function shows the same name.
+    const speech = screen.getByRole('group', { name: translate(en, 'en', 'settings.slot.speech') })
+    expect(within(speech).getByRole('option', { name: 'Groq (transcription)' })).toBeTruthy()
+  })
+})
 
 describe('connection rows', () => {
   it('show state as icon and word, key origin, last four characters, functions and last diagnosis', async () => {

@@ -9,7 +9,7 @@ import { SettingsBox } from '@/components/SettingsBox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useT, type MessageKey } from '@/i18n'
-import { compatible, SLOTS, type Shown } from '@/lib/provider-ui'
+import { compatible, connectionLabel, SLOTS, type Shown } from '@/lib/provider-ui'
 import type { ProviderSetting, ProviderSlot } from '@team-platform/client'
 import { useCheckSlot, useConnections, useProviders, useRememberedModels, useSaveProvider } from '@team-platform/client/react'
 
@@ -80,7 +80,7 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
   const items = connections?.items ?? []
   const options: { name: string; label: string }[] = compatible(slot, items)
   // The provider the function uses stays in the list even when its key is gone, so the field never shows a value it does not have.
-  if (!options.some((c) => c.name === saved.provider)) options.unshift({ name: saved.provider, label: items.find((c) => c.name === saved.provider)?.label ?? saved.provider })
+  if (!options.some((c) => c.name === saved.provider)) options.unshift({ name: saved.provider, label: connectionLabel(t, items.find((c) => c.name === saved.provider) ?? { name: saved.provider, label: saved.provider }) })
   const dirty = provider !== saved.provider || model.trim() !== saved.model
   const connection = items.find((c) => c.name === saved.provider)
   const status = saved.status ?? connection?.status ?? 'no_key'
@@ -107,7 +107,7 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
     setOutcome(null)
     try {
       const r = await check.mutateAsync(slot)
-      const label = items.find((c) => c.name === r.provider)?.label ?? r.provider
+      const label = connectionLabel(t, items.find((c) => c.name === r.provider) ?? { name: r.provider, label: r.provider })
       setShown({ subject: `${slotName} · ${label} · ${r.model}`, check: r.check })
     } catch (error) {
       setOutcome({ ok: false, error })
@@ -126,7 +126,7 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
         <NativeSelect value={provider} onChange={(e) => choose(e.target.value)} aria-label={t('settings.providerOf', { slot: slotName })}>
           {options.map((c) => (
             <option key={c.name} value={c.name}>
-              {c.label}
+              {connectionLabel(t, c)}
             </option>
           ))}
         </NativeSelect>

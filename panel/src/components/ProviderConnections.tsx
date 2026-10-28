@@ -9,7 +9,7 @@ import { ProviderRemoval, useProviderRemoval, type RemovalMode } from '@/compone
 import { Button } from '@/components/ui/button'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import type { Shown } from '@/lib/provider-ui'
+import { connectionLabel, type Shown } from '@/lib/provider-ui'
 import type { Connection, ProviderSlot } from '@team-platform/client'
 import { useCheckConnection, useConnections } from '@team-platform/client/react'
 
@@ -56,7 +56,7 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
     setOutcome(null)
     try {
       const r = await check.mutateAsync({ name: c.name })
-      setOutcome({ kind: 'check', shown: { subject: c.label, check: r.check } })
+      setOutcome({ kind: 'check', shown: { subject: connectionLabel(t, c), check: r.check } })
     } catch (err) {
       setOutcome({ kind: 'line', ok: false, node: <FailureLine error={err} kept="providers.failedKept" /> })
     }
@@ -73,9 +73,9 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
   }
 
   return (
-    <li data-connection={c.name} data-status={c.status} role="group" aria-label={c.label} className="grid gap-x-4 gap-y-3 border-t border-line py-4 first:border-t-0 md:grid-cols-[11rem_minmax(0,1fr)]">
+    <li data-connection={c.name} data-status={c.status} role="group" aria-label={connectionLabel(t, c)} className="grid gap-x-4 gap-y-3 border-t border-line py-4 first:border-t-0 md:grid-cols-[11rem_minmax(0,1fr)]">
       <div className="flex min-w-0 flex-col gap-1">
-        <h4 className="min-w-0 break-words text-sm font-semibold">{c.label}</h4>
+        <h4 className="min-w-0 break-words text-sm font-semibold">{connectionLabel(t, c)}</h4>
         <ConnectionStatusMark status={c.status} />
       </div>
       <div className="flex min-w-0 flex-col gap-3">

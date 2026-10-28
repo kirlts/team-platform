@@ -533,6 +533,8 @@ export const es419 = {
   'providers.failedKept': '{cause} · Se conserva la configuración anterior',
   'providers.noKeyFor': 'Sin clave',
   'providers.endsIn': 'Termina en {last4}',
+  'providers.name.groq-speech': 'Groq (transcripción)',
+  'providers.name.openai-compatible': 'Compatible con OpenAI',
   'providers.status.no_key': 'Sin clave',
   'providers.status.configured': 'Configurada',
   'providers.status.failing': 'Fallando',

@@ -728,7 +728,7 @@ Contrato del tema (`THEME_CSS`, H-3721). La hoja del anfitrión se carga despué
 | Peligro | `--color-danger`, `--color-danger-soft` |
 | Estados | `--color-state-{open,answered,closed}-{bg,fg,edge}`, `--color-{open,answered,closed}-led`, `--color-{open,answered,closed}-{bg,fg}` |
 | Vidrio y fondo animado | `--color-glass`, `--color-glass-strong`, `--color-glass-edge`, `--color-glass-line`, `--color-sky-{a,b,c}`, `--color-glow-{1,2,3}`, `--color-orbit`, `--color-chrome-{1,2,3,4}` |
-| Botón gel e IA | `--color-gel-top`, `--color-gel-bottom`, `--color-gel-fg`, `--color-ai-bg`, `--color-ai-edge`, `--color-ai-fg`, `--color-aqua`, `--color-lime`, `--color-lilac` |
+| Botón gel e IA (el botón principal se tiñe con `--color-gel-top` y `--color-gel-bottom`, no con `--color-accent`; `--color-gel-fg` es su letra) | `--color-gel-top`, `--color-gel-bottom`, `--color-gel-fg`, `--color-ai-bg`, `--color-ai-edge`, `--color-ai-fg`, `--color-aqua`, `--color-lime`, `--color-lilac` |
 | Sombras | `--shadow-glass`, `--shadow-pop`, `--shadow-gel`, `--shadow-well` |
 | Tipografía | `--font-sans`, `--font-display`, `--font-mono` |
 | Radio | `--radius-sm`, `--radius-md`, `--radius-lg` |

@@ -28,7 +28,8 @@ if (!process.argv.includes('--sin-build')) execFileSync('npx', ['vite', 'build']
 
 const server = spawn('node', ['dev-server.mjs'], {
   cwd: root,
-  env: { ...process.env, PANEL_DEV_PORT: String(PORT), PANEL_DEV_STATIC: '1' },
+  // Publication by hand: the walkthrough sends a text and captures the proposal to review, which an automatic publication would skip (dev-server.mjs, PANEL_DEV_AUTO_PUBLISH).
+  env: { ...process.env, PANEL_DEV_PORT: String(PORT), PANEL_DEV_STATIC: '1', PANEL_DEV_AUTO_PUBLISH: '0' },
   stdio: ['ignore', 'inherit', 'inherit'],
 })
 await new Promise((r) => setTimeout(r, 800))
@@ -53,14 +54,18 @@ function audit() {
   for (const el of document.querySelectorAll('main *, nav *, header *')) {
     if (!visible(el) || el.classList.contains('sr-only')) continue
     const cs = getComputedStyle(el)
+    // Text hidden on purpose with the 1 px box of `sr-only` in any of its forms (`sm:sr-only` applies it only from 640 px).
+    if (cs.position === 'absolute' && cs.overflow === 'hidden' && parseFloat(cs.width) <= 1 && parseFloat(cs.height) <= 1) continue
+    // The indeterminate meter is a bar that slides inside its track, clipped by it on purpose.
+    const sanctioned = el.closest('[data-ellipsis-ok]') !== null || el.classList.contains('meter-indeterminate')
     // The extract of a row of a list ends with an ellipsis on purpose (UD-241, amending UD-016) and says so in `data-ellipsis-ok`.
     if (cs.textOverflow === 'ellipsis' && !el.hasAttribute('data-ellipsis-ok')) out.ellipsis.push(label(el))
     const clamp = cs.getPropertyValue('-webkit-line-clamp')
     if (clamp && clamp !== 'none' && clamp !== 'normal') out.ellipsis.push(`clamp ${clamp} ${label(el)}`)
-    if (el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== 'visible' && cs.overflowX !== 'auto' && cs.overflowX !== 'scroll' && el.clientWidth > 0 && el.children.length === 0) {
+    if (!sanctioned && el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== 'visible' && cs.overflowX !== 'auto' && cs.overflowX !== 'scroll' && el.clientWidth > 0 && el.children.length === 0) {
       out.clipped.push(`ancho ${el.scrollWidth}>${el.clientWidth} ${label(el)}`)
     }
-    if (el.scrollHeight > el.clientHeight + 1 && (cs.overflowY === 'hidden' || cs.overflowY === 'clip') && el.clientHeight > 0 && el.children.length === 0) {
+    if (!sanctioned && el.scrollHeight > el.clientHeight + 1 && (cs.overflowY === 'hidden' || cs.overflowY === 'clip') && el.clientHeight > 0 && el.children.length === 0) {
       out.clipped.push(`alto ${el.scrollHeight}>${el.clientHeight} ${label(el)}`)
     }
   }
@@ -158,7 +163,7 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
     { name: 'feedback.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('ejemplo') },
   ])
   await page.getByRole('button', { name: lang === 'en' ? 'Send' : 'Enviar' }).first().click()
-  await page.getByRole('button', { name: /^(Área|Area):/ }).first().waitFor({ timeout: 20000 })
+  await page.getByRole('region', { name: lang === 'en' ? 'Analysis' : 'Análisis' }).waitFor({ timeout: 20000 })
   await page.waitForTimeout(800)
   await take('propuesta')
   if (cfg.mobile) {

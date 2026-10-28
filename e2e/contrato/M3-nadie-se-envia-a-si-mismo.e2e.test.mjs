@@ -15,7 +15,7 @@ const routingAnalyze = async (bundle, options) => {
   return result
 }
 
-const namesOf = async (page) => (await page.getByRole('menuitemcheckbox').allInnerTexts()).map((x) => x.trim().split('\n').pop().trim())
+const namesOf = async (page) => (await page.getByRole('listbox').getByRole('option').allInnerTexts()).map((x) => x.trim().split('\n').pop().trim())
 
 describe('M3: a message is never addressed to whoever writes it', () => {
   test('M3: «Para» of the bar does not offer the person who is writing, and changing «Enviar como» takes the new author out of the chosen', async () => {
@@ -28,13 +28,13 @@ describe('M3: a message is never addressed to whoever writes it', () => {
       const offered = await namesOf(page)
       assert.ok(!offered.includes('Ana Editora'), `M3: «Para» must not offer Ana to Ana (offers: ${offered.join(', ')})`)
       assert.ok(offered.includes('Bruno Miembro') && offered.includes('Claude'), 'M3: the others are offered')
-      await page.getByRole('menuitemcheckbox', { name: 'Bruno Miembro' }).click()
+      await page.getByRole('listbox').getByRole('option', { name: 'Bruno Miembro' }).click()
       await page.keyboard.press('Escape')
-      await to.getByText('Bruno Miembro').first().waitFor()
+      await to.getByRole('listitem').filter({ hasText: 'Bruno' }).first().waitFor()
       // Sending in the name of Bruno makes Bruno the author: he leaves «Para», and Ana, no longer the author, can be offered.
       await page.getByTestId('compose-send-as').selectOption({ label: 'Bruno Miembro' })
       await settled(page)
-      assert.equal(await to.getByText('Bruno Miembro').count(), 0, 'M3: the new author is taken out of «Para»')
+      assert.equal(await to.getByRole('listitem').filter({ hasText: 'Bruno' }).count(), 0, 'M3: the new author is taken out of «Para»')
       await to.getByRole('button', { name: 'Para' }).click()
       const afterSwitch = await namesOf(page)
       assert.ok(!afterSwitch.includes('Bruno Miembro'), `M3: «Para» does not offer the new author (offers: ${afterSwitch.join(', ')})`)

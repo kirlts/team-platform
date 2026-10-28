@@ -1,6 +1,7 @@
 import { AlertTriangle, RotateCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useT, useFormat } from '@/i18n'
+import { afterColon } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useLookups } from './lookups'
 import { Meter } from './Meter'
@@ -75,7 +76,7 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
           <>
             <div role="alert" className="flex items-start gap-3 rounded-md bg-danger-soft p-4 text-sm text-danger">
               <AlertTriangle size={16} aria-hidden className="mt-0.5 shrink-0" />
-              <p className="min-w-0 [overflow-wrap:anywhere]">{t('compose.sendFailed', { reason: upload.error })}</p>
+              <p className="min-w-0 [overflow-wrap:anywhere]">{t('compose.sendFailed', { reason: afterColon(upload.error) })}</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={upload.onRetry}>

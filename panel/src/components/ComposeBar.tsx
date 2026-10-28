@@ -31,10 +31,12 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
   const people = members.filter((m) => m.active !== false && (m as { kind?: string }).kind !== 'agent')
   if (me && !people.some((m) => m.id === me.id)) people.unshift(me)
   return (
-    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:min-w-[14rem] max-md:flex-1 md:ml-auto">
+    // The select is as wide as the name it shows (`field-sizing: content`; a browser without it makes it as wide as its longest name): a native select cannot wrap, and a
+    // name cut at the edge of the box reads as another name (UD-016). On a phone the label shares the row with «Para» when that fits; if not, it takes its own row.
+    <label className="flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted max-md:flex-auto md:ml-auto">
       <span className="shrink-0">{t('compose.sendAs')}</span>
-      <span className="min-w-0 flex-1 md:w-44 md:flex-none">
-        <NativeSelect data-testid="compose-send-as" className="pointer-coarse:h-11" value={value} onChange={(e) => onChange(e.target.value)}>
+      <span className="max-w-full max-md:flex-auto md:flex-none">
+        <NativeSelect data-testid="compose-send-as" title={people.find((m) => m.id === value)?.name} className="pointer-coarse:h-11 supports-[field-sizing:content]:w-auto supports-[field-sizing:content]:[field-sizing:content]" value={value} onChange={(e) => onChange(e.target.value)}>
           {people.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
@@ -84,7 +86,10 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
 
   const empty = !text.trim() && draft.empty
   // Growing (more lines, attachments, a link) happens over the page, never pushing it down.
-  const expanded = grown || !draft.empty || draft.linkOpen || !!draft.recording || !!left
+  const editing = grown || !draft.empty || draft.linkOpen || !!draft.recording
+  // The note of a change of author grows the bar over the page like the rest, but it is a confirmation and not an edit: it does not dim the page.
+  const expanded = editing || !!left
+  const scrimmed = editing
   // The slot is measured only while the bar is empty, which is the one state that is always one row: measuring while it grows
   // would take the grown height for the resting one.
   const emptyNow = useRef(true)
@@ -124,13 +129,15 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
     setText('')
     setLeft(null)
     setRecipients([])
+    // A send in the name of someone is that send's: the next one is written by whoever writes it (like «Para», which is also emptied).
+    setSendAs('')
     textArea.current?.focus()
   }
 
   return (
     <div className="relative z-20 w-full" style={{ height: rest ?? undefined }}>
     {/* While the bar grows over the page, what is below is dimmed: the bar reads as a layer over it, and no sliver of the card under it shows (J3-B-01). It lets the pointer through. */}
-    {expanded && <div aria-hidden data-compose-scrim className="pointer-events-none fixed inset-0 bg-[oklch(0.2_0.06_262/0.28)] backdrop-blur-[2px]" />}
+    {scrimmed && <div aria-hidden data-compose-scrim className="pointer-events-none fixed inset-0 bg-[oklch(0.2_0.06_262/0.28)] backdrop-blur-[2px]" />}
     <div
       ref={box}
       data-compose-box
@@ -184,11 +191,11 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
           </div>
           {author && <SendAs value={author} onChange={changeAuthor} />}
           {left && (
-            <p role="status" data-testid="compose-left-to" className="flex w-full items-center gap-3 text-sm text-fg">
-              {t('compose.leftTo', { name: left.name, to: t('compose.to') })}
+            <p role="status" data-testid="compose-left-to" className="flex w-full flex-wrap items-center gap-x-3 gap-y-0 text-sm text-fg">
+              <span className="min-w-0 [overflow-wrap:anywhere]">{t('compose.leftTo', { name: left.name })}</span>
               <button
                 type="button"
-                className="inline-flex min-h-6 items-center font-semibold text-accent hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                className="inline-flex min-h-6 shrink-0 items-center font-semibold text-accent hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 onClick={() => {
                   setSendAs(left.sendAs)
                   setRecipients(left.recipients)

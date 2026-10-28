@@ -101,7 +101,7 @@ export const es419 = {
   'compose.sendFailed': 'No se pudo enviar: {reason}',
   'compose.to': 'Para',
   'compose.sendAs': 'Enviar como',
-  'compose.leftTo': '{name} sale de {to}',
+  'compose.leftTo': '{name} sale de Para',
 
   'media.attach': 'Adjuntar',
   'media.file': 'Archivo',

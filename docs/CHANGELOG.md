@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Envío nuevo, cuarta ronda del juez: el motivo de un envío fallido empieza en minúscula tras los dos puntos, el aviso en inglés de un destinatario retirado no dice «To», y «Enviar como» vuelve a quien escribe tras enviar.
+
 ## [1.0.0] - 2026-10-28
 
 - Cierre con evidencia de pantalla: el servidor decide si una entrega toca una pantalla con los archivos que el anfitrión informa (`##team changed <ruta>`) y las rutas de interfaz que declara (`EXECUTE_SCREEN_PATHS`, vacía por omisión, aditivo); sin captura el mensaje no cierra y se pide la captura de producción en una segunda pasada, una sola vez (mensaje 136).

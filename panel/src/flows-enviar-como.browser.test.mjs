@@ -81,6 +81,7 @@ describe('send as another member (UD-255)', () => {
         }
         assert.equal(message.author_id, 'u-bruno')
         assert.equal(message.sent_by_id, 'u-ana')
+        assert.equal(await picker.inputValue(), 'u-ana', 'after a send in the name of someone the picker goes back to whoever writes')
         const audit = (await api(page, '/audit?action=input.create')).items.find((a) => a.entity_id === message.input_id)
         assert.equal(audit.member_id, 'u-ana')
         assert.equal(audit.detail.author_id, 'u-bruno')
@@ -119,3 +120,33 @@ describe('send as another member (UD-255)', () => {
     }
   })
 })
+
+describe('«Enviar como» shows every name whole', () => {
+  for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+    test(`${name}: the longest names fit the box of the select, and the select stays inside the window`, async () => {
+      const { page, context } = await session('ana', viewport)
+      try {
+        const picker = page.getByTestId('compose-send-as')
+        await picker.waitFor()
+        const values = await picker.locator('option').evaluateAll((os) => os.map((o) => o.value))
+        for (const value of values) {
+          await picker.selectOption(value)
+          const fit = await picker.evaluate((el) => {
+            const style = getComputedStyle(el)
+            const ctx = document.createElement('canvas').getContext('2d')
+            ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+            const text = el.selectedOptions[0].textContent
+            const room = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+            const box = el.getBoundingClientRect()
+            return { text, need: Math.ceil(ctx.measureText(text).width), room: Math.floor(room), inside: box.left >= 0 && box.right <= window.innerWidth }
+          })
+          assert.ok(fit.need <= fit.room, `${fit.text}: needs ${fit.need} px, has ${fit.room}`)
+          assert.ok(fit.inside, `${fit.text}: inside the window`)
+        }
+      } finally {
+        await context.close()
+      }
+    })
+  }
+})
+

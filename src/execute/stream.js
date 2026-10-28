@@ -20,19 +20,34 @@ const COMMIT_SUMMARY = /^\[(\S+?)(?: \(root-commit\))? ([0-9a-f]{7,40})\] (.+)$/
 const PUSH_UPDATED = /^\s*[+ ]?\s*[0-9a-f]{7,40}\.{2,3}([0-9a-f]{7,40})\s+(\S+) -> (\S+)\s*$/gm
 const PUSH_NEW = /^\s*\*\s+\[new branch\]\s+(\S+) -> (\S+)\s*$/gm
 
-/** Short interface phrase (Spanish, instrument register) for a tool call. */
-export function phraseForTool (name, input = {}) {
+/**
+ * The class and the detail of a tool call, without any language: `action` is one of the classes of `execute_steps` (`ACTIONS` in steps.js) and `detail` the part a person
+ * recognizes (file name, command, pattern). The panel writes the phrase from them in the language of the account (`tool.phrase.<action>`); `phraseForTool` is the Spanish
+ * text kept for what has no panel (the CLI, rows written before the classes existed).
+ */
+export function toolParts (name, input = {}) {
   const file = input.file_path ?? input.path ?? input.notebook_path
   switch (name) {
-    case 'Read': return `Lectura: ${basename(String(file ?? ''))}`
-    case 'Edit': case 'MultiEdit': case 'Write': case 'NotebookEdit': return `Edición: ${basename(String(file ?? ''))}`
-    case 'Bash': return clip(`Orden: ${input.description ?? input.command ?? ''}`, PHRASE_CHARS)
-    case 'Grep': case 'Glob': return clip(`Búsqueda: ${input.pattern ?? ''}`, PHRASE_CHARS)
-    case 'Task': case 'Agent': return clip(`Subagente: ${input.description ?? input.subagent_type ?? ''}`, PHRASE_CHARS)
-    case 'WebFetch': case 'WebSearch': return 'Consulta web'
-    case 'TodoWrite': return 'Plan de trabajo'
-    default: return clip(`Herramienta: ${name}`, PHRASE_CHARS)
+    case 'Read': return { action: 'read', detail: basename(String(file ?? '')) }
+    case 'Edit': case 'MultiEdit': case 'Write': case 'NotebookEdit': return { action: 'edit', detail: basename(String(file ?? '')) }
+    case 'Bash': return { action: 'command', detail: clip(input.description ?? input.command ?? '', PHRASE_CHARS) }
+    case 'Grep': case 'Glob': return { action: 'search', detail: clip(input.pattern ?? '', PHRASE_CHARS) }
+    case 'Task': case 'Agent': return { action: 'subagent', detail: clip(input.description ?? input.subagent_type ?? '', PHRASE_CHARS) }
+    case 'WebFetch': case 'WebSearch': return { action: 'web', detail: '' }
+    case 'TodoWrite': return { action: 'plan', detail: '' }
+    default: return { action: 'other', detail: clip(name ?? '', PHRASE_CHARS) }
   }
+}
+
+const PHRASE_PREFIX = { read: 'Lectura: ', edit: 'Edición: ', command: 'Orden: ', search: 'Búsqueda: ', subagent: 'Subagente: ', other: 'Herramienta: ' }
+
+/** Short interface phrase (Spanish, instrument register) for a tool call. */
+export function phraseForTool (name, input = {}) {
+  const { action, detail } = toolParts(name, input)
+  if (action === 'web') return 'Consulta web'
+  if (action === 'plan') return 'Plan de trabajo'
+  const phrase = `${PHRASE_PREFIX[action]}${detail}`
+  return action === 'read' || action === 'edit' ? phrase : clip(phrase, PHRASE_CHARS)
 }
 
 /**

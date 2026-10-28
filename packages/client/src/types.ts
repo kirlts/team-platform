@@ -506,7 +506,7 @@ export interface MessageTiming {
   machine?: boolean
   /** The delivery that followed the run (UD-263), when there is one. */
   deliver?: { job_id: string; job_status: string; phase: string | null; attempts: number }
-  slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+  slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; action?: string | null; detail?: string | null; duration_ms: number; success: boolean | null }[]
   /** The technical part of the output of the agent and the reference of its delivery (UD-276); the reply carries only the summary. */
   detail?: { entries: { label: string; value: string }[]; delivery_ref: string | null } | null
   tree: SpanNode | null
@@ -564,7 +564,7 @@ export interface ExecuteRunsSummary {
   cost: { n: number; avg_usd: number | null; total_usd: number }
   delivery: { known: number; delivered: number; held: number; rate: number | null }
   resolved: { runs: number; investigated: number; rate: number | null }
-  slowest_tools: { kind: string; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+  slowest_tools: { kind: string; name: string; summary: string | null; action?: string | null; detail?: string | null; duration_ms: number; success: boolean | null }[]
 }
 
 /** One row of the history of execute runs (GET /ops/execute-runs); its figures are the keys of `PHASE_KEYS` and a few more. */

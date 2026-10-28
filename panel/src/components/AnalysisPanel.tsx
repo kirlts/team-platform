@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
+import { useErrorText, useI18n, useT, type MessageKey, useFormat } from '@/i18n'
 import { queryKeys, type Attachment, type InputRecord, type InputStatus, type Proposal, type ProposalMessage, type Template } from '@team-platform/client'
 import { useJobProgress, useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
@@ -82,6 +82,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
   const percent = sendPercent(input, progress)
+  const { percent: percentOf } = useFormat()
   const box = useRef<HTMLElement>(null)
   const desktop = useDesktop()
   // A proposal that arrives while its box is under the fold on a phone is brought into view: «Enviar N mensajes» sticks to the bottom of the screen only while
@@ -142,7 +143,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
         <div data-ui-stage="progress" className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>{progress?.phrase || progress?.code ? progressText(progress, t) : STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : ''}</span>
-            {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
+            {percent > 0 && <span className="tabular-nums text-muted">{percentOf(percent)}</span>}
           </div>
           <Meter percent={percent} label={t('analysis.progress')} className="h-2.5" />
           <div>

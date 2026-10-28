@@ -1,9 +1,10 @@
-import { useT } from '@/i18n'
+import { useT, useFormat } from '@/i18n'
 import { useUiSummary } from '@team-platform/client/react'
 
 /** One line of figures under the switch of «Telemetría de uso» (UD-251); drawn only while the switch is on. */
 export function UiSummaryLine({ enabled }: { enabled: boolean }) {
   const t = useT()
+  const { percent } = useFormat()
   const summary = useUiSummary(enabled).data
   if (!enabled || !summary) return null
   const visits = Object.values(summary.screens ?? {}).reduce((n, s) => n + s.visits, 0)
@@ -18,7 +19,7 @@ export function UiSummaryLine({ enabled }: { enabled: boolean }) {
     [t('summary.visits'), String(visits)],
     [t('summary.tasks'), String(started)],
     [t('summary.errors'), String(errors)],
-    [t('summary.abandon'), started === 0 ? '—' : `${Math.round((abandoned / started) * 100)} %`],
+    [t('summary.abandon'), started === 0 ? '—' : percent((abandoned / started) * 100)],
   ]
   return (
     <dl data-ui-summary aria-label={t('summary.label')} className="flex flex-wrap gap-x-5 gap-y-0.5 text-sm">

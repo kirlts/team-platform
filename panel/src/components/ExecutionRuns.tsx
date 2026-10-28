@@ -4,6 +4,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { useErrorText, useFormat, useT, type MessageKey } from '@/i18n'
 import { PHASE_KEYS, type RunPhase } from '@team-platform/client'
 import { useExecuteRunsSummary } from '@team-platform/client/react'
+import { useToolPhrase } from '@/lib/tool-phrase'
 import { cn } from '@/lib/utils'
 
 const PERIODS = [
@@ -26,7 +27,6 @@ const LABELS: Record<RunPhase, MessageKey> = {
   delivery_ms: 'runs.deliveryTime',
   wait_ms: 'runs.waiting',
 }
-const percent = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate * 100)} %`)
 
 /** «Ejecuciones» of the Cola (UD-262, Editor): folded; the figures of GET /ops/execute-runs/summary load when it opens. */
 export function ExecutionRuns() {
@@ -50,8 +50,10 @@ export function ExecutionRuns() {
 
 function RunsBody() {
   const t = useT()
-  const { duration, usd } = useFormat()
+  const { duration, usd, percent: percentOf } = useFormat()
   const errorText = useErrorText()
+  const toolText = useToolPhrase()
+  const rate = (r: number | null) => (r === null ? '—' : percentOf(r * 100))
   const [days, setDays] = useState<number>(30)
   const summary = useExecuteRunsSummary(days)
   const d = summary.data
@@ -61,8 +63,8 @@ function RunsBody() {
         [t('runs.failed'), String(d.failed)],
         [t('runs.costAvg'), d.cost.avg_usd === null ? '—' : usd(d.cost.avg_usd)],
         [t('runs.costTotal'), usd(d.cost.total_usd)],
-        [t('runs.delivery'), percent(d.delivery.rate)],
-        [t('runs.resolved'), percent(d.resolved.rate)],
+        [t('runs.delivery'), rate(d.delivery.rate)],
+        [t('runs.resolved'), rate(d.resolved.rate)],
       ]
     : []
   return (
@@ -115,7 +117,7 @@ function RunsBody() {
             <ol aria-label={t('timing.slowest')} className="flex flex-col gap-0.5">
               {d.slowest_tools.slice(0, SLOWEST_SHOWN).map((s, i) => (
                 <li key={i} data-runs-slow className="flex flex-wrap items-baseline gap-x-3">
-                  <span className={s.success === false ? 'text-danger' : ''}>{s.summary ?? s.name}</span>
+                  <span className={s.success === false ? 'text-danger' : ''}>{toolText(s)}</span>
                   <span className="tabular-nums text-muted">{duration(s.duration_ms)}</span>
                 </li>
               ))}

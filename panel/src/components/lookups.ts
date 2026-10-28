@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
 import type { Area, Member } from '@team-platform/client'
 import { useAreas, useMembers } from '@team-platform/client/react'
+import { useT } from '@/i18n'
 
 /** Area and member names by id, to label cards and recipients. */
 export function useLookups() {
   const areas = useAreas()
   const members = useMembers()
+  const t = useT()
   return useMemo(() => {
     const areaById = new Map<string, Area>((areas.data ?? []).map((a) => [a.id, a]))
     const memberById = new Map<string, Member>((members.data ?? []).map((m) => [m.id, m]))
@@ -17,7 +19,11 @@ export function useLookups() {
       areaTitle: (id: string) => areaById.get(id)?.title ?? '',
       /** The color chosen for the area (`#rrggbb`); undefined when the id is unknown or an older server sent none. */
       areaColor: (id: string) => areaById.get(id)?.color,
-      memberName: (id: string) => memberById.get(id)?.name ?? '',
+      /** The placeholder author of a removed member (`removed`) is drawn with the catalog's word, not the server's constant (UD-292). */
+      memberName: (id: string) => {
+        const m = memberById.get(id)
+        return m?.removed ? t('team.removedName') : (m?.name ?? '')
+      },
     }
-  }, [areas.data, members.data])
+  }, [areas.data, members.data, t])
 }

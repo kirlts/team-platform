@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Inglés, hallazgos del juez: «Miembro eliminado» sale como «Deleted member» (el panel lo traduce por la marca `removed` que la API ya da); las frases de herramienta de Detalles › Tiempos, Configuración › Ejecuciones y el árbol de traza se escriben en el idioma de la cuenta desde `action` y `detail`, campos nuevos y aditivos de `slowest` (`GET /messages/:id/timing`, `/ops/execute-runs/summary`) y de los atributos `team.tool.action` y `team.tool.detail` (`summary` se conserva; una fila anterior se reconoce por su prefijo); un solo sustantivo inglés, «submission», para «envío»; comillas “ ” en inglés; `25%` y `$1.62` en inglés (`useFormat().percent`); reloj de 12 horas con AM/PM en inglés y de 24 horas en español; «At least 15 characters». `i18n.test.ts` falla si `en.ts` vuelve a tener « o ».
+
 - Panel: el historial de la sesión dice cuántos pasos tiene, desvanece el borde con más pasos y parte las rutas entre segmentos.
 
 - Historial de la sesión: cada llamada de Claude a una herramienta se guarda por trabajo (`execute_steps`, migración 0042, tope `EXECUTE_STEPS_MAX`) y se lee en `GET /messages/:id/session`. El panel «Trabajo» muestra una fila por tramo con barra delgada y un desplegable en Sesión (pasos y capturas) y en Publicación (estado). El historial queda en Detalles › Tiempos. El contrato de anfitrión no cambia.

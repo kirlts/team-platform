@@ -77,7 +77,7 @@ const TEXTS = {
     limitHeld: (list) => `toca un límite que solo una persona levanta (${list}); quien apruebe la entrega lo levanta y queda registrado`,
     verification: (branch, reason, budget) => `No quedó en producción: no pasó la verificación${reason ? ` (${reason})` : ''}.${budget ? ' Se alcanzó el tope de gasto de hoy y Claude no sigue.' : ''} Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     again: (reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. Claude lo corrige y vuelve a entregar.`,
-    alreadyThere: 'El cambio ya estaba en producción: llegó por otro camino y no hizo falta entregarlo de nuevo.',
+    alreadyThere: 'En producción: el cambio ya estaba servido (llegó por otro camino) y no hizo falta entregarlo de nuevo.',
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     stuck: (branch) => `La entrega espera un arreglo del sistema: el anfitrión respondió «ahora no» una y otra vez con el mismo motivo. Lo hecho queda en la rama ${branch}; se vuelve a lanzar sola con la próxima versión.`,
@@ -92,7 +92,7 @@ const TEXTS = {
     limitHeld: (list) => `it touches a limit that only a person lifts (${list}); whoever approves the delivery lifts it and it is recorded`,
     verification: (branch, reason, budget) => `It did not reach production: it did not pass verification${reason ? ` (${reason})` : ''}.${budget ? ' Today\'s spending cap was reached and Claude does not continue.' : ''} The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     again: (reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. Claude is fixing it and will deliver again.`,
-    alreadyThere: 'The change was already in production: it arrived another way and did not need to be delivered again.',
+    alreadyThere: 'In production: the change was already served (it arrived another way) and did not need to be delivered again.',
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     stuck: (branch) => `The delivery waits for a fix of the system: the host answered «not now» again and again with the same reason. The work is saved on the branch ${branch}; it launches again by itself with the next version.`,
@@ -147,10 +147,20 @@ export const clockTime = (at) => new Date(at).toLocaleTimeString('en-GB', { hour
  * The closing reply of a delivery in green: the summary of the session with «En producción desde HH:MM.», then the lines of the system. `at` is the moment the
  * delivery was confirmed (UD-298): the reply is posted only then, so it states a fact and never a promise. The technical part stays in the run (UD-276).
  */
-export function deliveredBody ({ output, language, lines = [], at = Date.now() }) {
+export function deliveredBody ({ output, language, lines = [], at = Date.now(), alreadyThere = false }) {
   const t = textsOf(language)
   const base = output ?? {}
-  return [replyBody({ summary: withProductionNote(base.summary, t.production(clockTime(at))) }), ...lines].join('\n\n')
+  // The outcome replaces the state the session wrote before the delivery: a reply that confirms production never says the delivery is still missing. One sentence of the system says
+  // where the change is: the time when this delivery put it there, or «already served» when it was there before and the time of this reply would be false.
+  const note = alreadyThere ? t.alreadyThere : t.production(clockTime(at))
+  return [replyBody({ summary: withProductionNote(withoutPendingDelivery(base.summary), note) }), ...lines].join('\n\n')
+}
+
+// A sentence of the session that says the delivery is still to come (it wrote the summary before the delivery ran). Here the delivery already ended in production, so the sentence is false by construction.
+const PENDING_DELIVERY = /\b(falta|faltan|queda pendiente|pendiente de)\b[^.!?\n]*\b(entrega|entregar|publicar|publicación|despliegue|desplegar)\b|\b(todavía|aún) no\b[^.!?\n]*\b(entreg\w+|publicad\w+|desplegad\w+|en producción)\b|\bnot (yet )?(delivered|published|deployed|in production)\b|\b(delivery|deployment|publication) (is )?(still )?(missing|pending)\b/i
+export function withoutPendingDelivery (summary) {
+  const text = String(summary ?? '')
+  return text.split('\n\n').map((paragraph) => paragraph.split(/(?<=[.!?])\s+/).filter((sentence) => !PENDING_DELIVERY.test(sentence)).join(' ').trim()).filter(Boolean).join('\n\n')
 }
 
 /** The last non-empty stdout line that is not a phase marker: the reference of the delivery. */
@@ -230,7 +240,6 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const stored = fromProduction.length ? fromProduction : (after?.hadBefore ? [] : (payload.captures ?? []).filter((c) => c.kind !== 'video'))
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
         for (const reason of after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
-        if (alreadyThere) closing.lines.push(textsOf(author?.language).alreadyThere)
         const missing = noCaptureLine(payload.output, closing.files.length > 0 ? 1 : 0, author?.language, [...(payload.captures_rejected ?? []), ...(after?.rejected ?? [])]) // UD-298
         if (missing) closing.lines.push(missing)
         closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
@@ -240,7 +249,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const why = closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since, language: author?.language })
         if (why) closing.lines.push(closeLine(why, author?.language))
         const { replyId } = addReply({ db, events, now }, {
-          messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now() }), files: [...closing.files, ...(payload.documents?.files ?? [])]
+          messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines, at: now(), alreadyThere }), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         if (why) closeMessage({ db, events, now }, messageId, agent.id)
         // UD-314: the change is in production but the session said part of what was asked could not be done: this reply carries «Reintentar» for the session that said it.

@@ -416,6 +416,8 @@ curl -s https://<máquina>.<tailnet>.ts.net:8445/api/me
 
 Responde el miembro dueño de la sesión de Tailscale, con `"provider":"delegated:trusted-header"`. Una cabecera `Tailscale-User-Login` puesta a mano por el cliente no cambia el resultado, porque `tailscale serve` la sobrescribe (comprobado el 2026-10-21).
 
+Una persona que llega sin la cabecera, o desde una dirección fuera de `TRUSTED_PROXIES`, no tiene entrada propia en este modo. Una página del panel responde 302 a `HOST_LOGIN_URL` (por omisión `/session/login`) con el destino en `next`. Si esa dirección es la propia instalación, la respuesta es una página 401 «Sin acceso» con una línea: «Falta la cabecera del anfitrión o llega de una dirección no confiable». Está en español o inglés según el navegador y no redirige otra vez. La API responde 401 con `login_url`. Con `HOST_LOGIN_URL` declarada hacia una dirección del anfitrión, las páginas redirigen ahí.
+
 Límites medidos:
 
 - La puerta de enlace cambia si Docker recrea la red con otra subred (`docker compose down` y `up`). Si todas las peticiones vuelven a dar 401, se repite el primer comando.

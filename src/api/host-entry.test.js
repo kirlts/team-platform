@@ -57,3 +57,16 @@ test('no host: the page is the panel with its own form and the 401 names no entr
   assert.equal(api.json().login_url, undefined)
   await env.close()
 })
+
+test('the request that arrives at the entry address is the installation itself: a 401 page, never a redirect to itself', async () => {
+  const env = await makeEnv(hostConfig())
+  const direct = await env.app.inject({ url: '/session/login?next=%2F', headers: { 'accept-language': 'en' } })
+  assert.equal(direct.statusCode, 401)
+  assert.match(direct.headers['content-type'], /text\/html/)
+  assert.match(direct.body, /<h1>No access<\/h1>/)
+  assert.match(direct.body, /valid host session/)
+  assert.equal(direct.headers.location, undefined)
+  const other = await env.app.inject({ url: '/session/login-otro' })
+  assert.equal(other.statusCode, 302)
+  await env.close()
+})

@@ -86,9 +86,11 @@ const rows = (page) =>
         cut: name.scrollWidth > name.clientWidth,
         marks: [...wrap.querySelectorAll('a.nav-count')].map((a) => {
           const r = a.getBoundingClientRect()
-          return { status: a.getAttribute('data-count-status'), text: a.textContent.trim(), href: a.getAttribute('href'), label: a.getAttribute('aria-label'), title: a.getAttribute('title'), left: r.left, right: r.right, centerY: r.top + r.height / 2, hasShape: !!a.querySelector('svg'), word: /abiert|respond/i.test(a.textContent) }
+          return { status: a.getAttribute('data-count-status'), text: a.textContent.trim(), href: a.getAttribute('href'), label: a.getAttribute('aria-label'), title: a.getAttribute('title'), left: r.left, right: r.right, centerY: r.top + r.height / 2, hasShape: !!a.querySelector('svg'), icon: (() => { const r = a.querySelector('svg').getBoundingClientRect(); return { left: r.left, right: r.right, centerY: r.top + r.height / 2 } })(), digits: (() => { const r = a.querySelector('.tabular-nums').getBoundingClientRect(); return { left: r.left, centerY: r.top + r.height / 2 } })(), word: /abiert|respond/i.test(a.textContent) }
         }),
         centerY: box.top + box.height / 2,
+        nameCenterY: nameBox.top + nameBox.height / 2,
+        slots: [...wrap.querySelectorAll('[data-count-slot]')].map((el) => { const r = el.getBoundingClientRect(); return { status: el.getAttribute('data-count-slot'), left: r.left, right: r.right } }),
       }
     })
   })
@@ -126,6 +128,33 @@ for (const [name, viewport] of VIEWPORTS) {
         if (viewport.width < 768) await page.getByRole('button', { name: 'Abrir navegación' }).click()
         await page.getByRole('link', { name: /Producto: 2 respondidos en el equipo/ }).click()
         await page.waitForURL((u) => decodeURIComponent(u.search).includes('answered'))
+      } finally {
+        await context.close()
+      }
+    })
+
+    test('the icons of one state share a column, icon and number are 2 px apart and share a center with the name, the slots are 8 px apart (UD-315)', async () => {
+      const { page, context } = await session(viewport)
+      try {
+        const marked = (await rows(page)).filter((r) => r.slots.length)
+        assert.ok(marked.length >= 3)
+        const column = (status, key) => marked.flatMap((r) => r.marks.filter((m) => m.status === status).map((m) => m.icon[key]))
+        for (const status of ['open', 'answered']) {
+          const xs = column(status, 'left')
+          assert.ok(Math.max(...xs) - Math.min(...xs) <= TOLERANCE, `${status} icons at x ${xs}`)
+        }
+        // An empty slot is reserved: the clock of «Soporte» (no open ones) sits under the clock of «Producto».
+        const clock = (name) => marked.find((r) => r.name === name).marks.find((m) => m.status === 'answered').icon.left
+        assert.ok(Math.abs(clock('Soporte') - clock('Producto')) <= TOLERANCE)
+        for (const r of marked) {
+          assert.equal(r.slots.length, 2, `${r.name}: two slots`)
+          assert.ok(Math.abs(r.slots[1].left - r.slots[0].right - 8) <= TOLERANCE, `${r.name}: slots ${r.slots[0].right} and ${r.slots[1].left}`)
+          for (const m of r.marks) {
+            assert.ok(m.digits.left - m.icon.right <= 2 + TOLERANCE, `${r.name} ${m.status}: ${m.digits.left - m.icon.right} px between icon and number`)
+            assert.ok(Math.abs(m.icon.centerY - m.digits.centerY) <= TOLERANCE, `${r.name} ${m.status}: icon ${m.icon.centerY}, number ${m.digits.centerY}`)
+            assert.ok(Math.abs(m.icon.centerY - r.nameCenterY) <= TOLERANCE, `${r.name} ${m.status}: icon ${m.icon.centerY}, name ${r.nameCenterY}`)
+          }
+        }
       } finally {
         await context.close()
       }

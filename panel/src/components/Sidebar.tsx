@@ -18,7 +18,7 @@ import { FormDialog } from './FormDialog'
  */
 const rowBox = 'nav-item grid min-h-11 grid-cols-[minmax(0,1fr)_minmax(var(--sidebar-count-col),auto)] items-center rounded-md border border-transparent md:min-h-9'
 const link = 'nav-row grid min-h-[inherit] grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 self-stretch py-1 pl-2.5 pr-1 text-sm font-medium text-fg'
-const countCol = 'flex items-center justify-end gap-0.5 pr-2.5'
+const countCol = 'flex items-center justify-end pr-2.5'
 
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
@@ -161,8 +161,8 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
 
 /**
  * The open and the answered messages of an area, each one leading to Mensajes filtered by that area and that state (UD-028, UD-041). A state with
- * none draws nothing and the closed ones have no mark (Martín, 2026-10-28). The column of the row is the same one as every row's and grows to the
- * width of its marks (`auto`) and never shrinks: a count never changes the height of its row, and the name, in one line, is what gives way with an ellipsis (UD-315).
+ * none draws nothing and the closed ones have no mark (Martín, 2026-10-28). Each state has a slot of fixed width (`--sidebar-count-slot`), open first, anchored to
+ * the right edge: the column of the row never shrinks and: a count never changes the height of its row, and the name, in one line, is what gives way with an ellipsis (UD-315).
  */
 const PENDING = ['open', 'answered'] as const
 
@@ -172,15 +172,21 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
   const counts = areaCounts(summary, areaId)
   return (
     <>
-      {PENDING.filter((status) => counts[status] > 0).map((status) => {
-        // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
-        const scope = t('areas.countOf', { title, count: label({ [status]: counts[status] }) })
-        return (
-          <Link key={status} to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
-            <StateMark status={status} n={counts[status]} showWord={false} plain className="px-0.5" />
-          </Link>
-        )
-      })}
+      {/* Both slots are drawn whenever the area has any count, so the triangles share one column and the clocks another in every row; a slot with no count stays empty. */}
+      {(counts.open > 0 || counts.answered > 0) &&
+        PENDING.map((status) => {
+          // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
+          const scope = t('areas.countOf', { title, count: label({ [status]: counts[status] }) })
+          return (
+            <span key={status} data-count-slot={status} className="nav-slot">
+              {counts[status] > 0 && (
+                <Link to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
+                  <StateMark status={status} n={counts[status]} showWord={false} plain className="gap-0.5 border-0 px-0" />
+                </Link>
+              )}
+            </span>
+          )
+        })}
     </>
   )
 }

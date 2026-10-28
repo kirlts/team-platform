@@ -100,7 +100,11 @@ function AreaList() {
   // «Borradas» adds the deleted areas under the live ones, muted and with Restaurar (UD-250); restoring moves the row up.
   const [showDeleted, setShowDeleted] = useState(false)
   const deleted = useDeletedAreas(showDeleted)
-  const rows = useMemo<AreaItem[]>(() => [...(areas.data ?? []).map((area): AreaItem => ({ kind: 'live', area })), ...(showDeleted ? (deleted.data ?? []).map((area): AreaItem => ({ kind: 'deleted', area })) : [])], [areas.data, deleted.data, showDeleted])
+  // The two lists are refetched separately after a restore, and the live one can land first: an area in the live list is not also shown as deleted.
+  const rows = useMemo<AreaItem[]>(() => {
+    const liveIds = new Set((areas.data ?? []).map((area) => area.id))
+    return [...(areas.data ?? []).map((area): AreaItem => ({ kind: 'live', area })), ...(showDeleted ? (deleted.data ?? []).filter((area) => !liveIds.has(area.id)).map((area): AreaItem => ({ kind: 'deleted', area })) : [])]
+  }, [areas.data, deleted.data, showDeleted])
   // Several at once (UD-253): the marked areas are deleted without asking; the history and the notice carry Deshacer.
   const selection = useSelection()
   const notices = useNotices()

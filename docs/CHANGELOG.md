@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Panel: un área o una plantilla restaurada ya no se pinta a la vez como viva y como borrada.
+
 ## [0.1.3] - 2026-10-27
 
 - Telemetría del panel: la muestra de la etapa feedback ya no se pierde cuando la página está ocupada y el envío termina antes del pintado; se usa el momento en que se oyó el primer cambio como respaldo.

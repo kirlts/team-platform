@@ -74,6 +74,7 @@ Se leen en `src/config.js`. Un valor entero o decimal fuera de rango, o un valor
 | `EXECUTE_CAPACITY_WAIT_MS` | `30000` | Espera cuando una orden responde 75 o el saldo del día no alcanza. Mínimo 1000 | Medición del 2026-10-22: crear una máquina tardó 32 s |
 | `EXECUTE_INFRA_RETRY_WAIT_MS` | `30000` | Espera antes del segundo intento de un trabajo que falló por infraestructura | Medición del 2026-10-22 |
 | `EXECUTE_RUNS_RETENTION_DAYS` | `365` | Días que se conserva el historial de `execute_runs` | UD-262 |
+| `EXECUTE_STEPS_MAX` | `500` | Pasos de la sesión que se guardan por trabajo para el historial. `0` no guarda ninguno | Cortesía declarada: 60 turnos a 8 llamadas cada uno caben, y 500 filas son unos 150 KB |
 
 ### Órdenes de máquina
 

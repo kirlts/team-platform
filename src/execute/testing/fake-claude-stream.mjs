@@ -129,6 +129,12 @@ process.stdin.on('end', async () => {
     if (process.env.FAKE_EXECUTE_REPLY === '1') execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.'], { stdio: 'inherit' })
     asst('m1', null, [{ type: 'tool_use', id: 'tu-read', name: 'Read', input: { file_path: '/repo/src/screen.tsx' } }], 1)
     await pause(15); result('tu-read', null)
+    // FAKE_EXECUTE_LOOK (JSON of a declaration): the session runs `look --shot`, whose output ends with the line LOOK_CAPTURE {json} (UD-268); the file is the one of FAKE_EXECUTE_CAPTURE_FILES.
+    if (process.env.FAKE_EXECUTE_LOOK) {
+      asst('m1b', null, [{ type: 'tool_use', id: 'tu-look', name: 'Bash', input: { command: 'look /agenda --shot', description: 'Mirar la agenda' } }], 1)
+      await pause(15)
+      out({ type: 'user', session_id: sid, parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'tu-look', content: [{ type: 'text', text: `Page: Agenda\nLOOK_CAPTURE ${process.env.FAKE_EXECUTE_LOOK}` }] }] } })
+    }
     asst('m2', null, [{ type: 'tool_use', id: 'tu-bash', name: 'Bash', input: { command: 'npm test', description: 'Pruebas de la pantalla' } }], 2)
     await pause(40); result('tu-bash', null, true)
     asst('m3', null, [{ type: 'tool_use', id: 'tu-sub', name: 'Task', input: { description: 'Revisar estilos', subagent_type: 'reviewer' } }], 3)
@@ -136,6 +142,6 @@ process.stdin.on('end', async () => {
     await pause(20); result('tu-edit', 'tu-sub')
     result('tu-sub', null)
     await pause(5)
-    out({ type: 'result', subtype: 'success', is_error: false, session_id: sid, duration_ms: 61000, num_turns: 4, total_cost_usd: 0.5, usage: usage(10), modelUsage: { 'claude-sonnet-5-5': {} }, result: '', structured_output: { outcome: 'done', summary: 'Listo.' } })
+    out({ type: 'result', subtype: 'success', is_error: false, session_id: sid, duration_ms: 61000, num_turns: 4, total_cost_usd: 0.5, usage: usage(10), modelUsage: { 'claude-sonnet-5-5': {} }, result: '', structured_output: { outcome: 'done', summary: 'Listo.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}) } })
   }
 })

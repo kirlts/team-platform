@@ -38,13 +38,13 @@ export function DataReset() {
     : []
 
   return (
-    <SettingsBox data-data-reset title={t('settings.data')}>
+    <SettingsBox fold data-data-reset title={t('settings.data')}>
       <dl className="flex flex-col">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3 first:pt-0">
           <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
             <dt className="text-sm font-semibold">{t('data.content')}</dt>
             <dd>
-              <SettingHint id="hint-data-content">{t('hint.data.content')}</SettingHint>
+              <SettingHint visible id="hint-data-content">{t('hint.data.content')}</SettingHint>
             </dd>
           </div>
           <Button size="sm" variant="danger" onClick={() => reset.mutate('content')} disabled={reset.isPending} aria-describedby="hint-data-content">
@@ -55,7 +55,7 @@ export function DataReset() {
           <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
             <dt className="text-sm font-semibold">{t('data.everything')}</dt>
             <dd>
-              <SettingHint id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
+              <SettingHint visible id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
             </dd>
           </div>
           <Button size="sm" variant="danger" onClick={() => reset.mutate('everything')} disabled={reset.isPending} aria-describedby="hint-data-everything">
@@ -66,7 +66,7 @@ export function DataReset() {
           <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
             <dt className="text-sm font-semibold">{t('data.examples')}</dt>
             <dd>
-              <SettingHint id="hint-data-examples">{t('hint.data.examples')}</SettingHint>
+              <SettingHint visible id="hint-data-examples">{t('hint.data.examples')}</SettingHint>
             </dd>
           </div>
           <div className="flex flex-wrap items-center gap-3">

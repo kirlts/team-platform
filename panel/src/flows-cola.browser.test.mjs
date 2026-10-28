@@ -3,7 +3,7 @@
 // step that confirms it (UD-253); the log shows that purge. A member sees none of it. Against dev-server.mjs serving panel/dist: `npm run test:flows`.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 process.env.PANEL_DEV_AUTO_PUBLISH = '0'
 
@@ -32,6 +32,7 @@ async function session(who, path = '/settings') {
   await page.goto(`${origin}${path}`)
   await page.getByRole('heading', { name: 'Cuenta' }).waitFor()
   await settled(page)
+  if (path === '/settings') await openFolds(page)
   return { page, context }
 }
 
@@ -82,6 +83,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     try {
       await analysed(page)
       await page.reload()
+      await openFolds(page)
       const queue = page.locator('[data-queue]')
       await queue.waitFor()
       await row(queue, 'Carla Prueba').waitFor()
@@ -101,6 +103,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     try {
       await analysed(page)
       await page.reload()
+      await openFolds(page)
       const queue = page.locator('[data-queue]')
       const diego = row(queue, 'Diego Prueba')
       await diego.getByRole('button', { name: 'Reprocesar' }).click()
@@ -120,6 +123,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     try {
       await analysed(page)
       await page.reload()
+      await openFolds(page)
       const queue = page.locator('[data-queue]')
       const carla = row(queue, 'Carla Prueba')
       await carla.getByRole('button', { name: 'Traza' }).click()
@@ -137,6 +141,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       await panel.control.hold()
       await sendAs('diego', ['Envío que espera'])
       await page.reload()
+      await openFolds(page)
       const diego = row(page.locator('[data-queue]'), 'Diego Prueba')
       await diego.getByRole('button', { name: 'Traza' }).click()
       await diego.locator('[data-trace-none]').getByText('Sin traza').waitFor()
@@ -152,6 +157,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     try {
       await analysed(page)
       await page.reload()
+      await openFolds(page)
       const queue = page.locator('[data-queue]')
       const carla = row(queue, 'Carla Prueba')
       await carla.getByRole('button', { name: 'Borrar envío', exact: true }).click()
@@ -170,6 +176,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     try {
       await analysed(page)
       await page.reload()
+      await openFolds(page)
       const queue = page.locator('[data-queue]')
       const done = queue.locator('[data-job-count="done"]')
       await page.waitForFunction(() => Number(document.querySelector('[data-job-count="done"]')?.textContent) >= 4)

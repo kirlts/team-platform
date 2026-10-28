@@ -131,7 +131,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 | C2 Gancho `pre-push` | Acepta el sello de C1 en vez de `DEPLOY_PUBLISHES_MAIN`; lo demás igual: `desarrollo` o ancestro, avance rápido, nunca borrar | hecho (`d2250ba6`): acepta `RELEASE_PUBLISHES_MAIN`; la marca vieja sigue aceptada hasta su retiro, C5 (línea `RETIRO-DEPLOY`) |
 | C3 Flujo de GitHub Actions | Queda como espejo opcional de la misma regla; no es requisito: la verificación corre en la máquina que publica. Nada del canónico depende de tener presupuesto en GitHub | hecho (`d2250ba6`): el flujo sólo mide avance rápido, espejo opcional |
 | C4 Versión y etiqueta | Cada publicación de `main` lleva etiqueta `vX.Y.Z` y una línea en `CHANGELOG.md`; el anfitrión fija la que instala por sha o digest | hecho (`d2250ba6`): `prepare-release.mjs` y etiqueta `vX.Y.Z` |
-| C5 Retiro de la marca heredada | El gancho deja de aceptar `DEPLOY_PUBLISHES_MAIN` (se borra la línea `RETIRO-DEPLOY`); quien instala fija la versión del canónico como fija la de cualquier dependencia | por hacer, tras la primera publicación con `publish-main.sh` |
+| C5 Retiro de la marca heredada | El gancho deja de aceptar `DEPLOY_PUBLISHES_MAIN` (se borra la línea `RETIRO-DEPLOY`); quien instala fija la versión del canónico como fija la de cualquier dependencia | hecho (`640cbcd4`): el gancho rechaza la marca vieja; `publish-main.sh` publicó v0.1.0 y v0.1.1 y el anfitrión dejó de exportarla y fija su versión por sha |
 
 ### D. Núcleo 1.0
 
@@ -139,7 +139,7 @@ Estado al 2026-10-26: **hecho** (en `desarrollo`), **en rama** (con su sha), **p
 |---|---|---|
 | D1 `docs/CAPACIDADES-1.0.md` | Una fila por capacidad: mensajes, respuestas e hilos, menciones, miembros y perfiles, roles de equipo, áreas y plantillas con bloque `output`, estados y cierre, adjuntos con extracción y medios visibles, envío que se reparte en varios mensajes, revisión por persona, reintentar y retomar, entrega aparte y en espera, Guardia de la idea, avisos al anfitrión, telemetría. Cada fila: ruta de la prueba e2e, veredicto del juez, sha | hecho (`b8e904bb`): 34 capacidades |
 | D2 Pruebas e2e por capacidad | Con `scripts/walkthrough.mjs` y `scripts/test-dirigido`, contra una instancia con `docker-local` | hecho (`8095df15`): 34 de 34 con e2e en verde; ninguna completa hasta su veredicto (D3) |
-| D3 Jueces de interfaz por vista | Método de `docs/investigaciones/10`; cada vista con su encargo, capturas en escritorio y teléfono, claro y oscuro; los mismos jueces al cerrar, sin decirles qué cambió | por hacer |
+| D3 Jueces de interfaz por vista | Método de `docs/investigaciones/10`; cada vista con su encargo, capturas en escritorio y teléfono, claro y oscuro; los mismos jueces al cerrar, sin decirles qué cambió | en curso (2026-10-27): 12 informes sobre las vistas del panel, escritos en `docs/JUICIOS.md`. De 34 capacidades, 17 están completas, 7 aprobadas sin estar completas, 4 rechazadas y 6 sin veredicto (`docs/CAPACIDADES-1.0.md`). Tres ramas de arreglo (`wt-inicio-d3`, `wt-lista-d3`, `wt-ficha-d3`) esperan fusión y nuevo juicio; el botón de la línea de revisión espera quitarse o enmendar UD-280 |
 | D4 Cierre del TODO | Lo que exige dominio o servidor limpio se cierra en el segundo anfitrión; lo que exige un aparato o una llave queda como límite externo con dueño y comando | por hacer |
 | D5 `scripts/clean-worktrees.sh` | Lista y retira worktrees sin agente vivo; corre al abrir sesión | hecho (`2f82a21f`): retiró 131 worktrees sin agente vivo, 1,9 GB |
 
@@ -192,7 +192,7 @@ las capacidades que ya existen, y cierra al final para las que 1 y 2 agregan.
 
 | Se retira | Cuándo | Qué lo traería de vuelta |
 |---|---|---|
-| `DEPLOY_PUBLISHES_MAIN` como marca aceptada por el gancho | tras la primera publicación con `publish-main.sh` | Que la puerta no pueda correr la batería en la máquina que publica |
+| `DEPLOY_PUBLISHES_MAIN` como marca aceptada por el gancho (retirada, C5) | tras la primera publicación con `publish-main.sh` | Que la puerta no pueda correr la batería en la máquina que publica |
 | El flujo de GitHub Actions como requisito | con C3 | Ninguna: queda como espejo |
 | Las 54 piezas duplicadas en el primer anfitrión | una por una, cuando su canario pasa con la canónica | Que una pieza necesite algo que el contrato no da; entonces se cambia el contrato |
 | Los worktrees sin agente vivo | con D5 | Ninguna: un worktree se recrea con un comando |

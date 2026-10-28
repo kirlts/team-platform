@@ -235,6 +235,7 @@ export const es419 = {
 
   'fields.required': 'Obligatorio',
   'fields.optional': 'Sin dato',
+  'fields.missing': 'Falta',
   'fields.add': 'Agregar {label}',
   'fields.requiredError': 'Obligatorio',
 
@@ -442,6 +443,8 @@ export const es419 = {
   'team.roleMember': 'Miembro',
   'team.roleEditor': 'Editor',
   'team.roleOf': 'Rol de {name}',
+  'team.roleDone': 'Rol de {name}: {role}',
+  'team.none': 'Sin miembros',
   'team.roleMemberHint': 'Envía mensajes y responde',
   'team.roleEditorHint': 'Cambia los textos configurados',
   'team.edited': 'Edición de miembro',

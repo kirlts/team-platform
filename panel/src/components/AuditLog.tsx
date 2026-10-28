@@ -30,6 +30,16 @@ const STATES = ['queued', 'running', 'done', 'failed']
 
 /** «Auditoría» of Configuración (UD-251, Editor): the log of changes, newest first, filtered by action and paged by the server. */
 export function AuditLog() {
+  const { t } = useI18n()
+  return (
+    <SettingsBox fold data-audit title={t('audit.title')}>
+      <AuditBody />
+    </SettingsBox>
+  )
+}
+
+/** The log is read when the section is opened: the folded row asks the server for nothing. */
+function AuditBody() {
   const { t, has } = useI18n()
   const format = useFormat()
   const [page, setPage] = useState(1)
@@ -67,29 +77,24 @@ export function AuditLog() {
       .map(([label, value]) => `${label}: ${value}`)
       .join(' · ')
   return (
-    <SettingsBox
-      data-audit
-      title={t('audit.title')}
-      aside={
-        <div className="w-56">
-          <NativeSelect
-            aria-label={t('audit.action')}
-            value={action}
-            onChange={(e) => {
-              setAction(e.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="">{t('audit.all')}</option>
-            {ACTIONS.map((a) => (
-              <option key={a} value={a}>
-                {has(key('audit.a', a)) ? t(key('audit.a', a)) : a}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-      }
-    >
+    <>
+      <div className="w-56 max-w-full">
+        <NativeSelect
+          aria-label={t('audit.action')}
+          value={action}
+          onChange={(e) => {
+            setAction(e.target.value)
+            setPage(1)
+          }}
+        >
+          <option value="">{t('audit.all')}</option>
+          {ACTIONS.map((a) => (
+            <option key={a} value={a}>
+              {has(key('audit.a', a)) ? t(key('audit.a', a)) : a}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
       {/* «Sin registros» only when the log answered empty: a failed or pending read draws its own state, never the empty line. */}
       {!log.data ? (
         <LoadState query={log} />
@@ -119,6 +124,6 @@ export function AuditLog() {
         </div>
       )}
       <PageControls page={page} limit={PAGE_SIZE} total={log.data?.total ?? 0} onPage={setPage} />
-    </SettingsBox>
+    </>
   )
 }

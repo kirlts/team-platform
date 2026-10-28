@@ -235,6 +235,7 @@ export const en: Record<MessageKey, Message> = {
 
   'fields.required': 'Required',
   'fields.optional': 'No value',
+  'fields.missing': 'Missing',
   'fields.add': 'Add {label}',
   'fields.requiredError': 'Required',
 
@@ -442,6 +443,8 @@ export const en: Record<MessageKey, Message> = {
   'team.roleMember': 'Member',
   'team.roleEditor': 'Editor',
   'team.roleOf': 'Role of {name}',
+  'team.roleDone': 'Role of {name}: {role}',
+  'team.none': 'No members',
   'team.roleMemberHint': 'Sends messages and replies',
   'team.roleEditorHint': 'Changes the configured texts',
   'team.edited': 'Member edit',

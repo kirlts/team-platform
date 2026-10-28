@@ -25,7 +25,7 @@ after(async () => {
 const NOTICE = 'Claude no pudo responder: se acabó el tiempo.'
 
 /** Opens a message whose last reply is the notice of a failed session, as the server draws it when «Reintentar» is possible. */
-async function openFailed(page) {
+async function openFailed(page, text = NOTICE) {
   const list = await (await page.request.get(`${origin}/api/messages?q=${encodeURIComponent('Confirmar el formato')}`)).json()
   const id = list.items[0].id
   await page.route(`**/api/messages/${id}`, async (route) => {
@@ -34,7 +34,7 @@ async function openFailed(page) {
       const res = await route.fetch()
       const body = await res.json()
       const agent = body.replies[0]?.author_id ?? body.author_id
-      body.replies.push({ id: '9001', message_id: id, author_id: agent, body: NOTICE, kind: 'answer', created_at: new Date().toISOString(), retryable: true, replaced_by_job_id: null, retrying: false, attachments: [], mentions: [] })
+      body.replies.push({ id: '9001', message_id: id, author_id: agent, body: text, kind: 'answer', created_at: new Date().toISOString(), retryable: true, replaced_by_job_id: null, retrying: false, attachments: [], mentions: [] })
       await route.fulfill({ response: res, json: body })
     } catch {
       // the page closed with the request in flight: nothing is left to answer
@@ -85,6 +85,31 @@ describe('Reintentar responde en el clic (UD-290)', () => {
         await page.getByTestId('retrying').first().waitFor({ state: 'attached' })  // the count is read once the element is drawn, never in the frame the page opened (it read 0 under load)
         assert.equal(await page.getByTestId('retrying').count(), 1, 'with the job queued it stays «Reintentando»')
         assert.ok(id)
+      } finally {
+        await context.close()
+      }
+    })
+
+    test(`the answer of a session that could not do what was asked offers Reintentar and answers at the click at ${viewport.width} px (UD-314)`, async () => {
+      const { page, context } = await session(viewport)
+      try {
+        const BLOCKED = 'No pude hacer la prueba en producción: la cuenta no tiene permiso.'
+        let release
+        const gate = new Promise((resolve) => { release = resolve })
+        await page.route('**/api/messages/*/replies/9001/retry', async (route) => {
+          await gate
+          await route.fulfill({ status: 202, json: { job_id: '8' } })
+        })
+        await openFailed(page, BLOCKED)
+        await page.getByText(BLOCKED).first().waitFor({ state: 'attached' })
+        await page.getByTestId('retry-execute').click()
+        await page.getByTestId('retrying').waitFor()
+        assert.equal(await page.getByText(BLOCKED).count(), 0, 'the answer is replaced in its place')
+        assert.equal(await page.getByTestId('retry-execute').count(), 0)
+        await settled(page)
+        if (SHOTS) await page.screenshot({ path: `${SHOTS}/sin-cumplir-${viewport.width}.png` })
+        release()
+        await page.waitForResponse((r) => r.url().includes('/retry'))
       } finally {
         await context.close()
       }

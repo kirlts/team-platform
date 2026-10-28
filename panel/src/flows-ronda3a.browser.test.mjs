@@ -466,8 +466,14 @@ describe('sidebar, sign-out and Conexiones (J3-A-45, J3-A-46, J3-A-48, J3-A-49, 
   test('the phone opens the menu with a 44 px button (J3-A-50)', async () => {
     const { page, context } = await session('ana', PHONE)
     try {
-      const box = await page.getByRole('button', { name: 'Abrir navegación' }).boundingBox()
-      assert.ok(box.width >= 44 && box.height >= 44, `the button measures ${box.width}x${box.height}`)
+      // The button is drawn at 36 px so the brand keeps its room, and answers to a 44 px square: the frame that its `after` draws.
+      const corners = await page.getByRole('button', { name: 'Abrir navegación' }).evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const cx = r.x + r.width / 2
+        const cy = r.y + r.height / 2
+        return [[-21, -21], [21, -21], [-21, 21], [21, 21]].map(([dx, dy]) => el.contains(document.elementFromPoint(cx + dx, cy + dy)))
+      })
+      assert.ok(corners.every(Boolean), `the button does not answer to a 44 px square: ${corners}`)
     } finally {
       await context.close()
     }
@@ -881,6 +887,7 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       assert.ok(orb.width >= 24, `the sphere measures ${orb.width} px`)
       const mark = await card.locator('h1 span').last().evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       assert.ok(mark >= 18, `the mark measures ${mark} px`)
+      assert.equal(await card.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note under the button')
       const before = await card.boundingBox()
       await page.getByRole('button', { name: 'Entrar' }).click()
       const alert = page.getByRole('alert').filter({ hasText: 'Falta el correo' })

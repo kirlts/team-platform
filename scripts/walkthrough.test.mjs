@@ -11,10 +11,14 @@ import { pathToFileURL } from 'node:url'
 import { TEAM_COMPANIONS } from '../src/execute/handler.js'
 import { checkCaptures } from './team.mjs'
 import { clock, recordWalkthrough, webmSize } from './walkthrough.mjs'
+import { requires } from '../src/testing/requires.js'
 
 const PAGE = '<!doctype html><meta charset="utf-8"><title>Ficha</title><body style="font:16px sans-serif"><h1>Ficha</h1><button id="foto" onclick="document.getElementById(\'r\').textContent=\'Foto guardada\'">Tomar fotografía</button><p id="r"></p></body>'
 const STEPS = [{ label: 'Abrir la ficha' }, { label: 'Apretar Tomar fotografía', click: '#foto' }, { label: 'Ver el resultado', target: '#r' }]
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024 // the test's own limit; the host's is UPLOAD_MAX_VIDEO_BYTES
+
+// The tests that record with a real browser declare it; the one that injects a browser which fails runs anywhere.
+const browser = { skip: requires('chromium') }
 
 describe('team walkthrough', () => {
   let server, url, playwright, dir
@@ -29,7 +33,7 @@ describe('team walkthrough', () => {
   })
   after(() => { server.close(); rmSync(dir, { recursive: true, force: true }) })
 
-  it('records a numbered route at the size of the profile: video, one screenshot per step, the second of each step', async () => {
+  it('records a numbered route at the size of the profile: video, one screenshot per step, the second of each step', browser, async () => {
     const out = join(dir, 'desktop')
     const r = await recordWalkthrough({ url, steps: STEPS, profiles: ['desktop'], outDir: out, place: 'Fichas > Paciente', as: 'Clínica Sur, recepción', masked: true, playwright })
     assert.deepEqual(r.failed, [])
@@ -50,7 +54,7 @@ describe('team walkthrough', () => {
     assert.deepEqual(checked.accepted[0].mime, 'video/webm')
   })
 
-  it('the phone profile records 390x844 and both profiles record two videos, each step labeled with its profile', async () => {
+  it('the phone profile records 390x844 and both profiles record two videos, each step labeled with its profile', browser, async () => {
     const out = join(dir, 'both')
     const r = await recordWalkthrough({ url, steps: STEPS.slice(0, 2), profiles: ['desktop', 'phone'], outDir: out, place: 'Fichas > Paciente', as: 'Clínica Sur, recepción', playwright })
     assert.deepEqual(r.failed, [])
@@ -61,17 +65,20 @@ describe('team walkthrough', () => {
     assert.ok(statSync(join(out, 'step-2-phone.png')).size > 0)
   })
 
-  it('a step that cannot run says so in one line and the steps before it stay; a missing browser says so and writes nothing', async () => {
+  it('a step that cannot run says so in one line and the steps before it stay', browser, async () => {
     const r = await recordWalkthrough({ url, steps: [STEPS[0], { label: 'Apretar lo que no existe', click: '#nada', timeout: 1 }], profiles: ['desktop'], outDir: join(dir, 'broken'), place: 'x', as: 'y', playwright })
     assert.equal(r.failed.length, 1)
     assert.match(r.failed[0].reason, /^step 2: /)
     assert.deepEqual(r.steps.map((s) => s.n), [1])
+  })
+
+  it('a missing browser says so and writes nothing', async () => {
     const none = await recordWalkthrough({ url, steps: STEPS, outDir: join(dir, 'none'), place: 'x', as: 'y', launch: async () => { throw new Error('Executable doesn\'t exist') } })
     assert.deepEqual([none.failed.length, none.captures.length], [1, 0])
     assert.match(none.failed[0].reason, /^no browser: /)
   })
 
-  it('a video is refused where the caller gives no video limit, and a second video does not pass', async () => {
+  it('a video is refused where the caller gives no video limit, and a second video does not pass', browser, async () => {
     const out = join(dir, 'desktop')
     const list = JSON.parse(readFileSync(join(out, 'captures.json'), 'utf8'))
     const noLimit = await checkCaptures(list, { dir: out, max: 3, maxBytes: 7 * 1024 * 1024 })
@@ -80,7 +87,7 @@ describe('team walkthrough', () => {
     assert.deepEqual(twice.rejected.map((x) => x.reason), ['too_many'])
   })
 
-  it('records from the job directory as a session gets it: `team` copied with its companions, no repository around (job 144: «Cannot find module walkthrough.mjs»)', async () => {
+  it('records from the job directory as a session gets it: `team` copied with its companions, no repository around (job 144: «Cannot find module walkthrough.mjs»)', browser, async () => {
     const bin = join(dir, 'job', 'bin')
     mkdirSync(bin, { recursive: true })
     for (const name of ['team.mjs', ...TEAM_COMPANIONS]) copyFileSync(new URL(`./${name}`, import.meta.url), join(bin, name))

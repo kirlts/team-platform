@@ -103,3 +103,33 @@ describe('«Para» in the new message bar (UD-291)', () => {
     })
   }
 })
+
+describe('«Para» does not move the rest of the bar', () => {
+  test('desktop: with none, one or two people chosen the tools and the send button stay on one row and the bar keeps its height', async () => {
+    const { page, context } = await session(DESKTOP)
+    try {
+      const to = page.getByTestId('compose-to')
+      await to.waitFor()
+      const bar = () => page.locator('[data-compose-box]').boundingBox()
+      const rowOf = async () => {
+        const tools = await page.getByRole('button', { name: 'Adjuntar' }).first().boundingBox()
+        const send = await page.getByTestId('compose-send').boundingBox()
+        return { tools: tools.y + tools.height / 2, send: send.y + send.height / 2 }
+      }
+      const empty = { bar: (await bar()).height, ...(await rowOf()) }
+      assert.ok(Math.abs(empty.tools - empty.send) < 4, 'tools and send on one row at rest')
+      for (const [i, name] of [[0, 'Claude'], [1, 'Bruno Prueba']]) {
+        await to.getByRole('button', { name: /^Para$|^Agregar destinatario$|^\+$/ }).first().click().catch(async () => to.locator('button').last().click())
+        await page.getByRole('listbox').getByRole('option', { name }).click()
+        await page.keyboard.press('Escape')
+        await page.getByRole('listbox').waitFor({ state: 'detached' })
+        const now = { bar: (await bar()).height, ...(await rowOf()) }
+        assert.ok(Math.abs(now.tools - now.send) < 4, `tools and send on one row with ${i + 1} chosen`)
+        assert.equal(now.bar, empty.bar, `the bar keeps its height with ${i + 1} chosen`)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+})
+

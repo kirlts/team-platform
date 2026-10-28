@@ -567,7 +567,7 @@ describe('deliver job', () => {
     }
     const withBranch = (check) => check.replaceAll('{branch}', 'tp/all')
 
-    it('the delivery command does not run: the delivery is marked as achieved, the final reply is posted and the message stays answered', async () => {
+    it('the delivery command does not run: the delivery is marked as achieved, the final reply is posted and the message closes (delivered and checked, UD-271)', async () => {
       const messageId = await published('Una rama que ya salió por otro camino.')
       const log = path('ran')
       startWorker({ deliverCheckCommand: withBranch(host('merged', true)), deliverCommand: `echo ran >> ${log}; exit 3` })
@@ -577,7 +577,7 @@ describe('deliver job', () => {
       const last = replies(messageId).at(-1)
       assert.match(last, /En producción desde \d\d:\d\d \S+\./)
       assert.match(last, /ya estaba en producción: llegó por otro camino/)
-      assert.equal(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'answered')
+      assert.equal(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'closed', 'a branch that was already in production is delivered and checked: it closes like any delivery')
       assert.deepEqual(JSON.parse(env.queue.getJob(jobId).marks_json), { delivery_ms: 0, delivered: 1 })
       assert.match(JSON.parse(eventsOf(jobId).at(-1).data_json).delivery_ref, /^[0-9a-f]{7,}$/)
       assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE message_id = ? AND kind = 'deliver'").get(messageId).n, 1)
@@ -651,7 +651,18 @@ describe('deliver job', () => {
       assert.doesNotMatch(last, /lo verás|pronto|apenas/i)
     })
 
-    it('a change to a screen with no capture says so in the final reply and does not close the message', async () => {
+    it('a delivered change whose session says part of it was not done: the closing reply carries the session as retryable and the message stays open (UD-314)', async () => {
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ unfulfilled: true, close: true, close_reason: 'Ya está hecho y revisado.' })
+      startWorker({ deliverCommand: 'echo ref-unfulfilled' })
+      const messageId = await publishedMessage('Un cambio con una prueba en producción imposible.')
+      await settle(messageId)
+      const exec = env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ? ORDER BY id LIMIT 1").get(messageId)
+      const last = env.db.prepare('SELECT failed_job_id, failed_code FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId)
+      assert.deepEqual({ job: last.failed_job_id, code: last.failed_code }, { job: exec.id, code: 'unfulfilled' })
+      assert.notEqual(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'closed', 'half-done work is read by a person before it closes')
+    })
+
+    it('a change to a screen with no capture says why in the final reply and closes anyway', async () => {
       process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ touches_screen: true, no_capture_reason: 'el navegador no abrió', close: true, close_reason: 'Ya está hecho y revisado.' })
       startWorker({ deliverCommand: 'echo ref-screen' })
       const messageId = await publishedMessage('Un texto de una pantalla.')
@@ -659,7 +670,7 @@ describe('deliver job', () => {
       const last = replies(messageId).at(-1)
       assert.match(last, /No incluye captura ni video: el navegador no abrió\./)
       assert.match(last, /En producción desde/)
-      assert.notEqual(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'closed', 'a screen without a capture is read by a person before it closes')
+      assert.equal(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'closed', 'what cannot be shown is said with its reason and the message closes')
     })
   })
 
@@ -697,7 +708,7 @@ describe('deliver job', () => {
     // The first delivery leaves a commit on the branch (what a fix of the host would be) and fails; the second pass must start from that commit.
     startWorker({
       repoDir: repo,
-      deliverCommand: `if [ -e ${ok} ]; then echo ref-repo; else touch ${ok}; git -C ${repo} update-ref refs/heads/{branch} $(git -C ${repo} commit-tree -m ahead -p main main^{tree}); echo FAIL; exit 3; fi`
+      deliverCommand: `if [ -e ${ok} ]; then echo ref-repo; else touch ${ok}; git -C ${repo} update-ref refs/heads/{branch} $(git -C ${repo} -c user.name=t -c user.email=t@x.org commit-tree -m ahead -p main main^{tree}); echo FAIL; exit 3; fi`
     })
     const messageId = await publishedMessage('Con repositorio.')
     await settle(messageId)

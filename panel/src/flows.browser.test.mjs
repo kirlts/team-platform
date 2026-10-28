@@ -15,7 +15,7 @@
 
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
+import { login, openFolds, openTemplates, settled, startPanel } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -751,6 +751,7 @@ describe('states, keyboard and rows', () => {
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').first().waitFor()
       assert.equal(await page.getByLabel('Correo').inputValue(), 'ana@dev.invalid', 'the form keeps what was typed')
+      assert.equal(await page.getByText('Cuentas creadas por el equipo').count(), 0, 'the form has no note under the button')
     } finally {
       await context.close()
     }
@@ -801,6 +802,7 @@ describe('templates as a form (J1-A-32)', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
+      await openFolds(page)
       const options = async (slot) => {
         const select = page.locator(`li[data-slot="${slot}"] select`)
         await select.waitFor()

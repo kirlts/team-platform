@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-28
+
+- Panel: el hilo de un mensaje ya no se desplaza en horizontal en teléfono: el primer renglón de un aviso de avance (una ruta o un enlace largo) se corta en el ancho de la tarjeta.
+
+## [0.1.6] - 2026-10-28
+
+- Panel: el inicio de sesión ya no muestra la nota «Cuentas creadas por el equipo» (se quita la clave `login.noAccount`).
+
+## [0.1.5] - 2026-10-28
+
+- Cierre con evidencia: una entrega que ya estaba en producción cierra el mensaje; la segunda pasada recibe el resumen y las capturas de la primera; una mención cierra si quien la escribió lo pidió; un motivo escrito de por qué no hay captura (`no_capture_reason`) cierra igual; el prompt pide resultado, captura, video y cierre.
+
+## [0.1.4] - 2026-10-27
+
+- Panel: un área o una plantilla restaurada ya no se pinta a la vez como viva y como borrada.
+
+## [0.1.3] - 2026-10-27
+
+- Telemetría del panel: la muestra de la etapa feedback ya no se pierde cuando la página está ocupada y el envío termina antes del pintado; se usa el momento en que se oyó el primer cambio como respaldo.
+
+## [0.1.2] - 2026-10-27
+
+- Una sesión que termina sin cumplir lo pedido por algo ajeno al trabajo (un acceso, una dependencia, un servicio externo) ofrece «Reintentar» igual que una que falló (UD-314). La salida estructurada lo declara con `unfulfilled` (opcional, aditivo; `contract_version` no sube) y `outcome: blocked` cuenta igual; el mensaje no se cierra.
+- El gancho `pre-push` rechaza la marca heredada `DEPLOY_PUBLISHES_MAIN` (pieza C5 del plan canónico): `main` sólo avanza con la marca de `scripts/publish-main.sh`, y quien instala fija la versión por sha o etiqueta.
+
+## [0.1.1] - 2026-10-27
+
+- La imagen base del Dockerfile se fija por digest (`node:24-alpine` y `alpine:3.24`, consultados el 2026-10-27 con `docker buildx imagetools inspect`), y la etapa `battery` parte de la misma imagen que la de producción.
+- La batería de una publicación corre dentro de esa imagen (`scripts/battery-image.sh`, usado por `scripts/publish-main.sh` y `scripts/battery-record.mjs run`): el registro guarda el `node` de adentro, el digest fijado como `imagen_base` y las pruebas saltadas por entorno con su motivo. La conformidad con docker-local corre fuera de la imagen, en la máquina que publica, y el registro lo declara.
+- Las pruebas que exigen Docker, git con identidad o ganchos, Chromium o red lo declaran con `src/testing/requires.js` y, si el entorno no lo trae, se saltan con el motivo escrito en lugar de fallar. Una guardia (`src/testing/environment-declared.test.js`) falla si una prueba usa Docker o commits sin declararlo. Las que sólo fallaban por falta de identidad de git ahora la configuran en su repositorio temporal.
+
+- Lista de mensajes en teléfono: la marca de la cabecera no se parte, el número de la fila va junto a su estado, buscar y los controles táctiles miden 44 px, el esqueleto de carga tiene el alto de la fila real, y Cerrar y Reabrir se pueden deshacer. El chip de área y las marcas de guardia ya no alargan la fila.
+- Envío nuevo: los destinatarios de Para se muestran con su nombre de pila, el aviso de «Enviar como» queda en una línea bajo su control y la barra de envío se ordena en dos filas.
+- Gestión del equipo: la cabecera no desborda a 390 px, Equipo muestra los nombres enteros, Configuración llega plegada y se abre por sección, y la Cola muestra su error.
+- Plantillas: un campo obligatorio vacío pide completarse sólo a quien puede hacerlo y a los demás les dice «Falta» (UD-306); marcar filas no mueve ninguna.
+- `docs/CAPACIDADES-1.0.md` declara completas, con su prueba de punta a punta, las cuatro capacidades sin pantalla, y los veredictos de los jueces por vista.
+
 ## [0.1.0] - 2026-10-27
 
 - Un límite de una persona no se cruza sin que una persona lo levante (UD-313). Si el mensaje toca una Guardia `person` que nadie levantó, la plataforma retiene la entrega antes de correr la orden del anfitrión, con la misma revisión de UD-275; la levanta aprobar la entrega a mano o en el hilo (no la aprobación de antemano ni un agente) y queda en la auditoría como `message.guard_lifted`. Sin Guardias `person` no cambia nada.

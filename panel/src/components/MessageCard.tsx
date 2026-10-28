@@ -81,6 +81,20 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       },
     })
   }
+  // Closing or reopening from the row is done at once and the notice carries Deshacer, as Borrar does (DISENO.md, rules of round 2).
+  const toggleClosed = async () => {
+    const to = !closed
+    try {
+      await setClosed.mutateAsync({ id: message.id, closed: to })
+    } catch {
+      return // the row stays as it was; the list refreshes with the server's state
+    }
+    notices.show({
+      text: to ? t('detail.closed') : t('detail.reopened'),
+      link: { to: `/messages/${message.id}`, label: message.title },
+      action: { label: t('undo.undo'), run: async () => void (await setClosed.mutateAsync({ id: message.id, closed: !to })) },
+    })
+  }
   // A deleted message (the «Borrados» filter) has no detail to lead to, so it has no link: the one action is Restaurar (UD-250).
   const gone = !!message.deleted_at
   const bringBack = async () => {
@@ -115,14 +129,13 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         </p>
       </div>
       {/* The state opens its line and not the column of actions: «Respondido» next to «Responder» read as one thing said twice (J4-A-home-02). */}
-      <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-nowrap items-center gap-x-3 text-xs text-muted [&_.guard-mark]:py-0 [&_.guard-mark]:leading-4">
+      <div data-testid="card-state" className="relative col-start-1 row-start-2 flex min-w-0 flex-wrap pr-12 items-center gap-x-3 gap-y-1 text-xs text-muted [&_.guard-mark]:py-0 [&_.guard-mark]:leading-4">
         <StateMark status={message.status} plain className="min-h-0 shrink-0 px-0" />
-        {/* One line in every card (V9): on a phone a long area name ends in «…» before the row grows. */}
-        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="max-w-[55%] shrink-0" />} {/* justified: UD-241, one line per card */}
-        {/* The chip keeps its name up to 55% of the line and the marks give way first, one line each with the whole text as the tooltip: on a phone a Guard mark wrapped into a three-line box and cut «Error» to «Erro». */}
-        {variant === 'message' && !gone && <AssessmentMarks message={message} oneLine className="shrink-[4]" />}
-        {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}
-        <span data-testid="card-number" className="ml-auto shrink-0 tabular-nums">#{message.id}</span>
+        {/* A name of an area or a Guard mark that does not fit the line goes to the next one and the row grows: it is never cut (UD-016, DISENO.md «Tarjeta de lista»). */}
+        {!hideArea && <AreaChip areaId={message.area_id} title={undefined} className="max-w-full" />}
+        {variant === 'message' && !gone && <AssessmentMarks message={message} />}
+        {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. It is drawn over the right edge (the line keeps 3rem for it): when the area wraps into two lines it stays beside the first one instead of alone on a line of its own. */}
+        <span data-testid="card-number" className="absolute right-0 top-0 tabular-nums">#{message.id}</span>
       </div>
       <div data-testid="card-who" className="col-start-1 row-start-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span data-repeat-ok="person">{memberName(from.author_id)}</span>
@@ -145,7 +158,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
 
       {/* The last line: who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
       {/* Below 28rem of row (a phone) the actions take a line of their own under who it is for: side by side they left the names a column a word wide (three lines for one name). */}
-      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-col items-stretch gap-x-3 gap-y-1 @md:grid @md:grid-cols-[minmax(0,1fr)_auto] @md:items-start @2xl:contents">
+      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-col items-stretch gap-x-3 gap-y-2 @md:grid @md:grid-cols-[minmax(0,1fr)_auto] @md:items-start @md:gap-y-1 @2xl:contents">
         <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[1lh] @2xl:content-normal" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {gone && (
@@ -164,7 +177,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>
             </Button>
           )}
-          {!gone && <Button size="sm" variant="ghost" className="px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}>
+          {!gone && <Button size="sm" variant="ghost" className="px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => void toggleClosed()}>
             {closed ? t('card.reopen') : t('card.close')}
           </Button>}
         </span>

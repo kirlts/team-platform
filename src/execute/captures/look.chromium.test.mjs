@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { checkCaptures } from '../../../scripts/team.mjs'
+import { requires } from '../../testing/requires.js'
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url))
 const PANEL = here('../../../panel')
@@ -21,12 +22,11 @@ const HOST = here('./testing/host-example.mjs')
 const PASSWORD = randomBytes(12).toString('hex') // exists only in this run: if it shows up in an output, it was printed
 const CAPTURE_LINE = /^LOOK_CAPTURE (.+)$/m
 
-let playwright; let chromiumAvailable = false
-try {
-  playwright = createRequire(`${PANEL}/package.json`)('playwright')
-  chromiumAvailable = existsSync(playwright.chromium.executablePath())
-} catch { /* no Playwright in the panel */ }
-const needsChromium = chromiumAvailable ? {} : { skip: 'the Chromium of the panel\'s Playwright is not installed (npx playwright install chromium)' }
+// The Chromium of the panel's Playwright: requires('chromium') asks for the real file and writes the reason when it is not there.
+const skipReason = requires('chromium')
+let playwright
+if (skipReason === false) playwright = createRequire(`${PANEL}/package.json`)('playwright')
+const needsChromium = { skip: skipReason }
 
 const PAGE = (body, head = '') => `<!doctype html><html><head><meta charset="utf-8"><title>${head || 'Shop'}</title></head><body>${body}</body></html>`
 const ORDERS = PAGE(`

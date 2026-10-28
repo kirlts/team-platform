@@ -119,14 +119,14 @@ describe('deleting a reply (H-3701)', () => {
       await removed.waitFor()
       await settled(page)
       assert.equal(await thread.locator('article', { hasText: 'CSV alcanza.' }).count(), 0)
-      assert.equal(await count.innerText(), '1', 'the count follows')
+      await count.filter({ hasText: /^1$/ }).waitFor() // the count follows: it is read when it changes, not at the instant the row left
       const api = await (await page.request.get(`${origin}/api/messages?q=exportaci%C3%B3n`)).json()
       assert.equal(api.items[0].reply_count, 1)
       await removed.getByRole('button', { name: 'Deshacer', exact: true }).click()
       await thread.locator('article', { hasText: 'CSV alcanza.' }).waitFor()
       await settled(page)
-      assert.equal(await removed.count(), 0, 'the deleted row leaves with the reply back')
-      assert.equal(await count.innerText(), '2')
+      await removed.waitFor({ state: 'detached' }) // the deleted row leaves with the reply back
+      await count.filter({ hasText: /^2$/ }).waitFor()
     } finally {
       await context.close()
     }

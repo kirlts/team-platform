@@ -48,7 +48,7 @@ export function StatusBar() {
   const pulse = usePulse(total)
   if (!summary) return null
   return (
-    <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex shrink-0 items-center justify-end gap-1 md:gap-2">
+    <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex shrink-0 items-center justify-end gap-1 rounded-full md:gap-2">
       <ul aria-label={t('bar.mine')} className="flex shrink-0 items-center gap-1">
         {STATES_SHOWN.map((status) => (
           <li key={status}>
@@ -71,7 +71,7 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
     <Popover>
       {warm && <WarmList status={status} />}
       <PopoverTrigger asChild>
-        <button type="button" onPointerEnter={() => setWarm(true)} onFocus={() => setWarm(true)} data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm font-bold leading-none hover:bg-glass md:min-w-11 md:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11">
+        <button type="button" onPointerEnter={() => setWarm(true)} onFocus={() => setWarm(true)} data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="relative inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm font-bold leading-none hover:bg-glass md:min-w-11 md:px-2.5 [@media(pointer:coarse)]:min-w-10 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-x-[3px] [@media(pointer:coarse)]:after:-inset-y-[5px] [@media(pointer:coarse)]:after:content-['']">
           <StateIcon status={status} size={16} />
           <span className="tabular-nums">{n}</span>
         </button>

@@ -12,7 +12,7 @@ import { AppError, badRequest, conflict, forbidden, notFound, unprocessable } fr
 import { transitionInput } from './inputs.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { enqueueExecuteForAgents } from '../execute/enqueue.js'
-import { readEstimates, readExpectation, touchedGuards } from './assessment.js'
+import { guardsOf, readEstimates, readExpectation, touchedGuards } from './assessment.js'
 import { currentTraceparent, inTrace, traceIdOf, withSpan } from '../telemetry/api.js'
 
 /**
@@ -114,9 +114,9 @@ function insertMessages ({ db, events, now }, { input, entries, via }) {
   for (const e of entries) {
     // «Mensaje publicado» is a span of the input's trace (UD-262); its context is what the `execute` job continues.
     const messageId = inTrace(input.traceparent, () => withSpan('message.publish', { 'team.input_id': String(inputId), 'team.member_id': String(memberId), 'team.via': via }, (span) => {
-    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, observed_json, expectation, guards_json, estimates_json, status, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), e.observed.length ? JSON.stringify(e.observed) : null, e.expectation, JSON.stringify(e.guards), e.estimates ? JSON.stringify(e.estimates) : null, t, t)
+    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, observed_json, expectation, guards_json, guards_seen_json, estimates_json, status, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), e.observed.length ? JSON.stringify(e.observed) : null, e.expectation, JSON.stringify(e.guards), JSON.stringify(guardsOf(db, e.areaId).map((g) => g.id)), e.estimates ? JSON.stringify(e.estimates) : null, t, t)
     const messageId = Number(r.lastInsertRowid)
     const traceparent = currentTraceparent()
     span.setAttribute('team.message_id', String(messageId))

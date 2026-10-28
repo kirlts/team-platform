@@ -55,7 +55,7 @@ export const KPIS = Object.freeze([
     'Maneja los errores de entrada habituales; es frágil ante casos que no previó.',
     'Falla sin control o da resultados incorrectos ante entradas anómalas; riesgo de seguridad bajo o moderado.',
     'Se corrompe o falla gravemente ante cualquier desviación; riesgo de seguridad alto.'] },
-  { id: '2.3', axis: 2, name: 'Precisión y conformidad', asks: 'Lo entregado respeta las restricciones explícitas (las Guardias del área incluidas) y es correcto frente a una fuente de verdad objetiva.', levels: [
+  { id: '2.3', axis: 2, name: 'Precisión y conformidad', asks: 'Lo entregado respeta las restricciones explícitas (los límites del área incluidas) y es correcto frente a una fuente de verdad objetiva.', levels: [
     'Cumple todas las restricciones, los límites del área incluidos, y detecta una imprecisión de la fuente que nadie había visto.',
     'Cumple todas las restricciones explícitas y es correcto frente a la fuente de verdad.',
     'Cumple las restricciones principales; se desvía en aspectos menores sin invalidar el resultado.',
@@ -133,13 +133,16 @@ export function judgeSchema () {
 
 /**
  * The evidence blocks of a job, in the order the judge reads them: `[title, text]`. `area` and `project` are the descriptions of the space the work is measured against (`{ title, description }`
- * and `{ name, description }`); `firstProposal` is the first complete proposal of the work when the platform has one (it has none yet: 4.3 stays out until it does).
+ * and `{ name, description }`); `author` is `{ name, profile }` of the person who asked; `firstProposal` is the first complete proposal of the work when the platform has one (it has none yet: 4.3 stays out until it does).
  */
-export function judgeBlocks ({ message, expectation, guards, output, detail, captures, stats, area = null, project = null, firstProposal = '' }) {
+export function judgeBlocks ({ message, expectation, guards, output, detail, captures, stats, area = null, project = null, firstProposal = '', idea = null, author = null }) {
   return [
     ['mensaje', `${message.title}\n\n${message.body}`],
     ['lo_esperado', expectation],
     ['guardias_tocadas', guards.map((g) => `G${g.id}: ${g.text}${g.mechanism ? ` (la sostiene: ${g.mechanism})` : ''}`).join('\n')],
+    ['idea_del_pedido', typeof idea?.idea_guard === 'boolean' ? [`idea: ${typeof idea.idea === 'number' ? `${idea.idea.toFixed(2)} de 1` : 'sin dato'}`, `el límite de la idea aplica: ${idea.idea_guard ? 'sí' : 'no'}`, idea.idea_reason ? `razón: ${idea.idea_reason}` : ''].filter(Boolean).join('\n') : ''],
+    // Third audit of the method (H-8): who asked, as they wrote about themselves. 3.2 and 3.3 depend on what that person understands and can decide, and a judge that does not know them reads against a generic reader.
+    ['perfil_de_quien_pidio', author?.profile ? `${author.name ?? ''}\n${author.profile}`.trim() : ''],
     ['descripcion_del_area', area ? `${area.title}\n${area.description ?? ''}` : ''],
     ['descripcion_del_proyecto', project ? `${project.name ?? ''}\n${project.description ?? ''}` : ''],
     ['primera_propuesta', firstProposal],
@@ -162,7 +165,7 @@ export function judgeEvidence (input) {
 export function buildJudgePrompt (input) {
   const block = ([title, text]) => `<${title}>\n${textOf(text) || '(vacío)'}\n</${title}>`
   return [
-    'Eres un juez de trabajos de IA. Evalúas un trabajo que hizo una sesión de IA sin supervisión. Puntúa cada KPI de -2 a +2 (+2 Excepcional, +1 Fuerte, 0 Esperado: el mínimo aceptable, -1 Bajo, -2 Inaceptable) eligiendo el nivel cuya descripción calza con la evidencia. Para cada uno cita el texto de la evidencia que lo sostiene, copiado tal cual, y di la afirmación y el razonamiento. Un KPI que no se puede observar en este trabajo lleva applies false. Mide lo hecho frente a la descripción del área y del proyecto y a lo esperado; no premies el largo ni el tono.',
+    'Eres un juez de trabajos de IA. Evalúas un trabajo que hizo una sesión de IA sin supervisión. Puntúa cada KPI de -2 a +2 (+2 Excepcional, +1 Fuerte, 0 Esperado: el mínimo aceptable, -1 Bajo, -2 Inaceptable) eligiendo el nivel cuya descripción calza con la evidencia. Para cada uno cita el texto de la evidencia que lo sostiene, copiado tal cual, y di la afirmación y el razonamiento. Un KPI que no se puede observar en este trabajo lleva applies false. Mide lo hecho frente a la descripción del área y del proyecto y a lo esperado; no premies el largo ni el tono. Si el bloque idea_del_pedido dice que el límite de la idea aplica, lo pedido era explorar una idea: lo adecuado es construir y mostrar sin publicar, con alternativas, y no se premia haberla publicado.',
     '',
     'KPI, con la descripción de cada nivel:',
     ...KPIS.flatMap((k) => [`- ${k.id} ${k.name}: ${k.asks}`, ...k.levels.map((text, i) => `    ${LEVEL_SCORES[i] > 0 ? '+' : ''}${LEVEL_SCORES[i]}: ${text}`)]),
@@ -208,13 +211,21 @@ export function validateJudgment (out, evidence) {
   return { ok: true, kpis }
 }
 
-/** Mean of the applicable KPI of each axis, against the target of the quadrant; an axis with none observed has no score. */
+/**
+ * Mean of the scored KPI of each axis, against the target of the quadrant. The mean is rounded to the nearest level before it is compared (third audit, 2026-10-27): a target of 2 asked every KPI of the axis
+ * at +2, which the +2 of 2.3 («detects an imprecision nobody had seen») makes unreachable, and the rule that moves an area to the larger model could never fire. A mean of 1.5 or more is exceptional,
+ * 0.5 or more strong, -0.5 or more expected; an axis with none scored has no score. The target of an axis is recalculated over the KPI that were scored (second
+ * audit of the method, 2026-10-27): the mean is taken over `kpis` of the `defined` ones, and `partial` says that some of them were left out (4.3 while the platform does not hand over the first
+ * proposal, or any KPI the judge marked `applies: false`). With the 4.3 out, the axis 4 of «choose» and «negotiate» asks +2 of 4.1 and 4.2 both: that is the same bar the mean of three reaches
+ * only with three +2, but it is read over fewer indicators, so a `partial` axis is compared with other axes of the same shape and not with a complete one.
+ */
 export function axisScores (kpis, quadrant) {
   const target = QUADRANTS[quadrant] ?? QUADRANTS.execute
   return AXES.map(({ axis, name }) => {
     const own = kpis.filter((k) => k.applies && KPIS.find((x) => x.id === k.id)?.axis === axis)
+    const defined = KPIS.filter((k) => k.axis === axis).length
     const score = own.length ? own.reduce((a, k) => a + k.score, 0) / own.length : null
-    return { axis, name, score, target: target[axis], meets: score === null ? null : score >= target[axis], kpis: own.length }
+    return { axis, name, score, target: target[axis], meets: score === null ? null : Math.round(score) >= target[axis], kpis: own.length, defined, partial: own.length < defined }
   })
 }
 
@@ -239,29 +250,31 @@ export async function runJudge ({ providers, prompt, evidence = null, signal, lo
 }
 
 /** Saves the judgement of a job (one per job; a second pass of the same job replaces it). */
-export function saveJudgment (db, { jobId, messageId, judgment, workedWith, now = Date.now }) {
-  runSql(db, `INSERT INTO execute_judgments (job_id, message_id, judge_model, worked_with, quadrant, scores_json, summary, cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(job_id) DO UPDATE SET judge_model = excluded.judge_model, worked_with = excluded.worked_with, quadrant = excluded.quadrant, scores_json = excluded.scores_json, summary = excluded.summary, cost_usd = excluded.cost_usd, created_at = excluded.created_at`,
-  jobId, messageId, judgment.model, workedWith, judgment.quadrant, JSON.stringify({ kpis: judgment.kpis, axes: judgment.axes }), judgment.summary, judgment.cost, now())
+export function saveJudgment (db, { jobId, messageId, judgment, workedWith, closed = null, now = Date.now }) {
+  runSql(db, `INSERT INTO execute_judgments (job_id, message_id, judge_model, worked_with, quadrant, scores_json, summary, cost_usd, closed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(job_id) DO UPDATE SET judge_model = excluded.judge_model, worked_with = excluded.worked_with, quadrant = excluded.quadrant, scores_json = excluded.scores_json, summary = excluded.summary, cost_usd = excluded.cost_usd, closed = excluded.closed, created_at = excluded.created_at`,
+  jobId, messageId, judgment.model, workedWith, judgment.quadrant, JSON.stringify({ kpis: judgment.kpis, axes: judgment.axes }), judgment.summary, judgment.cost, closed === null ? null : closed ? 1 : 0, now())
 }
 
+// `calibrated` is a fact about the judge, not about the judgement (judge-calibration.js): while the judge was never compared with people the judgements are shown, marked «sin calibrar»
+// (`calibrated: false`), and no decision is taken from them (`judgmentsForDecisions`). A caller that does not know says nothing and gets the cautious answer.
 /** The latest judgement of the jobs of a message, as the API shows it, or null. */
-export function judgmentOfMessage (db, messageId) {
+export function judgmentOfMessage (db, messageId, { calibrated = false } = {}) {
   const row = get(db, 'SELECT * FROM execute_judgments WHERE message_id = ? ORDER BY created_at DESC, id DESC LIMIT 1', messageId)
   if (!row) return null
   let scores = { kpis: [], axes: [] }
   try { scores = JSON.parse(row.scores_json) } catch { /* a damaged cell shows no scores */ }
-  return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd }
+  return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd, closed: row.closed === null || row.closed === undefined ? null : row.closed === 1, calibrated }
 }
 
 /**
  * Every judgement of the jobs of a message, oldest first: the attempt of the light model that did not close and the one that went on in the larger model are both there, so the comparison
  * between models counts the failures as well as the closes (2026-10-26: before, the attempt that escalated was never judged and the comparison favoured the light model).
  */
-export function judgmentsOfMessage (db, messageId) {
+export function judgmentsOfMessage (db, messageId, { calibrated = false } = {}) {
   return all(db, 'SELECT * FROM execute_judgments WHERE message_id = ? ORDER BY created_at ASC, id ASC', messageId).map((row) => {
     let scores = { kpis: [], axes: [] }
     try { scores = JSON.parse(row.scores_json) } catch { /* a damaged cell shows no scores */ }
-    return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd }
+    return { job_id: String(row.job_id), judge_model: row.judge_model, worked_with: row.worked_with, quadrant: row.quadrant, axes: scores.axes, kpis: scores.kpis, summary: row.summary, cost_usd: row.cost_usd, closed: row.closed === null || row.closed === undefined ? null : row.closed === 1, calibrated }
   })
 }

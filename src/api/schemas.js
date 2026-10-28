@@ -59,7 +59,7 @@ export const area = {
     escalation_member_id: { type: ['string', 'null'], description: 'The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor.' },
     execute_model: { type: ['string', 'null'], description: 'The larger model of the area: where the light model\'s work escalates and the one of a message with no estimates; its own, or the installation\'s default (UD-295).' },
     execute_model_light: { type: ['string', 'null'], description: 'The light model of the area: its own, or the installation\'s light model (UD-295).' },
-    guards: { type: 'array', description: 'The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.', items: { type: 'object', properties: { id: { type: 'integer' }, text: { type: 'string' }, mechanism: { type: 'string' }, person: { type: 'boolean' } } } },
+    guards: { type: 'array', description: 'The Guards of the area (UD-295): each wall with the mechanism that holds it; `person` marks one that is about a person.', items: { type: 'object', properties: { id: { type: 'integer' }, key: { type: 'string', description: 'The name a template gives this Guard in its output: `touches_<key>`.' }, text: { type: 'string' }, mechanism: { type: 'string' }, person: { type: 'boolean' } } } },
     handoffs: { type: 'array', description: 'Handoffs to a person in the last 7 days, by person (UD-269).', items: { type: 'object', properties: { member_id: id, count: intVar } } },
     templates: { type: 'array', items: templateSummary }
   }

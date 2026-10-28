@@ -286,7 +286,7 @@ describe('deliver job', () => {
     const post = (url, cookie) => env.app.inject({ method: 'POST', url, headers: { ...cookieHeaders(cookie), 'content-type': 'application/json' }, payload: '{}' })
     const lifts = (messageId) => env.db.prepare("SELECT member_id, detail_json FROM audit_log WHERE action = 'message.guard_lifted' AND entity_id = ? ORDER BY id").all(messageId)
     /** A message whose work is done and whose area has a Guard about a person that the message touches. */
-    async function touchingAGuard (text, { person = true } = {}) {
+    async function touchingAGuard (text, { person = true, notice = true } = {}) {
       startWorker({ deliverCommand: 'true', autoClose: false })
       const messageId = await publishedMessage(text)
       await settle(messageId)
@@ -295,7 +295,9 @@ describe('deliver job', () => {
       env.db.prepare('UPDATE areas SET guards_json = ? WHERE id = ?').run(JSON.stringify([{ id: 1, text: 'Nada toca pagos', mechanism: '', person }]), areaId)
       env.db.prepare("UPDATE messages SET guards_json = '[1]' WHERE id = ?").run(messageId)
       const [exec] = jobsOf(messageId, 'execute')
-      const output = { outcome: 'done', summary: 'Cambié el cobro del plan.' }
+      const output = { outcome: 'done', summary: 'Cambié el cobro del plan.', ...(notice ? { limit_notice: { consequence: 'Se cobra un monto equivocado.', alternative: 'Dejar el cambio en la rama.' } } : {}) }
+      // The session records that the warning was shown when it hands the work over (handler.js); a delivery launched by hand with no such record has not shown it.
+      if (notice) env.db.prepare("INSERT INTO audit_log (at, member_id, action, entity, entity_id, detail_json) VALUES (?, ?, 'message.limit_notice', 'message', ?, ?)").run(Date.now(), agentId, messageId, JSON.stringify({ guards: [1] }))
       const enqueue = (extra) => enqueueDeliver(env.db, { messageId, payload: { member_id: agentId, branch: `tp/${messageId}`, round: 0, output, execute_job_id: exec.id, execute_attempt: 1, requested_by: null, ...extra } })
       return { messageId, exec, enqueue }
     }
@@ -352,6 +354,28 @@ describe('deliver job', () => {
       assert.equal((await waitJob(enqueue({}))).status, 'done')
       assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 2, 'the second delivery ran')
       assert.equal(lifts(messageId).length, 1, 'nothing is lifted twice')
+    })
+
+    it('a person who approves a delivery whose warning was never shown lifts nothing: the work stays held and the reply carries the warning when it exists', async () => {
+      const log = path('wall-log-5')
+      const { messageId, enqueue } = await touchingAGuard('Cambiar el cobro del plan, sin aviso.', { notice: false })
+      startWorker({ deliverCommand: `echo ran >> ${log}; echo ref-x` })
+      assert.equal((await waitJob(enqueue({}))).status, 'done')
+      const delivered = await post(`/api/messages/${messageId}/deliver`, author)
+      assert.equal(delivered.statusCode, 202, delivered.body)
+      await settle(messageId)
+      assert.equal(existsSync(log), false, 'the command never ran')
+      assert.equal(lifts(messageId).length, 0)
+      assert.equal(replies(messageId).filter((r) => /toca un límite que solo una persona levanta/.test(r)).length, 2, 'held again after the approval')
+    })
+
+    it('the held reply of the delivery job shows the consequence and the alternative of the warning', async () => {
+      const { messageId, enqueue } = await touchingAGuard('Cambiar el cobro del plan, con aviso.')
+      startWorker({ deliverCommand: 'true' })
+      assert.equal((await waitJob(enqueue({}))).status, 'done')
+      const last = replies(messageId).at(-1)
+      assert.match(last, /Riesgo si se cruza: Se cobra un monto equivocado\./)
+      assert.match(last, /Alternativa que no lo cruza: Dejar el cambio en la rama\./)
     })
 
     it('a Guard that is not about a person holds nothing: the delivery runs as always', async () => {

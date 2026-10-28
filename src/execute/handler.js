@@ -16,7 +16,7 @@ import { promisify } from 'node:util'
 import Ajv from 'ajv'
 import { all, get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
-import { AppError, infra, permanent } from '../domain/errors.js'
+import { AppError, conflict, forbidden, infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
@@ -28,9 +28,10 @@ import { costOfModelUsage, costOfResult } from '../telemetry/pricing.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { labelOfModel, resolveExecuteModel } from '../domain/execute-models.js'
-import { guardsOf } from '../domain/assessment.js'
+import { declaredGuards, guardsOf, liftPersonGuards, openPersonGuards } from '../domain/assessment.js'
 import { buildJudgePrompt, judgeEvidence, runJudge, saveJudgment } from './judge.js'
 import { ensureIdeaGuard } from './idea-guard.js'
+import { ensureGuardsJudged } from './guards-judge.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
@@ -40,6 +41,7 @@ import { attachCaptures, createStepRecorder } from './steps.js'
 import { capturesDir, capturesEnv, closingCaptures, describeRejected, noCaptureLine, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
+import { limitNoticeLines, limitNoticeProblem } from './limit-notice.js'
 import { approveDelivery } from './approve.js'
 import { discardDelivery, pendingDelivery } from '../domain/delivery-review.js'
 import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from './mention-context.js'
@@ -51,6 +53,7 @@ import { adoptPrevious, nameMachine, openMachine, recordDestroy, sweepMachines }
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 import { GUARDS_COPY, HOOK_MODULES, guardHooks, parseGuards } from './hooks/guards.js'
+import { holdMode, withDeliveriesDenied } from './limits-hold.js'
 import { startProgressNotices } from './progress-timer.js'
 import { DEFAULT_PROGRESS_INTERVAL_MIN, addDeliveryNote, addStartNote, closeWaitNote, upsertWaitNote } from '../domain/progress-notes.js'
 
@@ -108,13 +111,23 @@ export function stderrTail (text, chars = STDERR_TAIL_CHARS) {
  * What the analyzer expects of this session and which walls of the area the message touches (UD-295), as the text of the `expectation` block. The mechanism that holds each Guard is
  * named so the session knows where the wall is; it is not asked to remember it. Empty when the analyzer said nothing.
  */
-export function assessmentText (message, db) {
+export function assessmentText (message, db, { hold = 'deliver' } = {}) {
   const lines = []
   if (message.expectation) lines.push(message.expectation)
   let touched = []
   try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
   const guards = guardsOf(db, message.area_id).filter((g) => touched.includes(g.id))
-  if (guards.length) lines.push('', 'Guards of the area that this message touches:', ...guards.map((g) => `- G${g.id}: ${g.text}${g.mechanism ? ` (held by: ${g.mechanism})` : ''}${g.person ? ' (about a person: it is not crossed without a person lifting it. Say in your reply which Guard it touches and what happens if it is crossed, and propose an alternative that does what was asked without crossing it. You may prepare the work on the branch; the system holds the delivery until a person approves it, and you do not close)' : ''}`))
+  const open = new Set(guards.some((g) => g.person) ? openPersonGuards(db, message) : [])
+  // What the system does with a Guard about a person depends on what holds it in this instance (amendment of UD-313, limits-hold.js): the delivery job, the refused delivery orders of the host, or nothing but this instruction.
+  const toPerson = {
+    deliver: 'the system holds the delivery until a person approves it, and you do not close',
+    hook: 'the orders that deliver are refused in this session until a person releases it, and you do not close',
+    none: 'this instance cannot refuse the delivery from here, so do not deliver this work to production yourself: leave the branch pushed and finish, and you do not close'
+  }[hold] ?? ''
+  const aboutPerson = (g) => (open.has(g.id)
+    ? ` (about a person: it is not crossed without a person lifting it. Fill limit_notice with what happens if it is crossed (consequence) and an alternative that does what was asked without crossing it (alternative): the system shows both to the person and a person lifts the limit only after they were shown. You may prepare the work on the branch; ${toPerson})`
+    : ' (about a person: a person lifted it for this message)')
+  if (guards.length) lines.push('', 'Guards of the area that this message touches:', ...guards.map((g) => `- G${g.id}: ${g.text}${g.mechanism ? ` (held by: ${g.mechanism})` : ''}${g.person ? aboutPerson(g) : ''}`))
   return lines.join('\n')
 }
 
@@ -168,7 +181,7 @@ export function claudeArgs (x, schema, { light = false, assessed = false, guards
   ]
 }
 
-const SYSTEM_READ_FIELDS = ['cannot_close', 'approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
+const SYSTEM_READ_FIELDS = ['cannot_close', 'approved', 'approved_reply', 'summary', 'captures', 'decision_check', 'limit_notice', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
 
 /**
  * What the sender reads of the structured output (UD-276): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
@@ -199,6 +212,7 @@ const ACK_TEXTS = {
 const FAILURE_TEXTS = {
   'es-419': {
     ready: 'Lista para ver. No está en producción: respóndeme en este hilo qué quieres que haga con esto.',
+    limitReady: (list) => `Lista para revisar. Toca un límite que solo una persona levanta (${list}) y no está en producción: respóndeme en este hilo si lo apruebas y sigo con la entrega.`,
     saved: 'Todavía no está en producción. Lo que alcancé a hacer queda guardado en la rama del mensaje.',
     again: 'Quien reciba este mensaje puede volver a lanzarlo desde la ficha.',
     editor: 'Cualquier persona del equipo puede volver a lanzarlo desde la ficha del mensaje.',
@@ -220,6 +234,7 @@ const FAILURE_TEXTS = {
   },
   en: {
     ready: 'Ready to see. It is not in production: answer me in this thread with what you want me to do with it.',
+    limitReady: (list) => `Ready for review. It touches a limit that only a person lifts (${list}) and it is not in production: answer me in this thread if you approve it and I continue with the delivery.`,
     saved: 'It is not in production yet. What I got done is saved on the branch of the message.',
     again: 'Whoever receives this message can launch it again from its page.',
     editor: 'Anyone on the team can launch it again from the page of the message.',
@@ -330,6 +345,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }
   }
 
+  /**
+   * Whether the session left work on the branch of the message: commits that HEAD of the host repository does not have, or the branch pushed to `origin`. `null` when the repository is not here
+   * (production runs on a machine of its own): then only the delivery command can tell, and the silent end below is not read. Third audit of the method (H-5): the one failure measured of the
+   * light model (the task T5 of the measurement of 2026-10-25) ended without changes and without saying so, and none of the declared triggers saw it.
+   */
+  async function branchHasWork (branch) {
+    if (!x.repoDir) return null
+    // outside-the-image: git — only with EXECUTE_RUNNER=local, as `branchExists` above
+    const git = (...args) => run('git', ['-C', x.repoDir, ...args], { timeout: x.deliverTimeoutMs })
+    try { const { stdout } = await git('rev-list', '--count', `HEAD..refs/heads/${branch}`); if (Number(String(stdout).trim()) > 0) return true } catch { /* not a local branch */ }
+    try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }
+  }
+
   // What each session that runs now may still spend: `--max-budget-usd` of its invocation. The day's cost counts a job only when its result arrives, so
   // eight sessions that start together each saw the whole remainder and could spend eight times the day's cap (UD-256).
   const reserved = new Map()
@@ -396,7 +424,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     const jobSpan = trace.getActiveSpan() // the `job` span of this attempt: `reply.start` and `reply.final` are events on it (UD-262)
     const startedAt = rec.startedAt
     const msSince = (t) => Math.max(0, t - startedAt)
-    const message = get(db, `SELECT m.*, a.title AS area_title FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ? AND m.deleted_at IS NULL`, messageId)
+    const message = get(db, `SELECT m.*, a.title AS area_title, a.description AS area_description FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ? AND m.deleted_at IS NULL`, messageId)
     if (!message) throw permanent('El mensaje del trabajo ya no existe.', 'message_missing')
     const agent = get(db, 'SELECT id, email, name, kind, profile, language, active FROM members WHERE id = ?', memberId)
     if (!agent || agent.kind !== 'agent') throw permanent('El miembro del trabajo no es un agente.', 'not_an_agent')
@@ -408,6 +436,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     // UD-307: a message analyzed before the Guard of the idea existed gets that one judgement now, before anything is decided about it.
     const guardCost = await ensureIdeaGuard({ db, signal: ctx.signal, messageId, providers: getProviders(), retryAfterMs: x.infraRetryWaitMs, logger })
     if (guardCost > 0) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', guardCost, job.id)
+    // Amendment of UD-313: a Guard installed in the area after the message was assessed was never judged against it; those are judged now, once, and join `guards_json` before anything holds or delivers.
+    const limitsCost = await ensureGuardsJudged({ db, signal: ctx.signal, messageId, providers: getProviders(), retryAfterMs: x.infraRetryWaitMs, logger, now })
+    if (limitsCost > 0) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', limitsCost, job.id)
+    message.guards_json = get(db, 'SELECT guards_json FROM messages WHERE id = ?', messageId)?.guards_json ?? message.guards_json
     // UD-295: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
     const { model, estimates, idea } = resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: payload.escalated === true })
     const light = model === x.lightModel // the light model (Haiku 5.5): the minimal prompt, the narrow tools, the map and the hooks of UD-295 apply
@@ -454,13 +486,24 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       }
     }
 
+    // Amendment of UD-313 and UD-307: what holds a limit of a person and the wait of an idea in this instance (limits-hold.js). With the delivery job, the platform holds the delivery (deliver.js). Without
+    // it, and when the host lists its delivery orders in the guards file, those orders are refused to this session while a limit is open or an idea has not been released by a person; what
+    // the session leaves on the branch then goes to a person (below). Without either, nothing can refuse the delivery and the instance says so (`/health`).
+    const holdBy = holdMode({ deliverCommand: x.deliverCommand, guards })
+    const releasedBy = payload.released_by ?? null // a person released the hold (`review: approve`): this pass is the one that delivers
+    const openGuards = openPersonGuards(db, message)
+    const ideaHeld = idea?.idea_guard === true && releasedBy === null
+    const limitHeld = holdBy === 'hook' && (openGuards.length > 0 || ideaHeld)
+    const heldList = guardsOf(db, message.area_id).filter((g) => openGuards.includes(g.id)).map((g) => `G${g.id}: ${g.text}`)
+    if (limitHeld) guards = withDeliveriesDenied(guards, `${heldList.length ? `It touches a limit that only a person lifts (${heldList.join('; ')})` : 'What is asked is an idea to explore'}, so it is not delivered from this session. Push the branch and say in \`summary\` what stopped the delivery.`)
+
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
     // UD-307: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
     const promptInput = {
-      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
+      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, areaDescription: message.area_description, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      compact: light, assessment: assessmentText(message, db), exploration: idea?.idea_guard === true ? { idea: idea.idea, reason: idea.idea_reason ?? '' } : null, escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), capturesUnmasked: x.captures.unmasked, deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
+      compact: light, assessment: assessmentText(message, db, { hold: holdBy }), hold: limitHeld ? { guards: heldList, idea: ideaHeld } : null, release: releasedBy !== null, exploration: idea?.idea_guard === true && releasedBy === null ? { idea: idea.idea, reason: idea.idea_reason ?? '' } : null, escalation: payload.escalated_from ? { from: labelOfModel(payload.escalated_from_model), note: payload.escalated_note ?? '' } : null, deliver: Boolean(x.deliverCommand), capturesUnmasked: x.captures.unmasked, deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -669,24 +712,39 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
     const reviewAction = review ? asked ?? 'none' : null
     const untouched = reviewAction === 'approve' || reviewAction === 'discard' || reviewAction === 'none' // the review is answered or left as it is: no change, no delivery, no close
     const investigate = mode === 'investigate' || untouched // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
+    // Third audit of the method (H-1): a session that ends `done` with a limit of a person open (the analyzer's or the one it declares with `touches_<name>`) owes the warning, checked by form like `decision_check`.
+    const personIds = new Set(guardsOf(db, message.area_id).filter((g) => g.person === true).map((g) => g.id))
+    const owedGuards = !investigate && output.outcome === 'done'
+      ? openPersonGuards(db, message, declaredGuards(guardsOf(db, message.area_id), output).filter((id) => personIds.has(id)))
+      : []
+    const noNotice = limitNoticeProblem(output.limit_notice, owedGuards.length > 0)
+    if (noNotice) throw permanent(`La salida estructurada no cumple el formato: ${noNotice}`, 'invalid_output')
     const documentLines = documentNotes(documents.rejected, author?.language)
     const rejectedCaptures = describeRejected(result.structured_output, captured.rejected) // which captures the system left out and why: the reply says it, never «the session left none»
-    const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
-    let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
+    const { decision_check: check, limit_notice: notice, ...visible } = output // the check is shown as the question, not as JSON
+    const noticeLines = owedGuards.length > 0 ? limitNoticeLines(notice, author?.language) : []
+    let body = [replyBody(visible), ...decisionLines(check), ...noticeLines].join('\n\n')
     rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
     // UD-295: the job judgement of what the session did (a cheap model reads the reply, the output and the evidence), saved with the job. Every job is judged, also the attempt of the light model
     // that did not close and the work then goes on in the larger one: leaving it out made the comparison between models favour the light one (audit 2026-10-26). A judge that cannot run
     // leaves the job unjudged, and an answer that does not validate (a KPI missing or repeated, a quote that is not in the evidence) is not a judgement: it is dropped and its reason is audited.
     // The job does not depend on any of it.
-    const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked')
+    // Third audit of the method (H-5): the session of the light model that ends `done` with nothing on its branch and without `investigated` did not close either, and nobody said so: it escalates by
+    // what the system reads in the repository (`trigger: 'checked'`), not by what the session declares.
+    const silentEnd = light && payload.escalated !== true && output.outcome === 'done' && !investigate && await branchHasWork(branch) === false
+    const goesOn = light && payload.escalated !== true && (cannotClose === true || output.outcome === 'blocked' || silentEnd)
+    // Amendment of UD-313: a second reading of which Guards the work touched, taken from the session's own `touches_<name>` booleans next to the analyzer's. A Guard the session says it touched and the
+    // analyzer did not mark is treated as touched from here on (saved below, before anything is handed over), and the judge sees it.
+    let touchedIds = []
+    try { touchedIds = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
+    const declaredIds = declaredGuards(guardsOf(db, message.area_id), output)
+    const missedIds = declaredIds.filter((id) => !touchedIds.includes(id))
     let judgment = null
     {
-      let touched = []
-      try { touched = JSON.parse(message.guards_json || '[]') } catch { /* none */ }
       const areaRow = get(db, 'SELECT title, description FROM areas WHERE id = ?', message.area_id)
       const judged = {
-        message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touched.includes(g.id)), output: visible, detail: rec.detail,
-        area: areaRow ?? null, project: getProject(db, config),
+        message, expectation: message.expectation, guards: guardsOf(db, message.area_id).filter((g) => touchedIds.includes(g.id) || declaredIds.includes(g.id)), output: visible, detail: rec.detail,
+        area: areaRow ?? null, project: getProject(db, config), idea: idea ?? null, author: author ? { name: author.name, profile: author.profile } : null,
         captures: captured.stored, stats: { modelo: model, turnos: outcome.st.turns, minutos: Math.round((now() - startedAt) / 6000) / 10, costo_usd: costOfResult(result) ?? 'desconocido', resultado: output.outcome ?? 'ninguno', ...(goesOn ? { no_cerro: 'sí' } : {}), ...(payload.escalated ? { continuo_el_trabajo_de: labelOfModel(payload.escalated_from_model) } : {}) }
       }
       judgment = await runJudge({ providers: getProviders(), logger, signal: ctx.signal, prompt: buildJudgePrompt(judged), evidence: judgeEvidence(judged) })
@@ -697,6 +755,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       }
     }
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
+    // Amendment of UD-313 and UD-307, the instance with no delivery command whose host refused the delivery orders to this session (`limitHeld`): the work it left on the branch is not closed or
+    // delivered, it goes to a person with its summary. A person releases it by answering in the thread (`review: approve`), see below.
+    const holdsWork = limitHeld && output.outcome === 'done' && !investigate && await branchExists(branch)
     // UD-307: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that
     // a person already approved (in advance, or the pass that fixes its failure) is not held again.
     const showOnly = idea?.idea_guard === true && deliverFailure === null
@@ -714,11 +775,23 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         return
       }
       const edited = fingerprint(now_) !== startedWith
-      if (judgment) saveJudgment(db, { jobId: job.id, messageId, judgment, workedWith: model, now })
+      if (judgment) saveJudgment(db, { jobId: job.id, messageId, judgment, workedWith: model, closed: !goesOn, now })
+      // The Guards the session declared touched and the analyzer had not marked join the message before a delivery is enqueued or the work is handed over: from here a Guard about a person holds it.
+      if (missedIds.length > 0) {
+        const current = parseJson(get(db, 'SELECT guards_json FROM messages WHERE id = ?', messageId)?.guards_json, [])
+        const merged = [...new Set([...current, ...missedIds])].sort((a, b) => a - b)
+        runSql(db, 'UPDATE messages SET guards_json = ? WHERE id = ?', JSON.stringify(merged), messageId)
+        message.guards_json = JSON.stringify(merged)
+        audit(db, { memberId: agent.id, action: 'message.guards_declared', entity: 'message', entityId: messageId, detail: { job_id: job.id, declared: declaredIds, added: missedIds }, now })
+      }
+      // The warning of the limits of a person is shown with this hand-over (the reply below or the delivery job's held reply): record it, so that lifting those limits requires that it was shown.
+      if (owedGuards.length > 0) audit(db, { memberId: agent.id, action: 'message.limit_notice', entity: 'message', entityId: messageId, detail: { job_id: job.id, guards: owedGuards, consequence: String(notice.consequence).trim(), alternative: String(notice.alternative).trim() }, now })
       // UD-295: the session of the light model says, as a parameter, that it could not close, or ends `blocked`: the work is relaunched once on the area's escalation model,
       // on the same branch, and the thread says so. What the system reads is the field and the outcome, never the words; never the other way round and never twice.
+      // That trigger is DECLARED by the session, not checked (second audit of the method, 2026-10-27): the audit says `trigger: 'declared'`. The one that is checked is the delivery whose
+      // verification stayed red (deliver.js, `trigger: 'checked'`), and the one that ends `done` with nothing on its branch (`silentEnd`, third audit H-5).
       const stronger = light && payload.escalated !== true ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, limits: x.lightLimits, escalated: true }).model : null
-      if (stronger && stronger !== model && (cannotClose === true || output.outcome === 'blocked') && !edited) {
+      if (stronger && stronger !== model && (cannotClose === true || output.outcome === 'blocked' || silentEnd) && !edited) {
         const origin = Object.fromEntries(Object.entries(payload).filter(([k]) => !['message_id', 'member_id', 'requested_by', 'budget_notice', 'retry_after_reply_id', 'escalated', 'escalated_from', 'escalated_from_model', 'escalated_note', 'no_stable_system'].includes(k)))
         const next = enqueueExecute(db, {
           messageId, memberId, requestedBy: payload.requested_by ?? null, now, exceptJobId: job.id,
@@ -727,20 +800,34 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
         if (next !== null) {
           const lang = author?.language
           addReply({ db, events, now }, { messageId, authorId: agent.id, kind: 'answer', body: (lang === 'en' ? `${labelOfModel(model)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(model)} no cerró: siguió ${labelOfModel(stronger)}.`) })
-          audit(db, { memberId: agent.id, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: job.id, job_id: next, from: model, to: stronger, why: cannotClose === true ? 'cannot_close' : 'blocked' }, now })
+          audit(db, { memberId: agent.id, action: 'message.execute_escalate', entity: 'message', entityId: messageId, detail: { from_job_id: job.id, job_id: next, from: model, to: stronger, why: cannotClose === true ? 'cannot_close' : output.outcome === 'blocked' ? 'blocked' : 'no_changes', trigger: cannotClose === true || output.outcome === 'blocked' ? 'declared' : 'checked' }, now })
           events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: null, escalated_job_id: String(next), session_id: outcome.st.sessionId, cost_usd: costOfResult(result) } })
           return
         }
       }
       // UD-280: the person asked, in their own words, to deliver or to drop the change under review. The system carries it out for any active person (UD-284).
       let discarded = false
+      /**
+       * Amendment of UD-313 and UD-307, an instance with no delivery command: the person's approval of the held work. The Guards about a person that were open are lifted (audited as
+       * `message.guard_lifted`, who and which) and a new pass of the session starts with `released_by`, which is the pass that may deliver: the orders are no longer refused to it. Only an
+       * active person lifts (`liftPersonGuards`), and only on the explicit act of the review; the pre-approval (`approved`) never does.
+       */
+      const releaseHold = (personId) => {
+        const open = openPersonGuards(db, message)
+        if (open.length > 0 && !liftPersonGuards(db, message, { memberId: personId, jobId: job.id, now })) throw forbidden('Sólo una persona activa del equipo levanta un límite.')
+        const next = enqueueExecute(db, { messageId, memberId, requestedBy: personId, now, exceptJobId: job.id, extra: { released_by: personId } })
+        if (next === null) throw conflict('El mensaje ya tiene un trabajo en curso; la entrega espera a que termine.', 'execute_busy')
+        audit(db, { memberId: personId, action: 'message.hold_released', entity: 'message', entityId: messageId, detail: { job_id: next, guards: open, idea: ideaHeld }, now })
+      }
       if (reviewAction === 'approve' || reviewAction === 'discard') {
         const texts = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         if (!byPerson) body = texts.notPerson
         else {
           try {
-            if (reviewAction === 'approve') approveDelivery({ db, config, events }, { messageId, requestedBy: mentionAuthor.id, exceptJobId: job.id })
-            else discardDelivery({ db, events, now }, { messageId, memberId: mentionAuthor.id, reason: (askedReason?.trim() || String(output.summary ?? '').trim()).slice(0, 1000) || '-', exceptJobId: job.id })
+            if (reviewAction === 'approve') {
+              if (x.deliverCommand) approveDelivery({ db, config, events }, { messageId, requestedBy: mentionAuthor.id, exceptJobId: job.id })
+              else releaseHold(mentionAuthor.id)
+            } else discardDelivery({ db, events, now }, { messageId, memberId: mentionAuthor.id, reason: (askedReason?.trim() || String(output.summary ?? '').trim()).slice(0, 1000) || '-', exceptJobId: job.id })
             discarded = reviewAction === 'discard'
           } catch (error) {
             if (!(error instanceof AppError)) throw error
@@ -748,16 +835,28 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
           }
         }
       }
-      if (hands && !edited && showOnly && preApprovedBy === null) {
-        // UD-307: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the next reply
-        // of a person in the thread calls this agent again (see `addReply`): the model reads what the person wrote and decides, with `review`, to go on, change or deliver.
+      /** The work waits for a person: the branch, the captures and the video are the reply, nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`). */
+      const showHeld = ({ lead, action, detail, reason = null }) => {
         const t = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         const seen = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language, label: 'proposal' })
-        const { replyId } = handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, source: 'execute', body: [t.ready, body, ...seen.lines, ...(rejectedCaptures.length ? [noCaptureLine(output, seen.files.length, author?.language, rejectedCaptures)] : []), ...documentLines].join('\n\n'), files: [...seen.files, ...documentFiles(documents.stored)] })
+        const { replyId } = handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, source: 'execute', body: [lead(t), body, ...seen.lines, ...(rejectedCaptures.length ? [noCaptureLine(output, seen.files.length, author?.language, rejectedCaptures)] : []), ...documentLines].join('\n\n'), files: [...seen.files, ...documentFiles(documents.stored)] })
         rec.deliveryHeld = true
-        audit(db, { memberId: agent.id, action: 'message.idea_shown', entity: 'message', entityId: messageId, detail: { job_id: job.id, reply_id: replyId, reason: String(idea.idea_reason ?? '').slice(0, 300) || null }, now })
+        if (reason) rec.holdReason = reason
+        audit(db, { memberId: agent.id, action, entity: 'message', entityId: messageId, detail: { job_id: job.id, reply_id: replyId, ...detail }, now })
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
         events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true, session_id: outcome.st.sessionId, cost_usd: costOfResult(result) } })
+      }
+      if (hands && !edited && showOnly && preApprovedBy === null) {
+        // UD-307: «Lista para ver». The next reply of a person in the thread calls this agent again (see `addReply`): the model reads what the person wrote and decides, with `review`, to go on, change or deliver.
+        showHeld({ lead: (t) => t.ready, action: 'message.idea_shown', detail: { reason: String(idea.idea_reason ?? '').slice(0, 300) || null } })
+        return
+      }
+      if (holdsWork && !edited) {
+        // The instance has no delivery command and its host refused the delivery orders to this session: a limit of a person is open, or an idea is not released. Same hand-over, same way back (`review: approve`).
+        const list = heldList.join('; ')
+        showHeld(openGuards.length > 0
+          ? { lead: (t) => t.limitReady(list), action: 'message.limit_held', detail: { guards: openGuards }, reason: list.slice(0, 300) }
+          : { lead: (t) => t.ready, action: 'message.idea_shown', detail: { reason: String(idea.idea_reason ?? '').slice(0, 300) || null } })
         return
       }
       if (hands && !edited) {
@@ -927,7 +1026,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, getPro
       return () => {
         finalize()
         try {
-          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1 }) // UD-307: shown, not delivered: the review of UD-275 waits for a person
+          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1, ...(rec.holdReason ? { delivery_hold_reason: rec.holdReason } : {}) }) // UD-307: shown, not delivered: the review of UD-275 waits for a person
           if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs })
           else if (rec.deliverJobId) updateExecuteRun(db, job.id, job.attempts, { deliver_job_id: rec.deliverJobId }) // the delivery fills the rest when it ends
         } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }

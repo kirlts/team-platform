@@ -6,6 +6,7 @@
 // FAKE_EXECUTE_MODEL_USAGE (JSON) replaces the `modelUsage` of the result: the tokens of every model, subagents included, and the CLI's own cost.
 // FAKE_EXECUTE_SLEEP_MS holds the session that long before its result (a session that is still working).
 // FAKE_EXECUTE_GIT=1 makes the session commit and push, with the lines git prints in the results of its Bash calls.
+// FAKE_EXECUTE_COMMIT=1 makes a real (empty) commit in the working directory of the session, so its branch has work the host repository can see.
 // FAKE_EXECUTE_HOOK=1 runs, after every simulated batch of tools, the PostToolBatch hook that came in `--settings` the way Claude Code does (the command with the event as JSON on stdin,
 // its stdout read as a hook output) and records the `additionalContext` it returned in hook-context.jsonl. FAKE_EXECUTE_GATE=<fifo> holds the session after its first batch until something is
 // written to that named pipe (the test posts a mention in between, then releases it); the file gate-reached tells the test the session is there.
@@ -104,6 +105,7 @@ process.stdin.on('end', async () => {
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test', description: 'Pruebas de la pantalla' } }] } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: 'tool-1', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/repo/src/screen.tsx' } }] } })
   // FAKE_EXECUTE_GIT=1: the session commits and pushes its branch, and git's own lines come back in the results of the Bash calls (progress notices, UD-293).
+  if (process.env.FAKE_EXECUTE_COMMIT === '1') execFileSync('git', ['-c', 'user.email=t@x.org', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'fix'])
   if (process.env.FAKE_EXECUTE_GIT === '1') {
     out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu-commit', name: 'Bash', input: { command: 'git commit -am arreglo' } }] } })
     out({ type: 'user', session_id: sessionId, message: { content: [{ type: 'tool_result', tool_use_id: 'tu-commit', content: `[tp/${team.TEAM_MESSAGE_ID} a1b2c3d] Arregla la agenda en blanco\n 1 file changed, 2 insertions(+)` }] } })
@@ -119,7 +121,7 @@ process.stdin.on('end', async () => {
   if (mode === 'no-structured') return out({ ...base, result: 'done, but no structured output' })
   if (mode === 'api-error') return out({ ...base, is_error: true, result: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}' })
   if (mode === 'invalid-output') return out({ ...base, result: '', structured_output: { outcome: 'done' } })
-  out({ ...base, result: '', structured_output: { outcome: 'done', summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}), ...(process.env.FAKE_CANNOT_CLOSE_ON && process.argv.includes(process.env.FAKE_CANNOT_CLOSE_ON) ? { cannot_close: true } : {}) } })
+  out({ ...base, result: '', structured_output: { outcome: 'done', summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_NO_NOTICE ? {} : { limit_notice: { consequence: 'Se cobra un monto equivocado a un cliente.', alternative: 'Dejar el cambio en la rama y pedir el monto a una persona.' } }), ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}), ...(process.env.FAKE_CANNOT_CLOSE_ON && process.argv.includes(process.env.FAKE_CANNOT_CLOSE_ON) ? { cannot_close: true } : {}) } })
   }
   // Several tools with ids, one failing, a subagent with its own tool, a turn per model message (FAKE_EXECUTE_MULTI=1).
   async function multi () {

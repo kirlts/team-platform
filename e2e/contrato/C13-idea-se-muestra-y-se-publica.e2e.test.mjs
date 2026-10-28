@@ -16,7 +16,7 @@ describe('C13 una idea se construye y se muestra; sólo una persona la publica',
   after(async () => { await c.cerrar() })
 
 
-  it('con la Guardia de la idea no se encola ninguna entrega y el hilo dice «Lista para ver»', async () => {
+  it('con el límite de la idea no se encola ninguna entrega y el hilo dice «Lista para ver»', async () => {
     c.estimates = { idea: 0.9, idea_guard: true, idea_reason: 'lo dijo como una posibilidad' }
     const id = ideaId = await c.enviar('Una página de la clínica con la esfera de la IA de venta y videos.')
     await c.esperar(id)
@@ -60,7 +60,7 @@ describe('C13 una idea se construye y se muestra; sólo una persona la publica',
     assert.ok(!(await c.hilo(id)).replies.some((r) => /Lista para ver/.test(r.body)))
   })
 
-  it('el sistema obedece el booleano del análisis y no lee las palabras: el mismo texto con la Guardia apagada se entrega', async () => {
+  it('el sistema obedece el booleano del análisis y no lee las palabras: el mismo texto con el límite apagado se entrega', async () => {
     c.estimates = { idea: 0.9, idea_guard: false, idea_reason: 'el análisis juzgó que es un pedido' }
     const id = await c.enviar('Una página de la clínica con la esfera de la IA de venta y videos.')
     await c.esperar(id)

@@ -1230,6 +1230,7 @@ export const en: Record<MessageKey, Message> = {
   'work.history': 'History',
   'work.status': 'Status',
   'work.steps.none': 'No steps',
+  'work.steps.count': { one: '{n} step', other: '{n} steps' },
   'work.steps.capped': 'Cap of {n} steps',
   'work.step.read': 'Read a file',
   'work.step.edit': 'Edited a file',

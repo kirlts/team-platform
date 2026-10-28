@@ -99,6 +99,12 @@ describe('History of the session', () => {
           assert.ok(m.top + m.client >= m.scroll - 24, 'pinned to the last step')
           assert.equal(m.overflowY, 'auto')
           assert.ok(m.doc <= m.win, `horizontal overflow ${m.doc} > ${m.win}`)
+          // The count says how many steps there are, and a lane that scrolls fades its edge where more steps wait.
+          assert.equal((await page.locator('[data-step-count]').innerText()).trim(), '60 pasos')
+          assert.match(await lane.evaluate((el) => el.style.maskImage), /transparent/, 'a lane with steps above it fades its top edge')
+          // A path or a command wraps between its segments, never in the middle of a word (J3-B-20): every segment without a space or a hyphen (where the browser breaks by rule) is on one line.
+          const split = await lane.evaluate((el) => [...el.querySelectorAll('.font-mono > span')].filter((seg) => !/[\s-]/.test(seg.textContent.trim()) && seg.getClientRects().length > 1).map((seg) => seg.textContent))
+          assert.deepEqual(split, [], `segments split in the middle: ${JSON.stringify(split)}`)
           await shot(page, `sesion-abierta-${size}-${colorScheme}`)
         } finally {
           await context.close()
@@ -165,6 +171,9 @@ describe('History of the session', () => {
       await row.locator('[data-work-toggle="session"]').click()
       await page.locator('[data-lane="session-steps"] li').first().waitFor()
       assert.equal(await page.locator('[data-lane="session-steps"] li').count(), 24)
+      // The row says the same figure as the phase «Sesión» above it (a copy of the transcript and the destruction of the machine do not add to it).
+      const phase = await page.locator('[data-timing-phase="run"]').innerText()
+      assert.equal(phase.replace(/^Sesión\s*/, '').trim(), await row.locator('[data-work-time]').innerText())
       assert.equal(await page.locator('[data-lane="session-steps"] li[data-step-current]').count(), 0, 'nothing is in progress once it ended')
       await shot(page, 'tiempos-1440x900-light')
     } finally {

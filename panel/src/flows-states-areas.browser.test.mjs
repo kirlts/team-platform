@@ -3,7 +3,7 @@
 // `npm run test:flows`.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, openTemplates, settled, startPanel } from './browser-support.mjs'
+import { login, settled, startPanel } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -58,8 +58,8 @@ describe('the view of an area (UD-041)', () => {
       const listTop = (await rows.first().boundingBox()).y
       for (const name of ['Descripción', 'Plantillas']) {
         const fold = page.getByRole('button', name === 'Plantillas' ? { name: /^Plantillas/ } : { name, exact: true })
-        // Both sections are born folded (DISENO.md «Vista de un área»): the list keeps its rows, and the link «N plantillas» opens the templates.
-        assert.equal(await fold.getAttribute('aria-expanded'), 'false', `${name} starts folded`)
+        // UD-252: the templates start open, so deleting one takes a single click; the description stays folded.
+        assert.equal(await fold.getAttribute('aria-expanded'), name === 'Plantillas' ? 'true' : 'false', `${name} starts ${name === 'Plantillas' ? 'open' : 'folded'}`)
         assert.ok((await fold.boundingBox()).y > listTop, `${name} goes below the messages`)
       }
       // The counts of the three states are the ones of the server.
@@ -126,7 +126,7 @@ describe('the view of an area (UD-041)', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       await page.locator('main article').first().waitFor()
-      await openTemplates(page)
+      // UD-252: the templates are already open on arrival.
       await page.getByRole('region', { name: 'Plantillas' }).waitFor()
       await page.getByRole('button', { name: 'Descripción', exact: true }).click()
       const { doc, win } = await page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, win: innerHeight }))

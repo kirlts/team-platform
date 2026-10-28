@@ -3,7 +3,7 @@
 // row on different lines, a figure glued to its word, a window title the size of its own field labels, a list with no state.
 import assert from 'node:assert'
 import { after, before, test } from 'node:test'
-import { login, openFolds, openTemplates, settled, startPanel } from './browser-support.mjs'
+import { login, openFolds, settled, startPanel } from './browser-support.mjs'
 
 let panel
 
@@ -81,7 +81,6 @@ test('on a phone, a figure and its word never touch', async () => {
 test('a window title is larger than its own field labels and is not set as one of them', async () => {
   const { page, context } = await open('/areas/a-error')
   try {
-    await openTemplates(page)
     await page.getByTestId('template-open').first().click()
     const dialog = page.getByRole('dialog')
     await dialog.waitFor()

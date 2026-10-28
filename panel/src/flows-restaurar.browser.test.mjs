@@ -3,7 +3,7 @@
 // `PANEL_FLOWS_RESTORE_PORT=… node --test src/flows-restaurar.browser.test.mjs` against dev-server.mjs serving panel/dist.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, openTemplates, settled, startPanel } from './browser-support.mjs'
+import { login, settled, startPanel } from './browser-support.mjs'
 
 // Auto-publication off: a send waits as a proposal, which is the state a person discards.
 process.env.PANEL_DEV_AUTO_PUBLISH = '0'
@@ -90,15 +90,13 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
   test('a template: delete, reload, Borradas inside Plantillas lists it and Restaurar brings it back', async () => {
     const { page, context } = await session('ana')
     try {
-      // «Plantillas» is born folded: it is opened before its rows are used.
+      // «Plantillas» is open by default (UD-252): no click to open it.
       await page.goto(`${origin}/areas/a-error`)
-      await openTemplates(page)
       const region = page.getByRole('region', { name: 'Plantillas' })
       await region.waitFor()
       await region.getByRole('button', { name: /^Borrar/ }).first().click()
       await region.getByText('borrada').first().waitFor()
       await page.reload()
-      await openTemplates(page)
       await region.waitFor()
       // «Borradas» is an option of the «Más» menu in the header of the fold, on the same line as «Plantillas».
       await page.locator('#plantillas').getByTestId('more-menu').click()

@@ -4,7 +4,7 @@
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, openTemplate, openTemplates, settled, startPanel } from './browser-support.mjs'
+import { login, openTemplate, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -32,7 +32,6 @@ async function session(viewport = DESKTOP, colorScheme = 'light') {
   await login(page, origin, 'ana')
   await page.locator('main#main').waitFor()
   await page.goto(`${origin}/areas/a-error`)
-  await openTemplates(page)
   await page.locator('section[aria-label="Plantillas"]').waitFor()
   await settled(page)
   return { page, context }

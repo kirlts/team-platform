@@ -1,7 +1,6 @@
 // UD-297: the templates of an area are a list where every one is a row (name and three figures), and each opens in a window.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { translate } from '@/i18n/core'
@@ -46,16 +45,13 @@ function Shell() {
   )
 }
 
-/** The view arrives with `#plantillas` when the link «N plantillas» of the list of areas leads to it; without it the section is born folded. */
-function mount(hash = '#plantillas') {
+function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
       <WithTeamClient>
         <I18nProvider language="es-419">
-          <MemoryRouter initialEntries={[{ pathname: '/areas/a-error', hash }]}>
-            <Shell />
-          </MemoryRouter>
+          <Shell />
         </I18nProvider>
       </WithTeamClient>
     </QueryClientProvider>,
@@ -69,15 +65,6 @@ const rows = async () => {
 }
 
 describe('the templates of an area', () => {
-  it('is born folded and draws no row until it is opened', async () => {
-    mount('')
-    const fold = await screen.findByRole('button', { name: /^Plantillas/ })
-    expect(fold.getAttribute('aria-expanded')).toBe('false')
-    expect(document.querySelectorAll('[data-template-row]')).toHaveLength(0)
-    fireEvent.click(fold)
-    expect((await rows()).length).toBe(4)
-  })
-
   it('draws the four of them, each with its name and its three figures, and no description or tag in the list', async () => {
     mount()
     const all = await rows()

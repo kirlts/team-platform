@@ -1,6 +1,5 @@
 import { ChevronRight, Plus, Trash2 } from '@/components/icons'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router'
 import { EditableText } from '@/components/EditableText'
 import { NewTemplateDialog, TemplateContentDialog } from '@/components/TemplateEditor'
 import { Fold } from '@/components/Fold'
@@ -46,8 +45,6 @@ function TemplateColumns() {
 /** The templates of one area: every one is a row of the list, and each opens in a window (UD-017). */
 export function Templates({ area }: { area: Area }) {
   const t = useT()
-  // Born folded («Vista de un área»); the link «N plantillas» of the list of areas arrives with #plantillas and finds it open.
-  const { hash } = useLocation()
   const undo = useUndo()
   const templates = useTemplates(area.id)
   const save = useSaveTemplate(area.id)
@@ -106,7 +103,7 @@ export function Templates({ area }: { area: Area }) {
       <Fold
         title={t('areas.templates')}
         note={templates.isSuccess ? live.length : undefined}
-        defaultOpen={hash === '#plantillas'}
+        defaultOpen
         anchor="plantillas"
         action={
           none ? undefined : (

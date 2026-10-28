@@ -3,7 +3,7 @@
 import assert from 'node:assert'
 import { mkdirSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, openTemplates, settled, startPanel } from './browser-support.mjs'
+import { login, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -49,7 +49,6 @@ async function withFour(page) {
     assert.ok(res.ok(), `crear ${name}: ${res.status()}`)
   }
   await page.goto(`${origin}/areas/a-error`)
-  await openTemplates(page)
   await page.locator('section[aria-label="Plantillas"]').waitFor()
   await settled(page)
 }

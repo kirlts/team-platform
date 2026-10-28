@@ -164,14 +164,13 @@ describe('Settings: seed examples', () => {
 })
 
 describe('Templates in view', () => {
-  test('the area view is born with the templates folded; once open, deleting one takes a single click', async () => {
+  test('the area view opens with the templates unfolded and deleting one takes a single click', async () => {
     for (const [viewport, colorScheme] of [[DESKTOP, 'light'], [DESKTOP, 'dark'], [PHONE, 'light'], [PHONE, 'dark']]) {
       await panel.control.reset()
       const { page, context } = await session('ana', '/areas/a-error', (p) => p.locator('main article').first(), { viewport, colorScheme })
       try {
         const fold = page.getByRole('button', { name: /^Plantillas/ })
-        assert.equal(await fold.getAttribute('aria-expanded'), 'false', 'the section is born folded')
-        await fold.click()
+        assert.equal(await fold.getAttribute('aria-expanded'), 'true')
         const section = page.locator('section[aria-label="Plantillas"]')
         await section.waitFor()
         await section.getByRole('button', { name: 'Borrar Reporte de error' }).waitFor()

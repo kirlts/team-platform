@@ -51,7 +51,7 @@ export function personRepliedSince (db, { messageId, agentId, since }) {
  * The reason to close, or `null` when the message stays open. `delivered`: the delivery ended with exit 0 and was verified. `after`: how many «after» captures
  * the final reply carries. `since`: the anchor of `firstReplyAnchor` (it travels with the delivery). `request`: what the session asked, optional (UD-310).
  */
-export function closeReason (db, config, { output, request = null, delivered, messageId, agentId, after, since, language }) {
+export function closeReason (db, config, { output, request = null, delivered, answered = false, messageId, agentId, after, since, language }) {
   if (!config.execute.autoClose) return null
   // UD-295: a Guard about a person that the message touches, or a value only a person has, and Claude does not close alone: the person reads and decides.
   const row = get(db, 'SELECT area_id, guards_json, estimates_json FROM messages WHERE id = ?', messageId)
@@ -60,9 +60,11 @@ export function closeReason (db, config, { output, request = null, delivered, me
   if (output?.unfulfilled === true) return null // UD-314: part of what was asked is not done: the sender retries it, nothing closes
   // UD-307: an idea that was built and shown waits for the written answer of a person; only its delivery (after that answer) finishes it.
   if (!delivered && estimatesOf(row).idea_guard === true) return null
-  if (!delivered && !NO_CHANGE_OUTCOMES.includes(output?.outcome)) return null
-  if (hasBefore(db, { messageId, authorId: agentId }) && after < 1) return null
-  if (output?.touches_screen === true && after < 1) return null // UD-298: a change to a screen that shows nothing is read by a person before it closes
+  if (!delivered && !answered && !NO_CHANGE_OUTCOMES.includes(output?.outcome)) return null // `answered`: a mention that asked for no change and for the close
+  // The evidence that cannot be shown is said, not hidden: with a written reason (`no_capture_reason`, which the closing reply prints) the message closes without the image.
+  const said = typeof output?.no_capture_reason === 'string' && output.no_capture_reason.trim() !== ''
+  if (hasBefore(db, { messageId, authorId: agentId }) && after < 1 && !said) return null
+  if (output?.touches_screen === true && after < 1 && !said) return null // UD-298: a change to a screen that shows nothing, with no reason given, is read by a person before it closes
   if (personRepliedSince(db, { messageId, agentId, since })) return null
   return request?.reason ?? (DEFAULT_REASONS[language] ?? DEFAULT_REASONS['es-419'])[delivered ? 'delivered' : 'unchanged']
 }

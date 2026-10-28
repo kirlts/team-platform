@@ -1,5 +1,5 @@
 // Verdict of the list judge (Mensajes and the view of an area): the values of a filter fit the window on a phone and can be chosen, a notice
-// does not cover what is read, Marcar todos says what it marks, an empty area does not offer a filter that is not there, the list of an area
+// does not cover what is read, the mark-all control says what it marks, an empty area does not offer a filter that is not there, the list of an area
 // comes first on a phone, and the actions of a row fall at the same x in every row.
 // `PANEL_FLOWS_LISTA_JUEZ_PORT=… node --test src/flows-lista-juez.browser.test.mjs`. Captures go to $TMPDIR when SHOTS=1.
 import assert from 'node:assert'
@@ -129,8 +129,8 @@ describe('the notice of closing', () => {
   }
 })
 
-describe('Marcar todos', () => {
-  test('the strip counts against the whole filtered list and Marcar todos marks all of it, not the page', async () => {
+describe('mark all', () => {
+  test('the strip counts against the whole filtered list and mark all marks all of it, not the page', async () => {
     const { page, context } = await session({ width: 1440, height: 900 }, false)
     try {
       await openMessages(page)

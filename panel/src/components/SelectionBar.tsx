@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
  * The strip over a list while rows are marked (UD-253): how many of the total, mark all (every row of the list, not only the page), delete and cancel.
  * Borrar deletes at once, without asking: what it deletes comes back with Deshacer in the notice.
  */
-export function SelectionBar({ selection, total, onAll, onDelete, busy, className }: { selection: Selection; /** How many rows the list has that can be marked; the count says how many of them are marked, and Marcar todos marks the rest. */ total?: number; onAll: () => void; onDelete: () => void; busy?: boolean; className?: string }) {
+export function SelectionBar({ selection, total, onAll, onDelete, busy, className }: { selection: Selection; /** How many rows the list has that can be marked; the count says how many of them are marked, and the mark-all control marks the rest. */ total?: number; onAll: () => void; onDelete: () => void; busy?: boolean; className?: string }) {
   const t = useT()
   return (
     <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className={cn('flex min-h-12 flex-wrap items-center gap-x-1 gap-y-1 border-b border-line bg-selected py-1 pl-2 pr-2 sm:gap-x-3 sm:py-2 sm:pl-10 sm:pr-4', className)}>

@@ -34,7 +34,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
 
   // A marked row that left the list (deleted elsewhere, filtered out) is not deleted by Borrar.
   const marked = [...selection.marked].filter((id) => canMark(byId.get(id)))
-  // Every row of the list as filtered, not only the page on screen: Marcar todos marks them all and the strip counts against them.
+  // Every row of the list as filtered, not only the page on screen: the mark-all control marks them all and the strip counts against them.
   const markable = useMemo(() => rows.filter((m) => canMark(m)).map((m) => m.id), [rows, canMark])
   const remove = async () => {
     const ids = marked

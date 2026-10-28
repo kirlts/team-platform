@@ -699,7 +699,6 @@ export const en: Record<MessageKey, Message> = {
   'error.validation': 'Invalid data',
   'error.description_required': 'The description is missing',
   'error.file_encoding': 'The file is not UTF-8 text',
-  'login.noAccount': 'Accounts created by the team',
   'messages.noMatch': 'No results for “{q}”',
   'messages.noMatchFilters': 'No results with these filters',
   'messages.clearSearch': 'Show all',

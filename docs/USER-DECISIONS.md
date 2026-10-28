@@ -1671,3 +1671,12 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Reservar siempre el ancho de dos conteos: parte «Nueva funcionalidad» en 256 px aun sin conteos.
 **Consecuencias:** `panel/src/components/Sidebar.tsx` (el nombre lleva `truncate` con su comentario `justified:` para `no-truncation.test.ts`), `panel/DISENO.md` («Panel izquierdo»), `panel/src/sidebar-counts.browser.test.mjs`, `docs/CAPACIDADES-1.0.md`.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-316] Las áreas y las plantillas son texto del Editor, en un solo idioma
+**Fecha:** 2026-10-28
+**Contexto:** Con la cuenta en inglés, las etiquetas de los campos y los nombres de las áreas sembradas se leen en español (juez de idioma y juez de las partes no vistas, 2026-10-28). Traducirlos solos exige plantillas en dos idiomas, una capacidad nueva. Se le preguntó a Martín: «¿Plantillas en dos idiomas para la 1.1, o lo dejas como dato del Editor?». Martín, textual: «editor».
+**Decisión:** Las áreas, las plantillas y sus campos son textos configurados que el Editor escribe en el idioma de su equipo (UD-287). El idioma de cada cuenta (UD-018) rige la interfaz y la salida del análisis, no esos textos. No hay plantillas en dos idiomas.
+**Alternativas descartadas:**
+- Plantillas y áreas con versión por idioma: capacidad nueva que el dueño no pidió.
+**Consecuencias:** `docs/CAPACIDADES-1.0.md` (fila «Idioma» y la pregunta retirada).
+**Condiciones de reversión:** Las fija Martín.

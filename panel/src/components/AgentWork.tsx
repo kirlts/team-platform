@@ -38,13 +38,17 @@ function Work({ message }: { message: MessageDetail }) {
   // The detailed state of the delivery: what the job says it is doing now («Entrega: verificación», «En espera…»), else the phase it is in.
   const deliverPhase = d.deliver?.phase ?? (d.phase && d.phase.startsWith('deliver') ? d.phase : null)
   const deliverText = progress?.phrase || (deliverPhase ? t(`timing.phase.${deliverPhase}` as MessageKey) : '')
+  // The host answered «not now» (exit 75): the delivery waits and tries again. The row says it in the time column, its bar stands still, and the detail says why and when.
+  const holding = (d.deliver?.job_status === 'queued' || progress?.code === 'deliverWait') && !progress?.done
+  const waitDetail = progress?.code === 'deliverWait' ? [t('work.waiting.cause'), t('work.waiting.retry', { seconds: progress.vars?.seconds ?? 30 })].join('. ') : deliverText
   return (
     <section data-testid="agent-work" data-work={work.state} aria-label={t('work.title')} className="glass leaf flex shrink-0 flex-col gap-2 p-3">
       <h2 className="rotulo m-0">{t('work.title')}</h2>
       <ol className="m-0 flex list-none flex-col p-0">
         {work.steps.map((s, i) => {
           const running = s.state === 'running' && work.state === 'running'
-          const time = s.ms !== null && s.state !== 'pending' ? duration(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])
+          const waiting = holding && s.key === 'deliver' && running
+          const time = waiting ? t('work.waiting') : s.ms !== null && s.state !== 'pending' ? duration(s.ms) : s.state === 'failed' ? '' : work.state === 'queued' && i === 0 ? t('timing.state.queued') : s.state === 'pending' ? '' : t(STATE_LABEL[s.state])
           const unfolds = s.key === 'session' ? s.state !== 'pending' : s.key === 'deliver' ? (s.state === 'running' || s.state === 'failed') && deliverText !== '' : false
           return (
             <WorkRow
@@ -53,10 +57,11 @@ function Work({ message }: { message: MessageDetail }) {
               state={s.state}
               label={t(STEP_LABEL[s.key])}
               time={time}
+              waiting={waiting}
               percent={running ? (progress?.percent ?? 0) : undefined}
               progressLabel={t('timing.state.running')}
               toggleLabel={unfolds ? t(s.key === 'session' ? 'work.history' : 'work.status') : undefined}
-              panel={s.key === 'session' ? <SessionStepList messageId={message.id} live={running} /> : s.key === 'deliver' ? <p role="status" data-work-status className="m-0 break-words text-sm">{deliverText}</p> : undefined}
+              panel={s.key === 'session' ? <SessionStepList messageId={message.id} live={running} /> : s.key === 'deliver' ? <p role="status" data-work-status className="m-0 break-words text-sm">{waitDetail}</p> : undefined}
               under={
                 (s.state === 'failed' || (work.partial && s.repeats !== null)) && (
                   <span className="col-start-2 col-end-[-1] flex flex-wrap gap-x-3 text-xs text-muted">

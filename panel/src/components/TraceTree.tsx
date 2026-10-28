@@ -66,13 +66,14 @@ export function SpanTree({ roots, label }: { roots: SpanNode[]; label: string })
   return (
     <ul aria-label={label} className="flex flex-col gap-0.5">
       {roots.map((node) => (
-        <Node key={node.span_id} node={node} depth={0} />
+        <Node key={node.span_id} node={node} depth={0} sheet />
       ))}
     </ul>
   )
 }
 
-function Node({ node, depth }: { node: SpanNode; depth: number }) {
+/** `sheet`: the tree of the sheet of a message writes money as the rest of the sheet does (cents; four decimals only under one cent), the one of the Cola keeps four. */
+function Node({ node, depth, sheet = false }: { node: SpanNode; depth: number; sheet?: boolean }) {
   const t = useT()
   const { decimal, usd, duration } = useFormat()
   const label = useSpanLabel()
@@ -90,13 +91,13 @@ function Node({ node, depth }: { node: SpanNode; depth: number }) {
             {t('trace.input')} {decimal(input, 0)} · {t('trace.output')} {decimal(Number(output ?? 0), 0)}
           </span>
         )}
-        {typeof cost === 'number' && <span className="tabular-nums text-muted">{usd(cost, 4)}</span>}
+        {typeof cost === 'number' && <span className="tabular-nums text-muted">{usd(cost, sheet ? undefined : 4)}</span>}
         {failed && <FailedMark />}
       </div>
       {node.children.length > 0 && (
         <ul className="flex flex-col gap-0.5">
           {node.children.map((child) => (
-            <Node key={child.span_id} node={child} depth={depth + 1} />
+            <Node key={child.span_id} node={child} depth={depth + 1} sheet={sheet} />
           ))}
         </ul>
       )}

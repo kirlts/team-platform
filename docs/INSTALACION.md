@@ -647,9 +647,51 @@ scripts/install.sh
 
 Arranca con `contract_version: core 1, driver declares 1` en el registro. Si el driver declarara otra versión mayor, el trabajador no arranca.
 
+### Con `drivers/docker-local`
+
+Recorrido medido el 2026-10-28 en un VPS ARM con Docker, sobre una instalación que ya corría (canario en verde en la primera corrida: 40,6 s, 0,002 USD).
+
+1. La imagen de la máquina, con Claude Code fijado. Tarda cerca de un minuto en ARM:
+
+```sh
+docker build -t team-platform-agent:local drivers/docker-local
+```
+
+2. El socket de Docker dentro del contenedor. `compose.docker-local.example.yml` lo monta y agrega el grupo `docker` del anfitrión (`DOCKER_GID`, el de `getent group docker`) porque el usuario del contenedor no es root. Se copia con el nombre del anfitrión si hace falta cambiarlo.
+
+3. Las variables, en `.env`. `EXECUTE_TEAM_URL` no puede ser `host.docker.internal` si la instancia publica el puerto sólo en `127.0.0.1` (la omisión de `compose.yml`): la máquina llegaría a la dirección del puente, no al loopback. Se pone la máquina en la red del proyecto de compose y se usa el nombre del servicio:
+
+```sh
+COMPOSE_FILE=compose.yml:compose.driver.example.yml:compose.docker-local.example.yml
+DRIVER_PACKAGES=bash docker-cli
+DOCKER_GID=989
+EXECUTE_RUNNER=machine
+EXECUTE_CONTRACT_VERSION=1
+EXECUTE_TIMEOUT_MS=600000
+EXECUTE_TEAM_URL=http://team-platform:3000
+EXECUTE_MACHINE_CREATE=bash /app/drivers/docker-local/create.sh {job_id} {workdir}
+EXECUTE_MACHINE_RUN=bash /app/drivers/docker-local/run.sh {job_id} {workdir} {machine}
+EXECUTE_MACHINE_COLLECT=bash /app/drivers/docker-local/collect.sh {job_id} {workdir} {machine}
+EXECUTE_MACHINE_DESTROY=bash /app/drivers/docker-local/destroy.sh {job_id} {workdir} {machine}
+TP_DOCKER_NETWORK=<proyecto>_default
+TP_DOCKER_STATE=/data/driver-state
+TP_DOCKER_MAX_CONTAINERS=2
+```
+
+`TP_DOCKER_NETWORK` es `<nombre del proyecto>_default` (`docker network ls`). `TP_DOCKER_STATE` va en el volumen de datos. `ANTHROPIC_API_KEY` ya está en `.env` y el driver la pasa a la sesión por nombre.
+
+4. Se reconstruye y se levanta. En un anfitrión que compila ffmpeg la capa ya está en caché y tarda segundos; si no, `--build-arg BUILD_JOBS=1` evita saturar una máquina chica:
+
+```sh
+docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d --wait
+docker compose exec team-platform docker version --format '{{.Server.Version}}'
+```
+
+El último comando prueba el socket desde el contenedor. Si responde «permission denied», `DOCKER_GID` no es el del grupo del socket.
+
 ### Comprobación con el canario, dentro de la instancia
 
-Un editor con contraseña conocida hace falta para el canario. `scripts/install.sh` genera la del primer Editor y la muestra una vez; para una instalación sin terminal se fija `ADMIN_PASSWORD` en `.env` (por ejemplo `openssl rand -hex 24`) antes del primer arranque. El canario corre en el contenedor. Ahí la API es `http://127.0.0.1:$PORT` y las credenciales ya están en el entorno, así que ninguna pasa por la línea de órdenes:
+Un editor con contraseña conocida hace falta para el canario. Si `ADMIN_PASSWORD` ya no es la clave de esa persona (la cambió en el panel, y el canario sale 3 en `identity` con «login answered 401»), no se reinicia la suya: se crea un Editor propio del canario con `docker compose exec team-platform node src/db/seed.js --editor canario@ejemplo.invalid <clave> Canario` y el canario usa ese `TEAM_EMAIL` y `TEAM_PASSWORD`. `scripts/install.sh` genera la del primer Editor y la muestra una vez; para una instalación sin terminal se fija `ADMIN_PASSWORD` en `.env` (por ejemplo `openssl rand -hex 24`) antes del primer arranque. El canario corre en el contenedor. Ahí la API es `http://127.0.0.1:$PORT` y las credenciales ya están en el entorno, así que ninguna pasa por la línea de órdenes:
 
 ```sh
 docker compose exec -T team-platform sh -c 'TEAM_URL="http://127.0.0.1:$PORT" TEAM_EMAIL="$ADMIN_EMAIL" TEAM_PASSWORD="$ADMIN_PASSWORD" CANARY_AREA=Canario CANARY_CREATE=1 CANARY_AGENT=agente@ejemplo.invalid CANARY_AREA_MODEL=claude-haiku-5-5 node scripts/canary.mjs'

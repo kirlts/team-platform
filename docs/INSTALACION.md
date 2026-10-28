@@ -529,6 +529,8 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_MAX_ATTEMPTS` | Omisión 1 |
 | `EXECUTE_TIMEOUT_MS` | Plazo de la sesión, máquina incluida (omisión 3600000) |
 | `EXECUTE_KILL_GRACE_MS` | Espera entre SIGTERM y SIGKILL (omisión 10000) |
+| `EXECUTE_CREATE_SETTLE_MS` | Tiempo extra para un CREATE que seguía corriendo cuando venció el plazo, de modo que nombre su máquina antes de cortarlo (omisión 120000; 0 lo corta al vencer) |
+| `EXECUTE_DESTROY_TIMEOUT_MS` | Plazo de cada DESTROY (omisión: el mayor entre `EXECUTE_TIMEOUT_MS` y 300000) |
 | `EXECUTE_CONTRACT_VERSION` | Versión del contrato de anfitrión que cumple el driver (`1`, o `1.2`; cuenta la mayor). El trabajador imprime al arrancar la versión del núcleo y la declarada; si la mayor difiere, no arranca y sale con código distinto de 0. `GET /health` publica la del núcleo como `contract_version`. Vacía por omisión: no se declara y no se comprueba |
 | `EXECUTE_HOST_INSTRUCTIONS` | Ruta a un `.md` del anfitrión con sus reglas; se agrega al prompt en cada trabajo. Si falta el archivo, el trabajo falla con `host_instructions_missing` |
 | `EXECUTE_GUARDS_FILE` | Opcional. Ruta a un JSON con las listas del anfitrión para los ganchos de toda sesión: órdenes de Bash que se niegan, herramientas que se quitan y lo que debe cumplirse al terminar. Vacía: ningún gancho. Un archivo ilegible o con un error de forma hace fallar el trabajo con `guards_file_invalid` y el motivo (ver «Guardias de la sesión» del contrato) |

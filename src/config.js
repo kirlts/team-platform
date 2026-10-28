@@ -383,6 +383,14 @@ export function loadConfig (env = process.env, overrides = {}) {
       timeoutMs: intVar(env, 'EXECUTE_TIMEOUT_MS', 3600000, { min: 1 }), // declared courtesy, see above
       // Declared courtesy: after SIGTERM the run gets this long to exit (code 143) before SIGKILL.
       killGraceMs: intVar(env, 'EXECUTE_KILL_GRACE_MS', 10000, { min: 1 }), // declared courtesy, see above
+      // Declared courtesy: how long a CREATE that was still running when the deadline of the job expired may go on to name its machine before it is cut. A CREATE cut half way leaves
+      // a machine that DESTROY cannot find yet (the daemon of the host goes on creating it); one that is waited for names it and DESTROY removes it. Creating a machine took 32 s
+      // on 2026-10-22 (the measure behind EXECUTE_CAPACITY_WAIT_MS) and `docker run -d` 1 to 3 s on a laptop at load 35 (2026-10-28); 120 s is almost four times the slowest.
+      createSettleMs: intVar(env, 'EXECUTE_CREATE_SETTLE_MS', 120000, { min: 0 }),
+      // Declared courtesy: the bound of one DESTROY (the sweep of orphans included). It is not the deadline of the session: a short EXECUTE_TIMEOUT_MS used to cut DESTROY too (measured 2026-10-28,
+      // `docker rm -f` took 10 to 23 s with the laptop at load 35 and the 10 s test deadline killed it before it answered). Empty: the larger of EXECUTE_TIMEOUT_MS and 300000, so a host that
+      // declared 1 h keeps 1 h. 300000 is more than ten times the slowest DESTROY measured.
+      destroyTimeoutMs: Math.max(1, intVar(env, 'EXECUTE_DESTROY_TIMEOUT_MS', Math.max(intVar(env, 'EXECUTE_TIMEOUT_MS', 3600000, { min: 1 }), 300000), { min: 1 })),
       machineCreate: textValue(env, 'EXECUTE_MACHINE_CREATE', ''), // shell command; {job_id}, {workdir}; last stdout line = {machine}
       machineRun: textValue(env, 'EXECUTE_MACHINE_RUN', ''), // shell command; {job_id}, {workdir}, {machine}; its stdout is the NDJSON stream
       machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', ''), // shell command; {job_id}, {workdir}, {machine}; runs always

@@ -364,7 +364,7 @@ export const es419 = {
   'assessment.create': 'Creación',
   'assessment.scale': '{value} de {max}',
   'assessment.idea': 'Idea',
-  'assessment.ideaGuard': 'Guardia de la idea',
+  'assessment.ideaGuard': 'Límite de la idea',
   'assessment.ideaGuard.applies': 'Aplica',
   'assessment.ideaGuard.doesNot': 'No aplica',
   'assessment.irreversibility': 'Irreversibilidad',

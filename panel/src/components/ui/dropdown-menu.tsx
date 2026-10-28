@@ -82,6 +82,7 @@ export function DropdownMenuSubContent({ className, ...props }: ComponentProps<t
       <Primitive.SubContent
         sideOffset={4}
         collisionPadding={8}
+        data-submenu-sheet=""
         className={cn('pop z-50 min-w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg p-1 text-sm text-fg', className)}
         {...props}
       />

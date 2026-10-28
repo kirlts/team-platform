@@ -568,6 +568,16 @@
     box-shadow: var(--shadow-pop);
   }
 
+  /* The values of a filter on a phone: the flyout beside its row has no side with room for names of an area (it opened 180 px outside the window), so it is a sheet at the foot of the window, as wide as the window less 8 px each side. Radix places the wrapper with an inline transform; this takes it back. */
+  @media (max-width: 767px) {
+    [data-radix-popper-content-wrapper]:has(> [data-submenu-sheet]) {
+      position: fixed !important;
+      transform: none !important;
+      inset: auto 0.5rem 0.5rem 0.5rem !important;
+      min-width: 0 !important;
+    }
+  }
+
   .glass-strong {
     background: var(--color-glass-strong);
     -webkit-backdrop-filter: blur(18px) saturate(1.6);

@@ -23,6 +23,9 @@ import { plainText } from '@/lib/first-words'
 // The width of the edge is a theme variable (`--card-edge-width`, 0 draws none).
 const EDGE = { open: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state-open-bg)]', answered: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state-answered-bg)]', closed: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state-closed-bg)]' } as const
 
+/** The width of the slot of Responder (82 px with the word in Spanish): the same box whether the row has the button or not. */
+const REPLY_SLOT = 'w-[5.125rem] shrink-0 justify-center'
+
 /** Recipients drawn before the rest fold into «y N más». */
 const RECIPIENTS_SHOWN = 2
 
@@ -76,7 +79,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         label: t('undo.undo'),
         run: async () => {
           await restore.mutateAsync(message.id)
-          notices.show({ text: t('detail.restored'), link: { to: `/messages/${message.id}`, label: message.title } })
+          notices.show({ text: t('detail.restored'), link: { to: `/messages/${message.id}`, label: `#${message.id}` } })
         },
       },
     })
@@ -91,7 +94,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
     }
     notices.show({
       text: to ? t('detail.closed') : t('detail.reopened'),
-      link: { to: `/messages/${message.id}`, label: message.title },
+      link: { to: `/messages/${message.id}`, label: `#${message.id}` },
       action: { label: t('undo.undo'), run: async () => void (await setClosed.mutateAsync({ id: message.id, closed: !to })) },
     })
   }
@@ -99,7 +102,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   const gone = !!message.deleted_at
   const bringBack = async () => {
     await restore.mutateAsync(message.id)
-    notices.show({ text: t('detail.restored'), link: { to: `/messages/${message.id}`, label: message.title } })
+    notices.show({ text: t('detail.restored'), link: { to: `/messages/${message.id}`, label: `#${message.id}` } })
   }
   const extract = reply ? t('card.inMessage', { title: message.title }) : message.body
 
@@ -156,10 +159,10 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         )}
       </div>
 
-      {/* The last line: who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
+      {/* The last line, 19 px at least (the height of the «y N más» button, the tallest thing it can hold: a line of 16,8 px made the rows without it 2 px shorter): who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
       {/* Below 28rem of row (a phone) the actions take a line of their own under who it is for: side by side they left the names a column a word wide (three lines for one name). */}
       <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-col items-stretch gap-x-3 gap-y-2 @md:grid @md:grid-cols-[minmax(0,1fr)_auto] @md:items-start @md:gap-y-1 @2xl:contents">
-        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[1lh] @2xl:content-normal" />
+        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[19px] @2xl:content-normal" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {gone && (
             <Button size="sm" variant="secondary" className="px-3 text-xs" disabled={restore.isPending} aria-label={t('restore.of', { title: message.title })} data-testid="card-restore" onClick={() => void bringBack()}>
@@ -172,12 +175,15 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
               {t('card.delete')}
             </Button>
           )}
-          {!gone && !isAuthor && !closed && (
-            <Button asChild size="sm" variant="secondary" className="px-3 text-xs">
+          {/* The three actions keep their columns in every row (rule 3 of «Reglas de anclaje»): Responder has a slot of its own that stays empty when the row has none (the sender's, a closed one), and Cerrar and Reabrir measure the same, so Borrar falls at the same x everywhere. */}
+          {!gone && (!isAuthor && !closed ? (
+            <Button asChild size="sm" variant="secondary" className={cn('px-3 text-xs', REPLY_SLOT)}>
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>
             </Button>
-          )}
-          {!gone && <Button size="sm" variant="ghost" className="px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => void toggleClosed()}>
+          ) : (
+            canDelete && <span aria-hidden data-testid="card-reply-slot" className={cn('shrink-0', REPLY_SLOT)} />
+          ))}
+          {!gone && <Button size="sm" variant="ghost" className="min-w-14 justify-center px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => void toggleClosed()}>
             {closed ? t('card.reopen') : t('card.close')}
           </Button>}
         </span>

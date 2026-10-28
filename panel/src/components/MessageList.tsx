@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type ReactNode } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 import { EmptyState } from '@/components/EmptyState'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
@@ -20,7 +20,7 @@ import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/sele
  * with the buttons to mark all, delete and cancel (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
  * `noneAction` is the one action of a list that has nothing yet (what fills it).
  */
-export function MessageList({ list, query, onClear, none, noneAction, hideArea = false, footer }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; noneAction?: ReactNode; hideArea?: boolean; footer?: ReactNode }) {
+export function MessageList({ list, query, onClear, none, noneAction, hideArea = false, footer, filtered }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; noneAction?: ReactNode; hideArea?: boolean; footer?: ReactNode; /** Whether the person narrowed the list. By default any filter or text does; the view of an area always carries its own area filter, which narrows nothing the person chose, so it says it. */ filtered?: boolean }) {
   const t = useT()
   const me = useMe().data
   const notices = useNotices()
@@ -31,10 +31,11 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
   const canMark = useCallback((m: Message | undefined) => !!m && !!me && !m.deleted_at, [me])
   const byId = useMemo(() => new Map(rows.map((m) => [m.id, m])), [rows])
   const scope = useMemo<SelectionScope>(() => ({ ...selection, canMark: (id) => canMark(byId.get(id)) }), [selection, canMark, byId])
-  const page = useRef<readonly string[]>([])
 
   // A marked row that left the list (deleted elsewhere, filtered out) is not deleted by Borrar.
   const marked = [...selection.marked].filter((id) => canMark(byId.get(id)))
+  // Every row of the list as filtered, not only the page on screen: Marcar todos marks them all and the strip counts against them.
+  const markable = useMemo(() => rows.filter((m) => canMark(m)).map((m) => m.id), [rows, canMark])
   const remove = async () => {
     const ids = marked
     if (!ids.length) return
@@ -55,7 +56,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
   const bar =
     marked.length > 0 ? (
       <SelectionFoot>
-        <SelectionBar className="border-b-0" selection={selection} busy={del.isPending} onAll={() => selection.add(page.current.filter((id) => canMark(byId.get(id))))} onDelete={() => void remove()} />
+        <SelectionBar className="border-b-0" selection={selection} total={markable.length} busy={del.isPending} onAll={() => selection.add(markable)} onDelete={() => void remove()} />
       </SelectionFoot>
     ) : null
 
@@ -65,12 +66,11 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
         rows={rows}
         rowKey={(m) => m.id}
         footer={bar || footer ? <>{bar}{footer}</> : undefined}
-        onShown={(keys) => (page.current = keys)}
         renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
         empty={
           list.isPending || list.isError ? (
             <LoadState query={list} rows={4} tall />
-          ) : query.q || query.filters.length > 0 ? (
+          ) : (filtered ?? (query.q || query.filters.length > 0)) ? (
             <EmptyState
               action={
                 <Button size="lg" onClick={onClear}>

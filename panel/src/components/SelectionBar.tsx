@@ -7,19 +7,21 @@ import type { Selection } from '@/lib/selection'
 import { cn } from '@/lib/utils'
 
 /**
- * The strip over a list while rows are marked (UD-253): how many, mark all (the rows of the page), delete and cancel.
+ * The strip over a list while rows are marked (UD-253): how many of the total, mark all (every row of the list, not only the page), delete and cancel.
  * Borrar deletes at once, without asking: what it deletes comes back with Deshacer in the notice.
  */
-export function SelectionBar({ selection, onAll, onDelete, busy, className }: { selection: Selection; onAll: () => void; onDelete: () => void; busy?: boolean; className?: string }) {
+export function SelectionBar({ selection, total, onAll, onDelete, busy, className }: { selection: Selection; /** How many rows the list has that can be marked; the count says how many of them are marked, and Marcar todos marks the rest. */ total?: number; onAll: () => void; onDelete: () => void; busy?: boolean; className?: string }) {
   const t = useT()
   return (
     <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className={cn('flex min-h-12 flex-wrap items-center gap-x-1 gap-y-1 border-b border-line bg-selected py-1 pl-2 pr-2 sm:gap-x-3 sm:py-2 sm:pl-10 sm:pr-4', className)}>
       <span className="pl-1 text-xs font-semibold tabular-nums sm:pl-0 sm:text-sm" aria-live="polite">
-        {t('bulk.marked', { n: selection.marked.size })}
+        {total !== undefined && total > selection.marked.size ? t('bulk.markedOf', { n: selection.marked.size, total }) : t('bulk.marked', { n: selection.marked.size })}
       </span>
-      <Button size="sm" variant="ghost" className="px-2 text-xs [word-spacing:0.12em] sm:px-3 sm:text-sm" onClick={onAll}>
-        {t('bulk.all')}
-      </Button>
+      {(total === undefined || total > selection.marked.size) && (
+        <Button size="sm" variant="ghost" className="px-2 text-xs [word-spacing:0.12em] sm:px-3 sm:text-sm" onClick={onAll}>
+          {t('bulk.all')}
+        </Button>
+      )}
       <span className="ml-auto flex items-center gap-1 sm:gap-2">
         <Button size="sm" variant="ghost" className="px-2 text-xs text-muted sm:px-3 sm:text-sm" onClick={() => selection.clear()}>
           {t('common.cancel')}

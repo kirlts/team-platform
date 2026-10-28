@@ -1,5 +1,5 @@
 import { ChevronRight, Plus, Trash2 } from '@/components/icons'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { descriptionRule } from '@/components/AreaTemplates'
@@ -110,7 +110,6 @@ function AreaList() {
   const notices = useNotices()
   const delMany = useDeleteAreas()
   const restoreMany = useRestoreAreas()
-  const page = useRef<readonly string[]>([])
   const liveIds = useMemo(() => new Set((areas.data ?? []).map((a) => a.id)), [areas.data])
   const marked = [...selection.marked].filter((id) => liveIds.has(id))
   const removeMarked = async () => {
@@ -147,12 +146,11 @@ function AreaList() {
           rowKey={(x) => `${x.kind}-${x.area.id}`}
           label={t('nav.areas')}
           renderRow={(x) => (x.kind === 'live' ? <AreaRow area={x.area} selection={selection} /> : <DeletedAreaRow area={x.area} />)}
-          onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('live-')).map((k) => k.slice(5)))}
           header={<AreaColumns />}
           footer={
             marked.length > 0 ? (
               <SelectionFoot>
-                <SelectionBar className="border-b-0" selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} />
+                <SelectionBar className="border-b-0" selection={selection} total={liveIds.size} busy={delMany.isPending} onAll={() => selection.add([...liveIds])} onDelete={() => void removeMarked()} />
               </SelectionFoot>
             ) : undefined
           }

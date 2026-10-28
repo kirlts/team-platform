@@ -71,8 +71,8 @@ describe('deleting a message (H-3700)', () => {
       await settled(page)
       assert.ok((await titles(page)).includes(title), 'the message is back')
       await page.getByRole('link', { name: new RegExp(`^${title}`) }).first().waitFor()
-      // The strip links to what came back.
-      await page.locator('[data-notice]').getByRole('link', { name: title }).click()
+      // The strip links to what came back, by its number: the title is not repeated in the notice.
+      await page.locator('[data-notice]').getByRole('link', { name: /^#\d+$/ }).click()
       await page.locator('main h1', { hasText: title }).waitFor()
     } finally {
       await context.close()

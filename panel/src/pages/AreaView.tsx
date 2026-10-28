@@ -14,6 +14,7 @@ import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { StateTabs } from '@/components/StateTabs'
 import { UndoButtons } from '@/components/UndoButtons'
+import { useNarrow } from '@/lib/useNarrow'
 import { MoreMenu } from '@/components/MoreMenu'
 import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
@@ -44,6 +45,7 @@ function AreaViewBody({ area }: { area: Area }) {
   const del = useDeleteArea()
   const restore = useRestoreArea()
   const notices = useNotices()
+  const narrow = useNarrow()
   const navigate = useNavigate()
   const summary = useSummary().data
   const templates = useTemplates(area.id)
@@ -99,6 +101,15 @@ function AreaViewBody({ area }: { area: Area }) {
     return undoStack.run({ label: t('areas.modelEdited'), redo: () => save.mutateAsync({ id: area.id, [field]: next }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
   }
 
+  // The owner, the models and the Guards: above the list from 768 px; on a phone the list is the first thing and this goes folded under it («Vista de un área»).
+  const settings = (
+    <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider}>
+      <AreaModels area={area} onChange={changeModel} />
+      {/* UD-295: next to the models, the Guards of the area: the walls, in a window of their own. */}
+      <AreaGuards area={area} canEdit={me?.role === 'editor'} />
+    </AreaOwner>
+  )
+
   return (
     <Page cols={12}>
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
@@ -118,20 +129,18 @@ function AreaViewBody({ area }: { area: Area }) {
           {me?.role === 'editor' && <MoreMenu items={[{ key: 'delete', label: t('areas.deleteArea'), icon: <Trash2 size={16} aria-hidden />, danger: true, testId: 'area-delete', onSelect: () => void remove() }]} />}
         </div>
       </header>
-      <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider}>
-        <AreaModels area={area} onChange={changeModel} />
-        {/* UD-295: next to the models, the Guards of the area: the walls, in a window of their own. */}
-        <AreaGuards area={area} canEdit={me?.role === 'editor'} />
-      </AreaOwner>
+      {!narrow && settings}
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
       <MessageList
         list={list}
         query={query}
         onClear={() => choose(null)}
         none={status ? t('areas.noMessagesState') : t('areas.noMessages')}
+        filtered={!!status}
         hideArea
         footer={
           <div className="flex flex-col gap-2 pt-4">
+            {narrow && <Fold title={t('areas.settings')}>{settings}</Fold>}
             <Fold title={t('areas.description')}>
               {/* The description edited in place on the left; the right side is the place of the area's color control. */}
               <div className="flex flex-wrap items-start gap-x-6 gap-y-3">

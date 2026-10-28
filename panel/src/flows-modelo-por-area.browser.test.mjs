@@ -31,6 +31,12 @@ async function session(viewport, who = 'ana') {
 const api = async (page, path) => (await page.request.fetch(`${origin}/api${path}`, { headers: { 'x-team-request': 'panel' } })).json()
 const areaOf = async (page, id) => { const r = await api(page, '/areas'); return (r.items ?? r).find((a) => a.id === id) }
 const saved = (page, pattern, method = 'PATCH') => page.waitForResponse((r) => r.url().includes(pattern) && r.request().method() === method)
+/** On a phone the owner, the models and the Guards are folded under the list («Vista de un área»); on a desktop they are above it. */
+const openSettings = async (page) => {
+  const fold = page.getByRole('button', { name: 'Responsable y modelos' })
+  await fold.or(page.getByTestId('area-owner')).first().waitFor()
+  if (await fold.count()) await fold.click()
+}
 
 describe('models and Guards of the area (UD-295)', () => {
   for (const [name, viewport] of SIZES) {
@@ -38,6 +44,7 @@ describe('models and Guards of the area (UD-295)', () => {
       const { page, context } = await session(viewport)
       try {
         await page.goto(`${origin}/areas/a-error`)
+        await openSettings(page)
         const models = page.getByTestId('area-owner')
         await models.waitFor()
         const light = models.getByLabel('Ligero', { exact: true })
@@ -53,6 +60,7 @@ describe('models and Guards of the area (UD-295)', () => {
         assert.ok(box.x >= 0 && box.x + box.width <= viewport.width, 'inside the window')
         if (SHOTS) await page.screenshot({ path: `${SHOTS}/area-modelos-${viewport.width}x${viewport.height}.png` })
         await page.reload()
+        await openSettings(page)
         await models.waitFor()
         assert.equal(await models.getByLabel('Mayor', { exact: true }).inputValue(), 'claude-opus-5-5', 'it survives a reload')
       } finally { await context.close() }
@@ -62,6 +70,7 @@ describe('models and Guards of the area (UD-295)', () => {
       const { page, context } = await session(viewport)
       try {
         await page.goto(`${origin}/areas/a-error`)
+        await openSettings(page)
         await page.getByTestId('area-guards-open').click()
         const guards = page.getByTestId('area-guards')
         await guards.waitFor()

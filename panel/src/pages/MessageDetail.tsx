@@ -134,7 +134,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         label: t('undo.undo'),
         run: async () => {
           await restore.mutateAsync(m.id)
-          notices.show({ text: t('detail.restored'), link: { to: `/messages/${m.id}`, label: m.title } })
+          notices.show({ text: t('detail.restored'), link: { to: `/messages/${m.id}`, label: `#${m.id}` } })
         },
       },
     })

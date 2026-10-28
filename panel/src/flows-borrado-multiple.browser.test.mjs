@@ -57,7 +57,7 @@ describe('mark several and delete them at once (UD-253)', () => {
       await page.getByText('3 mensajes borrados').first().waitFor()
       await noDialog(page)
       await page.waitForFunction((gone) => ![...document.querySelectorAll('main article h3')].some((h) => gone.includes(h.textContent.trim())), chosen)
-      assert.equal(await bar.count(), 0, 'the strip leaves with the deleted rows')
+      await bar.waitFor({ state: 'detached' }) // the strip leaves with the deleted rows
       await page.getByRole('button', { name: 'Deshacer' }).first().click()
       await page.getByText('3 mensajes restaurados').first().waitFor()
       await page.waitForFunction((back) => back.every((t) => [...document.querySelectorAll('main article h3')].some((h) => h.textContent.trim() === t)), chosen)

@@ -144,7 +144,7 @@ test('sso-redirect: Ana goes to the host, comes back with the signed answer, get
   })
   assert.equal(browser.statusCode, 403)
   assert.match(browser.headers['content-type'], /text\/html/)
-  assert.match(browser.body, /<h2[^>]*>Inicio de sesión rechazado<\/h2>/)
+  assert.match(browser.body, /<h1>Inicio de sesión rechazado<\/h1>/)
   assert.match(browser.body, /<a class="btn btn-gel[^"]*hit" href="\/api\/auth\/sso\/start">Reintentar<\/a>/)
   assert.match(browser.body, /notice-theme\.js/)
   assert.doesNotMatch(browser.body, /sso_invalid|navegador|respuesta del inicio/)
@@ -165,8 +165,8 @@ test('sso-redirect: Ana goes to the host, comes back with the signed answer, get
     headers: { accept: 'text/html', cookie: `${nonceCookie2.name}=${nonceCookie2.value}` }
   })
   assert.equal(notVerified.statusCode, 403)
-  assert.match(notVerified.body, /<h2[^>]*>Correo sin verificar<\/h2>/)
-  assert.match(notVerified.body, /Lo corrige quien administra el sitio del equipo/)
+  assert.match(notVerified.body, /<h1>Correo sin verificar<\/h1>/)
+  assert.match(notVerified.body, /lo corrige quien lo administra/)
   assert.doesNotMatch(notVerified.body, /<a /)
   await env.close()
 })
@@ -192,7 +192,8 @@ test('trusted-header: a page from an untrusted address or with no header ends on
       const { res, visited } = await navegar(env, start, headers)
       assert.equal(res.statusCode, 401, visited.join(' -> '))
       assert.match(res.headers['content-type'], /text\/html/)
-      assert.match(res.body, /<h2[^>]*>Sin acceso<\/h2>/)
+      assert.match(res.body, /<h1>Sin acceso<\/h1>/)
+      assert.match(res.body, /text-wrap:pretty/)
       assert.match(res.body, /La entrada a esta instalación es por el sitio del equipo/)
       assert.doesNotMatch(res.body, /cabecera|TRUSTED_PROXIES|dirección no confiable/)
       // The exit with no host site is «Reintentar»: the destination asked for, which asks again and ends on the same page.
@@ -202,7 +203,7 @@ test('trusted-header: a page from an untrusted address or with no header ends on
     }
   }
   const english = await navegar(env, '/', { 'accept-language': 'en-US,en;q=0.9' })
-  assert.match(english.res.body, /<h2[^>]*>No access<\/h2>/)
+  assert.match(english.res.body, /<h1>No access<\/h1>/)
   assert.match(english.res.body, />Retry<\/a>/)
   assert.match((await env.app.inject({ url: '/notice-theme.js' })).body, /team-theme/)
   // The API keeps answering JSON.

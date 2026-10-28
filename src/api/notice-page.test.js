@@ -34,8 +34,8 @@ test('sso rejected: a retry for an invalid answer, and no link for an email the 
   assert.match(invalid, /href="\/api\/auth\/sso\/start">Reintentar<\/a>/)
   const unverified = ssoRejectedPage(config(), request(), 'sso_unverified', '/api/auth/sso/start')
   assert.doesNotMatch(unverified, /<a /)
-  assert.match(unverified, /Lo corrige quien administra el sitio del equipo/)
-  assert.match(ssoRejectedPage(config(), request({ headers: { 'accept-language': 'en' } }), 'sso_unverified', '/e'), /Whoever administers the team site fixes it/)
+  assert.match(unverified, /lo corrige quien lo administra/)
+  assert.match(ssoRejectedPage(config(), request({ headers: { 'accept-language': 'en' } }), 'sso_unverified', '/e'), /whoever administers it fixes it/)
 })
 
 test('theme script: reads the panel key and the system preference', () => {

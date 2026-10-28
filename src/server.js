@@ -7,7 +7,7 @@
 // so SIGTERM finishes well within the 10 s that Docker allows.
 
 import { pathToFileURL } from 'node:url'
-import { loadConfig, loadEnvFile } from './config.js'
+import { identitySources, loadConfig, loadEnvFile } from './config.js'
 import { initializeDatabase, openInitialized } from './db/index.js'
 import { bootstrapFirstEditor, seedDefaults } from './db/seed.js'
 import { buildApp } from './api/index.js'
@@ -34,6 +34,10 @@ export async function start (config, { env = process.env } = {}) {
     logger.warn({ email: firstEditor.email }, firstEditor.generated
       ? `First editor created with password ${firstEditor.password} (shown only once; change it from Equipo).`
       : 'First editor created with the ADMIN_PASSWORD password.')
+  }
+  // The page «Sin acceso» of trusted-header offers «Reintentar» only, which gives the same page while the cause lasts: whoever runs the instance learns it here.
+  if (identitySources(config.identity).includes('trusted-header') && !config.identity.hostSiteUrl) {
+    logger.warn('trusted-header without HOST_SITE_URL: a person who arrives with no header sees «Sin acceso» with «Reintentar» only; HOST_SITE_URL adds the link to the host site.')
   }
   const telemetry = initTelemetry({ db, serviceVersion: config.version }) // after migrating and before the API and the worker
   const events = createEvents({ db })

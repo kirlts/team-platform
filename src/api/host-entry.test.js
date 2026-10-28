@@ -63,7 +63,7 @@ test('the request that arrives at the entry address is the installation itself: 
   const direct = await env.app.inject({ url: '/session/login?next=%2F', headers: { 'accept-language': 'en' } })
   assert.equal(direct.statusCode, 401)
   assert.match(direct.headers['content-type'], /text\/html/)
-  assert.match(direct.body, /<h2[^>]*>No access<\/h2>/)
+  assert.match(direct.body, /<h1>No access<\/h1>/)
   assert.match(direct.body, /entered through the team site/)
   assert.equal(direct.headers.location, undefined)
   const other = await env.app.inject({ url: '/session/login-otro' })

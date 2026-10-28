@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Identidad delegada, tercera ronda: con `trusted-header` sin `HOST_SITE_URL` el servidor escribe una advertencia al arrancar. Las páginas del servidor llevan el título de pantalla (no el rótulo en mayúsculas) y evitan la palabra sola en la última línea; «Correo sin verificar» es una oración. `docs/INSTALACION.md` corrige lo que `trusted-header` hace con la sesión propia (`__Host-session`) y con el cierre de sesión (204).
+
 - Identidad delegada, segunda ronda: las páginas que dibuja el servidor («Sin acceso», «Inicio de sesión rechazado», «Correo sin verificar») usan la hoja del panel (cielo, vidrio, Source Sans 3, marca, `THEME_CSS`, claro y oscuro) y un botón de 44 px o más. «Sin acceso» dice la causa sin vocabulario técnico (el detalle va al registro del servidor) y ofrece una salida: `HOST_SITE_URL` (variable nueva, vacía por omisión) o «Reintentar». Con el correo sin verificar la página dice que lo corrige quien administra el sitio del equipo y no ofrece enlace. Una respuesta firmada repetida con la sesión ya viva lleva a la página pedida, sin error.
 
 - Identidad delegada: con `trusted-header` (o cualquier anfitrión sin `HOST_LOGIN_URL` propia), una página pedida sin cabecera o desde una dirección no confiable ya no entra en un bucle de redirecciones: la petición que llega a la dirección de entrada de la propia instalación responde una página 401 «Sin acceso» (es/en). En `sso-redirect`, una respuesta repetida o inválida se muestra a un navegador como una página con el motivo y un enlace a la entrada; quien pide JSON sigue recibiendo el error JSON. `docs/INSTALACION.md` documenta `HOST_LOGIN_URL` en la sección de `tailscale serve`.

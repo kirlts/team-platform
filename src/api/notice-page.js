@@ -15,8 +15,7 @@ const TEXTS = {
     ssoTitle: 'Inicio de sesión rechazado',
     ssoInvalid: 'La respuesta del sitio del equipo no es válida o ya se usó',
     unverifiedTitle: 'Correo sin verificar',
-    ssoUnverified: 'El sitio del equipo no verificó el correo',
-    ssoUnverifiedWho: 'Lo corrige quien administra el sitio del equipo'
+    ssoUnverified: 'El sitio del equipo no verificó el correo y lo corrige quien lo administra'
   },
   en: {
     noAccess: 'No access',
@@ -26,8 +25,7 @@ const TEXTS = {
     ssoTitle: 'Sign-in rejected',
     ssoInvalid: 'The response of the team site is not valid or was already used',
     unverifiedTitle: 'Email not verified',
-    ssoUnverified: 'The team site did not verify the email',
-    ssoUnverifiedWho: 'Whoever administers the team site fixes it'
+    ssoUnverified: 'The team site did not verify the email and whoever administers it fixes it'
   }
 }
 
@@ -71,8 +69,8 @@ function page (config, lang, title, lines, action) {
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeHtml(title)}</title>` +
     `<script src="${escapeHtml(config.basePath)}notice-theme.js"></script>${links}</head>` +
     '<body><main data-screen="notice" role="alert" class="relative flex min-h-dvh items-center justify-center px-5"><div class="relative z-10 w-full max-w-sm">' +
-    `<section class="glass-strong leaf relative flex w-full flex-col gap-6 p-7"><h1>${WORDMARK}</h1><div class="flex flex-col gap-2"><h2 class="text-lg font-semibold">${escapeHtml(title)}</h2>` +
-    `${lines.map((l) => `<p>${escapeHtml(l)}</p>`).join('')}</div>${button}</section></div></main></body></html>`
+    `<section class="glass-strong leaf relative flex w-full flex-col gap-6 p-7"><div>${WORDMARK}</div><div class="flex flex-col gap-2"><h1>${escapeHtml(title)}</h1>` +
+    `${lines.map((l) => `<p style="text-wrap:pretty">${escapeHtml(l)}</p>`).join('')}</div>${button}</section></div></main></body></html>`
 }
 
 /** `next` of the request when it is a path of this site; the base path otherwise. */
@@ -97,6 +95,6 @@ export function noAccessPage (config, request) {
 export function ssoRejectedPage (config, request, code, startUrl) {
   const lang = pickLanguage(request)
   const t = TEXTS[lang]
-  if (code === 'sso_unverified') return page(config, lang, t.unverifiedTitle, [t.ssoUnverified, t.ssoUnverifiedWho], null)
+  if (code === 'sso_unverified') return page(config, lang, t.unverifiedTitle, [t.ssoUnverified], null)
   return page(config, lang, t.ssoTitle, [t.ssoInvalid], { href: startUrl, label: t.retry })
 }

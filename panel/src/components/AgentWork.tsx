@@ -26,7 +26,6 @@ export function AgentWork({ message }: { message: MessageDetail }) {
 function Work({ message }: { message: MessageDetail }) {
   const t = useT()
   const { duration } = useFormat()
-  const { duration } = useFormat()
   const timing = useMessageTiming(message.id)
   const retryRun = useRetryExecute(message.id)
   const d = timing.data

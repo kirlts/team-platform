@@ -20,6 +20,7 @@ export type QueryRoot =
   | 'analysis-settings'
   | 'publication'
   | 'jobs'
+  | 'session'
   | 'audit'
   | 'telemetry'
   | 'ops'
@@ -39,6 +40,8 @@ export const queryKeys = {
   summary: () => ['messages', 'summary'] as const,
   /** Under `messages`, so every change to a message refreshes it. */
   messageTiming: (messageId: string) => ['messages', 'timing', messageId] as const,
+  /** The steps of the session of a message's agent. Its own root: a step arrives every few seconds and must not make the lists stale. */
+  sessionSteps: (messageId: string) => ['session', messageId] as const,
   message: (id: string | undefined) => ['message', id] as const,
   input: (id: string | undefined) => ['inputs', id] as const,
   tray: () => ['inputs', 'tray'] as const,

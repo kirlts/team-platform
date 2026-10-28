@@ -5286,6 +5286,197 @@
         }
       }
     },
+    "/api/messages/{id}/session": {
+      "get": {
+        "summary": "Historial de la sesión de un mensaje",
+        "tags": [
+          "Messages"
+        ],
+        "description": "Los pasos de la sesión del agente en el orden en que ocurrieron: cada llamada a una herramienta con su hora, su `action` (clase legible: `read`, `edit`, `command`, `search`, `subagent`, `web`, `plan`, `capture`, `other`), el nombre técnico de la herramienta (`tool`) y el detalle técnico (`detail`: archivo, comando o patrón, cortado a 200 caracteres). Un paso sin `ended_at` sigue en curso mientras el trabajo corre. Un paso `capture` lleva la descripción que la sesión declaró al tomarla (`capture.alt`, conocida mientras corre) y, cuando el archivo ya está en el servidor y lo trae una respuesta del hilo, `capture.attachment`, que se abre con `GET /replies/attachments/:id`; antes es `null`. `max_steps` es el tope de pasos guardados por trabajo (`EXECUTE_STEPS_MAX`) y `capped` dice que algún trabajo lo alcanzó. Incluye los pasos de todos los trabajos `execute` del mensaje; `job_id` y `job_status` son los del último. 404 si el mensaje no existe o no tiene trabajo de ejecución. Cada paso nuevo avisa por el evento `message` con `reason: changed` y la raíz `session`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message_id": {
+                      "type": "string"
+                    },
+                    "job_id": {
+                      "type": "string"
+                    },
+                    "job_status": {
+                      "type": "string"
+                    },
+                    "phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "max_steps": {
+                      "type": "integer"
+                    },
+                    "capped": {
+                      "type": "boolean"
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "attempt": {
+                            "type": "integer"
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "ended_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "read",
+                              "edit",
+                              "command",
+                              "search",
+                              "subagent",
+                              "web",
+                              "plan",
+                              "capture",
+                              "other"
+                            ]
+                          },
+                          "tool": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "failed": {
+                            "type": "boolean"
+                          },
+                          "capture": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "alt": {
+                                "type": "string"
+                              },
+                              "place": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "as": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "masked": {
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "kind": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "attachment": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "mime": {
+                                    "type": "string"
+                                  },
+                                  "size": {
+                                    "type": "integer"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/messages/{id}/restore": {
       "post": {
         "summary": "Restaurar un mensaje borrado (su emisor o una persona del equipo)",

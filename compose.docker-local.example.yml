@@ -1,0 +1,11 @@
+# Host override for drivers/docker-local when the worker runs inside the container (docs/INSTALACION.md, «Con drivers/docker-local»).
+# The socket gives the worker the host's Docker: set the gid of the host's `docker` group (getent group docker) in group_add,
+# because the container's user (node) is not root.
+#
+#   COMPOSE_FILE=compose.yml:compose.driver.example.yml:compose.docker-local.example.yml
+services:
+  team-platform:
+    group_add:
+      - "${DOCKER_GID:-989}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

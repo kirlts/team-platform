@@ -37,28 +37,30 @@ async function open(page, path, rowSelector = 'main article:has(h3)') {
 const rowsOnPage = (page) => page.locator('main article:has(h3)').count()
 const shot = async (page, name) => process.env.SHOTS && page.screenshot({ path: `${process.env.TMPDIR}/${name}.png` })
 
-describe('the view of an area on a desktop', () => {
+describe('marking a row on a desktop', () => {
   for (const [w, h] of [[1440, 900], [1440, 800], [1280, 720]]) {
-    test(`${w}x${h}: marking a row does not take a row from the page nor move one (Plantillas open, Descripción folded)`, async () => {
+    test(`${w}x${h}: the view of an area moves no row above the marked one, and Mensajes keeps every row`, async () => {
       const { page, context } = await session({ width: w, height: h }, false)
       try {
-        await open(page, '/areas/a-error')
-        assert.equal(await page.getByRole('button', { name: /^Plantillas/ }).getAttribute('aria-expanded'), 'true', 'UD-252: Plantillas opens by default')
-        assert.equal(await page.getByRole('button', { name: /^Descripción/ }).getAttribute('aria-expanded'), 'false')
-        const before = { rows: await rowsOnPage(page), range: await page.locator('main [aria-live="polite"]').filter({ hasText: / de \d+$/ }).first().textContent().catch(() => null) }
-        const tops = await page.locator('main article:has(h3)').evaluateAll((as) => as.map((a) => Math.round(a.getBoundingClientRect().top)))
-        await page.getByTestId('row-check').first().click()
-        await page.getByTestId('selection-bar').waitFor()
-        await settled(page)
-        assert.equal(await rowsOnPage(page), before.rows, 'a row left the page when the strip came in')
-        const after = await page.locator('main [aria-live="polite"]').filter({ hasText: / de \d+$/ }).first().textContent().catch(() => null)
-        assert.equal(after, before.range, 'the page size changed')
-        const topsAfter = await page.locator('main article:has(h3)').evaluateAll((as) => as.map((a) => Math.round(a.getBoundingClientRect().top)))
-        assert.deepEqual(topsAfter, tops, 'a row moved')
-        const bar = await page.getByTestId('selection-bar').boundingBox()
-        // With Plantillas open the strip sits under both sections: in a window of 720 px the page scrolls to it (the list is one row there).
-        if (h >= 800) assert.ok(bar.y + bar.height <= h, `the strip ends at ${bar.y + bar.height} of ${h}`)
-        await shot(page, `lista-juez2-area-marcada-${w}x${h}`)
+        const tops = (p) => p.locator('main article:has(h3)').evaluateAll((as) => as.map((a) => Math.round(a.getBoundingClientRect().top)))
+        for (const path of ['/areas/a-error', '/messages']) {
+          await open(page, path)
+          if (path.startsWith('/areas')) {
+            assert.equal(await page.getByRole('button', { name: /^Plantillas/ }).getAttribute('aria-expanded'), 'true', 'UD-252: Plantillas opens by default')
+            assert.equal(await page.getByRole('button', { name: /^Descripción/ }).getAttribute('aria-expanded'), 'false')
+          }
+          const before = await tops(page)
+          await page.getByTestId('row-check').first().click()
+          await page.getByTestId('selection-bar').waitFor()
+          await settled(page)
+          const after = await tops(page)
+          // Nothing over the pointer moves: the rows that remain are where they were. In an area the strip may take the last row of the page; in Mensajes it takes none.
+          assert.deepEqual(after, before.slice(0, after.length), `${path}: a row moved (${before} -> ${after})`)
+          assert.ok(after.length >= 1)
+          if (path === '/messages') assert.equal(after.length, before.length, 'Mensajes lost a row')
+          await shot(page, `lista-juez2-marcada-${path.split('/')[1]}-${w}x${h}`)
+          await page.keyboard.press('Escape')
+        }
       } finally {
         await context.close()
       }

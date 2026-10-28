@@ -41,19 +41,11 @@ export function SelectionBar({ selection, total, onAll, onDelete, busy, classNam
  */
 export function SelectionFoot({ children }: { children: ReactNode }) {
   return (
-    <div className="pt-2 md:h-14 max-md:h-16">
+    <div className="pt-2 max-md:h-16">
       {/* `data-selection-float`: on a phone the notice rises over the strip instead of covering it (styles.css). */}
       <div data-selection-float className="glass leaf overflow-hidden max-md:fixed max-md:inset-x-3 max-md:bottom-3 max-md:z-20 max-md:shadow-[var(--shadow-pop)]">{children}</div>
     </div>
   )
-}
-
-/**
- * The place the strip will take, kept empty while nothing is marked, from 768 px: a list that pages by the room it has must not lose a row when the
- * strip comes in under it, nor change its page size (DISENO.md «Tarjeta de lista»). On a phone the list does not page and the strip floats, so there is no slot.
- */
-export function SelectionSlot() {
-  return <div aria-hidden data-testid="selection-slot" className="h-14 shrink-0 max-md:hidden" />
 }
 
 /**

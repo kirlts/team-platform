@@ -106,8 +106,7 @@ describe('rows of one height (UD-241)', () => {
       try {
         await open(page, path)
         const list = await rows(page)
-        // The view of an area keeps the place of the strip of marked rows (DISENO.md «Tarjeta de lista»). Plantillas is folded by `open` above to compare rows: 2 are drawn at 1440x900 (with Plantillas open, 1).
-        assert.ok(list.length >= (path.startsWith('/areas') ? 2 : 3), `${list.length} rows drawn`)
+        assert.ok(list.length >= 3, `${list.length} rows drawn`)
         // Inicio has two lists in columns of different widths: the rows are compared within each list (by their left edge).
         const byList = new Map()
         for (const r of list) byList.set(Math.round(r.heading.left), [...(byList.get(Math.round(r.heading.left)) ?? []), r])

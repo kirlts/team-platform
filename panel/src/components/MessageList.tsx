@@ -3,7 +3,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
-import { SelectionBar, SelectionFoot, SelectionSlot } from '@/components/SelectionBar'
+import { SelectionBar, SelectionFoot } from '@/components/SelectionBar'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import type { MessageQuery, Message } from '@team-platform/client'
@@ -58,8 +58,6 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
       <SelectionFoot>
         <SelectionBar className="border-b-0" selection={selection} total={markable.length} busy={del.isPending} onAll={() => selection.add(markable)} onDelete={() => void remove()} />
       </SelectionFoot>
-    ) : markable.length > 0 ? (
-      <SelectionSlot />
     ) : null
 
   return (
@@ -67,8 +65,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
       <FitList
         rows={rows}
         rowKey={(m) => m.id}
-        // The sections of a view (the folds of an area) sit right under the list, as they did; the strip, or the place kept for it, goes after them.
-        footer={bar || footer ? <>{footer}{bar}</> : undefined}
+        footer={bar || footer ? <>{bar}{footer}</> : undefined}
         renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
         empty={
           list.isPending || list.isError ? (

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { useInRouterContext, useLocation, useNavigate, useSearchParams } from 'react-router'
 
 /**
@@ -91,7 +91,8 @@ function useRoutedWindow(id: string) {
  * view, or null), now open because the address says `?v=<key>`. The index stays in the component; an address pasted in another tab opens on the first.
  */
 export function useUrlGallery(key: string) {
-  const win = useUrlWindow(key)
+  // The same media can be drawn twice on a page (a message and its reply in a list): each gallery is its own window, so each carries its place in the tree.
+  const win = useUrlWindow(`${key}:${useId()}`)
   const [index, setIndex] = useState(0)
   const open: number | null = win.open ? index : null
   const setOpen = (to: number | null) => {

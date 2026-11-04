@@ -82,7 +82,8 @@ describe('Equipo', () => {
         await row.waitFor()
         const url = page.url()
         let navigations = 0
-        page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations++ })
+        // Only loads of a document count: the window of a profile is a state of the address (`?v=`), a change of history without a load (TP-14).
+        page.on('load', () => { navigations++ })
         const before = await heights(page)
         const range = await page.getByText(/^\d+–\d+ de \d+$/).allInnerTexts()
         // A click on the empty part of the row, then on the name (the Editor edits it in place) and away.

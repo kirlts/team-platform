@@ -58,7 +58,6 @@ describe('Atrás closes a window and stays in the page (TP-14)', () => {
     const { page, context } = await session()
     try {
       const path = await firstAreaPath(page)
-      await page.goto(`${origin}${path}`)
       await page.goto(`${origin}${path}?v=guards`)
       await dialog(page).waitFor()
       await page.keyboard.press('Escape')

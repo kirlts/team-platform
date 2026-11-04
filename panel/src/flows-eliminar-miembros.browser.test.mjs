@@ -1,5 +1,5 @@
 // UD-240, H-3703: an Editor deletes a member from Equipo, in a real browser against dev-server.mjs serving panel/dist
-// (`npm run test:flows`). UD-253: «Eliminar» deletes with one click and no step that confirms it; UD-292: what the member published stays
+// (`npm run test:flows`). Soft-lock TP-02: nobody restores a member, so «Eliminar» asks one confirmation that names the person (UD-253 asked for none); UD-292: what the member published stays
 // under «Miembro eliminado» and the notice says how much stays. «Desactivar» stays as the other way out.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
@@ -56,6 +56,12 @@ async function act(page, row, name, entry) {
   const menu = await openActions(page, row, name)
   await menu.getByRole('menuitem', { name: entry }).click()
 }
+/** The confirmation of a deletion: a window that names the person, and its button with the same words. */
+async function confirmDelete(page, name) {
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('Pierde el acceso y no se restaura.', { exact: false }).waitFor()
+  await dialog.getByRole('button', { name: `Eliminar a ${name}` }).click()
+}
 const members = (page) => page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()))
 
 describe('Eliminar un miembro', () => {
@@ -81,7 +87,7 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('without history: one click on «Eliminar» removes the row, with no dialog and no step that confirms it', async () => {
+  test('without history: «Eliminar» asks for a confirmation that names the person, then removes the row; cancelling keeps it', async () => {
     const { page, context } = await session('ana')
     try {
       // Every sample member is assigned to some message, which is history: a fresh member is the one without any.
@@ -94,8 +100,12 @@ describe('Eliminar un miembro', () => {
       await settled(page)
       const row = await findRow(page, 'nuevo@dev.invalid')
       await act(page, row, 'Nuevo Sin Historial', 'Eliminar a Nuevo Sin Historial')
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click()
+      await page.getByRole('dialog').waitFor({ state: 'detached' })
+      assert.ok((await members(page)).some((m) => m.email === 'nuevo@dev.invalid'), 'cancelling deleted him')
+      await act(page, row, 'Nuevo Sin Historial', 'Eliminar a Nuevo Sin Historial')
+      await confirmDelete(page, 'Nuevo Sin Historial')
       await page.locator('[data-notice]').getByText('Nuevo Sin Historial eliminado', { exact: true }).waitFor()
-      assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
       await settled(page)
       assert.equal(await rowOf(page, 'nuevo@dev.invalid').count(), 0, 'the row is still there')
       assert.ok(!(await members(page)).some((m) => m.email === 'nuevo@dev.invalid'), 'the server still lists him')
@@ -104,7 +114,7 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('with history: one click deletes him, his messages and replies stay under «Miembro eliminado», and the notice gives the figures', async () => {
+  test('with history: the confirmation deletes him, his messages and replies stay under «Miembro eliminado», and the notice gives the figures', async () => {
     const { page, context } = await session('ana')
     try {
       const expected = await page.evaluate(async () => {
@@ -120,8 +130,8 @@ describe('Eliminar un miembro', () => {
       assert.ok(expected.messages > 0 && expected.replies > 0, 'Bruno has no history in the sample data')
       const row = rowOf(page, 'bruno@dev.invalid')
       await act(page, row, 'Bruno Prueba', 'Eliminar a Bruno Prueba')
+      await confirmDelete(page, 'Bruno Prueba')
       await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Conserva ${expected.messages} ${expected.messages === 1 ? 'mensaje' : 'mensajes'} y ${expected.replies} ${expected.replies === 1 ? 'respuesta' : 'respuestas'}`, { exact: true }).waitFor()
-      assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
       await settled(page)
       assert.equal(await rowOf(page, 'bruno@dev.invalid').count(), 0)
       assert.equal(await page.getByText('Miembro eliminado', { exact: true }).count(), 0, 'the placeholder is listed in Equipo')

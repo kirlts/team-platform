@@ -475,6 +475,7 @@ export const en: Record<MessageKey, Message> = {
   'team.reactivateOf': 'Reactivate {name}',
   'team.delete': 'Delete',
   'team.deleteOf': 'Delete {name}',
+  'team.deleteConsequence': 'They lose access and it cannot be restored. Their messages and replies stay with the author “{name}”',
   'team.deleteHint': 'Their messages and replies stay with the author “{name}”',
   'team.removedName': 'Deleted member',
   'team.deletedDone': '{name} deleted',

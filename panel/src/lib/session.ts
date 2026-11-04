@@ -4,6 +4,7 @@
 // upload) is the event: it makes «me» ask again, the server answers 401, and the app draws the entry (or goes to the host's).
 import type { QueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@team-platform/client'
+import { clearDraftsOf, readDraft, writeDraft } from './useDraft'
 
 type Listener = () => void
 
@@ -16,7 +17,8 @@ export function checkSession(): void {
 
 const ENDED_KEY = 'team-session-ended'
 const LOST_KEY = 'team-action-lost'
-const DRAFT_KEY = 'team-draft-text'
+/** The text of the send bar: the same entry `useDraft` reads in the bar (TP-04). */
+export const COMPOSE_DRAFT_KEY = 'team-draft:compose'
 
 /** What the ended session carried, said again after signing in: the email, whose it was, whether a change was on its way and how many files of a send were lost. */
 interface Ended {
@@ -94,31 +96,17 @@ export function takeLostAction(memberId: string): { files: number } | null {
  * member, so another person who signs in on the same tab finds an empty bar and the first one finds their text again.
  */
 export function loadDraftText(memberId: string | undefined): string {
-  if (!memberId) return ''
-  try {
-    const all = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}') as Record<string, unknown>
-    return typeof all[memberId] === 'string' ? (all[memberId] as string) : ''
-  } catch {
-    return ''
-  }
+  const value = readDraft<unknown>(COMPOSE_DRAFT_KEY, memberId, '')
+  return typeof value === 'string' ? value : ''
 }
 
 export function saveDraftText(text: string, memberId: string | undefined): void {
-  if (!memberId) return
-  try {
-    const all = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}') as Record<string, unknown>
-    if (text) all[memberId] = text
-    else delete all[memberId]
-    if (Object.keys(all).length) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all))
-    else sessionStorage.removeItem(DRAFT_KEY)
-  } catch {
-    // The draft just does not survive.
-  }
+  writeDraft(COMPOSE_DRAFT_KEY, memberId, text, '')
 }
 
-/** Signing out takes the draft of whoever signs out; the drafts of others stay under their own ids, which nobody else reads. */
+/** Signing out takes every draft of whoever signs out (the bar and the replies); the drafts of others stay under their own ids, which nobody else reads. */
 export function clearDrafts(memberId: string | undefined): void {
-  saveDraftText('', memberId)
+  clearDraftsOf(memberId)
   drop(LOST_KEY)
 }
 

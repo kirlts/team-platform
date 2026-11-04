@@ -23,7 +23,7 @@ const countCol = 'flex items-center justify-end pr-2.5'
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
     <div data-nav-row className={rowBox}>
-      <NavLink to={to} end={end} onClick={onNavigate} className={link}>
+      <NavLink to={to} end={end} onClick={onNavigate} replace={onNavigate !== undefined} className={link}>
         {icon}
         <span className="min-w-0 break-words leading-tight">{children}</span>
       </NavLink>
@@ -36,6 +36,7 @@ function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon
 }
 
 /** Sidebar: user, views, areas with what is pending in each (the Editor manages areas) and Configuración at the foot. */
+/** `onNavigate` is given by the menu of a phone (a window): a link followed from it takes the place of the window's entry in the history, so Atrás returns to the page that opened the menu (TP-14). */
 export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => void; onLogout: () => void; onHide?: () => void }) {
   const t = useT()
   const me = useMe().data
@@ -78,7 +79,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
       {editor && (
         <div className="flex min-h-0 shrink flex-col">
           <div data-nav-row className={cn(rowBox, 'shrink-0')}>
-            <NavLink to="/areas" onClick={onNavigate} className={cn(link, inAreas && 'text-accent-deep')}>
+            <NavLink to="/areas" onClick={onNavigate} replace={onNavigate !== undefined} className={cn(link, inAreas && 'text-accent-deep')}>
               <Layers size={16} aria-hidden />
               <span className="min-w-0 break-words leading-tight">{t('nav.areas')}</span>
             </NavLink>
@@ -104,7 +105,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
             <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
                 <li key={a.id} data-nav-row className={cn(rowBox, 'min-h-11 md:min-h-8')}>
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={link}>
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} replace={onNavigate !== undefined} className={link}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 truncate leading-tight" data-ellipsis-ok="UD-315" /* justified: the area name gives way to its counts, one line and the whole name in its title (UD-315, Martín 2026-10-28) */ title={a.title}>{a.title}</span>
@@ -180,7 +181,7 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
         return (
           <span key={status} data-count-slot={status} className="nav-slot">
             {counts[status] > 0 && (
-              <Link to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
+              <Link to={areaMessagesPath(areaId, status)} onClick={onNavigate} replace={onNavigate !== undefined} aria-label={scope} title={scope} data-count-status={status} className="nav-count">
                 <StateMark status={status} n={counts[status]} showWord={false} plain className="gap-0.5 border-0 px-0" />
               </Link>
             )}

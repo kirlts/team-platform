@@ -6,6 +6,7 @@ import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
+import { useUrlPage } from '@/lib/useUrlState'
 import { parseQuery, serializeQuery, type MessageQuery } from '@team-platform/client'
 import { useMe, useMessages } from '@team-platform/client/react'
 
@@ -16,6 +17,8 @@ export function Messages() {
   const query = useMemo(() => parseQuery(params), [params])
   const list = useMessages({ query, meId: me?.id ?? '', enabled: !!me })
 
+  // The search and the filters replace the entry (they refine this view); the page is its own entry, and a new filter starts on the first page (lib/useUrlState.ts).
+  const page = useUrlPage()
   const change = (next: MessageQuery) => setParams(serializeQuery(next), { replace: true })
 
   return (
@@ -23,6 +26,7 @@ export function Messages() {
       <PageHeader title={t('nav.messages')} count={list.data ? t('messages.count', { n: list.data.length }) : undefined} />
       <FilterBar query={query} onChange={change} />
       <MessageList
+        page={page}
         list={list}
         query={query}
         onClear={() => change({ ...query, q: '', filters: [] })}

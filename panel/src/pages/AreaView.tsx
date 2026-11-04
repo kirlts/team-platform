@@ -15,6 +15,7 @@ import { Page } from '@/components/Page'
 import { StateTabs } from '@/components/StateTabs'
 import { UndoButtons } from '@/components/UndoButtons'
 import { useNarrow } from '@/lib/useNarrow'
+import { useUrlPage } from '@/lib/useUrlState'
 import { MoreMenu } from '@/components/MoreMenu'
 import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
@@ -62,6 +63,8 @@ function AreaViewBody({ area }: { area: Area }) {
     if (hash === '#plantillas') document.getElementById('plantillas')?.scrollIntoView({ block: 'start' })
   }, [hash, templates.isSuccess])
 
+  // The state replaces the entry (it refines this view) and starts on the first page; the page is its own entry (lib/useUrlState.ts).
+  const page = useUrlPage()
   const choose = (next: MessageStatus | null) =>
     setParams(serializeQuery({ q: '', filters: next ? upsertFilter(chosen.filters, { prop: 'status', op: 'eq', value: next }) : removeFilter(chosen.filters, 'status') }), { replace: true })
 
@@ -132,6 +135,7 @@ function AreaViewBody({ area }: { area: Area }) {
       {!narrow && settings}
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
       <MessageList
+        page={page}
         list={list}
         query={query}
         onClear={() => choose(null)}

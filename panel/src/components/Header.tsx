@@ -5,6 +5,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useFormat, useT } from '@/i18n'
 import { StatusBar } from '@/components/StatusBar'
 import { useEventsSnapshot, useEventsStore } from '@team-platform/client/react'
+import { firstWords } from '@/lib/first-words'
+import { useUploads } from '@/lib/uploads'
 import { cn } from '@/lib/utils'
 import { Wordmark } from './Wordmark'
 import { useLookups } from './lookups'
@@ -48,6 +50,9 @@ function NotificationBell() {
   const snap = useEventsSnapshot()
   const store = useEventsStore()
   const { memberName } = useLookups()
+  // A send that could not go up is news from any screen (TP-05): it stays here until Inicio shows it with its Reintentar.
+  const failed = useUploads().uploads.filter((u) => u.error)
+  const marked = snap.unread + failed.length
   return (
     <Popover onOpenChange={(open) => open && store.markRead()}>
       <PopoverTrigger asChild>
@@ -56,24 +61,32 @@ function NotificationBell() {
           type="button"
           data-testid="bell"
           data-unread={snap.unread}
-          aria-label={snap.unread > 0 ? t('bell.unread', { n: snap.unread }) : t('bell.label')}
+          aria-label={marked > 0 ? t('bell.unread', { n: marked }) : t('bell.label')}
           title={t('bell.label')}
           className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-fg after:absolute after:-inset-1 after:content-[''] hover:bg-glass md:h-10 md:w-10 md:after:inset-0"
         >
           <Bell size={22} aria-hidden strokeWidth={2} />
-          {snap.unread > 0 && (
+          {marked > 0 && (
             <span aria-hidden data-testid="bell-unread" className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-fg px-1 text-xs font-bold leading-none tabular-nums text-bg">
-              {snap.unread}
+              {marked}
             </span>
           )}
         </button>
       </PopoverTrigger>
       {/* Below the bar with room between them, and never taller than the space that is left: on a phone the list scrolls inside instead of being cut (J3-A-13, J3-A-15). */}
       <PopoverContent align="end" sideOffset={12} collisionPadding={8} className="flex max-h-[var(--radix-popover-content-available-height)] w-80 flex-col p-0">
-        {snap.notices.length === 0 ? (
+        {snap.notices.length === 0 && failed.length === 0 ? (
           <p className="px-3 py-4 text-center text-muted">{t('bell.none')}</p>
         ) : (
           <ul data-lane="bell-list" aria-label={t('bell.label')} className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+            {failed.map((u) => (
+              <li key={u.key} data-testid="bell-upload-failed" className="border-b border-line last:border-b-0">
+                <Link to="/" className="flex flex-col gap-0.5 px-3 py-2 hover:bg-hover">
+                  <span className="break-words text-sm font-medium">{t('bell.uploadFailed', { text: u.draft.text.trim() ? firstWords(u.draft.text, 8) : t('tray.onlyMedia') })}</span>
+                  <span className="text-xs text-muted">{u.error}</span>
+                </Link>
+              </li>
+            ))}
             {snap.notices.map((n) => (
               <li key={n.key} className="border-b border-line last:border-b-0">
                 <Link to={`/messages/${n.message_id}`} className="flex flex-col gap-0.5 px-3 py-2 hover:bg-hover">

@@ -47,6 +47,7 @@ export const en: Record<MessageKey, Message> = {
   'mention.list': 'Members',
   'mention.none': 'No matches',
   'bell.none': 'No notifications',
+  'bell.uploadFailed': 'Not sent: {text}',
 
   'pager.range': '{from}–{to} of {total}',
   'pager.previous': 'Previous page',

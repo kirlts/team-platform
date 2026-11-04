@@ -309,7 +309,8 @@ function ProposalEditor({
 
   // What is missing per message: computed with each one's template.
   const [missing, setMissing] = useState<Record<number, string[]>>({})
-  const missingTotal = Object.values(missing).reduce((n, list) => n + list.length, 0)
+  // Only the rows that exist count: an entry whose row was removed must not keep «Enviar» off (TP-06).
+  const missingTotal = Object.entries(missing).reduce((n, [at, list]) => (Number(at) < count ? n + list.length : n), 0)
 
   /** «Ana, Beto y Carla»: the people the messages go to, each once. */
   const recipientsText = (messages: ProposalMessage[]) => {
@@ -470,7 +471,11 @@ function ProposalRow({
   const required = (v: string) => (v.trim() ? null : t('common.required'))
   const fieldDefs = useMemo(() => parseTemplateFields(template?.body_markdown ?? ''), [template?.body_markdown])
   const missingNames = missingRequired(m.fields, fieldDefs).join(',')
-  useEffect(() => onMissing(missingNames ? missingNames.split(',') : []), [missingNames]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The row takes back what it reported when it leaves (TP-06): the row is keyed by position, so a removed row would otherwise leave its names behind.
+  useEffect(() => {
+    onMissing(missingNames ? missingNames.split(',') : [])
+    return () => onMissing([])
+  }, [missingNames]) // eslint-disable-line react-hooks/exhaustive-deps
   const only = total === 1
 
   // Folded by default (UD-257): the row says the area, the title in one line and who it is for; opened, everything that is edited here.

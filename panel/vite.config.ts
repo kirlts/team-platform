@@ -42,6 +42,8 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     environment: 'jsdom',
+    // jsdom lives once per worker: what a test leaves in sessionStorage (a draft) would reach the next file. Each test starts without it.
+    setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     maxWorkers: 2,
     // Each file keeps its own isolated context, but jsdom is created once per worker and not once per file: 259 tests took 15.4 s (jsdom was 52% of it) and take 4.1 s, measured 2026-10-25 on four cores.

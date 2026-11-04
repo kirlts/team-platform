@@ -2,12 +2,12 @@ import type { Area, Guard } from '@team-platform/client'
 import { useSaveArea } from '@team-platform/client/react'
 import { Trash2 } from '@/components/icons'
 import { EditableText } from '@/components/EditableText'
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useT } from '@/i18n'
 import { useUndo } from '@/lib/undo'
+import { useUrlWindow } from '@/lib/useUrlState'
 
 /**
  * The Guards of an area (UD-295), under its description, which describes its space: its walls, the only boolean thing, each with the mechanism that holds it and whether it is about a person. The Editor writes them (configured
@@ -19,7 +19,9 @@ export function AreaGuards({ area, canEdit }: { area: Area; canEdit: boolean }) 
   const save = useSaveArea()
   const undo = useUndo()
   const guards: Guard[] = area.guards ?? []
-  const [open, setOpen] = useState(false)
+  // The window of the Guards is `?v=guards`: Atrás closes it (TP-14).
+  const win = useUrlWindow('guards')
+  const { open, setOpen } = win
   const change = (next: Guard[]) => {
     const prev = guards
     return undo.run({ label: t('areas.guardsEdited'), redo: () => save.mutateAsync({ id: area.id, guards: next }), undo: () => save.mutateAsync({ id: area.id, guards: prev }) })
@@ -28,7 +30,7 @@ export function AreaGuards({ area, canEdit }: { area: Area; canEdit: boolean }) 
   const required = (v: string) => (v.trim() === '' ? t('common.required') : null)
   return (
     <>
-      <Button type="button" variant="secondary" size="sm" className="h-10 px-3" data-testid="area-guards-open" onClick={() => setOpen(true)}>
+      <Button type="button" variant="secondary" size="sm" className="h-10 px-3" data-testid="area-guards-open" onClick={win.show}>
         {t('areas.guards')}{guards.length > 0 && <span className="ml-1.5 tabular-nums text-muted">{guards.length}</span>}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>

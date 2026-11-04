@@ -29,6 +29,18 @@ export function useMediaDraft() {
 
   useEffect(() => () => localsRef.current.forEach((l) => URL.revokeObjectURL(l.url)), [])
 
+  // Leaving the screen with the microphone open (a link of the sidebar, Atrás) stops the recording: the recorder and its stream would go on, with the
+  // browser's indicator lit, and nothing on screen to stop them (TP-13). A recording whose permission answers after leaving is stopped on arrival.
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      recorder.current?.cancel()
+      recorder.current = null
+    }
+  }, [])
+
   useEffect(() => {
     if (!recording) return
     const tick = setInterval(() => setRecording((r) => (r ? { seconds: r.seconds + 1 } : r)), 1000)
@@ -78,7 +90,12 @@ export function useMediaDraft() {
       return
     }
     try {
-      recorder.current = await startRecording()
+      const started = await startRecording()
+      if (!mounted.current) {
+        started.cancel()
+        return
+      }
+      recorder.current = started
       setRecording({ seconds: 0 })
     } catch {
       setProblem('microphone')

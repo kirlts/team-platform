@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useUrlGallery } from '@/lib/useUrlState'
 import { X } from '@/components/icons'
 import { useT } from '@/i18n'
 import { captureLabel } from '@/lib/capture-label'
@@ -29,7 +29,7 @@ export function RemoveFile({ name, onRemove, disabled }: { name?: string; onRemo
 
 export function ReplyMedia({ items, tools, onRemove, removing }: { items: readonly Attachment[]; /** The author's own controls under the media: add (UD-279). */ tools?: React.ReactNode; /** The author's own reply: each file carries its «Quitar». */ onRemove?: (file: Attachment) => void; removing?: boolean }) {
   const t = useT()
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useUrlGallery(`media:reply:${items[0]?.id ?? ''}`)
   if (items.length === 0 && !tools) return null
   const gallery = toGalleryItems(items, 'reply')
   const pictures = gallery.map((g, index) => ({ g, index })).filter(({ g }) => g.kind === 'image' && g.src)

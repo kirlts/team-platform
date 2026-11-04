@@ -5,7 +5,7 @@ import type { Attachment } from '@team-platform/client'
 import { client } from '@/lib/client'
 import { MEDIA_KEY } from '@/lib/media'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useUrlGallery } from '@/lib/useUrlState'
 import { toGalleryItems } from '@/lib/gallery'
 import { MediaGalleryDialog } from './MediaGallery'
 import { Thumb } from './Thumb'
@@ -16,7 +16,7 @@ import { Thumb } from './Thumb'
  */
 export function AttachmentPicker({ all, selected, onChange, max = 3, onUpload, uploading = false }: { all: Attachment[]; selected: string[]; onChange: (ids: string[]) => void; max?: number; onUpload?: () => void; uploading?: boolean }) {
   const t = useT()
-  const [looking, setLooking] = useState<number | null>(null)
+  const [looking, setLooking] = useUrlGallery(`media:picker:${all[0]?.id ?? ''}`)
   const included = all.filter((a) => selected.includes(a.id))
   const shown = included.slice(0, max)
   const hidden = included.length - shown.length

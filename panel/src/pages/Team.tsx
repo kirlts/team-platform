@@ -19,6 +19,7 @@ import { useNotices } from '@/lib/notices'
 import type { Member, Role } from '@team-platform/client'
 import { useCreateMember, useDeleteMember, useMe, useMembers, useSaveMember, useSetMemberPassword } from '@team-platform/client/react'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
+import { useUrlWindow } from '@/lib/useUrlState'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
@@ -97,7 +98,9 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
   const local = !useMe().data?.provider?.startsWith('delegated')
   const [problem, setProblem] = useState<string | null>(null)
   /** The whole profile, open in a window over the list: the row keeps its height and the list its page. */
-  const [profileOpen, setProfileOpen] = useState(false)
+  // One profile open at a time, by the address (`?v=profile:<member>`): Atrás closes it and the list keeps its page (TP-14).
+  const profileWindow = useUrlWindow(`profile:${member.id}`)
+  const { open: profileOpen, setOpen: setProfileOpen } = profileWindow
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
   const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
@@ -184,7 +187,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           data-profile-extract
           aria-haspopup="dialog"
           aria-label={t('team.profileOf', { name: member.name })}
-          onClick={() => setProfileOpen(true)}
+          onClick={profileWindow.show}
           className="-mx-1.5 min-w-0 rounded-md px-1.5 py-1 text-left text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent max-lg:col-span-2 max-lg:row-start-2 max-lg:ml-[38px] pointer-coarse:min-h-11"
         >
           <span className={`block break-words ${extract ? 'text-fg' : 'text-faint'}`}>

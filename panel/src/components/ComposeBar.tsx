@@ -3,7 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { useMe, useMembers } from '@team-platform/client/react'
-import { loadDraftText, saveDraftText } from '@/lib/session'
+import { COMPOSE_DRAFT_KEY } from '@/lib/session'
+import { useDraft } from '@/lib/useDraft'
+import { useLeaveWarning } from '@/lib/useLeaveWarning'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
@@ -54,17 +56,21 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
  * the analysis go on in the tray, never here; so does a failed upload, with its own Reintentar.
  */
 /** «Enviar» is glass while there is nothing to send and gel once there is (DISENO.md, «Jerarquía y distribución»): a disabled gel would be the only gel of the screen at rest. */
+const NO_RECIPIENTS: string[] = []
+
 export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void }) {
   const t = useT()
   const draft = useMediaDraft()
   const me = useMe().data
-  const [text, setText] = useState(() => loadDraftText(me?.id))
-  useEffect(() => saveDraftText(text, me?.id), [text, me?.id])
+  // The text, «Enviar como» and «Para» are a draft that outlives the bar: a link of the sidebar or Atrás unmounts it (TP-04). The files cannot be kept: leaving by
+  // reload or closing the tab asks first.
+  const { value: text, setValue: setText } = useDraft(COMPOSE_DRAFT_KEY, '', me?.id)
   /** The member chosen in «Enviar como»; empty means the member of the session (the default, UD-255). */
-  const [sendAs, setSendAs] = useState('')
+  const { value: sendAs, setValue: setSendAs } = useDraft(`${COMPOSE_DRAFT_KEY}:as`, '', me?.id)
   const author = sendAs || me?.id || ''
   /** «Para» (UD-291): the members the send is addressed to. Empty means the automatic routing assigns, as it always did. */
-  const [recipients, setRecipients] = useState<string[]>([])
+  const { value: recipients, setValue: setRecipients } = useDraft<string[]>(`${COMPOSE_DRAFT_KEY}:to`, NO_RECIPIENTS, me?.id)
+  useLeaveWarning(!draft.empty || !!draft.recording)
   const members = useMembers().data ?? []
   /**
    * Changing the author drops that member from «Para»: a message is not sent to whoever writes it (UD-300). The effect is said under the controls, where the
@@ -73,7 +79,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   const [left, setLeft] = useState<{ name: string; sendAs: string; recipients: string[] } | null>(null)
   const changeAuthor = (id: string) => {
     setSendAs(id)
-    setRecipients((list) => list.filter((x) => x !== id))
+    setRecipients(recipients.filter((x) => x !== id))
     setLeft(recipients.includes(id) ? { name: members.find((m) => m.id === id)?.name ?? '', sendAs, recipients } : null)
   }
   const [dragging, setDragging] = useState(false)
@@ -128,7 +134,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
     draft.clear()
     setText('')
     setLeft(null)
-    setRecipients([])
+    setRecipients(NO_RECIPIENTS)
     // A send in the name of someone is that send's: the next one is written by whoever writes it (like «Para», which is also emptied).
     setSendAs('')
     textArea.current?.focus()

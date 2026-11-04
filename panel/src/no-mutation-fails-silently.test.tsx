@@ -2,7 +2,7 @@
 // said whether the deletion, the Undo or the Discard happened. One `MutationCache.onError` shows the failure as a notice (tone «danger»),
 // except what already showed it in place (the one that caught the rejection and wrote `errorText(err)`) or declared `meta.silent`.
 import { MutationCache, QueryClient, QueryClientProvider, useMutation } from '@tanstack/react-query'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
@@ -95,6 +95,34 @@ describe('no failed change is mute (TP-17)', () => {
   it('the panel builds its QueryClient with that cache and the shell mounts the bridge', () => {
     expect(readFileSync(fileURLToPath(new URL('./main.tsx', import.meta.url)), 'utf8')).toMatch(/mutationCache:\s*createMutationCache\(\)/)
     expect(readFileSync(fileURLToPath(new URL('./App.tsx', import.meta.url)), 'utf8')).toMatch(/<MutationErrorBridge\s*\/>/)
+  })
+
+  it('every change whose component draws its error in place (`x.isError`) is declared silent in the hooks', () => {
+    const hooks = readFileSync(fileURLToPath(new URL('../../packages/client/src/react/hooks.ts', import.meta.url)), 'utf8')
+    const declared = new Map<string, boolean>() // hook name -> declares IN_PLACE
+    for (const m of hooks.matchAll(/export function (use\w+)\([^)]*\)[^{]*\{([\s\S]*?)\n\}\n/g)) {
+      if (m[2].includes('useMutation(')) declared.set(m[1], m[2].includes('meta: IN_PLACE'))
+    }
+    expect(declared.size).toBeGreaterThan(40)
+    const root = fileURLToPath(new URL('.', import.meta.url))
+    const files: string[] = []
+    const walk = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const full = `${dir}/${f}`
+        if (statSync(full).isDirectory()) walk(full)
+        else if (full.endsWith('.tsx') && !full.includes('.test.')) files.push(full)
+      }
+    }
+    walk(root)
+    const missing: string[] = []
+    for (const file of files) {
+      const code = readFileSync(file, 'utf8')
+      for (const m of code.matchAll(/const (\w+) = (use\w+)\(/g)) {
+        const [, variable, hook] = m
+        if (declared.has(hook) && !declared.get(hook) && new RegExp(`\\b${variable}\\.(isError|error)\\b`).test(code)) missing.push(`${file.slice(root.length)}: ${variable} = ${hook}`)
+      }
+    }
+    expect(missing).toEqual([])
   })
 
   it('the cache is a MutationCache', () => {

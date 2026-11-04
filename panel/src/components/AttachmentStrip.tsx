@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
+import { useUrlGallery } from '@/lib/useUrlState'
 import { useFormat, useT } from '@/i18n'
 import { toGalleryItems, type AttachmentScope, type GalleryItem } from '@/lib/gallery'
 import type { Attachment } from '@team-platform/client'
@@ -16,7 +17,7 @@ import { Thumb } from './Thumb'
 export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, named = false, className, renderAction }: { items: readonly Attachment[]; scope?: AttachmentScope; max?: number; px?: number; named?: boolean; className?: string; /** What acts on one file, after its download (the «Quitar» of the author's own reply). */ renderAction?: (item: GalleryItem) => ReactNode }) {
   const t = useT()
   const format = useFormat()
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useUrlGallery(`media:${scope}:${items[0]?.id ?? ''}`)
   if (items.length === 0) return null
   const gallery = toGalleryItems(items, scope)
   const shown = gallery.slice(0, max)

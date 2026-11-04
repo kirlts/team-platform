@@ -15,6 +15,7 @@ import { useSelection, type Selection } from '@/lib/selection'
 import { RowCheck, SelectionBar, SelectionFoot } from '@/components/SelectionBar'
 import { parseTemplateFields, parseTemplateOutput } from '@/lib/template'
 import { useUndo } from '@/lib/undo'
+import { useUrlWindow } from '@/lib/useUrlState'
 
 export const nameRule = (t: ReturnType<typeof useT>) => (v: string) => (!v ? t('common.required') : v.length > 64 ? t('form.maxLength', { n: 64 }) : null)
 export const descriptionRule = (t: ReturnType<typeof useT>) => (v: string) => (!v ? t('common.required') : v.length > 1024 ? t('form.maxLength', { n: 1024 }) : null)
@@ -183,7 +184,9 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   const t = useT()
   const undo = useUndo()
   const save = useSaveTemplate(areaId)
-  const [open, setOpen] = useState(false)
+  // The window of a template is `?v=template:<id>`: Atrás closes it (TP-14).
+  const win = useUrlWindow(`template:${template.id}`)
+  const { open, setOpen } = win
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
   const output = useMemo(() => parseTemplateOutput(template.body_markdown), [template.body_markdown])
   const interval = template.progress_interval_min ?? 0

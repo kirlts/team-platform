@@ -1,5 +1,5 @@
-import { useCallback } from 'react'
-import { useSearchParams } from 'react-router'
+import { useCallback, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 
 /**
  * What orders the navigation lives in the URL or in the history of the browser, not in component state (TP-14, TP-18).
@@ -43,4 +43,51 @@ export function useUrlPage(param: string = PAGE_PARAM): UrlPage {
     [param, setParams],
   )
   return { start, onChange }
+}
+
+/** Marks, in the state of the entry of the history, that this entry was pushed by `show` for the window with that id. */
+const PUSHED = 'windowPushedFor'
+
+/**
+ * A window with an identity of its own (the profile of a member, a gallery, the guards of an area, the menu of a phone) is open when the address says so:
+ * `?v=<id>`. Opening it pushes an entry, so Atrás closes the window and stays in the page (TP-14); a reload keeps it open; and an address pasted in another tab
+ * shows the page with the window open. Closing it goes back to the entry that opened it, or, when the person arrived by the address, removes `v` in place.
+ * The window is open because of the address and for no other reason: there is no second copy of its state to keep in step.
+ */
+export function useUrlWindow(id: string) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const open = id !== '' && new URLSearchParams(location.search).get(WINDOW_PARAM) === id
+  const target = (set: boolean) => {
+    const next = new URLSearchParams(location.search)
+    if (set) next.set(WINDOW_PARAM, id)
+    else next.delete(WINDOW_PARAM)
+    const search = next.toString()
+    return { pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }
+  }
+  const show = () => navigate(target(true), { state: { [PUSHED]: id } })
+  const hide = () => {
+    if ((location.state as Record<string, unknown> | null)?.[PUSHED] === id) navigate(-1)
+    else navigate(target(false), { replace: true })
+  }
+  return { open, show, hide, setOpen: (value: boolean) => (value ? show() : hide()) }
+}
+
+/**
+ * The gallery over a page as a window of the address: the same pair `[open, setOpen]` the components kept in state (`open` is the index of the medium in
+ * view, or null), now open because the address says `?v=<key>`. The index stays in the component; an address pasted in another tab opens on the first.
+ */
+export function useUrlGallery(key: string) {
+  const win = useUrlWindow(key)
+  const [index, setIndex] = useState(0)
+  const open: number | null = win.open ? index : null
+  const setOpen = (to: number | null) => {
+    if (to === null) {
+      if (win.open) win.hide()
+      return
+    }
+    setIndex(to)
+    win.show()
+  }
+  return [open, setOpen] as const
 }

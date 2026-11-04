@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router'
 import { Atmosphere } from '@/components/Atmosphere'
 import { AlertTriangle, RotateCw } from '@/components/icons'
@@ -13,6 +13,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { TeamApiError } from '@team-platform/client'
 import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/client/react'
 import { ROUTER_BASENAME } from '@/lib/base'
+import { useUrlWindow } from '@/lib/useUrlState'
 import { NoticeProvider, useNotices } from '@/lib/notices'
 import { UploadsProvider } from '@/lib/uploads'
 import { NoticeHost } from '@/components/NoticeHost'
@@ -47,7 +48,8 @@ function Shell() {
   const project = useProject().data
   const queryClient = useQueryClient()
   const signOut = useLogout()
-  const [navOpen, setNavOpen] = useState(false)
+  // The menu of a phone is a window of the address (`?v=menu`): Atrás closes it and the page stays where it was (TP-14).
+  const menu = useUrlWindow('menu')
   const desktop = useDesktop()
   // The side panel is hidden with the button next to the user and shown again with the one in the bar; the choice is the person's (UD-047).
   const [hidden, setHidden] = useSidebarHidden(me?.id)
@@ -91,7 +93,7 @@ function Shell() {
         {t('nav.skip')}
       </a>
       <div className="relative z-10 flex h-dvh flex-col">
-        <Header projectName={project?.name ?? me?.project_name} panelHidden={hidden} onOpenNav={() => (desktop ? setHidden(false) : setNavOpen(true))} />
+        <Header projectName={project?.name ?? me?.project_name} panelHidden={hidden} onOpenNav={() => (desktop ? setHidden(false) : menu.show())} />
         <NoticeHost />
         <LostAction memberId={me?.id} />
         <div className="flex min-h-0 flex-1">
@@ -105,9 +107,9 @@ function Shell() {
           </main>
         </div>
       </div>
-      <Dialog open={navOpen} onOpenChange={setNavOpen}>
+      <Dialog open={menu.open} onOpenChange={menu.setOpen}>
         <DialogContent side="left" title={t('nav.label')}>
-          <Sidebar onNavigate={() => setNavOpen(false)} onLogout={() => void logout()} />
+          <Sidebar onNavigate={() => undefined} onLogout={() => void logout()} />
         </DialogContent>
       </Dialog>
       </UploadsProvider>

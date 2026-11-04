@@ -59,7 +59,7 @@ async function act(page, row, name, entry) {
 /** The confirmation of a deletion: a window that names the person, and its button with the same words. */
 async function confirmDelete(page, name) {
   const dialog = page.getByRole('dialog')
-  await dialog.getByText('Pierde el acceso y no se restaura.', { exact: false }).waitFor()
+  await dialog.getByText('Pierde el acceso y no se restaura', { exact: false }).waitFor()
   await dialog.getByRole('button', { name: `Eliminar a ${name}` }).click()
 }
 const members = (page) => page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()))

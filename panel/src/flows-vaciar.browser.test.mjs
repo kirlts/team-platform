@@ -58,7 +58,7 @@ describe('Configuración, Datos', () => {
       assert.ok(before > 0)
       await section.getByRole('button', { name: 'Vaciar contenido' }).click()
       const dialog = page.getByRole('dialog')
-      await dialog.getByText('Se borran envíos, mensajes, respuestas y adjuntos. No se restaura').waitFor()
+      await dialog.getByText('Se borran envíos, mensajes, respuestas y adjuntos sin restauración').waitFor()
       assert.equal(await page.evaluate(async () => (await (await fetch('/api/messages')).json()).total), before, 'nothing went before the confirmation')
       await dialog.getByRole('button', { name: 'Cancelar' }).click()
       await dialog.waitFor({ state: 'detached' })

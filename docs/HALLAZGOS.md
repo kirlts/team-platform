@@ -869,3 +869,29 @@ Cada fila se reprodujo con una prueba que falla antes del arreglo: `src/domain/c
 | SSRF del extractor de enlaces | Direcciones decimales, octales, IPv6 con IPv4 incrustada, NAT64, 6to4 y redirecciones a la red interna: bloqueadas por las pruebas de `src/extract/ssrf.test.js` |
 | Bomba de compresión en un `.docx` | Una entrada de 2 GB que no se lee no cuesta nada; una de 1,2 GB en `document.xml` termina en `document_unreadable` con 778 MB de pico, sin tumbar el proceso |
 | Reintento de un 429 de la transcripción | El tope de 60 s de espera entre intentos es una decisión declarada (`QUEUE_RETRY_MAX_MS`), no un hallazgo |
+
+## Soft-locks de interfaz (2026-11-04)
+
+Inventario por lectura de código de los lugares donde una persona hace algo o navega y no puede deshacerlo ni volver. El detalle de cada fila, con archivo, línea, pasos y la prohibición de batería que la cierra, está en `docs/investigaciones/2026-11-04-soft-locks-de-interfaz.md`. Ninguna se reprodujo en navegador todavía: el arreglo empieza por la prueba que falla.
+
+| Fila | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-3900 | Inicio (envío abierto), Mensajes publicados, Configuración > Cola: «Borrar» y «Borrar todo» de un envío (severidad alta) | TP-01 | `encargo`: Borrado diferido con Deshacer (retener el borrado real unos minutos) o confirmación de un paso para «Borrar todo» |
+| H-3901 | Equipo > Acciones > «Eliminar» miembro (severidad alta) | TP-02 | `encargo`: Eliminación diferida y restaurable, o confirmación con el nombre |
+| H-3902 | Configuración > Datos: «Vaciar contenido» y «Vaciar todo» (severidad alta) | TP-03 | `encargo`: Confirmación escrita (nombre del proyecto) para «Todo»; «Contenido» con ventana de restauración |
+| H-3903 | Inicio (barra «Nuevo mensaje») y Mensaje > respuesta (severidad alta) | TP-04 | `encargo`: Persistir el borrador (sessionStorage por mensaje o por barra) y avisar al salir con texto sin enviar |
+| H-3904 | Inicio, envío que falla después de salir de Inicio (severidad alta) | TP-05 | `encargo`: Subir el estado `uploads` a un contexto del `Shell`, o abortar la subida al desmontar y avisar |
+| H-3905 | Inicio > propuesta del análisis: «Enviar N» (severidad media) | TP-06 | `encargo`: Limpiar `missing[i]` al desmontarse la fila, o derivar `missingTotal` de las filas vivas |
+| H-3906 | Inicio > propuesta: «Descartar» y «Cancelar» (severidad media) | TP-07 | `encargo`: Lista «Descartados» en Inicio (el endpoint `restore` ya existe) |
+| H-3907 | Mensaje > hilo: papelera de una respuesta (severidad media) | TP-08 | `encargo`: Filtro «Respuestas borradas» o aviso con Deshacer de 8 s además de la fila |
+| H-3908 | Mensaje > hilo: ✕ de un adjunto de la propia respuesta (severidad media) | TP-09 | `encargo`: Pasar por la pila de Deshacer, como el adjunto de un mensaje |
+| H-3909 | Configuración > Proveedores: «Retirar clave» y «Eliminar» (severidad media) | TP-10 | `encargo`: Confirmación de un paso que nombra el proveedor (la clave no se puede recuperar) |
+| H-3910 | Configuración > Encuadre del análisis: «Restablecer» (severidad media) | TP-11 | `encargo`: Registrar el reset en la pila de Deshacer de la pantalla |
+| H-3911 | Mensaje > Deshacer / Ctrl+Z al pasar de un mensaje a otro (severidad media) | TP-12 | `encargo`: `key={id}` en `MessageDetail` o `undo.clear()` al cambiar de `id` |
+| H-3912 | Inicio y Mensaje: grabación de audio en curso al salir de la pantalla (severidad media) | TP-13 | `encargo`: Cancelar el `Recording` en el cleanup de `useMediaDraft` |
+| H-3913 | Todas las listas, ventanas y el menú del teléfono (severidad media) | TP-14 | `encargo`: Página de la lista en la URL; cerrar una ventana con el atrás del navegador |
+| H-3914 | Ventanas con campo de texto (`FormDialog`, Reenviar, plantilla nueva) (severidad baja) | TP-15 | `encargo`: Escape en un campo de una ventana sin edición propia cierra la ventana |
+| H-3915 | Edición en el lugar (`EditableText`) en pantalla táctil (severidad baja) | TP-16 | `encargo`: Botón «Cancelar» visible mientras el campo está abierto con error |
+| H-3916 | Borrar mensaje, borrar en lote, áreas, Deshacer (severidad baja) | TP-17 | `encargo`: Un solo manejador de errores de mutación (`MutationCache.onError`) que muestre el aviso |
+| H-3917 | Mensajes y vista de área: filtros y estados (severidad baja) | TP-18 | `encargo`: `replace: true` para búsqueda, filtros y estados; push sólo al abrir un registro o cambiar de página (regla del plan de clara-ia, clase 6) |
+| H-3918 | Ventanas de formulario: clic fuera pierde lo escrito (severidad baja) | TP-19 | `encargo`: Pedir confirmación si hay campos modificados, o bloquear `onInteractOutside` con cambios |

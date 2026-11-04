@@ -112,6 +112,24 @@ export function useTray(enabled = true) {
   return useQuery({ ...q.tray(), enabled })
 }
 
+/** My deleted sends (GET /inputs?mine=1&deleted=1): they wait for `useRestoreInput` until the purge (UD-317). */
+export function useDeletedInputs(enabled = true) {
+  const q = useTeamQueries()
+  return useQuery({ ...q.deletedInputs(), enabled })
+}
+
+/** My discarded sends (status cancelled): they wait for `useRestoreInput`. */
+export function useDiscardedInputs(enabled = true) {
+  const q = useTeamQueries()
+  return useQuery({ ...q.discardedInputs(), enabled })
+}
+
+/** The deleted replies of a message, for a restore with `useRestoreReply`; under ['message', id], so any change of the thread refreshes it. */
+export function useDeletedReplies(messageId: string | undefined, enabled = true) {
+  const q = useTeamQueries()
+  return useQuery({ ...q.deletedReplies(messageId), enabled: !!messageId && enabled })
+}
+
 /**
  * Every send of mine, newest first, whatever its state (UD-070): the history the drawer of Inicio lists. The ones I discarded are not part of it.
  * It is the same list the tray was, now also with what was published.

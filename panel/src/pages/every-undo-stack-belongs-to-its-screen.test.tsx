@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const mounts: string[] = []
 vi.mock('./MessageDetail', () => ({
@@ -49,7 +50,7 @@ describe('each message has its own sheet, and so its own undo stack', () => {
   })
 
   it('the app routes messages/:id through the keyed element and nowhere else renders the sheet', () => {
-    const app = readFileSync(decodeURIComponent(new URL('../App.tsx', import.meta.url).pathname), 'utf8')
+    const app = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8')
     expect(app).toMatch(/path="messages\/:id" element=\{<MessageDetailRoute \/>\}/)
     expect(app).not.toMatch(/<MessageDetail \/>/)
   })

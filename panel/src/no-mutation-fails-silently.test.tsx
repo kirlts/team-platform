@@ -3,6 +3,7 @@
 // except what already showed it in place (the one that caught the rejection and wrote `errorText(err)`) or declared `meta.silent`.
 import { MutationCache, QueryClient, QueryClientProvider, useMutation } from '@tanstack/react-query'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -92,8 +93,8 @@ describe('no failed change is mute (TP-17)', () => {
   })
 
   it('the panel builds its QueryClient with that cache and the shell mounts the bridge', () => {
-    expect(readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')).toMatch(/mutationCache:\s*createMutationCache\(\)/)
-    expect(readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')).toMatch(/<MutationErrorBridge\s*\/>/)
+    expect(readFileSync(fileURLToPath(new URL('./main.tsx', import.meta.url)), 'utf8')).toMatch(/mutationCache:\s*createMutationCache\(\)/)
+    expect(readFileSync(fileURLToPath(new URL('./App.tsx', import.meta.url)), 'utf8')).toMatch(/<MutationErrorBridge\s*\/>/)
   })
 
   it('the cache is a MutationCache', () => {

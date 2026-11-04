@@ -910,6 +910,8 @@ export const en: Record<MessageKey, Message> = {
   'restore.areas': 'Deleted',
   'restore.templates': 'Deleted',
   'restore.messages': 'Deleted',
+  'restore.discarded': 'Discarded',
+  'restore.deletedSends': 'Deleted',
   'restore.action': 'Restore',
   'restore.of': 'Restore {title}',
   'restore.noAreas': 'No deleted areas',

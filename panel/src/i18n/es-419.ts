@@ -910,6 +910,8 @@ export const es419 = {
   'restore.areas': 'Borradas',
   'restore.templates': 'Borradas',
   'restore.messages': 'Borrados',
+  'restore.discarded': 'Descartados',
+  'restore.deletedSends': 'Borrados',
   'restore.action': 'Restaurar',
   'restore.of': 'Restaurar {title}',
   'restore.noAreas': 'Sin áreas borradas',

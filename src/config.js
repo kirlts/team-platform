@@ -181,6 +181,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       // Courtesy: retention is measured in days, one sweep per hour meets it with room to spare. It does not govern the
       // operation of any job.
       retentionSweepMs: intVar(env, 'RETENTION_SWEEP_MS', 3600000, { min: 1 }), // declared courtesy, see above
+      // How long a deleted send waits for its Deshacer before it is purged for good (UD-317: Linear and Notion keep what a person deletes 30 days before purging it, consulted 2026-11-04).
+      deletedInputsRetentionDays: intVar(env, 'DELETED_INPUTS_RETENTION_DAYS', 30, { min: 1 }), // UD-317: the 30 days of Linear and Notion
       dataVersionPollMs: intVar(env, 'DATA_VERSION_POLL_MS', 100, { min: 1 }) // I03 §12: only with a separate worker
     },
 

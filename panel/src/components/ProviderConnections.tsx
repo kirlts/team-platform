@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { AddConnection } from '@/components/AddConnection'
+import { ConfirmAction } from '@/components/ConfirmAction'
 import { ConnectionStatusMark } from '@/components/ConnectionStatusMark'
 import { LoadState } from '@/components/LoadState'
 import { EmptyState } from '@/components/EmptyState'
@@ -48,6 +49,8 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
   /** A removal the server refused because functions use the provider (UD-253: refused, not confirmed). */
   const [blocked, setBlocked] = useState<{ mode: RemovalMode; slots: ProviderSlot[] } | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
+  /** The confirmation in front of «Retirar clave» and «Eliminar» (soft-lock TP-10): a key is not recovered, so the window names the provider. */
+  const [confirming, setConfirming] = useState<RemovalMode | null>(null)
   const resultId = useId()
   const hasKey = c.key.source !== null
   const last = c.last_check
@@ -127,12 +130,12 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
             </Button>
           )}
           {hasKey && (
-            <Button size="sm" variant="danger" disabled={removal.pending} onClick={() => void remove('retire')}>
+            <Button size="sm" variant="danger" disabled={removal.pending} onClick={() => setConfirming('retire')}>
               {t('providers.retireKey')}
             </Button>
           )}
           {c.custom && (
-            <Button size="sm" variant="danger" disabled={removal.pending} onClick={() => void remove('delete')}>
+            <Button size="sm" variant="danger" disabled={removal.pending} onClick={() => setConfirming('delete')}>
               {t('providers.delete')}
             </Button>
           )}
@@ -155,6 +158,19 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
         <ProviderCheck id={resultId} className="empty:-mt-3" shown={outcome?.kind === 'check' ? outcome.shown : null} onClose={() => setOutcome(null)} />
         {blocked && <ProviderRemoval connection={c} mode={blocked.mode} blocked={blocked.slots} onClose={() => setBlocked(null)} onDone={(text) => { const mode = blocked.mode; setBlocked(null); if (mode === 'delete') notices.show({ text }); else setOutcome({ kind: 'line', ok: true, node: text }) }} />}
       </div>
+      <ConfirmAction
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={t(confirming === 'delete' ? 'providers.deleteOf' : 'providers.retireKeyOf', { name: connectionLabel(t, c) })}
+        consequence={t(confirming === 'delete' ? 'providers.confirmDelete' : 'providers.confirmRetire')}
+        confirmLabel={t(confirming === 'delete' ? 'providers.deleteOf' : 'providers.retireKeyOf', { name: connectionLabel(t, c) })}
+        pending={removal.pending}
+        onConfirm={() => {
+          const mode = confirming
+          setConfirming(null)
+          if (mode) void remove(mode)
+        }}
+      />
     </li>
   )
 }

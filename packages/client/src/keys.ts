@@ -45,6 +45,11 @@ export const queryKeys = {
   message: (id: string | undefined) => ['message', id] as const,
   input: (id: string | undefined) => ['inputs', id] as const,
   tray: () => ['inputs', 'tray'] as const,
+  /** Under `inputs`: deleting, discarding or restoring a send refreshes both lists. */
+  deletedInputs: () => ['inputs', 'deleted'] as const,
+  discardedInputs: () => ['inputs', 'discarded'] as const,
+  /** Under `message`: restoring or deleting a reply refreshes it with the thread. */
+  deletedReplies: (messageId: string | undefined) => ['message', messageId, 'deleted-replies'] as const,
   history: () => ['inputs', 'history'] as const,
   queue: (page: number, limit: number) => ['inputs', 'queue', page, limit] as const,
   providers: () => ['providers'] as const,

@@ -91,6 +91,13 @@ describe('Configuración: project name and analysis framing', () => {
       await page.getByRole('button', { name: 'Restablecer' }).click()
       await page.waitForFunction(() => document.querySelector('[data-setting-field="framing-es-419"]')?.value.includes('equipo de software pequeño'))
       assert.equal((await api(page, '/settings/analysis')).framing['es-419'].custom, false)
+      // Soft-lock TP-11: the reset is an operation of the undo stack, so Deshacer brings the text of the Editor back.
+      await page.locator('[data-notice]').getByText('Encuadre restablecido').waitFor()
+      await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).click()
+      await page.waitForFunction((value) => document.querySelector('[data-setting-field="framing-es-419"]')?.value === value, text)
+      const back = (await api(page, '/settings/analysis')).framing['es-419']
+      assert.equal(back.value, text)
+      assert.equal(back.custom, true)
     } finally {
       await context.close()
     }

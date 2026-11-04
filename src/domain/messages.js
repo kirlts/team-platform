@@ -237,7 +237,11 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const retrying = retryingIds(db, replyRows) // UD-290
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id), retryable.has(r.id) ? retryAction(db, r) : null)), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pendingDelivery(db, id) }
+  // A person of the team restoring things also needs the replies that were deleted (soft-lock TP-08): they come only on request, never in the plain read.
+  const goneRows = includeDeleted ? all(db, 'SELECT * FROM replies WHERE message_id = ? AND deleted_at IS NOT NULL ORDER BY id', id) : []
+  const goneAtts = replyAttachmentsOf(db, goneRows.map((r) => r.id))
+  const goneMentions = mentionsOf(db, goneRows.map((r) => r.id))
+  return { ...msgRow, ...(includeDeleted ? { deleted_replies: goneRows.map((r) => ({ ...toReply(r, goneAtts.get(r.id), goneMentions.get(r.id)), deleted_at: iso(r.deleted_at) })) } : {}), trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id), retryable.has(r.id) ? retryAction(db, r) : null)), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pendingDelivery(db, id) }
 }
 
 /**

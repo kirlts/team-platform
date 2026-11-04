@@ -13,6 +13,7 @@ import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
 import { AIRY_GAP, Page } from '@/components/Page'
+import { RestorableSends } from '@/components/RestorableSends'
 import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
@@ -292,6 +293,8 @@ export function Home() {
           }}
         />
       )}
+
+      <RestorableSends />
 
       {/* The main block of the page (UD-030): the latest messages and replies. The room takes what the page leaves and never follows the rows; the two lists sit at its
           top in two equal columns, as tall as the taller of them and no taller than the room, where they page (UD-253). On a phone one under the other (J3-A-10). */}

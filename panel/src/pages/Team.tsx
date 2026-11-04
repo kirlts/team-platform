@@ -1,6 +1,7 @@
 import { ChevronDown, UserPlus, MoreVertical } from '@/components/icons'
 import { useMemo, useRef, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
+import { ConfirmAction } from '@/components/ConfirmAction'
 import { EditableText } from '@/components/EditableText'
 import { EmptyState } from '@/components/EmptyState'
 import { FitList } from '@/components/FitList'
@@ -120,11 +121,14 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
       () => setProblem(null),
       (err) => setProblem(errorText(err)),
     )
-  /** «Eliminar» deletes at once (UD-253, no step that confirms it): what the member published stays under «Miembro eliminado» (UD-292); the notice says how much stays. */
+  /** The confirmation of «Eliminar» (soft-lock TP-02): nobody restores a member, so the window names the person before anything goes. */
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  /** What the member published stays under «Miembro eliminado» (UD-292); the notice says how much stays. */
   const deleteMember = async () => {
     setProblem(null)
     try {
       const r = await remove.mutateAsync({ id: member.id })
+      setConfirmingDelete(false)
       const k = r.kept ?? { inputs: 0, messages: 0, replies: 0 }
       notices.show({ text: k.messages || k.replies ? t('team.deletedWithHistory', { name: member.name, messages: t('team.keptMessages', { n: k.messages }), replies: t('team.keptReplies', { n: k.replies }) }) : t('team.deletedDone', { name: member.name }) })
     } catch (err) {
@@ -248,7 +252,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
                 className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger"
                 aria-label={t('team.deleteOf', { name: member.name })}
                 title={t('team.deleteHint', { name: t('team.removedName') })}
-                onSelect={() => void deleteMember()}
+                onSelect={() => setConfirmingDelete(true)}
               >
                 {t('team.delete')}
               </DropdownMenuItem>
@@ -261,6 +265,16 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           {problem}
         </span>
       )}
+      <ConfirmAction
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={t('team.deleteOf', { name: member.name })}
+        consequence={t('team.deleteConsequence', { name: t('team.removedName') })}
+        confirmLabel={t('team.deleteOf', { name: member.name })}
+        pending={busy}
+        error={problem}
+        onConfirm={() => void deleteMember()}
+      />
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent title={t('team.profileOf', { name: member.name })} className="max-w-xl">
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-5 py-4">

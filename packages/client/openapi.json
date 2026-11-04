@@ -598,6 +598,19 @@
               ]
             },
             "in": "query",
+            "name": "deleted",
+            "required": false,
+            "description": "Sólo los envíos borrados que aún se pueden restaurar (`POST /inputs/:id/restore`); pasado el plazo de `DELETED_INPUTS_RETENTION_DAYS` se purgan."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ]
+            },
+            "in": "query",
             "name": "all",
             "required": false
           },
@@ -2595,6 +2608,13 @@
                               "body": {
                                 "type": "string"
                               },
+                              "deleted_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": [
@@ -2753,6 +2773,13 @@
                                 "body": {
                                   "type": "string"
                                 },
+                                "deleted_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                                },
                                 "kind": {
                                   "type": "string",
                                   "enum": [
@@ -2852,6 +2879,131 @@
                                 }
                               }
                             }
+                          },
+                          "deleted_replies": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "message_id": {
+                                  "type": "string"
+                                },
+                                "author_id": {
+                                  "type": "string"
+                                },
+                                "body": {
+                                  "type": "string"
+                                },
+                                "deleted_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "answer",
+                                    "fix",
+                                    "clarification",
+                                    "forward"
+                                  ]
+                                },
+                                "forwarded_to": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                                },
+                                "attachments": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "reply_id": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "mime": {
+                                        "type": "string"
+                                      },
+                                      "size": {
+                                        "type": "integer"
+                                      },
+                                      "extracted": {
+                                        "type": "boolean"
+                                      }
+                                    }
+                                  }
+                                },
+                                "attachment_kinds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "retryable": {
+                                  "type": "boolean",
+                                  "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                                },
+                                "retry_action": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "enum": [
+                                    "publish",
+                                    "work",
+                                    null
+                                  ],
+                                  "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                                },
+                                "replaced_by_job_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                                },
+                                "retrying": {
+                                  "type": "boolean",
+                                  "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                                },
+                                "mentions": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                                },
+                                "created_at": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "type": "integer"
+                                },
+                                "edited_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            },
+                            "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                           },
                           "progress_notes": {
                             "type": "array",
@@ -3484,6 +3636,13 @@
                               "body": {
                                 "type": "string"
                               },
+                              "deleted_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": [
@@ -3765,7 +3924,7 @@
         "tags": [
           "Messages"
         ],
-        "description": "Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.",
+        "description": "Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, y suma `deleted_replies` con las respuestas borradas de su hilo, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.",
         "parameters": [
           {
             "schema": {
@@ -3968,6 +4127,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -4126,6 +4292,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -4225,6 +4398,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -4668,6 +4966,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -4826,6 +5131,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -4925,6 +5237,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -5714,6 +6151,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -5872,6 +6316,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -5971,6 +6422,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -6486,6 +7062,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -6644,6 +7227,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -6743,6 +7333,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -7119,6 +7834,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -7277,6 +7999,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -7376,6 +8105,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -7717,6 +8571,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -7875,6 +8736,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -7974,6 +8842,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -8306,6 +9299,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -8464,6 +9464,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -8563,6 +9570,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -8895,6 +10027,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -9053,6 +10192,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -9152,6 +10298,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -9553,6 +10824,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -9711,6 +10989,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -9810,6 +11095,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -10167,6 +11577,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -10325,6 +11742,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -10424,6 +11848,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -10786,6 +12335,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -10944,6 +12500,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -11043,6 +12606,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -11374,6 +13062,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -11532,6 +13227,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -11631,6 +13333,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",
@@ -11962,6 +13789,13 @@
                         "body": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -12120,6 +13954,13 @@
                           "body": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -12219,6 +14060,131 @@
                           }
                         }
                       }
+                    },
+                    "deleted_replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240)."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "retry_action": {
+                            "type": [
+                              "null",
+                              "string"
+                            ],
+                            "enum": [
+                              "publish",
+                              "work",
+                              null
+                            ],
+                            "description": "Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296)."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`)."
                     },
                     "progress_notes": {
                       "type": "array",

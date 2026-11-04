@@ -304,6 +304,8 @@ export interface MessageDetail extends Message {
   observed?: string[]
   /** Set while the message is deleted (UD-240); only an Editor asking for it sees such a message. */
   deleted_at?: string | null
+  /** Only when read with `include_deleted=true`: the replies of the thread that were deleted and wait for a restore. */
+  deleted_replies?: Reply[]
 }
 
 export type ProviderSlot = 'text' | 'vision' | 'speech'

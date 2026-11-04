@@ -70,7 +70,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'A message with its thread',
-      description: 'Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.',
+      description: 'Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, y suma `deleted_replies` con las respuestas borradas de su hilo, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.',
       params: idParams(),
       querystring: { type: 'object', additionalProperties: false, properties: { include_deleted: { type: 'boolean' } } },
       response: { 200: messageDetail }

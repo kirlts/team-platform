@@ -1431,6 +1431,11 @@ const server = createServer(async (req, res) => {
     // My inputs still in play: GET /inputs?mine=1&status=queued,extracting,analyzing,proposed,failed
     if (path === '/inputs' && method === 'GET') {
       const wanted = (url.searchParams.get('status') ?? '').split(',').filter(Boolean)
+      // `deleted=1` (soft-lock TP-01): the sends of the person that were deleted and wait for their restore or the purge.
+      if (url.searchParams.get('deleted')) {
+        const trash = [...inputs.values()].filter((i) => i.deleted_at && (i.author_id === me.id || i.sent_by_id === me.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+        return send(res, 200, envelope(trash.map(inputView)))
+      }
       // `all=1` (UD-251): the Editor's queue, the sends of everybody with the name of the sender, paginated; a member gets 403.
       if (url.searchParams.get('all')) {
         const everyone = [...inputs.values()].filter((i) => !i.deleted_at && (!wanted.length || wanted.includes(i.status))).sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -1731,7 +1736,9 @@ const server = createServer(async (req, res) => {
         res.writeHead(204)
         return res.end()
       }
-      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), deleted_at: msg.deleted_at ?? null, replies: liveReplies(msg).map(replyView), pending_delivery: reviews.get(msg.id) ?? null })
+      // `include_deleted=true` also lists the deleted replies of the thread (soft-lock TP-08).
+      const goneReplies = url.searchParams.get('include_deleted') === 'true' ? { deleted_replies: (replies.get(msg.id) ?? []).filter((r) => r.deleted_at).map((r) => ({ ...replyView(r), deleted_at: r.deleted_at })) } : {}
+      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), deleted_at: msg.deleted_at ?? null, replies: liveReplies(msg).map(replyView), ...goneReplies, pending_delivery: reviews.get(msg.id) ?? null })
       if (m[2] === 'deliver' && method === 'POST') {
         if (me.role !== 'editor') return fail(res, 403, 'Esta acción es de un Editor.', 'forbidden')
         const review = reviews.get(msg.id)

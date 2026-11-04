@@ -17,6 +17,7 @@ import { step } from './progress-phrases.js'
 import { badRequest, conflict, notFound, tooLarge } from './errors.js'
 import { cancelAgentJobs } from '../execute/enqueue.js'
 import { isActivePerson } from './members.js'
+import { freeBlobs } from './storage.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -236,11 +237,12 @@ export function parseStatusFilter (raw) {
  * Own inputs, paginated, filtered by one or several statuses. `order` is 'desc' (newest first, the history) or
  * 'asc' (creation order, the tray of in-flight inputs where each new send lands after the previous one).
  */
-export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc', everyone = false, compact = false }) {
+export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc', everyone = false, compact = false, deleted = false }) {
   const { db } = ctx
   const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
   // `everyone` (the team's queue): no author condition, and every item carries the name of its sender.
-  const clauses = ['deleted_at IS NULL']
+  // `deleted`: the sends that wait for their Deshacer or for the purge (soft-lock TP-01), newest deletion first by `created_at` like the rest.
+  const clauses = [deleted ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL']
   const params = []
   // The sender sees what they sent on someone's behalf (`sent_by_id`, UD-255): with «Enviar como» the tray stayed empty while the input
   // was analyzed (Martín, 2026-10-24). Editing, cancelling and deleting still follow the author.
@@ -487,4 +489,27 @@ export function deleteInput ({ db, queue, events, now = Date.now }, inputId, act
     events.publish({ kind: 'done', memberId: input.author_id, data: { input_id: inputId, status: 'deleted' } })
     return { input_id: inputId, deleted: { attachments: removedAttachments, jobs, messages: deletedMessages }, hashes: [...new Set(hashes)] }
   })
+}
+
+const MS_PER_DAY = 24 * 3600 * 1000 // calendar constant, not a tunable
+
+/**
+ * Purges for good the sends whose deletion is older than `retentionDays` (config `worker.deletedInputsRetentionDays`, UD-317): the same purge as
+ * `DELETE /inputs/:id?purge=true`, one send at a time so that one that fails does not stop the others. Returns how many went and the bytes freed
+ * from the volume.
+ */
+export async function purgeDeletedInputs ({ db, config, queue, events, now = Date.now }, retentionDays) {
+  const due = all(db, 'SELECT id, author_id FROM inputs WHERE deleted_at IS NOT NULL AND deleted_at < ? ORDER BY deleted_at', now() - retentionDays * MS_PER_DAY)
+  const hashes = []
+  let inputs = 0
+  for (const row of due) {
+    try {
+      hashes.push(...deleteInput({ db, queue, events, now }, row.id, { id: row.author_id }, { purge: true }).hashes)
+      inputs++
+    } catch (error) {
+      if (error?.statusCode !== 404) throw error // a send another sweep or person already purged is done, not a failure
+    }
+  }
+  const freed = hashes.length > 0 ? await freeBlobs(db, config, hashes) : 0
+  return { inputs, freed_bytes: freed }
 }

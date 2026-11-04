@@ -58,6 +58,7 @@ export function registerInputRoutes (app, ctx) {
           status: { type: 'string', pattern: '^(queued|extracting|analyzing|proposed|published|failed|cancelled)(,(queued|extracting|analyzing|proposed|published|failed|cancelled))*$' },
           mine: { type: 'string', enum: ['1', 'true'] },
           order: { type: 'string', enum: ['asc', 'desc'] },
+          deleted: { type: 'string', enum: ['1', 'true'], description: 'Sólo los envíos borrados que aún se pueden restaurar (`POST /inputs/:id/restore`); pasado el plazo de `DELETED_INPUTS_RETENTION_DAYS` se purgan.' },
           all: { type: 'string', enum: ['1', 'true'] },
           compact: { type: 'string', enum: ['1', 'true'], description: 'Deja fuera `units` y `proposal` de cada envío (la mayor parte de los bytes de un historial largo); el detalle `GET /inputs/{id}` los trae.' }
         }
@@ -69,7 +70,7 @@ export function registerInputRoutes (app, ctx) {
     const order = request.query.order ?? (request.query.mine ? 'asc' : 'desc')
     const everyone = request.query.all !== undefined
     if (everyone && !isActivePerson(db, request.member.id)) throw forbidden('Sólo una persona del equipo lista los envíos de todos.')
-    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order, everyone, compact: request.query.compact !== undefined })
+    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order, everyone, compact: request.query.compact !== undefined, deleted: request.query.deleted !== undefined })
     return pageResult(r.items, r.total, p)
   })
 

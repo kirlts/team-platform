@@ -250,6 +250,8 @@ export function createResources(t: Transport) {
       /** Soft-deletes (UD-240): its author or the Editor. Returns the message with its thread. */
       delete: (messageId: string, replyId: string) => call<MessageDetail>(routes.replyDelete, { params: { id: messageId, replyId }, search: CONFIRM }),
       restore: (replyId: string) => call<MessageDetail>(routes.replyRestore, { params: { id: replyId } }),
+      /** The deleted replies of a message (any person of the team): they wait for `restore`. */
+      listDeleted: async (messageId: string) => (await call<MessageDetail>(routes.messageGet, { params: { id: messageId }, search: 'include_deleted=true' })).deleted_replies ?? [],
     },
 
     // ------------------------------------------------------------ Inputs (sends)
@@ -260,6 +262,10 @@ export function createResources(t: Transport) {
         const list = unwrapList<InputRecord>(await call(routes.inputList, { search: `mine=1&compact=1&status=${TRAY_STATUSES.join(',')}` }))
         return [...list].sort((a, b) => a.created_at.localeCompare(b.created_at))
       },
+      /** My deleted sends, newest first: the ones that still wait for their Deshacer before the purge (UD-317). */
+      listDeleted: async () => unwrapList<InputRecord>(await call(routes.inputList, { search: 'mine=1&deleted=1&order=desc&compact=1' })),
+      /** My discarded sends, newest first: the ones a person set aside and can bring back with `restore`. */
+      listDiscarded: async () => unwrapList<InputRecord>(await call(routes.inputList, { search: 'mine=1&status=cancelled&order=desc&compact=1' })),
       /** Every send of mine, newest first, whatever its state (UD-070); the ones I discarded are not part of it. */
       history: async () => unwrapList<InputRecord>(await call(routes.inputList, { search: 'mine=1&order=desc&compact=1' })).filter((i) => i.status !== 'cancelled'),
       /** The sends of everybody (any person, UD-287), newest first, one server page. */

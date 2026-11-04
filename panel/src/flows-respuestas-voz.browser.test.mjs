@@ -96,6 +96,12 @@ describe('replying by voice', () => {
       assert.equal(await page.getByRole('button', { name: 'Quitar foto.png' }).count(), 1)
       await page.getByRole('button', { name: 'Quitar foto.png' }).click()
       await page.getByRole('button', { name: 'Quitar foto.png' }).waitFor({ state: 'detached' })
+      // Soft-lock TP-09: taking the file off is an operation of the undo stack, and the notice carries Deshacer, which sends the file again.
+      await page.locator('[data-notice]').getByText('Archivo quitado').last().waitFor()
+      await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).last().click()
+      await page.getByRole('button', { name: 'Quitar foto.png' }).waitFor()
+      await page.getByRole('button', { name: 'Quitar foto.png' }).click()
+      await page.getByRole('button', { name: 'Quitar foto.png' }).waitFor({ state: 'detached' })
       await tools.getByRole('button', { name: 'Mencionar a un miembro' }).click()
       await page.getByRole('option', { name: 'Claude' }).click()
       await page.locator('[data-mention]').first().waitFor()

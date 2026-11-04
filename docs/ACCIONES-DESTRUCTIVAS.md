@@ -5,7 +5,7 @@ Registro de lo que el panel borra, vacía, restablece o retira, y de qué camino
 empieza por `delete`, `remove`, `reset` o `retire` tiene un `restore` en su recurso o una fila en la primera tabla. Una fila de un método que ya no
 existe falla.
 
-La regla viene del hallazgo de la clase 3 del informe de soft-locks (issue 8, 2026-11-04). UD-253 mantiene que lo que se puede deshacer no pide
+La regla viene del hallazgo de la clase 3 del informe de soft-locks (issue 8, 2026-11-04). UD-253 y el kit (T53) mantienen que lo que se puede deshacer no pide
 confirmación y ofrece Deshacer; lo que no se puede deshacer pide un paso, y sólo lo que vacía todo el equipo pide escribir el nombre
 (`panel/src/lib/catastrophic-actions.ts`).
 

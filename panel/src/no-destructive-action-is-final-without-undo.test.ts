@@ -1,7 +1,8 @@
 // @vitest-environment node
 // Soft-lock class 3 (issue 8, TP-01 to TP-03, TP-10): no action of the client that deletes, empties, resets or retires is final without a way back.
 // Each such method of `packages/client/src/resources.ts` has a `restore` beside it in its resource, or a row in `docs/ACCIONES-DESTRUCTIVAS.md`
-// that declares which confirmation the panel asks for. A row for a method that does not exist is stale and fails too.
+// that declares which confirmation the panel asks for. A reversible action asks for none (it runs and offers Deshacer, kit T53), so a row
+// for a method whose resource has a `restore` fails. A row for a method that does not exist is stale and fails too.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -53,6 +54,14 @@ describe('a destructive action has a way back', () => {
   it('each one has a restore in its resource or a declared confirmation', () => {
     const naked = destructive.filter((x) => !all.some((y) => y.resource === x.resource && /^restore/.test(y.method)) && !declared.has(`${x.resource}.${x.method}`))
     expect(naked.map((x) => `${x.resource}.${x.method}`)).toEqual([])
+  })
+
+  it('a confirmation is asked only where there is no way back (kit T53: the dialog is for what cannot be undone)', () => {
+    const withRestore = [...declared.keys()].filter((key) => {
+      const resource = key.split('.')[0]
+      return all.some((y) => y.resource === resource && /^restore/.test(y.method))
+    })
+    expect(withRestore).toEqual([])
   })
 
   it('a declared confirmation is one of the known kinds', () => {

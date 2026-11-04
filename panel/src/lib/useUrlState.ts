@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { useInRouterContext, useLocation, useNavigate, useSearchParams } from 'react-router'
 
 /**
  * What orders the navigation lives in the URL or in the history of the browser, not in component state (TP-14, TP-18).
@@ -55,6 +55,19 @@ const PUSHED = 'windowPushedFor'
  * The window is open because of the address and for no other reason: there is no second copy of its state to keep in step.
  */
 export function useUrlWindow(id: string) {
+  // Outside a router (the test of one component) the window is local state. Whether there is a router does not change while a component lives,
+  // so the same hook is called in every render of it.
+  const inRouter = useInRouterContext()
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return inRouter ? useRoutedWindow(id) : useLocalWindow()
+}
+
+function useLocalWindow() {
+  const [open, setOpen] = useState(false)
+  return { open, show: () => setOpen(true), hide: () => setOpen(false), setOpen }
+}
+
+function useRoutedWindow(id: string) {
   const location = useLocation()
   const navigate = useNavigate()
   const open = id !== '' && new URLSearchParams(location.search).get(WINDOW_PARAM) === id

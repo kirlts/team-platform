@@ -1696,3 +1696,13 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Plantillas y áreas con versión por idioma: capacidad nueva que el dueño no pidió.
 **Consecuencias:** `docs/CAPACIDADES-1.0.md` (fila «Idioma» y la pregunta retirada).
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-317] Atrás recorre páginas y ventanas, no los filtros de una vista
+**Fecha:** 2026-11-04
+**Contexto:** El plan de soft-locks del 2026-11-04 (hallazgos TP-14 y TP-18) encontró que Atrás sale de Mensajes después de tres filtros, devuelve la lista a la página 1 después de abrir un mensaje y deja la página con una ventana abierta. Dos informes proponían apilar una entrada por cada filtro. Es una decisión de diseño de esa tanda, no una instrucción de Martín.
+**Decisión:** Reemplazan la entrada del historial la búsqueda, un filtro, el estado de una vista y un orden, porque refinan una misma vista. Empujan una entrada la página de una lista (`?p=`, el índice de su primera fila), una ventana con identidad propia (`?v=`: menú del teléfono, Protecciones de un área, perfil de un miembro, ventana de una plantilla, galería de adjuntos), abrir un registro y cambiar de ruta. Cerrar una ventana vuelve a la entrada que la abrió; si la persona llegó por la dirección, quita `v` en el lugar. Un enlace del menú del teléfono reemplaza la entrada de la ventana. Las ventanas de formulario sin identidad no van en la dirección. Cambiar un filtro o un estado empieza en la primera página.
+**Alternativas descartadas:**
+- `push` para filtros y estados (propuesta de TP-18 y de DC-7): Atrás recorrería refinamientos y la lista de pasos crece con cada clic. Se mantiene `replace`, que el README del panel ya fijaba.
+- `history.pushState` directo al abrir una ventana: salta el enrutador y desordena el índice de `navigate(-1)`.
+**Consecuencias:** `panel/src/lib/useUrlState.ts` (`useUrlPage`, `useUrlWindow`, `useUrlGallery`), `FitList` (`page`), `Messages.tsx`, `AreaView.tsx`, `App.tsx`, `Team.tsx`, `AreaGuards.tsx`, `AreaTemplates.tsx` y los cuatro componentes de galería. Pruebas: `cada-lista-con-paginas-las-lleva-en-la-url.test.ts` y `cada-ventana-se-cierra-con-atras.browser.test.mjs`.
+**Condiciones de reversión:** Las fija Martín.

@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { X } from '@/components/icons'
 import { useErrorText, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -189,6 +190,7 @@ export function EditableText({
         aria-label={label}
         aria-invalid={error ? true : undefined}
         aria-describedby={multiline && !error ? hintId : undefined}
+        data-owns-escape
         onChange={(e) => {
           const next = multiline ? e.target.value : e.target.value.replace(/\n/g, ' ')
           setDraft(next)
@@ -210,8 +212,27 @@ export function EditableText({
         className={cn(box, 'well resize-none overflow-hidden text-inherit outline-none focus-visible:outline-none', error ? '!border-danger' : '!border-accent', type)}
       />
       {error ? (
-        <span role="alert" className="mt-1 block text-xs text-danger">
-          {error}
+        <span className="mt-1 flex items-start gap-1.5 text-xs">
+          <span role="alert" className="min-w-0 flex-1 text-danger">
+            {error}
+          </span>
+          {/* A field left open with an error had Escape as its only way out, and a phone has none (TP-16). */}
+          <button
+            type="button"
+            aria-label={t('common.cancel')}
+            // The press must not blur the field: leaving it commits again, fails again and returns the focus to the box.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              discard.current = true
+              refocus.current = true
+              setEditing(false)
+              setError(null)
+              setDraft(value)
+            }}
+            className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 text-muted hover:bg-hover hover:text-fg pointer-coarse:size-11"
+          >
+            <X size={14} aria-hidden />
+          </button>
         </span>
       ) : (
         multiline && (

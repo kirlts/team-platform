@@ -30,6 +30,14 @@ import { useTeamClient, useTeamQueries } from './context.js'
 
 export type { MessagesParams }
 
+/**
+ * The changes whose consumer writes the failure in place, under its own control (`x.isError`, `errorText(x.error)`) declare it, so the
+ * panel's notice of a failed change (`MutationCache.onError`, TP-17) does not repeat it. A consumer that catches `mutateAsync` claims
+ * its error when it writes it with `useErrorText()`; a render cannot claim in time, so its hook is listed here, and the panel's
+ * `no-mutation-fails-silently` test checks that every hook it reads `.isError` from is.
+ */
+const IN_PLACE = { silent: true } as const
+
 // ---------------------------------------------------------------- Reads
 
 export function useMe() {
@@ -261,6 +269,7 @@ export function usePublish() {
   const client = useTeamClient()
   const inv = useInvalidate()
   return useMutation({
+    meta: IN_PLACE,
     mutationFn: (v: { inputId: string; proposal: Proposal }) => client.inputs.publish(v.inputId, v.proposal),
     onSuccess: () => inv('publish'),
   })
@@ -287,6 +296,7 @@ export function useReprocess() {
   const client = useTeamClient()
   const inv = useInvalidate()
   return useMutation({
+    meta: IN_PLACE,
     mutationFn: (inputId: string) => client.inputs.reprocess(inputId),
     // A published send sets its messages aside (UD-258): the lists of messages and the counts of areas change with it.
     onSuccess: () => inv('reprocess'),
@@ -321,6 +331,7 @@ export function useReply(messageId: string) {
   const client = useTeamClient()
   const inv = useInvalidate()
   return useMutation({
+    meta: IN_PLACE,
     mutationFn: (v: NewReply) => client.replies.create(messageId, v),
     onSuccess: () => inv('reply'),
   })
@@ -336,6 +347,7 @@ export function usePatchMessage() {
   const client = useTeamClient()
   const qc = useQueryClient()
   return useMutation({
+    meta: IN_PLACE,
     mutationFn: (v: { id: string; patch: MessagePatch }) => client.messages.patch(v.id, v.patch, messageVersioning(qc, v.id)),
     onSuccess: (saved, v) => {
       qc.setQueryData(queryKeys.message(v.id), (old: MessageDetail | undefined) => mergeSavedMessage(old, saved))
@@ -349,6 +361,7 @@ export function useAddAttachments() {
   const client = useTeamClient()
   const qc = useQueryClient()
   return useMutation({
+    meta: IN_PLACE,
     mutationFn: (v: { id: string; files: File[]; links?: string[] }) => client.messages.addAttachments(v.id, v, messageVersioning(qc, v.id)),
     onSuccess: (saved, v) => {
       qc.setQueryData(queryKeys.message(v.id), (old: MessageDetail | undefined) => mergeSavedMessage(old, saved))
@@ -360,7 +373,7 @@ export function useAddAttachments() {
 export function useSetClosed() {
   const client = useTeamClient()
   const inv = useInvalidate()
-  return useMutation({ mutationFn: (v: { id: string; closed: boolean }) => client.messages.setClosed(v), onSuccess: () => inv('setClosed') })
+  return useMutation({ meta: IN_PLACE, mutationFn: (v: { id: string; closed: boolean }) => client.messages.setClosed(v), onSuccess: () => inv('setClosed') })
 }
 
 /** Changes the assessment of a message by hand (PUT /messages/:id/assessment, UD-295). */
@@ -374,14 +387,14 @@ export function useSetAssessment() {
 export function useForward(messageId: string) {
   const client = useTeamClient()
   const inv = useInvalidate()
-  return useMutation({ mutationFn: (v: { member_id: string; comment: string }) => client.messages.forward(messageId, v), onSuccess: () => inv('forward') })
+  return useMutation({ meta: IN_PLACE, mutationFn: (v: { member_id: string; comment: string }) => client.messages.forward(messageId, v), onSuccess: () => inv('forward') })
 }
 
 /** Launches again the session whose failure a reply tells (POST /messages/:id/replies/:replyId/retry, UD-282). */
 export function useRetryExecute(messageId: string) {
   const client = useTeamClient()
   const inv = useInvalidate()
-  return useMutation({ mutationFn: (replyId: string) => client.messages.retry(messageId, replyId), onSuccess: () => inv('retryExecute') })
+  return useMutation({ meta: IN_PLACE, mutationFn: (replyId: string) => client.messages.retry(messageId, replyId), onSuccess: () => inv('retryExecute') })
 }
 
 /** Queues the delivery of the branch a person reviewed (POST /messages/:id/deliver, Editor; UD-263, UD-275). */
@@ -729,14 +742,14 @@ export function useSaveUiTelemetry() {
 export function usePurgeJobs() {
   const client = useTeamClient()
   const inv = useInvalidate()
-  return useMutation({ mutationFn: (state: PurgeState) => client.jobs.purge(state), onSuccess: () => inv('purgeJobs') })
+  return useMutation({ meta: IN_PLACE, mutationFn: (state: PurgeState) => client.jobs.purge(state), onSuccess: () => inv('purgeJobs') })
 }
 
 /** Loads the sample set of ejemplos/ (POST /ops/seed, Editor): the inputs enter the tray and go through the real analysis. */
 export function useSeedExamples() {
   const client = useTeamClient()
   const qc = useQueryClient()
-  return useMutation({ mutationFn: () => client.ops.seed(), onSuccess: () => qc.invalidateQueries() })
+  return useMutation({ meta: IN_PLACE, mutationFn: () => client.ops.seed(), onSuccess: () => qc.invalidateQueries() })
 }
 
 /** Empties the test data (POST /ops/reset, Editor, UD-240). `onDone` runs with the figures before every query is invalidated. */
@@ -744,6 +757,7 @@ export function useResetData(options: { onDone?: (result: ResetResult) => void |
   const client = useTeamClient()
   const qc = useQueryClient()
   return useMutation({
+    meta: IN_PLACE,
     mutationFn: (scope: ResetScope) => client.ops.reset(scope),
     onSuccess: async (r) => {
       await options.onDone?.(r)

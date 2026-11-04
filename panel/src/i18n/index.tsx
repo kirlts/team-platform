@@ -3,6 +3,7 @@ import { createFormats, DEFAULT_LANGUAGE, translate, type Formats, type Language
 import { en } from './en'
 import { es419 } from './es-419'
 import type { MessageKey } from './es-419'
+import { claimError } from '@/lib/mutation-errors'
 
 export type { Language, MessageKey, Vars }
 export { LANGUAGES, detectLanguage, isLanguage } from './core'
@@ -56,6 +57,8 @@ export function useErrorText(): (err: unknown) => string {
   const { t, has, language } = useI18n()
   return useCallback(
     (err: unknown) => {
+      // Whoever writes the error in place has shown it: the notice of the screen does not repeat it (TP-17).
+      claimError(err)
       const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code: unknown }).code) : ''
       const message = err instanceof Error ? err.message : ''
       // `validation` carries the server's own sentence about the field (in Spanish): it is shown as it comes in Spanish

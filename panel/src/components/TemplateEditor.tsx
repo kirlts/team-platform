@@ -265,16 +265,18 @@ export function TemplateContentDialog({ open, onOpenChange, title, onSave, lead,
 /** New template: name, description, fields and instructions as a form; the file is built on creating. */
 export function NewTemplateDialog({ open, onOpenChange, onCreate }: { open: boolean; onOpenChange: (open: boolean) => void; onCreate: (v: { name: string; description: string; body_markdown: string }) => Promise<unknown> }) {
   const t = useT()
+  // The form owns what was typed; the window keeps a click outside from dropping it (TP-19).
+  const [dirty, setDirty] = useState(false)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={t('areas.newTemplate')} className="max-w-2xl">
-        {open && <NewTemplateForm onCreate={onCreate} onClose={() => onOpenChange(false)} />}
+      <DialogContent title={t('areas.newTemplate')} className="max-w-2xl" dirty={dirty}>
+        {open && <NewTemplateForm onCreate={onCreate} onClose={() => onOpenChange(false)} onDirty={setDirty} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; description: string; body_markdown: string }) => Promise<unknown>; onClose: () => void }) {
+function NewTemplateForm({ onCreate, onClose, onDirty }: { onCreate: (v: { name: string; description: string; body_markdown: string }) => Promise<unknown>; onClose: () => void; onDirty: (dirty: boolean) => void }) {
   const t = useT()
   const errorText = useErrorText()
   const [name, setName] = useState('')
@@ -285,6 +287,11 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const dirty = name !== '' || description !== '' || fields.length > 0 || output !== null || instructions !== ''
+  useEffect(() => {
+    onDirty(dirty)
+    return () => onDirty(false)
+  }, [dirty, onDirty])
 
   const submit = async () => {
     const found: Record<string, string> = {}

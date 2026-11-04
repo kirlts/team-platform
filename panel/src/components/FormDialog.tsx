@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Eye, EyeOff } from '@/components/icons'
@@ -37,10 +37,12 @@ export function FormDialog({
   submitLabel: string
   onSubmit: (values: Record<string, string>) => Promise<unknown>
 }) {
+  // The body owns the values; the window needs to know whether they differ from the initial ones, to keep a click outside from dropping them (TP-19).
+  const [dirty, setDirty] = useState(false)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={title}>
-        {open && <FormBody fields={fields} submitLabel={submitLabel} onSubmit={onSubmit} onClose={() => onOpenChange(false)} />}
+      <DialogContent title={title} dirty={dirty}>
+        {open && <FormBody fields={fields} submitLabel={submitLabel} onSubmit={onSubmit} onClose={() => onOpenChange(false)} onDirty={setDirty} />}
       </DialogContent>
     </Dialog>
   )
@@ -51,11 +53,13 @@ function FormBody({
   submitLabel,
   onSubmit,
   onClose,
+  onDirty,
 }: {
   fields: FieldSpec[]
   submitLabel: string
   onSubmit: (values: Record<string, string>) => Promise<unknown>
   onClose: () => void
+  onDirty: (dirty: boolean) => void
 }) {
   const t = useT()
   const errorText = useErrorText()
@@ -65,6 +69,11 @@ function FormBody({
   const [pending, setPending] = useState(false)
   /** The password fields whose text is showing. */
   const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set())
+  const dirty = fields.some((f) => values[f.name] !== (f.initial ?? ''))
+  useEffect(() => {
+    onDirty(dirty)
+    return () => onDirty(false)
+  }, [dirty, onDirty])
 
   const submit = async () => {
     const found: Record<string, string> = {}

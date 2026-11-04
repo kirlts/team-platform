@@ -22,7 +22,7 @@ import { Areas } from '@/pages/Areas'
 import { Connections } from '@/pages/Connections'
 import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
-import { MessageDetail } from '@/pages/MessageDetail'
+import { MessageDetailRoute } from '@/pages/MessageDetailRoute'
 import { Messages } from '@/pages/Messages'
 import { NotFound } from '@/pages/NotFound'
 import { Settings } from '@/pages/Settings'
@@ -163,7 +163,7 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
           <Route element={<Shell />}>
             <Route index element={<Home />} />
             <Route path="messages" element={<Messages />} />
-            <Route path="messages/:id" element={<MessageDetail />} />
+            <Route path="messages/:id" element={<MessageDetailRoute />} />
             <Route path="areas/:areaId?" element={<Areas />} />
             <Route path="connections/:kind?" element={<Connections />} />
             <Route path="team" element={<Team />} />

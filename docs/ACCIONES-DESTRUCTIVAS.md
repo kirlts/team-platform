@@ -1,7 +1,7 @@
 # Acciones destructivas
 
 Registro de lo que el panel borra, vacía, restablece o retira, y de qué camino de vuelta tiene cada acción. Lo lee la prueba
-`panel/src/una-accion-destructiva-no-es-definitiva-sin-deshacer.test.ts`: cada método del cliente (`packages/client/src/resources.ts`) cuyo nombre
+`panel/src/no-destructive-action-is-final-without-undo.test.ts`: cada método del cliente (`packages/client/src/resources.ts`) cuyo nombre
 empieza por `delete`, `remove`, `reset` o `retire` tiene un `restore` en su recurso o una fila en la primera tabla. Una fila de un método que ya no
 existe falla.
 

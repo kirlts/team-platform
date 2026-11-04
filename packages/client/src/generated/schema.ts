@@ -314,6 +314,8 @@ export interface paths {
                     status?: string;
                     mine?: "1" | "true";
                     order?: "asc" | "desc";
+                    /** @description Sólo los envíos borrados que aún se pueden restaurar (`POST /inputs/:id/restore`); pasado el plazo de `DELETED_INPUTS_RETENTION_DAYS` se purgan. */
+                    deleted?: "1" | "true";
                     all?: "1" | "true";
                     /** @description Deja fuera `units` y `proposal` de cada envío (la mayor parte de los bytes de un historial largo); el detalle `GET /inputs/{id}` los trae. */
                     compact?: "1" | "true";
@@ -1095,6 +1097,8 @@ export interface paths {
                                     message_id?: string;
                                     author_id?: string;
                                     body?: string;
+                                    /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                    deleted_at?: string | null;
                                     /** @enum {string} */
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -1142,6 +1146,47 @@ export interface paths {
                                     message_id?: string;
                                     author_id?: string;
                                     body?: string;
+                                    /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                    deleted_at?: string | null;
+                                    /** @enum {string} */
+                                    kind?: "answer" | "fix" | "clarification" | "forward";
+                                    /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                    forwarded_to?: string | null;
+                                    attachments?: {
+                                        id?: string;
+                                        reply_id?: string;
+                                        kind?: string;
+                                        name?: string;
+                                        mime?: string;
+                                        size?: number;
+                                        extracted?: boolean;
+                                    }[];
+                                    attachment_kinds?: string[];
+                                    /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                    retryable?: boolean;
+                                    /**
+                                     * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                     * @enum {null|string}
+                                     */
+                                    retry_action?: "publish" | "work" | null;
+                                    /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                    replaced_by_job_id?: string | null;
+                                    /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                    retrying?: boolean;
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                    mentions?: string[];
+                                    created_at?: string;
+                                    version?: number;
+                                    edited_at?: string | null;
+                                }[];
+                                /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                                deleted_replies?: {
+                                    id?: string;
+                                    message_id?: string;
+                                    author_id?: string;
+                                    body?: string;
+                                    /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                    deleted_at?: string | null;
                                     /** @enum {string} */
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -1496,6 +1541,8 @@ export interface paths {
                                     message_id?: string;
                                     author_id?: string;
                                     body?: string;
+                                    /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                    deleted_at?: string | null;
                                     /** @enum {string} */
                                     kind?: "answer" | "fix" | "clarification" | "forward";
                                     /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -1646,7 +1693,7 @@ export interface paths {
         };
         /**
          * A message with its thread
-         * @description Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.
+         * @description Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, y suma `deleted_replies` con las respuestas borradas de su hilo, sólo a una persona del equipo (UD-240, UD-287); un agente recibe 403.
          */
         get: {
             parameters: {
@@ -1721,6 +1768,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -1768,6 +1817,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -1982,6 +2072,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -2029,6 +2121,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -2396,6 +2529,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -2443,6 +2578,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -2741,6 +2917,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -2788,6 +2966,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -2955,6 +3174,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3002,6 +3223,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3169,6 +3431,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3216,6 +3480,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3386,6 +3691,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3433,6 +3740,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3603,6 +3951,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3650,6 +4000,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3839,6 +4230,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -3886,6 +4279,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4063,6 +4497,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4110,6 +4546,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4288,6 +4765,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4335,6 +4814,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4503,6 +5023,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4550,6 +5072,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4717,6 +5280,8 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
@@ -4764,6 +5329,47 @@ export interface paths {
                                 message_id?: string;
                                 author_id?: string;
                                 body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
+                                /**
+                                 * @description Lo que hace «Reintentar» en este aviso, calculado con la misma regla que el endpoint: `publish` entrega la rama que ya existe (sin otra sesión) y `work` lanza otra sesión de Claude. Nulo si no se puede reintentar.
+                                 * @enum {null|string}
+                                 */
+                                retry_action?: "publish" | "work" | null;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra ni se oculta: el hilo lo dibuja siempre (UD-296). */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            /** @description Sólo con `include_deleted=true`: las respuestas borradas del hilo, para que una persona del equipo las restaure (`POST /replies/:id/restore`). */
+                            deleted_replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @description Sólo en `deleted_replies`: cuándo se borró la respuesta (UD-240). */
+                                deleted_at?: string | null;
                                 /** @enum {string} */
                                 kind?: "answer" | "fix" | "clarification" | "forward";
                                 /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */

@@ -25,6 +25,7 @@ import { announceLimitsHold } from './execute/limits-hold.js'
 import { createExecuteHandler } from './execute/handler.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
+import { purgeDeletedInputs } from './domain/inputs.js'
 import { runInJobScope, setLimiterLogger } from './providers/limiter.js'
 
 const MAX_TIMEOUT = 2 ** 31 - 1 // declared courtesy: the maximum Node's own setTimeout accepts; it does not govern operation
@@ -304,7 +305,7 @@ export async function buildWorker ({ db, config, events, queue = null, env = pro
   const handlers = { ...createPipeline({ db, config, queue: outbox, events, modules }), execute: createExecuteHandler({ db, config, queue: outbox, events, vault: modules.vault, getProviders: modules.getProviders, logger }), deliver: createDeliverHandler({ db, config, queue: outbox, events, logger }) }
   const worker = createWorker({
     db, queue: outbox, events, config, handlers, logger, pollDataVersionMs,
-    onSweep: () => sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000),
+    onSweep: async () => (await sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000)) + (await purgeDeletedInputs({ db, config, queue: outbox, events }, config.worker.deletedInputsRetentionDays)).inputs,
     resume: (trigger) => resumeInfraFailures({ db, config, events, logger }, { trigger })
   })
   return { worker, queue: outbox, modules }

@@ -563,6 +563,7 @@ claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <m�
 | `EXECUTE_MAX_TURNS` | 60 |
 | `EXECUTE_MAX_SUBAGENTS` | 3 |
 | `EXECUTE_TIMEOUT_MS` | 3.600.000 |
+| `DELETED_INPUTS_RETENTION_DAYS` | 30 | Días que un envío borrado se puede restaurar antes de que el barrido lo purgue (UD-317; referente: Linear y Notion, 30 días) |
 | `EXECUTE_RUNS_RETENTION_DAYS` | 365 |
 | `EXECUTE_STEPS_MAX` | 500 |
 | `EXECUTE_DELIVER_COMMAND` | vacía (sin entrega aparte) | Orden de shell del anfitrión que entrega la rama a producción (ver «La entrega aparte») |

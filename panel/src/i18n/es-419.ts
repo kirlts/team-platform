@@ -749,6 +749,8 @@ export const es419 = {
   'detail.deleted': 'Mensaje borrado',
   'detail.restored': 'Mensaje restaurado',
   'replies.delete': 'Borrar respuesta',
+  'replies.deletedList': 'Respuestas borradas',
+  'replies.fileRemoved': 'Archivo quitado',
   'replies.deleted': 'Respuesta borrada',
   'replies.deletedRow': 'Respuesta de {name} borrada',
   'replies.body': 'Texto de la respuesta',

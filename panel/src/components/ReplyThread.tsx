@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 import type { MessageDetail, ProgressNote, Reply } from '@team-platform/client'
-import { useDeleteReply, useEditReply, useMe, useRestoreReply } from '@team-platform/client/react'
+import type { Attachment } from '@team-platform/client'
+import { useAddReplyAttachments, useDeleteReply, useEditReply, useMe, useRestoreReply, useTeamClient } from '@team-platform/client/react'
 import { useUndo } from '@/lib/undo'
 import { Avatar } from './Avatar'
 import { CloseMessage } from './CloseMessage'
+import { DeletedReplies } from './DeletedReplies'
 import { EditableText } from './EditableText'
 import { Markdown } from '@/lib/markdown'
 import { ReplyMedia } from './ReplyMedia'
@@ -44,6 +46,8 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const del = useDeleteReply(message.id)
   const restore = useRestoreReply()
   const edit = useEditReply(message.id)
+  const addFiles = useAddReplyAttachments(message.id)
+  const client = useTeamClient()
   const notices = useNotices()
   const errorText = useErrorText()
   const canReply = canReplyTo(message, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
@@ -90,9 +94,38 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const remove = (reply: Reply) => {
     const index = message.replies.findIndex((x) => x.id === reply.id)
     const mark = undo.undoCount + 1
+    // The notice of 8 s carries Deshacer too, and «Respuestas borradas» lists the reply after both are gone (soft-lock TP-08).
     return undo
-      .run({ label: t('replies.deleted'), redo: () => del.mutateAsync(reply.id), undo: () => restore.mutateAsync(reply.id) })
+      .run({ label: t('replies.deleted'), redo: () => del.mutateAsync(reply.id), undo: () => restore.mutateAsync(reply.id) }, { announce: t('replies.deleted') })
       .then(() => setRemoved({ reply, index, mark }))
+  }
+  /**
+   * Takes a file off the own reply as an operation of the undo stack (soft-lock TP-09). The server frees the file when the row goes, so the bytes are read
+   * first and Deshacer sends them again; the file comes back at the end of the reply with a new id, which a later redo uses.
+   */
+  const removeFile = (reply: Reply, file: Attachment) => {
+    let id = file.id
+    let held: File | null = null
+    return undo
+      .run(
+        {
+          label: t('replies.fileRemoved'),
+          redo: async () => {
+            if (file.kind !== 'link' && !held) {
+              const res = await fetch(client.replyAttachmentUrl(id))
+              if (!res.ok) throw new Error(`HTTP ${res.status}`)
+              held = new File([await res.blob()], file.name ?? 'file', { type: file.mime ?? '' })
+            }
+            await edit.mutateAsync({ replyId: reply.id, remove_attachment_ids: [id] })
+          },
+          undo: async () => {
+            const saved = await addFiles.mutateAsync(file.kind === 'link' ? { replyId: reply.id, files: [], links: [file.name ?? ''] } : { replyId: reply.id, files: [held as File] })
+            id = saved.replies.find((r) => r.id === reply.id)?.attachments?.at(-1)?.id ?? id
+          },
+        },
+        { announce: t('replies.fileRemoved') },
+      )
+      .catch((err) => notices.show({ tone: 'danger', text: errorText(err) }))
   }
   // What the person just did at the foot of the page (send, close) is brought into the window with its controls: on a phone the
   // form would otherwise end flush with the edge and «Cerrar» would fall below it (J5-flow-reply-close).
@@ -252,8 +285,8 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                     <ReplyMedia
                       items={r.attachments ?? []}
                       tools={canEdit(r) && message.status !== 'closed' ? <ReplyTools message={message} reply={r} /> : undefined}
-                      onRemove={canEdit(r) && message.status !== 'closed' ? (file) => edit.mutate({ replyId: r.id, remove_attachment_ids: [file.id] }, { onError: (err) => notices.show({ text: errorText(err) }) }) : undefined}
-                      removing={edit.isPending}
+                      onRemove={canEdit(r) && message.status !== 'closed' ? (file) => void removeFile(r, file) : undefined}
+                      removing={edit.isPending || addFiles.isPending}
                     />
                   </article>
                 </li>
@@ -262,6 +295,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
           </ol>
         </div>
       )}
+      <DeletedReplies messageId={message.id} except={showRemoved ? removed.reply.id : undefined} />
       <div ref={foot} className="shrink-0 scroll-mb-4" onClickCapture={(e) => { if ((e.target as HTMLElement).closest('button')) pressedAtFoot.current = true }}>
       {canReply || (message.status !== 'closed' && !!me) ? (
         // The sender does not answer their own message, but may write in the thread to call someone with «@» (UD-278): the form is the same and asks for a mention.

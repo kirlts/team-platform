@@ -749,6 +749,8 @@ export const en: Record<MessageKey, Message> = {
   'detail.deleted': 'Message deleted',
   'detail.restored': 'Message restored',
   'replies.delete': 'Delete reply',
+  'replies.deletedList': 'Deleted replies',
+  'replies.fileRemoved': 'File removed',
   'replies.deleted': 'Reply deleted',
   'replies.deletedRow': 'Reply by {name} deleted',
   'replies.body': 'Reply text',

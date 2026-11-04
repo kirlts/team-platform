@@ -132,6 +132,26 @@ describe('deleting a reply (H-3701)', () => {
     }
   })
 
+  test('a deleted reply is listed under «Respuestas borradas» after the notice is gone and the screen is opened again, and Restaurar brings it back (soft-lock TP-08)', async () => {
+    const { page, context } = await session('ana')
+    try {
+      await openFromList(page, 'Agregar exportación')
+      const thread = page.locator('section[aria-label="Respuestas"]')
+      await thread.locator('article', { hasText: 'CSV alcanza.' }).getByRole('button', { name: 'Borrar respuesta' }).click()
+      await page.locator('[data-notice]').getByText('Respuesta borrada', { exact: true }).waitFor()
+      await settled(page)
+      await page.reload()
+      await thread.waitFor()
+      assert.equal(await thread.locator('article', { hasText: 'CSV alcanza.' }).count(), 0, 'it is still deleted after opening the screen again')
+      await thread.getByRole('button', { name: /^Respuestas borradas/ }).click()
+      await thread.getByRole('button', { name: /^Restaurar CSV alcanza/ }).click()
+      await thread.locator('article', { hasText: 'CSV alcanza.' }).waitFor()
+      await thread.getByRole('button', { name: /^Respuestas borradas/ }).waitFor({ state: 'detached' })
+    } finally {
+      await context.close()
+    }
+  })
+
   test('deleting the only reply returns the message to Abierto; any person of the team sees «Borrar respuesta» (UD-287)', async () => {
     const { page, context } = await session('bruno')
     try {

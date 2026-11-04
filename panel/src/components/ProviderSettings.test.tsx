@@ -262,20 +262,27 @@ describe('replace key', () => {
 })
 
 describe('retire key and delete', () => {
-  it('one click retires an unused key, with no window and no step that confirms it (UD-253)', async () => {
+  it('retiring an unused key asks one step that names the provider; cancelling keeps the key (soft-lock TP-10)', async () => {
     await ready()
     expect(server.conns.find((c) => c.name === 'gateway')!.source).toBe('stored')
     fireEvent.click(row('gateway').getByRole('button', { name: L('providers.retireKey') }))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText(L('providers.confirmRetire'))).toBeTruthy()
+    fireEvent.click(dialog.getByRole('button', { name: L('common.cancel') }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(server.conns.find((c) => c.name === 'gateway')!.source).toBe('stored')
+    fireEvent.click(row('gateway').getByRole('button', { name: L('providers.retireKey') }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Retirar clave de / }))
     await screen.findByText(L('providers.retired'))
-    expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(row('gateway').getByText(L('providers.status.no_key'), { selector: '[data-status]' })).toBeTruthy())
   })
 
   it('a key in use is refused: the row names the functions, switches each one and retries', async () => {
     await ready()
     fireEvent.click(row('anthropic').getByRole('button', { name: L('providers.retireKey') }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Retirar clave de / }))
     const list = await row('anthropic').findByRole('group', { name: L('providers.inUse') })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(server.conns.find((c) => c.name === 'anthropic')!.source).not.toBeNull()
     expect(within(list).getByText(L('settings.slot.text'))).toBeTruthy()
     expect(within(list).getByText(L('settings.slot.vision'))).toBeTruthy()
@@ -297,14 +304,18 @@ describe('retire key and delete', () => {
   it('a key from the environment is explained', async () => {
     await ready()
     fireEvent.click(row('envonly').getByRole('button', { name: L('providers.retireKey') }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Retirar clave de / }))
     expect((await screen.findByRole('alert')).textContent).toBe(L('error.key_from_environment'))
   })
 
-  it('one click deletes a provider of the Editor', async () => {
+  it('deleting a provider of the Editor asks one step that names it', async () => {
     await ready()
     fireEvent.click(row('blank').getByRole('button', { name: L('providers.delete') }))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText(L('providers.confirmDelete'))).toBeTruthy()
+    expect(document.querySelector('[data-connection="blank"]')).toBeTruthy()
+    fireEvent.click(dialog.getByRole('button', { name: /^Eliminar / }))
     await waitFor(() => expect(document.querySelector('[data-connection="blank"]')).toBeNull())
-    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 

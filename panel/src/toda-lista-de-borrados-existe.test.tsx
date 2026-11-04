@@ -38,7 +38,7 @@ describe('every restore has a control and every trash has a list', () => {
   })
 
   it('a discarded send is listed in Inicio with its restore', () => {
-    expect(resources).toMatch(/discarded:/)
+    expect(resources).toMatch(/listDiscarded:/)
     expect(panel).toMatch(/useDiscardedInputs/)
   })
 })

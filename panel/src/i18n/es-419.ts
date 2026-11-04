@@ -540,6 +540,7 @@ export const es419 = {
   'settings.projectName': 'Nombre del proyecto',
   'settings.framing': 'Encuadre del análisis',
   'settings.framingReset': 'Restablecer',
+  'settings.framingResetDone': 'Encuadre restablecido',
   'hint.projectName': 'Vacío: el de la instalación',
   'hint.framing': 'Primer párrafo de las instrucciones del análisis',
   'hint.connections': 'Una clave guardada no vuelve a mostrarse',

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { LANGUAGES, useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import type { Language } from '@team-platform/client'
 import { useAnalysisSettings, useProject, useSaveFraming, useSaveProjectName } from '@team-platform/client/react'
+import { useNotices } from '@/lib/notices'
 import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 
@@ -122,7 +123,15 @@ export function FramingSetting() {
   const t = useT()
   const settings = useAnalysisSettings().data
   const save = useSaveFraming()
+  const undo = useUndo()
+  const notices = useNotices()
+  const errorText = useErrorText()
   if (!settings) return null
+  /** «Restablecer» replaces the text of the Editor with the default one (soft-lock TP-11): it goes through the undo stack of the screen, with the text it replaced. */
+  const reset = (lang: Language, before: string) =>
+    undo
+      .run({ label: t('settings.framing'), redo: () => save.mutateAsync({ [lang]: '' }), undo: () => save.mutateAsync({ [lang]: before }) }, { announce: t('settings.framingResetDone') })
+      .catch((err) => notices.show({ tone: 'danger', text: errorText(err) }))
   return (
     <SettingsBox title={t('settings.framing')} hint={t('hint.framing')} hintId="hint-framing">
       <dl className="flex flex-col gap-4 text-sm">
@@ -133,7 +142,7 @@ export function FramingSetting() {
               <dt data-repeat-ok="language" className="rotulo flex items-center justify-between gap-2">
                 {t(LANGUAGE_KEY[lang])}
                 {item.custom && (
-                  <Button size="sm" variant="ghost" className="normal-case tracking-normal text-accent-deep" onClick={() => void save.mutateAsync({ [lang]: '' })}>
+                  <Button size="sm" variant="ghost" className="normal-case tracking-normal text-accent-deep" onClick={() => void reset(lang, item.value)}>
                     {t('settings.framingReset')}
                   </Button>
                 )}

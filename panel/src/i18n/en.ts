@@ -539,6 +539,7 @@ export const en: Record<MessageKey, Message> = {
   'hint.project': 'Read by the analysis and the whole team',
   'settings.projectName': 'Project name',
   'settings.framing': 'Analysis framing',
+  'settings.framingResetDone': 'Framing reset',
   'settings.framingReset': 'Reset',
   'hint.projectName': 'Empty: the installation default',
   'hint.framing': 'First paragraph of the analysis instructions',

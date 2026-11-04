@@ -4,6 +4,7 @@ import { useT } from '@/i18n'
 import { fitCount, pageRange, total } from '@/lib/fit'
 import { useDesktop } from '@/lib/useDesktop'
 import { cn } from '@/lib/utils'
+import type { UrlPage } from '@/lib/useUrlState'
 
 /** Rows drawn at once, only while measuring which of them fit. */
 const MEASURE_ROWS = 60
@@ -44,6 +45,7 @@ export function FitList<T>({
   footer,
   onShown,
   bound,
+  page,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -73,6 +75,8 @@ export function FitList<T>({
    * frame that hugs its rows does not grow when that room grows, so the measure would stay at the old size: a change of this element is a new frame.
    */
   bound?: RefObject<HTMLElement | null>
+  /** The page lives in the URL (`?p=`) instead of in the list: Atrás returns to it, a reload keeps it and the address can be shared (TP-14). */
+  page?: UrlPage
 }) {
   const t = useT()
   // «desktop» below means «pages»: the window is wide, or the caller gave the list a frame of its own on a phone.
@@ -84,8 +88,10 @@ export function FitList<T>({
   const body = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
   const foot = useRef<HTMLDivElement>(null)
-  const [start, setStart] = useState(0)
+  const [ownStart, setOwnStart] = useState(0)
   const [history, setHistory] = useState<number[]>([])
+  const start = page ? page.start : ownStart
+  const setStart = (to: number, options?: { replace?: boolean }) => (page ? page.onChange(to, options) : setOwnStart(to))
   /** Grows when the frame changes size, so a measure taken at another size stops being valid. */
   const [frameVersion, setFrameVersion] = useState(0)
   /** What was measured, and for which list, window, page and frame. A different list, window, page or frame makes it stale. */
@@ -186,7 +192,7 @@ export function FitList<T>({
     const at = rows.findIndex((r) => rowKey(r) === reveal)
     if (at < 0) return
     revealed.current = reveal
-    if (at < first || at >= first + count) setStart(at)
+    if (at < first || at >= first + count) setStart(at, { replace: true })
   })
 
   useLayoutEffect(() => {
@@ -287,8 +293,9 @@ export function FitList<T>({
                 <button
                   type="button"
                   aria-label={t('pager.previous')}
-                  disabled={history.length === 0}
-                  onClick={() => go(history[history.length - 1] ?? 0, true)}
+                  disabled={first === 0}
+                  // The pages before this one were left in this list; after a reload or a return through Atrás there are none, and the page before is the one that ends here.
+                  onClick={() => go(history[history.length - 1] ?? Math.max(0, first - (count ?? 1)), true)}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
                 >
                   <ChevronLeft size={16} aria-hidden />

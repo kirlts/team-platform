@@ -10,6 +10,7 @@ import type { MessageQuery, Message } from '@team-platform/client'
 import { useDeleteMessages, useMe, useRestoreMessages, type useMessages } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
 import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/selection'
+import type { UrlPage } from '@/lib/useUrlState'
 
 /**
  * The list of messages that fits its frame, one row per message. Mensajes and the view of an area draw the same list and
@@ -20,7 +21,7 @@ import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/sele
  * with the buttons to mark all, delete and cancel (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
  * `noneAction` is the one action of a list that has nothing yet (what fills it).
  */
-export function MessageList({ list, query, onClear, none, noneAction, hideArea = false, footer, filtered }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; noneAction?: ReactNode; hideArea?: boolean; footer?: ReactNode; /** Whether the person narrowed the list. By default any filter or text does; the view of an area always carries its own area filter, which narrows nothing the person chose, so it says it. */ filtered?: boolean }) {
+export function MessageList({ list, query, onClear, none, noneAction, hideArea = false, footer, filtered, page }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; noneAction?: ReactNode; hideArea?: boolean; footer?: ReactNode; /** Whether the person narrowed the list. By default any filter or text does; the view of an area always carries its own area filter, which narrows nothing the person chose, so it says it. */ filtered?: boolean; /** The page of the list, kept in the URL (`?p=`). */ page?: UrlPage }) {
   const t = useT()
   const me = useMe().data
   const notices = useNotices()
@@ -63,6 +64,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
   return (
     <SelectionProvider scope={scope}>
       <FitList
+        page={page}
         rows={rows}
         rowKey={(m) => m.id}
         footer={bar || footer ? <>{bar}{footer}</> : undefined}

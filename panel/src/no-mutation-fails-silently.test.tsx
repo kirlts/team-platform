@@ -3,7 +3,7 @@
 // except what already showed it in place (the one that caught the rejection and wrote `errorText(err)`) or declared `meta.silent`.
 import { MutationCache, QueryClient, QueryClientProvider, useMutation } from '@tanstack/react-query'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -93,18 +93,18 @@ describe('no failed change is mute (TP-17)', () => {
   })
 
   it('the panel builds its QueryClient with that cache and the shell mounts the bridge', () => {
-    expect(readFileSync(fileURLToPath(new URL('./main.tsx', import.meta.url)), 'utf8')).toMatch(/mutationCache:\s*createMutationCache\(\)/)
-    expect(readFileSync(fileURLToPath(new URL('./App.tsx', import.meta.url)), 'utf8')).toMatch(/<MutationErrorBridge\s*\/>/)
+    expect(readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8')).toMatch(/mutationCache:\s*createMutationCache\(\)/)
+    expect(readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8')).toMatch(/<MutationErrorBridge\s*\/>/)
   })
 
   it('every change whose component draws its error in place (`x.isError`) is declared silent in the hooks', () => {
-    const hooks = readFileSync(fileURLToPath(new URL('../../packages/client/src/react/hooks.ts', import.meta.url)), 'utf8')
+    const hooks = readFileSync(resolve(process.cwd(), '../packages/client/src/react/hooks.ts'), 'utf8')
     const declared = new Map<string, boolean>() // hook name -> declares IN_PLACE
     for (const m of hooks.matchAll(/export function (use\w+)\([^)]*\)[^{]*\{([\s\S]*?)\n\}\n/g)) {
       if (m[2].includes('useMutation(')) declared.set(m[1], m[2].includes('meta: IN_PLACE'))
     }
     expect(declared.size).toBeGreaterThan(40)
-    const root = fileURLToPath(new URL('.', import.meta.url))
+    const root = resolve(process.cwd(), 'src') + '/'
     const files: string[] = []
     const walk = (dir: string) => {
       for (const f of readdirSync(dir)) {

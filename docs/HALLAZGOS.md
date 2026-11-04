@@ -893,5 +893,5 @@ Inventario por lectura de código de los lugares donde una persona hace algo o n
 | H-3914 | Ventanas con campo de texto (`FormDialog`, Reenviar, plantilla nueva) (severidad baja) | TP-15 | `encargo`: Escape en un campo de una ventana sin edición propia cierra la ventana |
 | H-3915 | Edición en el lugar (`EditableText`) en pantalla táctil (severidad baja) | TP-16 | `encargo`: Botón «Cancelar» visible mientras el campo está abierto con error |
 | H-3916 | Borrar mensaje, borrar en lote, áreas, Deshacer (severidad baja) | TP-17 | `encargo`: Un solo manejador de errores de mutación (`MutationCache.onError`) que muestre el aviso |
-| H-3917 | Mensajes y vista de área: filtros y estados (severidad baja) | TP-18 | `encargo`: `replace` para la búsqueda; `push` para filtros y estados, así el atrás del navegador deshace un filtro |
+| H-3917 | Mensajes y vista de área: filtros y estados (severidad baja) | TP-18 | `encargo`: `replace: true` para búsqueda, filtros y estados; push sólo al abrir un registro o cambiar de página (regla del plan de clara-ia, clase 6) |
 | H-3918 | Ventanas de formulario: clic fuera pierde lo escrito (severidad baja) | TP-19 | `encargo`: Pedir confirmación si hay campos modificados, o bloquear `onInteractOutside` con cambios |

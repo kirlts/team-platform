@@ -516,6 +516,8 @@ export const es419 = {
   'data.everything': 'Todo',
   'data.clearContent': 'Vaciar contenido',
   'data.clearAll': 'Vaciar todo',
+  'data.typeName': 'Escribir {name} para vaciar todo',
+  'data.confirmContent': 'Se borran los envíos, mensajes, respuestas y adjuntos del equipo. No se restaura',
   'data.seed': 'Sembrar ejemplos',
   'data.examples': 'Ejemplos',
   'data.sent': '{n} envíos',

@@ -1,16 +1,19 @@
 import { useState } from 'react'
+import { ConfirmAction } from '@/components/ConfirmAction'
 import { SettingHint } from '@/components/SettingHint'
 import { SettingsBox } from '@/components/SettingsBox'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import type { ResetResult } from '@team-platform/client'
-import { useResetData, useSeedExamples } from '@team-platform/client/react'
+import { useMe, useProject, useResetData, useSeedExamples } from '@team-platform/client/react'
+import { namesTheObject } from '@/lib/catastrophic-actions'
 import { useNotices } from '@/lib/notices'
 
 /**
- * «Datos» of Configuración (UD-240): the Editor empties the test data with one click and no step that confirms it (UD-253).
- * Nothing comes back, so the notice says how much went and the figures of the last reset stay in the section. Every query of
- * the panel is invalidated, so the lists reload empty.
+ * «Datos» of Configuración (UD-240): the Editor empties the test data. Nothing comes back, so it is not the one-click kind of UD-253 (soft-lock TP-03):
+ * «Vaciar contenido» asks one step that says what goes, and «Vaciar todo» asks the name of the project typed in its own row (`catastrophic-actions.ts`).
+ * The notice says how much went and the figures of the last reset stay in the section. Every query of the panel is invalidated, so the lists reload empty.
  */
 export function DataReset() {
   const t = useT()
@@ -18,10 +21,17 @@ export function DataReset() {
   const errorText = useErrorText()
   const notices = useNotices()
   const [result, setResult] = useState<ResetResult | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [typed, setTyped] = useState('')
+  const project = useProject().data
+  const me = useMe().data
+  const projectName = project?.name ?? me?.project_name ?? t('nav.home')
   const seed = useSeedExamples()
   const reset = useResetData({
     onDone: (r) => {
       setResult(r)
+      setConfirming(false)
+      setTyped('')
       notices.show({ text: t('data.done', { inputs: r.deleted.inputs ?? 0, messages: r.deleted.messages ?? 0, replies: r.deleted.replies ?? 0 }) })
     },
   })
@@ -47,7 +57,7 @@ export function DataReset() {
               <SettingHint visible id="hint-data-content">{t('hint.data.content')}</SettingHint>
             </dd>
           </div>
-          <Button size="sm" variant="danger" onClick={() => reset.mutate('content')} disabled={reset.isPending} aria-describedby="hint-data-content">
+          <Button size="sm" variant="danger" onClick={() => setConfirming(true)} disabled={reset.isPending} aria-describedby="hint-data-content">
             {t('data.clearContent')}
           </Button>
         </div>
@@ -58,9 +68,21 @@ export function DataReset() {
               <SettingHint visible id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
             </dd>
           </div>
-          <Button size="sm" variant="danger" onClick={() => reset.mutate('everything')} disabled={reset.isPending} aria-describedby="hint-data-everything">
-            {t('data.clearAll')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={projectName}
+              aria-label={t('data.typeName', { name: projectName })}
+              data-testid="reset-name"
+              autoComplete="off"
+              spellCheck={false}
+              className="h-8 w-48 max-w-full"
+            />
+            <Button size="sm" variant="danger" onClick={() => reset.mutate('everything')} disabled={reset.isPending || !namesTheObject(typed, projectName)} aria-describedby="hint-data-everything" data-testid="reset-everything">
+              {t('data.clearAll')}
+            </Button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 last:pb-0">
           <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
@@ -85,6 +107,16 @@ export function DataReset() {
         {seed.isError && <p className="break-words text-sm text-danger">{errorText(seed.error)}</p>}
         {reset.isError && <p className="break-words text-sm text-danger">{errorText(reset.error)}</p>}
       </div>
+      <ConfirmAction
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={t('data.clearContent')}
+        consequence={t('data.confirmContent')}
+        confirmLabel={t('data.clearContent')}
+        pending={reset.isPending}
+        error={reset.isError ? errorText(reset.error) : undefined}
+        onConfirm={() => reset.mutate('content')}
+      />
       {result && (
         <dl data-reset-figures aria-label={t('data.deleted')} className="grid grid-cols-[auto_auto] gap-x-6 gap-y-1 self-start text-sm">
           {figures.map(([label, value]) => (

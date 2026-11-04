@@ -516,6 +516,8 @@ export const en: Record<MessageKey, Message> = {
   'data.everything': 'Everything',
   'data.clearContent': 'Clear content',
   'data.clearAll': 'Clear everything',
+  'data.typeName': 'Type {name} to clear everything',
+  'data.confirmContent': 'The sends, messages, replies and attachments of the team are deleted. It cannot be restored',
   'data.seed': 'Seed examples',
   'data.examples': 'Examples',
   'data.sent': '{n} submissions',

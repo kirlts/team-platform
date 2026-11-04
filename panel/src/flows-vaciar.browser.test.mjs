@@ -1,4 +1,5 @@
-// UD-240: «Datos» in Configuración. The Editor empties the test data with one click and no step that confirms it (UD-253); a member never sees the section.
+// UD-240: «Datos» in Configuración. Nothing comes back, so soft-lock TP-03 puts a step in front of it: «Vaciar contenido» asks one confirmation that says what goes,
+// «Vaciar todo» asks for the name of the project typed in its own row (UD-253 asked for no step; this is the exception for what has no Deshacer).
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, openFolds, settled, startPanel } from './browser-support.mjs'
@@ -46,7 +47,7 @@ describe('Configuración, Datos', () => {
     }
   })
 
-  test('one click on «Vaciar contenido» empties the content, with no step that confirms it, and the notice and the figures say how much', async () => {
+  test('«Vaciar contenido» confirms in one step that says what goes, then empties the content, and the notice and the figures say how much', async () => {
     const { page, context } = await session('ana')
     try {
       const section = page.locator('[data-data-reset]')
@@ -56,10 +57,16 @@ describe('Configuración, Datos', () => {
       const before = await page.evaluate(async () => (await (await fetch('/api/messages')).json()).total)
       assert.ok(before > 0)
       await section.getByRole('button', { name: 'Vaciar contenido' }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByText('Se borran los envíos, mensajes, respuestas y adjuntos del equipo. No se restaura').waitFor()
+      assert.equal(await page.evaluate(async () => (await (await fetch('/api/messages')).json()).total), before, 'nothing went before the confirmation')
+      await dialog.getByRole('button', { name: 'Cancelar' }).click()
+      await dialog.waitFor({ state: 'detached' })
+      assert.equal(await page.evaluate(async () => (await (await fetch('/api/messages')).json()).total), before, 'cancelling leaves everything')
+      await section.getByRole('button', { name: 'Vaciar contenido' }).click()
+      await dialog.getByRole('button', { name: 'Vaciar contenido' }).click()
       const figures = section.locator('[data-reset-figures]')
       await figures.waitFor()
-      assert.equal(await section.getByRole('button', { name: 'Cancelar' }).count(), 0, 'no step that confirms it')
-      assert.equal(await page.getByRole('dialog').count(), 0)
       await page.locator('[data-notice]').getByText(new RegExp(`^Datos vaciados · Envíos \\d+ · Mensajes ${before} · Respuestas \\d+$`)).waitFor()
       await settled(page)
       const rows = await figures.locator('dt').allTextContents()
@@ -74,14 +81,23 @@ describe('Configuración, Datos', () => {
     }
   })
 
-  test('one click on «Vaciar todo» works with no word to type, removes the other members and lists them in the figures', async () => {
+  test('«Vaciar todo» waits for the name of the project typed in its row, then removes the other members and lists them in the figures', async () => {
     const { page, context } = await session('ana')
     try {
       const section = page.locator('[data-data-reset]')
-      await section.getByRole('button', { name: 'Vaciar todo' }).click()
+      const field = section.getByTestId('reset-name')
+      const name = await field.getAttribute('placeholder')
+      assert.ok(name, 'the field shows the name to type')
+      const button = section.getByTestId('reset-everything')
+      assert.equal(await button.isDisabled(), true, 'disabled while nothing is typed')
+      await field.fill(`${name} otro`)
+      assert.equal(await button.isDisabled(), true, 'disabled with another text')
+      assert.equal(await page.evaluate(async () => (await (await fetch('/api/members')).json()).items.length) > 1, true, 'nothing went yet')
+      await field.fill(name)
+      await button.click()
       const figures = section.locator('[data-reset-figures]')
       await figures.waitFor()
-      assert.equal(await section.getByRole('textbox').count(), 0, 'no word to type')
+      assert.equal(await page.getByRole('dialog').count(), 0, 'the confirmation is in the row, not in a window')
       await settled(page)
       const rows = await figures.locator('dt').allTextContents()
       assert.deepEqual(rows, ['Envíos', 'Mensajes', 'Respuestas', 'Miembros', 'Áreas', 'Archivos', 'Espacio liberado'])

@@ -1,7 +1,7 @@
 // TP-14 (soft-locks 2026-11-04): a window with an identity of its own (the Guards of an area, the menu of a phone) is a state of the address, `?v=<id>`.
 // Atrás closes the window and the page stays where it was; the address pasted in another tab shows the page with the window open; Escape on a window
 // reached by the address removes `v` in place and does not leave the page. Every check is a prohibition: Atrás must not leave the page with a window open.
-// `PANEL_FLOWS_VENTANA_PORT=… node --test src/cada-ventana-se-cierra-con-atras.browser.test.mjs` against dev-server.mjs serving panel/dist.
+// `PANEL_FLOWS_VENTANA_PORT=… node --test src/every-window-closes-with-back.browser.test.mjs` against dev-server.mjs serving panel/dist.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'

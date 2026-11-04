@@ -1,6 +1,6 @@
 // TP-04 (soft-locks 2026-11-04): what is written in the bar of Inicio and in the reply of a message is still there after going to another screen and
 // coming back, after Atrás and after a reload. Every check is a prohibition: the text, «Enviar como» and «Para» must not be lost.
-// `PANEL_FLOWS_BORRADOR_PORT=… node --test src/un-borrador-sobrevive-a-salir-de-la-pantalla.browser.test.mjs` against dev-server.mjs serving panel/dist.
+// `PANEL_FLOWS_BORRADOR_PORT=… node --test src/a-draft-survives-leaving-the-screen.browser.test.mjs` against dev-server.mjs serving panel/dist.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'

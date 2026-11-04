@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { TeamApiError } from '@team-platform/client'
 import { TeamClientProvider } from '@team-platform/client/react'
 import { client } from '@/lib/client'
+import { createMutationCache } from '@/lib/mutation-errors'
 import { watchProse } from '@/lib/prose-width'
 import { watchSession } from '@/lib/session'
 import { initTheme } from '@/lib/theme'
@@ -14,6 +15,8 @@ initTheme()
 watchProse()
 
 const queryClient = new QueryClient({
+  // A failed change that nobody catches still says so on the screen (TP-17).
+  mutationCache: createMutationCache(),
   defaultOptions: {
     queries: {
       // An expired session or a missing resource is not fixed by retrying.

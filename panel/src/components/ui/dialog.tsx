@@ -15,8 +15,15 @@ export function DialogContent({
   children,
   onOpenAutoFocus,
   onCloseAutoFocus,
+  onInteractOutside,
+  dirty = false,
   ...props
-}: Omit<ComponentProps<typeof Primitive.Content>, 'title'> & { title: ReactNode; side?: 'center' | 'left' }) {
+}: Omit<ComponentProps<typeof Primitive.Content>, 'title'> & {
+  title: ReactNode
+  side?: 'center' | 'left'
+  /** The window holds text the person typed: a click outside it does not close it and drop that text (TP-19). Escape and the buttons still close. */
+  dirty?: boolean
+}) {
   const t = useT()
   // A window opened from state, not from a Dialog.Trigger (the phone menu, a row action), loses its opener on close and focus fell to
   // <body>: a keyboard or screen reader user started again from the top. The element focused when it opened gets the focus back.
@@ -39,9 +46,14 @@ export function DialogContent({
             back.focus({ preventScroll: true })
           }
         }}
-        // Escape inside a text field cancels that edit only; it must not close the window with the work in it (J2-B-13).
+        // Escape inside a field that owns an edit of its own (`data-owns-escape`: the in-place text) cancels that edit only (J2-B-13).
+        // In any other field there is nothing of its own to cancel, so Escape closes the window (TP-15).
         onEscapeKeyDown={(e) => {
-          if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) e.preventDefault()
+          if ((e.target as HTMLElement | null)?.closest?.('[data-owns-escape]')) e.preventDefault()
+        }}
+        onInteractOutside={(e) => {
+          onInteractOutside?.(e)
+          if (dirty) e.preventDefault()
         }}
         className={cn(
           'glass-strong fixed z-50 flex flex-col text-fg',

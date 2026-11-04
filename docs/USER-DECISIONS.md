@@ -1696,3 +1696,13 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Plantillas y áreas con versión por idioma: capacidad nueva que el dueño no pidió.
 **Consecuencias:** `docs/CAPACIDADES-1.0.md` (fila «Idioma» y la pregunta retirada).
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-319] Las ventanas se cierran con Escape y no pierden lo escrito; un fallo de cambio siempre se ve
+**Fecha:** 2026-11-04
+**Contexto:** Estudio de soft-locks de la interfaz (2026-11-04, TP-15, TP-16, TP-17 y TP-19). Escape dentro de un campo no cerraba ninguna ventana (H-430 lo había fijado para no perder una edición en el lugar). Un clic fuera de una ventana de formulario descartaba lo escrito. Una edición en el lugar con error sólo se cancelaba con Escape, que un teléfono no tiene. Un cambio que fallaba por `mutate()` no dejaba aviso. Decisión de diseño de esta tanda: no es una decisión de Martín.
+**Decisión:** Escape cierra la ventana, salvo en un campo que declara una edición propia (`data-owns-escape`, hoy el texto en el lugar), donde el primer Escape cancela esa edición. Una ventana con texto modificado (`dirty`) no se cierra con un clic fuera; Escape y sus botones sí la cierran. La edición en el lugar con error muestra un botón «Cancelar». Todo cambio que falla y cuyo error nadie escribió en el lugar deja un aviso de tono `danger` (`MutationCache.onError`); un cambio puede declarar `meta: { silent: true }`.
+**Alternativas descartadas:**
+- Pedir confirmación al cerrar con texto modificado: una confirmación más donde UD-253 las excluye; bloquear el clic fuera basta.
+- Un aviso por cada fallo, también el que ya se escribió en el lugar: el mismo error dos veces.
+**Consecuencias:** `panel/src/components/ui/dialog.tsx`, `FormDialog.tsx`, `TemplateEditor.tsx`, `EditableText.tsx`, `panel/src/lib/mutation-errors.ts`, `components/MutationErrorBridge.tsx`, `main.tsx`, `App.tsx`; enmienda H-430 sólo en su alcance (Escape en un campo sin edición propia ya cierra).
+**Condiciones de reversión:** Las fija Martín.

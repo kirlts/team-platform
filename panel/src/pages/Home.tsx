@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { cn } from '@/lib/utils'
 import { AlertTriangle, ChevronDown } from '@/components/icons'
@@ -16,23 +16,11 @@ import { AIRY_GAP, Page } from '@/components/Page'
 import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
-import { useErrorText, useFormat, useT } from '@/i18n'
-import { invalidateRoots, isTeamApiError, ME, type MessageQuery } from '@team-platform/client'
-import { noteLostFiles, saveDraftText } from '@/lib/session'
-import { useEventsSnapshot, useMe, useMessages, useProject, useSends, useTeamClient } from '@team-platform/client/react'
+import { useFormat, useT } from '@/i18n'
+import { invalidateRoots, ME, type MessageQuery } from '@team-platform/client'
+import { useUploads } from '@/lib/uploads'
+import { useEventsSnapshot, useMe, useMessages, useProject, useSends } from '@team-platform/client/react'
 import { useDesktop } from '@/lib/useDesktop'
-import { afterColon } from '@/lib/format'
-
-/** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
-interface Upload {
-  key: string
-  draft: SendDraft
-  at: string
-  progress: number
-  error?: string
-  /** The id the server gave the input once it answered: from then on the upload and that input are ONE send. */
-  landed?: string
-}
 
 /** Elements where a key press is for typing or for the control itself, never for moving through the tray. */
 const isTyping = (target: EventTarget | null) => {
@@ -64,24 +52,25 @@ export function Home() {
   const t = useT()
   const format = useFormat()
   const now = useMinuteClock()
-  const errorText = useErrorText()
   const queryClient = useQueryClient()
-  const team = useTeamClient()
   const me = useMe().data
   const project = useProject().data
   const desktop = useDesktop()
   const room = useRef<HTMLDivElement>(null)
   const tray = useSends()
-  const [uploads, setUploads] = useState<Upload[]>([])
+  // The uploads live above the screens (TP-05): leaving Inicio does not drop a send that is going up, and a failure is not lost with this component.
+  const { uploads, start, retry, discard, landedAs, watching } = useUploads()
   /** The send in view: the key of an upload that is still going up, or the id of an input the server already has. */
   const [selectedId, setSelectedId] = useState<string | undefined>()
-  /** The input each upload became, by the key the panel gave it. */
-  const landedAs = useRef(new Map<string, string>())
   /** The drawer under the bar (UD-046): it opens by itself when something is sent and the person can fold it; the control above carries the state of the sends. */
   const [drawerOpen, setDrawerOpen] = useState(false)
-  /** The drawer as the failure of an upload finds it: the callback of the upload outlives the render that made it. */
-  const drawerRef = useRef(false)
-  drawerRef.current = drawerOpen
+  // While the drawer is open the failure of an upload is said in its own pane; once this screen is left, or the drawer folded, the upload says it by a notice.
+  useEffect(() => {
+    watching.current = drawerOpen
+    return () => {
+      watching.current = false
+    }
+  }, [drawerOpen, watching])
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
@@ -118,8 +107,8 @@ export function Home() {
         at: u.at,
         progress: u.progress,
         error: u.error,
-        onRetry: () => void upload(u.key, u.draft),
-        onDiscard: () => setUploads((list) => list.filter((x) => x.key !== u.key)),
+        onRetry: () => retry(u.key),
+        onDiscard: () => discard(u.key),
       }
       return { kind: 'upload', upload: pending }
     })
@@ -182,44 +171,13 @@ export function Home() {
     if (before !== null && failedCount > before && !drawerOpen) notices.show({ tone: 'danger', text: t('tray.failedNotice', { n: failedCount }), action: { label: t('tray.readyOpen'), run: () => setDrawerOpen(true) } })
   }, [failedCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Uploads one send; the bar is already empty. A failure keeps the draft in its row so the text is never lost. */
-  const upload = useCallback(
-    async (key: string, draft: SendDraft) => {
-      setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: undefined, progress: 0 } : u)))
-      try {
-        const created = await team.inputs.upload({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId, recipientIds: draft.recipientIds }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
-        // The upload learns which input it became: the tray draws that send once, as the upload until the server's list has the input and as the input from then on
-        // (the list can bring it before the upload leaves, and both were drawn for a moment: two options for one send).
-        landedAs.current.set(key, created.input_id)
-        setUploads((list) => list.map((u) => (u.key === key ? { ...u, landed: created.input_id } : u)))
-        // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
-        await invalidateRoots(queryClient, ['inputs'])
-        setUploads((list) => list.filter((u) => u.key !== key))
-      } catch (err) {
-        // The session ended under the page: the entry replaces the panel and the failed row goes with it, so the text goes back to the bar's storage and comes back after signing in.
-        if (isTeamApiError(err) && err.status === 401) {
-          saveDraftText(draft.text, me?.id)
-          noteLostFiles(draft.files.length)
-        }
-        const reason = errorText(err)
-        setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: reason } : u)))
-        // With the drawer open the failed send says so in its own pane, with Reintentar; folded, the notice carries the same way out.
-        if (!drawerRef.current) notices.show({ tone: 'danger', text: t('compose.sendFailed', { reason: afterColon(reason) }), action: { label: t('common.retry'), run: () => void upload(key, draft) } })
-      }
-    },
-    [errorText, notices, queryClient, t, team],
-  )
-
   const submit = (draft: SendDraft) => {
-    const key = crypto.randomUUID()
-    setUploads((list) => [...list, { key, draft, at: new Date().toISOString(), progress: 0 }])
     // What was sent is shown in the drawer under the bar, at once and without another click (UD-046).
     knownIds.current = new Set((tray.data ?? []).map((i) => i.id))
     followNew.current = true
     setDiscarded(null)
-    setSelectedId(key)
+    setSelectedId(start(draft))
     setDrawerOpen(true)
-    void upload(key, draft)
   }
 
   /** A proposal the system could not publish by itself was published by hand: the send stays in view, now as published. */

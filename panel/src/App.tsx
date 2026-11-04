@@ -14,6 +14,7 @@ import { TeamApiError } from '@team-platform/client'
 import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/client/react'
 import { ROUTER_BASENAME } from '@/lib/base'
 import { NoticeProvider, useNotices } from '@/lib/notices'
+import { UploadsProvider } from '@/lib/uploads'
 import { NoticeHost } from '@/components/NoticeHost'
 import { checkSession, clearDrafts, takeLostAction } from '@/lib/session'
 import { useSidebarHidden } from '@/lib/sidebar'
@@ -82,6 +83,7 @@ function Shell() {
   return (
     <EventsProvider>
       <NoticeProvider>
+      <UploadsProvider>
       <TelemetryBridge />
       <Atmosphere />
       {/* First stop of the keyboard: past the navigation, to the content (J1-A-11). */}
@@ -108,6 +110,7 @@ function Shell() {
           <Sidebar onNavigate={() => setNavOpen(false)} onLogout={() => void logout()} />
         </DialogContent>
       </Dialog>
+      </UploadsProvider>
       </NoticeProvider>
     </EventsProvider>
   )

@@ -47,6 +47,7 @@ export const es419 = {
   'mention.list': 'Miembros',
   'mention.none': 'Sin coincidencias',
   'bell.none': 'Sin avisos',
+  'bell.uploadFailed': 'No se envió: {text}',
 
   'pager.range': '{from}–{to} de {total}',
   'pager.previous': 'Página anterior',

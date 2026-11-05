@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-04
+
 - Soft-locks de borrado y restauración (issue 8, UD-317). Eliminar un miembro, retirar la clave de un proveedor o eliminarlo y «Vaciar contenido» piden un paso que nombra el objeto; «Vaciar todo» pide escribir el nombre del proyecto en su fila. Las listas «Descartados» y «Borrados» de Inicio (la primera se había retirado en UD-253) y «Respuestas borradas» del mensaje restauran lo que pasó los 8 segundos del aviso. Borrar una respuesta ofrece Deshacer en el aviso, quitar un archivo de la propia respuesta pasa por la pila de Deshacer y «Restablecer» del encuadre también. Un envío borrado se purga a los `DELETED_INPUTS_RETENTION_DAYS` días (30). `GET /api/inputs?deleted=1` y `deleted_replies` en `GET /api/messages/{id}?include_deleted=true`. `docs/ACCIONES-DESTRUCTIVAS.md` lista cada acción con su camino de vuelta.
 - Soft-locks de la interfaz, ventanas y errores (UD-319, TP-15, TP-16, TP-17, TP-19): Escape cierra una ventana aunque el foco esté en un campo, salvo en el texto en el lugar, que cancela su edición primero (`data-owns-escape`); una ventana con texto modificado no se cierra con un clic fuera (`dirty` en `DialogContent`, usado por `FormDialog` y la ventana de plantilla nueva); la edición en el lugar con error ofrece «Cancelar» sin teclado; un cambio que falla y que nadie mostró en el lugar deja un aviso de error (`MutationCache.onError` en `main.tsx`, `MutationErrorBridge` en el `Shell`).
 
